@@ -11,13 +11,7 @@ import logging
 
 import cv2
 import numpy as np
-
-try:
-    import onnxruntime as ort  # type: ignore[reportMissingImports]  # optional dependency
-
-    _ONNXRUNTIME_AVAILABLE = True
-except ImportError:
-    _ONNXRUNTIME_AVAILABLE = False
+import onnxruntime as ort  # type: ignore[reportMissingImports]  # no type stubs
 
 from caliscope.packets import PointPacket
 from caliscope.tracker import Tracker, WireFrameView
@@ -42,12 +36,8 @@ class OnnxTracker(Tracker):
             card: Model configuration and metadata
 
         Raises:
-            ImportError: If onnxruntime not installed
             FileNotFoundError: If ONNX model file doesn't exist
         """
-        if not _ONNXRUNTIME_AVAILABLE:
-            raise ImportError("onnxruntime is required for OnnxTracker. Install with: pip install caliscope[onnx]")
-
         self.card = card
 
         # Check ONNX file exists
@@ -56,8 +46,7 @@ class OnnxTracker(Tracker):
 
         # Create onnxruntime session (CPU only)
         logger.info(f"Loading ONNX model: {card.model_path}")
-        # ort is guaranteed bound here: _ONNXRUNTIME_AVAILABLE guard above raises on False
-        self.session = ort.InferenceSession(  # type: ignore[reportPossiblyUnboundVariable]
+        self.session = ort.InferenceSession(
             str(card.model_path),
             providers=["CPUExecutionProvider"],
         )

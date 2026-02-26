@@ -30,6 +30,8 @@ from caliscope.gui.presenters.reconstruction_presenter import (
 )
 from caliscope.gui.view_models.playback_view_model import PlaybackViewModel
 from caliscope.gui.widgets.playback_viz_widget import PlaybackVizWidget
+from caliscope import MODELS_DIR
+from caliscope.gui.theme import Colors
 from caliscope.trackers import tracker_registry
 
 logger = logging.getLogger(__name__)
@@ -90,6 +92,13 @@ class ReconstructionWidget(QWidget):
 
         self._tracker_combo = QComboBox()
         tracker_layout.addWidget(self._tracker_combo)
+
+        self._models_folder_link = QLabel(
+            f'<a href="file://{MODELS_DIR}" style="color: {Colors.PRIMARY};">Open Models Folder</a>'
+        )
+        self._models_folder_link.setStyleSheet("font-size: 11px;")
+        self._models_folder_link.setCursor(Qt.CursorShape.PointingHandCursor)
+        tracker_layout.addWidget(self._models_folder_link)
 
         left_layout.addWidget(tracker_group)
 
@@ -170,6 +179,8 @@ class ReconstructionWidget(QWidget):
         self._tracker_combo.currentIndexChanged.connect(self._on_tracker_changed)
         self._process_btn.clicked.connect(self._on_process_clicked)
         self._open_output_btn.clicked.connect(self._on_open_output_clicked)
+        self._presenter.model_download_needed.connect(self._show_model_download_dialog)
+        self._models_folder_link.linkActivated.connect(self._on_open_models_folder)
 
     def _populate_initial_data(self) -> None:
         """Populate lists with available recordings and trackers."""
@@ -187,6 +198,8 @@ class ReconstructionWidget(QWidget):
         self._tracker_combo.clear()
         for tracker_name in trackers:
             display = tracker_registry.display_name_for(tracker_name)
+            if not tracker_registry.is_model_ready(tracker_name):
+                display += "  (download required)"
             self._tracker_combo.addItem(display, tracker_name)
 
         # No auto-selection for tracker - user should consciously choose
@@ -221,6 +234,37 @@ class ReconstructionWidget(QWidget):
             folder = output_path.parent
             QDesktopServices.openUrl(QUrl.fromLocalFile(str(folder)))
 
+    def _selected_tracker_needs_download(self) -> bool:
+        """Check if the currently selected tracker requires a model download.
+
+        Returns False for built-in trackers and ONNX trackers with weights on disk.
+        Returns False when no tracker is selected.
+        """
+        tracker = self._presenter.selected_tracker
+        if tracker is None:
+            return False
+        return not tracker_registry.is_model_ready(tracker)
+
+    def _process_button_text_for_state(self, state: ReconstructionState) -> str:
+        """Determine Process button text based on state and model readiness.
+
+        When the selected ONNX tracker needs downloading, the button says
+        "Download Model" instead of "Process" so the user knows what will
+        happen on click. For all other states the normal text applies.
+        """
+        if state == ReconstructionState.RECONSTRUCTING:
+            return "Cancel"
+        if state == ReconstructionState.COMPLETE:
+            return "Reprocess"
+        if state == ReconstructionState.ERROR:
+            return "Retry"
+
+        # IDLE: check if the selected tracker needs a download
+        if self._selected_tracker_needs_download():
+            return "Download Model"
+
+        return "Process"
+
     def _update_ui_for_state(self, state: ReconstructionState) -> None:
         """Update all UI elements based on presenter state.
 
@@ -241,7 +285,10 @@ class ReconstructionWidget(QWidget):
         # Status message
         if state == ReconstructionState.IDLE:
             if self._presenter.selected_recording and self._presenter.selected_tracker:
-                self._status_message.setText("Ready to process")
+                if self._selected_tracker_needs_download():
+                    self._status_message.setText("Model download required before processing")
+                else:
+                    self._status_message.setText("Ready to process")
             elif self._presenter.selected_recording:
                 self._status_message.setText("Select a tracker")
             else:
@@ -264,17 +311,10 @@ class ReconstructionWidget(QWidget):
         # Process button
         can_process = self._presenter.selected_recording is not None and self._presenter.selected_tracker is not None
 
-        if state == ReconstructionState.IDLE:
-            self._process_btn.setText("Process")
-            self._process_btn.setEnabled(can_process)
-        elif state == ReconstructionState.RECONSTRUCTING:
-            self._process_btn.setText("Cancel")
+        self._process_btn.setText(self._process_button_text_for_state(state))
+        if state == ReconstructionState.RECONSTRUCTING:
             self._process_btn.setEnabled(True)
-        elif state == ReconstructionState.COMPLETE:
-            self._process_btn.setText("Reprocess")
-            self._process_btn.setEnabled(can_process)
-        elif state == ReconstructionState.ERROR:
-            self._process_btn.setText("Retry")
+        else:
             self._process_btn.setEnabled(can_process)
 
         # Progress bar visibility
@@ -352,6 +392,42 @@ class ReconstructionWidget(QWidget):
         except Exception as e:
             logger.error(f"Failed to create visualization: {e}")
             # On error, just log — don't break the UI
+
+    def _show_model_download_dialog(self, card: object) -> None:
+        """Show the model download dialog when weights are missing."""
+        from caliscope.gui.widgets.model_download_dialog import ModelDownloadDialog
+        from caliscope.trackers.model_card import ModelCard
+
+        if not isinstance(card, ModelCard):
+            logger.error("Expected ModelCard, got %s", type(card))
+            return
+        dialog = ModelDownloadDialog(card, MODELS_DIR, parent=self)
+        dialog.finished.connect(self._refresh_tracker_combo_annotations)
+        dialog.exec()
+
+    def _refresh_tracker_combo_annotations(self) -> None:
+        """Update combo box text and button to reflect current model readiness.
+
+        Re-checks is_model_ready() for each item. Removes or adds
+        "(download required)" suffix based on live filesystem state.
+        Also updates the process button text in case the user downloaded
+        the model while the dialog was open.
+        """
+        for i in range(self._tracker_combo.count()):
+            key = self._tracker_combo.itemData(i)
+            if key is None:
+                continue
+            display = tracker_registry.display_name_for(key)
+            if not tracker_registry.is_model_ready(key):
+                display += "  (download required)"
+            self._tracker_combo.setItemText(i, display)
+
+        # Update button text and status message to reflect new readiness state
+        self._update_ui_for_state(self._presenter.state)
+
+    def _on_open_models_folder(self, link: str) -> None:
+        """Open MODELS_DIR in the system file manager."""
+        QDesktopServices.openUrl(QUrl.fromLocalFile(str(MODELS_DIR)))
 
     def cleanup(self) -> None:
         """Explicit cleanup - call before destruction."""

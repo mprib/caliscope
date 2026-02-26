@@ -1,0 +1,16 @@
+[model]
+name = "Test Pose 3pt"
+model_path = "simcc_3pt.onnx"
+format = "simcc"
+input_size = [48, 64]
+confidence_threshold = 0.3
+
+[points]
+nose = 0
+left_eye = 1
+right_eye = 2
+low_conf = 3
+
+[segments.eyes]
+color = "c"
+points = ["left_eye", "right_eye"]

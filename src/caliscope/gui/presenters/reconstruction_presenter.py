@@ -62,6 +62,7 @@ class ReconstructionPresenter(QObject):
     reconstruction_complete = Signal(Path)  # xyz output path
     reconstruction_failed = Signal(str)  # error message
     progress_updated = Signal(int, str)  # percent (0-100), message
+    model_download_needed = Signal(object)  # ModelCard when weights missing
 
     def __init__(
         self,
@@ -240,6 +241,18 @@ class ReconstructionPresenter(QObject):
             return None
         return wireframe_segments_from_view(view)
 
+    @property
+    def is_tracker_ready(self) -> bool:
+        """Check if the selected tracker's model weights are available."""
+        if self._selected_tracker is None:
+            return False
+        return tracker_registry.is_model_ready(self._selected_tracker)
+
+    @property
+    def task_manager(self) -> TaskManager:
+        """TaskManager instance for background operations."""
+        return self._task_manager
+
     def select_recording(self, name: str) -> None:
         """Select a recording for processing.
 
@@ -283,6 +296,13 @@ class ReconstructionPresenter(QObject):
             logger.warning("Cannot start: recording or tracker not selected")
             self._last_error = "Recording and tracker must be selected"
             self._emit_state_changed()
+            return
+
+        # Check model readiness (ONNX trackers may have card but no weights)
+        if not self.is_tracker_ready:
+            card = tracker_registry.model_card_for(self._selected_tracker)
+            if card is not None:
+                self.model_download_needed.emit(card)
             return
 
         logger.info(f"Starting reconstruction: recording={self._selected_recording}, tracker={self._selected_tracker}")

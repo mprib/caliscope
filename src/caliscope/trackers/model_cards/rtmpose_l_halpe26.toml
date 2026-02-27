@@ -1,0 +1,94 @@
+[model]
+name = "RTMPose-l Halpe26"
+model_path = "rtmpose_l_halpe26.onnx"
+format = "simcc"
+input_size = [192, 256]
+confidence_threshold = 0.3
+
+[source]
+url = "https://download.openmmlab.com/mmpose/v1/projects/rtmposev1/onnx_sdk/rtmpose-l_simcc-body7_pt-body7-halpe26_700e-256x192-2abb7558_20230605.zip"
+extraction = "zip_end2end"
+license = "Apache-2.0"
+license_url = "https://github.com/open-mmlab/mmpose/blob/main/LICENSE"
+file_size_mb = 100
+sha256 = "5a30a83a9836b3cb0c1b036ca905eac9e21e9a5c795f5301a8f4843fb7ad76ba"
+
+[points]
+nose = 0
+left_eye = 1
+right_eye = 2
+left_ear = 3
+right_ear = 4
+left_shoulder = 5
+right_shoulder = 6
+left_elbow = 7
+right_elbow = 8
+left_wrist = 9
+right_wrist = 10
+left_hip = 11
+right_hip = 12
+left_knee = 13
+right_knee = 14
+left_ankle = 15
+right_ankle = 16
+head = 17
+neck = 18
+hip = 19
+left_big_toe = 20
+right_big_toe = 21
+left_small_toe = 22
+right_small_toe = 23
+left_heel = 24
+right_heel = 25
+
+[segments.shoulders]
+color = "y"
+points = ["left_shoulder", "right_shoulder"]
+
+[segments.left_arm]
+color = "g"
+points = ["left_shoulder", "left_elbow"]
+
+[segments.left_forearm]
+color = "g"
+points = ["left_elbow", "left_wrist"]
+
+[segments.right_arm]
+color = "r"
+points = ["right_shoulder", "right_elbow"]
+
+[segments.right_forearm]
+color = "r"
+points = ["right_elbow", "right_wrist"]
+
+[segments.pelvis]
+color = "y"
+points = ["left_hip", "right_hip"]
+
+[segments.left_flank]
+color = "y"
+points = ["left_hip", "left_shoulder"]
+
+[segments.right_flank]
+color = "y"
+points = ["right_hip", "right_shoulder"]
+
+[segments.left_thigh]
+color = "g"
+points = ["left_hip", "left_knee"]
+
+[segments.left_shank]
+color = "g"
+points = ["left_knee", "left_ankle"]
+
+[segments.right_thigh]
+color = "r"
+points = ["right_hip", "right_knee"]
+
+[segments.right_shank]
+color = "r"
+points = ["right_knee", "right_ankle"]
+
+[segments.neck_segment]
+color = "y"
+points = ["neck", "head"]

@@ -19,7 +19,10 @@ class CharucoTracker(Tracker):
         # to camera
         self.charuco = charuco
         self.board = charuco.board
-        self.dictionary_object = self.charuco.dictionary_object
+
+        # CharucoDetector replaces the old free-function API
+        # (detectMarkers + interpolateCornersCharuco) removed in OpenCV 4.8+
+        self.detector = cv2.aruco.CharucoDetector(self.board)
 
         # for subpixel corner correction
         self.criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 30, 0.0001)
@@ -59,19 +62,11 @@ class CharucoTracker(Tracker):
         ids = np.array([], dtype=np.int32)
         img_loc = np.empty((0, 2), dtype=np.float64)
 
-        # detect if aruco markers are present
-        aruco_corners, aruco_ids, rejected = cv2.aruco.detectMarkers(gray_frame, self.dictionary_object)
+        # detectBoard combines marker detection + charuco corner interpolation
+        _img_loc, _ids, marker_corners, marker_ids = self.detector.detectBoard(gray_frame)
 
-        # if so, then interpolate to the Charuco Corners and return what you found
-        if len(aruco_corners) > 3:
-            (
-                success,
-                _img_loc,
-                _ids,
-            ) = cv2.aruco.interpolateCornersCharuco(aruco_corners, aruco_ids, gray_frame, self.board)
-
-            # This occasionally errors out...
-            # only offers possible refinement so if it fails, just move along
+        if _ids is not None and len(_ids) > 0:
+            # Sub-pixel refinement — occasionally errors out, so just move along if it fails
             try:
                 _img_loc = cv2.cornerSubPix(
                     gray_frame,
@@ -83,15 +78,13 @@ class CharucoTracker(Tracker):
             except Exception as e:
                 logger.debug(f"Sub pixel detection failed: {e}")
 
-            if success:
-                # assign to tracker
-                ids = _ids[:, 0]
-                img_loc = _img_loc[:, 0]
+            ids = _ids[:, 0]
+            img_loc = _img_loc[:, 0]
 
-                # flip coordinates if mirrored image fed in
-                frame_width = gray_frame.shape[1]  # used for flipping mirrored corners back
-                if mirror:
-                    img_loc[:, 0] = frame_width - img_loc[:, 0]
+            # flip coordinates if mirrored image fed in
+            frame_width = gray_frame.shape[1]
+            if mirror:
+                img_loc[:, 0] = frame_width - img_loc[:, 0]
 
         return ids, img_loc
 

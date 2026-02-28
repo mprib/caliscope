@@ -228,17 +228,21 @@ ONNX pose estimation models output predictions in different formats. You must sp
 
 If you're unsure which format your model uses, check the training framework's documentation or inspect the model's output tensors. SimCC models will have two outputs, heatmap models will have one.
 
-## Known Compatible Models
+## Built-in Model Cards
 
-The following models have been tested and verified to work with Caliscope:
+The following RTMPose Halpe26 models ship as built-in model cards. Weights are downloaded in-app on first use.
 
-| Model | Format | Input Size | Keypoints | Model Size | Notes |
-|-------|--------|------------|-----------|------------|-------|
-| RTMPose-t Halpe26 | SimCC | 192×256 | 26 | 14 MB | Fast, accurate human pose |
-| RTMPose-s | SimCC | 192×256 | 17 (COCO) | ~35 MB | More accurate, slower |
-| RTMPose-m | SimCC | 192×256 | 17 (COCO) | ~70 MB | Highest accuracy, slowest |
+| Model | Format | Input Size | Keypoints | Download Size | Notes |
+|-------|--------|------------|-----------|---------------|-------|
+| RTMPose-t Halpe26 | SimCC | 192×256 | 26 | 13 MB | Fastest, good for real-time |
+| RTMPose-s Halpe26 | SimCC | 192×256 | 26 | 21 MB | Balanced speed/accuracy |
+| RTMPose-m Halpe26 | SimCC | 192×256 | 26 | 50 MB | Higher accuracy |
+| RTMPose-l Halpe26 | SimCC | 192×256 | 26 | 100 MB | High accuracy |
+| RTMPose-x Halpe26 | SimCC | 288×384 | 26 | 178 MB | Highest accuracy, largest input |
 
-Other RTMPose variants and SLEAP-exported models should work with appropriate model card configuration. If you successfully use a model not listed here, consider contributing the model card to the Caliscope documentation.
+All models use the Halpe26 keypoint set (26 body landmarks including feet) and are licensed under Apache-2.0 by OpenMMLab.
+
+Other RTMPose variants and SLEAP-exported models should work with appropriate model card configuration. If you successfully use a model not listed here, consider contributing the model card.
 
 ## Troubleshooting
 

@@ -4,21 +4,9 @@ Caliscope can load custom ONNX pose estimation models for 2D landmark tracking. 
 
 After installation, ONNX models appear alongside the built-in trackers in the reconstruction tab's dropdown menu.
 
-## Installation
+## Requirements
 
-The ONNX tracker feature requires the optional `onnxruntime` dependency. Install Caliscope with ONNX support:
-
-```bash
-uv pip install "caliscope[onnx]"
-```
-
-If you already have Caliscope installed without ONNX support, you can add it:
-
-```bash
-uv pip install "caliscope[onnx]" --upgrade
-```
-
-The base installation does not include onnxruntime to keep the dependency footprint small for users who only need the built-in MediaPipe trackers.
+ONNX model inference is included in the standard Caliscope installation — no extra packages needed. On first launch, Caliscope seeds your models directory with model cards for the RTMPose Halpe26 family (tiny through xlarge). The ONNX weight files are not shipped with the package; they can be downloaded in-app or placed manually.
 
 ## Setup Steps
 
@@ -274,18 +262,6 @@ Other RTMPose variants and SLEAP-exported models should work with appropriate mo
 1. Consult your model's training framework documentation for the keypoint ordering
 2. Verify the indices in your `[points]` section match that ordering exactly
 3. Different model families use different conventions even for the same body landmarks (e.g., COCO vs Halpe vs OpenPose keypoint orderings)
-
-### "onnxruntime not found" error
-
-**Symptoms:** Error message mentioning onnxruntime when trying to use a custom tracker.
-
-**Solution:** Install Caliscope with ONNX support:
-
-```bash
-uv pip install "caliscope[onnx]"
-```
-
-The base installation does not include onnxruntime.
 
 ### Model file path issues
 

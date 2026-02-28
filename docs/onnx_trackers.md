@@ -4,21 +4,24 @@ Caliscope can load custom ONNX pose estimation models for 2D landmark tracking. 
 
 After installation, ONNX models appear alongside the built-in trackers in the reconstruction tab's dropdown menu.
 
-## Installation
+## Requirements
 
-The ONNX tracker feature requires the optional `onnxruntime` dependency. Install Caliscope with ONNX support:
+ONNX model inference is included in the standard Caliscope installation — no extra packages needed. On first launch, Caliscope seeds your models directory with model cards for the RTMPose Halpe26 family (tiny through xlarge). The ONNX weight files are not shipped with the package; they can be downloaded in-app or placed manually.
 
-```bash
-uv pip install "caliscope[onnx]"
-```
+## Built-in Models
 
-If you already have Caliscope installed without ONNX support, you can add it:
+Caliscope ships model card templates for the RTMPose Halpe26 family. On first launch, these are copied to your platform's models directory (see Models Directory below). The model cards describe the model but do not include the weights — the `.onnx` files must be downloaded separately.
 
-```bash
-uv pip install "caliscope[onnx]" --upgrade
-```
+### In-App Download
 
-The base installation does not include onnxruntime to keep the dependency footprint small for users who only need the built-in MediaPipe trackers.
+For built-in models that include a `[source]` section in their model card, Caliscope can download the weights directly:
+
+1. Open the Reconstruction tab
+2. Select an ONNX tracker from the dropdown
+3. If the weights are not yet present, a download button appears with the model's license information
+4. Click to download — the weights are fetched from the upstream source and placed in the models directory
+
+You can also download weights manually and place the `.onnx` file in the models directory. The filename must match the `model_path` field in the model card.
 
 ## Setup Steps
 
@@ -190,6 +193,7 @@ points = ["left_knee", "left_ankle"]
 | `model.name` | ONNX filename stem | Display name in the GUI |
 | `model.confidence_threshold` | `0.3` | Minimum confidence to report a point (0.0 to 1.0) |
 | `[segments.*]` | None | Wireframe segment definitions for 3D visualization |
+| `[source]` | None | Download metadata for in-app weight fetching (see below) |
 
 ### Wireframe Segments
 
@@ -198,6 +202,29 @@ Each segment definition requires:
 - `points`: 2-element list of point names (must exist in `[points]` section)
 
 Segments are used by the 3D visualizer to draw connections between keypoints, making it easier to interpret motion trajectories.
+
+### Source Section (For In-App Download)
+
+Model cards can include a `[source]` section that enables in-app downloading of weights. This is optional — custom models without a `[source]` section work normally but require manual placement of the `.onnx` file.
+
+```toml
+[source]
+url = "https://download.openmmlab.com/mmpose/v1/projects/rtmposev1/onnx_sdk/rtmpose-t_simcc-body7_pt-body7-halpe26_700e-256x192-6020f8a6_20230605.zip"
+extraction = "zip_end2end"
+license = "Apache-2.0"
+license_url = "https://github.com/open-mmlab/mmpose/blob/main/LICENSE"
+file_size_mb = 13
+sha256 = "de5fa6ef754e1b19a0f8199d53affef122813e30c580c48be87fcf86c4ec47a7"
+```
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `url` | Yes | Direct download URL for the model weights |
+| `extraction` | Yes (when `url` present) | How to handle the download: `"zip_end2end"` (extract `.onnx` from zip) or `"direct"` (URL points directly to `.onnx`) |
+| `license` | No | SPDX license identifier shown to user before download |
+| `license_url` | No | Link to the full license text |
+| `file_size_mb` | No | Approximate download size shown in the UI |
+| `sha256` | No | SHA-256 hash for integrity verification after download |
 
 ## SimCC vs Heatmap Formats
 
@@ -225,17 +252,21 @@ ONNX pose estimation models output predictions in different formats. You must sp
 
 If you're unsure which format your model uses, check the training framework's documentation or inspect the model's output tensors. SimCC models will have two outputs, heatmap models will have one.
 
-## Known Compatible Models
+## Built-in Model Cards
 
-The following models have been tested and verified to work with Caliscope:
+The following RTMPose Halpe26 models ship as built-in model cards. Weights are downloaded in-app on first use.
 
-| Model | Format | Input Size | Keypoints | Model Size | Notes |
-|-------|--------|------------|-----------|------------|-------|
-| RTMPose-t Halpe26 | SimCC | 192×256 | 26 | 14 MB | Fast, accurate human pose |
-| RTMPose-s | SimCC | 192×256 | 17 (COCO) | ~35 MB | More accurate, slower |
-| RTMPose-m | SimCC | 192×256 | 17 (COCO) | ~70 MB | Highest accuracy, slowest |
+| Model | Format | Input Size | Keypoints | Download Size | Notes |
+|-------|--------|------------|-----------|---------------|-------|
+| RTMPose-t Halpe26 | SimCC | 192×256 | 26 | 13 MB | Fastest, good for real-time |
+| RTMPose-s Halpe26 | SimCC | 192×256 | 26 | 21 MB | Balanced speed/accuracy |
+| RTMPose-m Halpe26 | SimCC | 192×256 | 26 | 50 MB | Higher accuracy |
+| RTMPose-l Halpe26 | SimCC | 192×256 | 26 | 100 MB | High accuracy |
+| RTMPose-x Halpe26 | SimCC | 288×384 | 26 | 178 MB | Highest accuracy, largest input |
 
-Other RTMPose variants and SLEAP-exported models should work with appropriate model card configuration. If you successfully use a model not listed here, consider contributing the model card to the Caliscope documentation.
+All models use the Halpe26 keypoint set (26 body landmarks including feet) and are licensed under Apache-2.0 by OpenMMLab.
+
+Other RTMPose variants and SLEAP-exported models should work with appropriate model card configuration. If you successfully use a model not listed here, consider contributing the model card.
 
 ## Troubleshooting
 
@@ -274,18 +305,6 @@ Other RTMPose variants and SLEAP-exported models should work with appropriate mo
 1. Consult your model's training framework documentation for the keypoint ordering
 2. Verify the indices in your `[points]` section match that ordering exactly
 3. Different model families use different conventions even for the same body landmarks (e.g., COCO vs Halpe vs OpenPose keypoint orderings)
-
-### "onnxruntime not found" error
-
-**Symptoms:** Error message mentioning onnxruntime when trying to use a custom tracker.
-
-**Solution:** Install Caliscope with ONNX support:
-
-```bash
-uv pip install "caliscope[onnx]"
-```
-
-The base installation does not include onnxruntime.
 
 ### Model file path issues
 

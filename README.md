@@ -41,7 +41,7 @@ For a walkthrough with test data after installing, see the [sample project](http
 #### Tracking and Reconstruction
 
 - Built-in MediaPipe trackers (Hands, Pose, Holistic)
-- ONNX model support for custom pose estimators exported from SLEAP, DeepLabCut, RTMPose, and other frameworks
+- ONNX model support with built-in RTMPose model cards and in-app weight download; also compatible with custom models from SLEAP, DeepLabCut, and other frameworks
 - Output in CSV and TRC (OpenSim) formats
 
 ## Community & Support

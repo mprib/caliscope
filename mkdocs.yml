@@ -9,8 +9,8 @@ theme:
   favicon: images/box3d-center.svg
   name: material
   font:
-    text: 'Roboto'
-    code: 'Roboto Mono'
+    text: "Roboto"
+    code: "Roboto Mono"
   language: en
   palette:
     - media: "(prefers-color-scheme: light)"
@@ -28,21 +28,19 @@ theme:
       primary: blue
       accent: green
 
-
 nav:
   - Home: index.md
   - Installation: installation.md
   - Getting Started:
-    - Project Setup: project_setup.md
-    - Sample Project: sample_project.md
+      - Project Setup: project_setup.md
+      - Sample Project: sample_project.md
   - Calibration:
-    - Calibration Targets: calibration_targets.md
-    - Intrinsic Calibration: intrinsic_calibration.md
-    - Extrinsic Calibration: extrinsic_calibration.md
+      - Calibration Targets: calibration_targets.md
+      - Intrinsic Calibration: intrinsic_calibration.md
+      - Extrinsic Calibration: extrinsic_calibration.md
   - Reconstruction:
-    - Tracking & Triangulation: reconstruction.md
-    - Custom ONNX Trackers: onnx_trackers.md
-
+      - Tracking & Triangulation: reconstruction.md
+      - Custom ONNX Trackers: onnx_trackers.md
 
 plugins:
   - search
@@ -63,7 +61,5 @@ markdown_extensions:
   - pymdownx.tabbed:
       alternate_style: true
 
-
-
 copyright: |
-  &copy; 2023 <a href="https://github.com/mprib"  target="_blank" rel="noopener">Mac Prible</a>
+  &copy; 2026 <a href="https://github.com/mprib"  target="_blank" rel="noopener">Mac Prible</a>

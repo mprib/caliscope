@@ -91,15 +91,7 @@ uv pip install caliscope
 
 Installation may take a moment as some dependencies are large.
 
-### ONNX Tracker Support (Optional)
-
-To use custom ONNX pose estimation models, install the optional ONNX dependency:
-
-```bash
-uv pip install "caliscope[onnx]"
-```
-
-This adds `onnxruntime` for CPU-based inference. See [Custom ONNX Trackers](onnx_trackers.md) for setup instructions.
+ONNX model inference via `onnxruntime` is included in the standard installation. See [Custom ONNX Trackers](onnx_trackers.md) for details.
 
 ## 5. Launch from the command line
 

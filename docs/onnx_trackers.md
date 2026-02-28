@@ -8,6 +8,21 @@ After installation, ONNX models appear alongside the built-in trackers in the re
 
 ONNX model inference is included in the standard Caliscope installation — no extra packages needed. On first launch, Caliscope seeds your models directory with model cards for the RTMPose Halpe26 family (tiny through xlarge). The ONNX weight files are not shipped with the package; they can be downloaded in-app or placed manually.
 
+## Built-in Models
+
+Caliscope ships model card templates for the RTMPose Halpe26 family. On first launch, these are copied to your platform's models directory (see Models Directory below). The model cards describe the model but do not include the weights — the `.onnx` files must be downloaded separately.
+
+### In-App Download
+
+For built-in models that include a `[source]` section in their model card, Caliscope can download the weights directly:
+
+1. Open the Reconstruction tab
+2. Select an ONNX tracker from the dropdown
+3. If the weights are not yet present, a download button appears with the model's license information
+4. Click to download — the weights are fetched from the upstream source and placed in the models directory
+
+You can also download weights manually and place the `.onnx` file in the models directory. The filename must match the `model_path` field in the model card.
+
 ## Setup Steps
 
 1. **Obtain or export an ONNX pose estimation model**

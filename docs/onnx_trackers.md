@@ -193,6 +193,7 @@ points = ["left_knee", "left_ankle"]
 | `model.name` | ONNX filename stem | Display name in the GUI |
 | `model.confidence_threshold` | `0.3` | Minimum confidence to report a point (0.0 to 1.0) |
 | `[segments.*]` | None | Wireframe segment definitions for 3D visualization |
+| `[source]` | None | Download metadata for in-app weight fetching (see below) |
 
 ### Wireframe Segments
 
@@ -201,6 +202,29 @@ Each segment definition requires:
 - `points`: 2-element list of point names (must exist in `[points]` section)
 
 Segments are used by the 3D visualizer to draw connections between keypoints, making it easier to interpret motion trajectories.
+
+### Source Section (For In-App Download)
+
+Model cards can include a `[source]` section that enables in-app downloading of weights. This is optional — custom models without a `[source]` section work normally but require manual placement of the `.onnx` file.
+
+```toml
+[source]
+url = "https://download.openmmlab.com/mmpose/v1/projects/rtmposev1/onnx_sdk/rtmpose-t_simcc-body7_pt-body7-halpe26_700e-256x192-6020f8a6_20230605.zip"
+extraction = "zip_end2end"
+license = "Apache-2.0"
+license_url = "https://github.com/open-mmlab/mmpose/blob/main/LICENSE"
+file_size_mb = 13
+sha256 = "de5fa6ef754e1b19a0f8199d53affef122813e30c580c48be87fcf86c4ec47a7"
+```
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `url` | Yes | Direct download URL for the model weights |
+| `extraction` | Yes (when `url` present) | How to handle the download: `"zip_end2end"` (extract `.onnx` from zip) or `"direct"` (URL points directly to `.onnx`) |
+| `license` | No | SPDX license identifier shown to user before download |
+| `license_url` | No | Link to the full license text |
+| `file_size_mb` | No | Approximate download size shown in the UI |
+| `sha256` | No | SHA-256 hash for integrity verification after download |
 
 ## SimCC vs Heatmap Formats
 

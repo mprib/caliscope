@@ -2,7 +2,7 @@
 
 # Caliscope
 
-*Multicamera Calibration for Research Workflows*
+*Multicamera Calibration for Motion Capture Workflows*
 
 [![PyPI - Downloads](https://img.shields.io/pypi/dm/caliscope?color=blue)](https://pypi.org/project/caliscope/)
 [![PyPI - License](https://img.shields.io/pypi/l/caliscope?color=blue)](https://opensource.org/license/bsd-2-clause/)

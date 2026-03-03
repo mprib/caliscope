@@ -1,0 +1,1772 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="GUI-based multicamera calibration and 3D motion capture for researchers">
+      
+      
+      
+        <link rel="canonical" href="https://mprib.github.io/caliscope/onnx_trackers/">
+      
+      
+        <link rel="prev" href="../reconstruction/">
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../images/box3d-center.svg">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.3">
+    
+    
+      
+        <title>Custom ONNX Trackers - Caliscope</title>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="blue" data-md-color-accent="green">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#custom-onnx-trackers" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href=".." title="Caliscope" class="md-header__button md-logo" aria-label="Caliscope" data-md-component="logo">
+      
+  <img src="../images/box3d-center.svg" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Caliscope
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Custom ONNX Trackers
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="blue" data-md-color-accent="green"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M17 6H7c-3.31 0-6 2.69-6 6s2.69 6 6 6h10c3.31 0 6-2.69 6-6s-2.69-6-6-6m0 10H7c-2.21 0-4-1.79-4-4s1.79-4 4-4h10c2.21 0 4 1.79 4 4s-1.79 4-4 4M7 9c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="blue" data-md-color-accent="green"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M17 7H7a5 5 0 0 0-5 5 5 5 0 0 0 5 5h10a5 5 0 0 0 5-5 5 5 0 0 0-5-5m0 8a3 3 0 0 1-3-3 3 3 0 0 1 3-3 3 3 0 0 1 3 3 3 3 0 0 1-3 3"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/mprib/caliscope" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    caliscope
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href=".." title="Caliscope" class="md-nav__button md-logo" aria-label="Caliscope" data-md-component="logo">
+      
+  <img src="../images/box3d-center.svg" alt="logo">
+
+    </a>
+    Caliscope
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/mprib/caliscope" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    caliscope
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href=".." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../installation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Installation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting Started
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Getting Started
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../project_setup/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Project Setup
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../sample_project/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Sample Project
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Calibration
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Calibration
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../calibration_targets/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Calibration Targets
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../intrinsic_calibration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Intrinsic Calibration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../extrinsic_calibration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Extrinsic Calibration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Reconstruction
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Reconstruction
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reconstruction/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tracking & Triangulation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Custom ONNX Trackers
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Custom ONNX Trackers
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#requirements" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Requirements
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#built-in-models" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Built-in Models
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Built-in Models">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#in-app-download" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        In-App Download
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#setup-steps" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Setup Steps
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#models-directory" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Models Directory
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#model-card-reference" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Model Card Reference
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Model Card Reference">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#required-fields" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Required Fields
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#optional-fields" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Optional Fields
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#wireframe-segments" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Wireframe Segments
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#source-section-for-in-app-download" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Source Section (For In-App Download)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#simcc-vs-heatmap-formats" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        SimCC vs Heatmap Formats
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="SimCC vs Heatmap Formats">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#simcc-simulated-coordinate-classification" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        SimCC (Simulated Coordinate Classification)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#heatmap" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Heatmap
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#built-in-model-cards" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Built-in Model Cards
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#troubleshooting" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Troubleshooting
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Troubleshooting">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#model-not-appearing-in-dropdown" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Model not appearing in dropdown
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#poor-detection-quality" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Poor detection quality
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#wrong-keypoint-positions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Wrong keypoint positions
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#model-file-path-issues" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Model file path issues
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#performance-characteristics" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Performance Characteristics
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#limitations" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Limitations
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#requirements" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Requirements
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#built-in-models" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Built-in Models
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Built-in Models">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#in-app-download" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        In-App Download
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#setup-steps" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Setup Steps
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#models-directory" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Models Directory
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#model-card-reference" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Model Card Reference
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Model Card Reference">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#required-fields" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Required Fields
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#optional-fields" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Optional Fields
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#wireframe-segments" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Wireframe Segments
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#source-section-for-in-app-download" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Source Section (For In-App Download)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#simcc-vs-heatmap-formats" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        SimCC vs Heatmap Formats
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="SimCC vs Heatmap Formats">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#simcc-simulated-coordinate-classification" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        SimCC (Simulated Coordinate Classification)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#heatmap" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Heatmap
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#built-in-model-cards" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Built-in Model Cards
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#troubleshooting" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Troubleshooting
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Troubleshooting">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#model-not-appearing-in-dropdown" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Model not appearing in dropdown
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#poor-detection-quality" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Poor detection quality
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#wrong-keypoint-positions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Wrong keypoint positions
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#model-file-path-issues" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Model file path issues
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#performance-characteristics" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Performance Characteristics
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#limitations" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Limitations
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="custom-onnx-trackers">Custom ONNX Trackers<a class="headerlink" href="#custom-onnx-trackers" title="Permanent link">&para;</a></h1>
+<p>Caliscope can load custom ONNX pose estimation models for 2D landmark tracking. You can use models trained on your specific subjects (particular species, body regions, behavioral features) without modifying Caliscope's source code. A TOML "model card" file describes the model's input requirements and output format.</p>
+<p>After installation, ONNX models appear alongside the built-in trackers in the reconstruction tab's dropdown menu.</p>
+<h2 id="requirements">Requirements<a class="headerlink" href="#requirements" title="Permanent link">&para;</a></h2>
+<p>ONNX model inference is included in the standard Caliscope installation — no extra packages needed. On first launch, Caliscope seeds your models directory with model cards for the RTMPose Halpe26 family (tiny through xlarge). The ONNX weight files are not shipped with the package; they can be downloaded in-app or placed manually.</p>
+<h2 id="built-in-models">Built-in Models<a class="headerlink" href="#built-in-models" title="Permanent link">&para;</a></h2>
+<p>Caliscope ships model card templates for the RTMPose Halpe26 family. On first launch, these are copied to your platform's models directory (see Models Directory below). The model cards describe the model but do not include the weights — the <code>.onnx</code> files must be downloaded separately.</p>
+<h3 id="in-app-download">In-App Download<a class="headerlink" href="#in-app-download" title="Permanent link">&para;</a></h3>
+<p>For built-in models that include a <code>[source]</code> section in their model card, Caliscope can download the weights directly:</p>
+<ol>
+<li>Open the Reconstruction tab</li>
+<li>Select an ONNX tracker from the dropdown</li>
+<li>If the weights are not yet present, a download button appears with the model's license information</li>
+<li>Click to download — the weights are fetched from the upstream source and placed in the models directory</li>
+</ol>
+<p>You can also download weights manually and place the <code>.onnx</code> file in the models directory. The filename must match the <code>model_path</code> field in the model card.</p>
+<h2 id="setup-steps">Setup Steps<a class="headerlink" href="#setup-steps" title="Permanent link">&para;</a></h2>
+<ol>
+<li><strong>Obtain or export an ONNX pose estimation model</strong></li>
+<li>Many pose estimation frameworks support ONNX export (MMPose, SLEAP, DeepLabCut with model zoo)</li>
+<li>
+<p>Ensure the model outputs either SimCC vectors or heatmaps (see format details below)</p>
+</li>
+<li>
+<p><strong>Locate your models directory</strong></p>
+</li>
+<li>Caliscope uses platform-specific data directories (see Models Directory below)</li>
+<li>The directory is created automatically on first run</li>
+<li>
+<p>Place your <code>.onnx</code> model file anywhere accessible (does not need to be in the models directory)</p>
+</li>
+<li>
+<p><strong>Create a model card TOML file</strong></p>
+</li>
+<li>Must be placed in the models directory</li>
+<li>Name it descriptively (e.g., <code>rtmpose-halpe26.toml</code>)</li>
+<li>
+<p>See Model Card Reference below for format details</p>
+</li>
+<li>
+<p><strong>Restart Caliscope</strong></p>
+</li>
+<li>At startup, Caliscope scans the models directory for <code>.toml</code> files</li>
+<li>
+<p>Valid model cards are registered and appear in the tracker dropdown</p>
+</li>
+<li>
+<p><strong>Verify the model appears</strong></p>
+</li>
+<li>Open Caliscope and navigate to the Reconstruction tab</li>
+<li>Your custom model should appear in the tracker selection dropdown</li>
+</ol>
+<h2 id="models-directory">Models Directory<a class="headerlink" href="#models-directory" title="Permanent link">&para;</a></h2>
+<p>Caliscope uses platform-specific data directories following standard conventions:</p>
+<table>
+<thead>
+<tr>
+<th>Platform</th>
+<th>Models Directory</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Linux</strong></td>
+<td><code>~/.local/share/caliscope/models/</code></td>
+</tr>
+<tr>
+<td><strong>macOS</strong></td>
+<td><code>~/Library/Application Support/caliscope/models/</code></td>
+</tr>
+<tr>
+<td><strong>Windows</strong></td>
+<td><code>C:\Users\&lt;user&gt;\AppData\Local\caliscope\caliscope\models\</code></td>
+</tr>
+</tbody>
+</table>
+<p>Place your <code>.toml</code> model card files in this directory. The <code>.onnx</code> model file can live anywhere; the model card points to it via the <code>model_path</code> field (use an absolute path).</p>
+<p><strong>To find your models directory:</strong></p>
+<ol>
+<li>Launch Caliscope</li>
+<li>Check the log file location shown in the terminal output</li>
+<li>The models directory is in the same parent directory</li>
+</ol>
+<p>Or from Python:</p>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">caliscope</span><span class="w"> </span><span class="kn">import</span> <span class="n">MODELS_DIR</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">MODELS_DIR</span><span class="p">)</span>
+</code></pre></div>
+<h2 id="model-card-reference">Model Card Reference<a class="headerlink" href="#model-card-reference" title="Permanent link">&para;</a></h2>
+<p>A model card is a TOML file that describes your ONNX model's configuration. Here's a complete annotated example:</p>
+<div class="highlight"><pre><span></span><code><span class="k">[model]</span>
+<span class="c1"># Display name in the GUI (optional, defaults to the .onnx filename if omitted)</span>
+<span class="n">name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;RTMPose-t Halpe26&quot;</span>
+
+<span class="c1"># Absolute path to your ONNX model file (required)</span>
+<span class="n">model_path</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;/home/user/models/rtmpose-t-halpe26.onnx&quot;</span>
+
+<span class="c1"># Output format: &quot;simcc&quot; or &quot;heatmap&quot; (required)</span>
+<span class="n">format</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;simcc&quot;</span>
+
+<span class="c1"># Model input dimensions as [width, height] (required)</span>
+<span class="n">input_size</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="mi">192</span><span class="p">,</span><span class="w"> </span><span class="mi">256</span><span class="p">]</span>
+
+<span class="c1"># Minimum confidence to report a point (optional, default 0.3)</span>
+<span class="c1"># Lower values include more detections but may increase false positives</span>
+<span class="n">confidence_threshold</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mf">0.3</span>
+
+<span class="c1"># Keypoint name-to-index mapping (required)</span>
+<span class="c1"># Maps human-readable names to the model&#39;s output indices</span>
+<span class="k">[points]</span>
+<span class="n">nose</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span>
+<span class="n">left_eye</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">1</span>
+<span class="n">right_eye</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">2</span>
+<span class="n">left_ear</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">3</span>
+<span class="n">right_ear</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">4</span>
+<span class="n">left_shoulder</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">5</span>
+<span class="n">right_shoulder</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">6</span>
+<span class="n">left_elbow</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">7</span>
+<span class="n">right_elbow</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">8</span>
+<span class="n">left_wrist</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">9</span>
+<span class="n">right_wrist</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">10</span>
+<span class="n">left_hip</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">11</span>
+<span class="n">right_hip</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">12</span>
+<span class="n">left_knee</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">13</span>
+<span class="n">right_knee</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">14</span>
+<span class="n">left_ankle</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">15</span>
+<span class="n">right_ankle</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">16</span>
+<span class="n">left_big_toe</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">17</span>
+<span class="n">left_small_toe</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">18</span>
+<span class="n">left_heel</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">19</span>
+<span class="n">right_big_toe</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">20</span>
+<span class="n">right_small_toe</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">21</span>
+<span class="n">right_heel</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">22</span>
+<span class="n">head</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">23</span>
+<span class="n">neck</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">24</span>
+<span class="n">hip</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">25</span>
+<span class="n">left_foot_center</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">26</span>
+<span class="n">right_foot_center</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">27</span>
+
+<span class="c1"># Wireframe segments for 3D visualization (optional)</span>
+<span class="c1"># Each segment connects two points with a colored line</span>
+<span class="k">[segments.shoulders]</span>
+<span class="n">color</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;y&quot;</span><span class="w">  </span><span class="c1"># Matplotlib color string (single char or full name)</span>
+<span class="n">points</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;left_shoulder&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;right_shoulder&quot;</span><span class="p">]</span>
+
+<span class="k">[segments.right_upper_arm]</span>
+<span class="n">color</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;r&quot;</span>
+<span class="n">points</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;right_shoulder&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;right_elbow&quot;</span><span class="p">]</span>
+
+<span class="k">[segments.right_lower_arm]</span>
+<span class="n">color</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;r&quot;</span>
+<span class="n">points</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;right_elbow&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;right_wrist&quot;</span><span class="p">]</span>
+
+<span class="k">[segments.left_upper_arm]</span>
+<span class="n">color</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;b&quot;</span>
+<span class="n">points</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;left_shoulder&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;left_elbow&quot;</span><span class="p">]</span>
+
+<span class="k">[segments.left_lower_arm]</span>
+<span class="n">color</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;b&quot;</span>
+<span class="n">points</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;left_elbow&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;left_wrist&quot;</span><span class="p">]</span>
+
+<span class="k">[segments.torso]</span>
+<span class="n">color</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;g&quot;</span>
+<span class="n">points</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;neck&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;hip&quot;</span><span class="p">]</span>
+
+<span class="k">[segments.right_hip]</span>
+<span class="n">color</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;r&quot;</span>
+<span class="n">points</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;hip&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;right_hip&quot;</span><span class="p">]</span>
+
+<span class="k">[segments.left_hip]</span>
+<span class="n">color</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;b&quot;</span>
+<span class="n">points</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;hip&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;left_hip&quot;</span><span class="p">]</span>
+
+<span class="k">[segments.right_upper_leg]</span>
+<span class="n">color</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;r&quot;</span>
+<span class="n">points</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;right_hip&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;right_knee&quot;</span><span class="p">]</span>
+
+<span class="k">[segments.right_lower_leg]</span>
+<span class="n">color</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;r&quot;</span>
+<span class="n">points</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;right_knee&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;right_ankle&quot;</span><span class="p">]</span>
+
+<span class="k">[segments.left_upper_leg]</span>
+<span class="n">color</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;b&quot;</span>
+<span class="n">points</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;left_hip&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;left_knee&quot;</span><span class="p">]</span>
+
+<span class="k">[segments.left_lower_leg]</span>
+<span class="n">color</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;b&quot;</span>
+<span class="n">points</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;left_knee&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;left_ankle&quot;</span><span class="p">]</span>
+</code></pre></div>
+<h3 id="required-fields">Required Fields<a class="headerlink" href="#required-fields" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>model.model_path</code></td>
+<td>Absolute path to the <code>.onnx</code> file</td>
+</tr>
+<tr>
+<td><code>model.format</code></td>
+<td>Either <code>"simcc"</code> or <code>"heatmap"</code> (see format details below)</td>
+</tr>
+<tr>
+<td><code>model.input_size</code></td>
+<td><code>[width, height]</code> as the model expects (not your video resolution)</td>
+</tr>
+<tr>
+<td><code>[points]</code></td>
+<td>Maps point name (string) to output index (integer)</td>
+</tr>
+</tbody>
+</table>
+<h3 id="optional-fields">Optional Fields<a class="headerlink" href="#optional-fields" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>model.name</code></td>
+<td>ONNX filename stem</td>
+<td>Display name in the GUI</td>
+</tr>
+<tr>
+<td><code>model.confidence_threshold</code></td>
+<td><code>0.3</code></td>
+<td>Minimum confidence to report a point (0.0 to 1.0)</td>
+</tr>
+<tr>
+<td><code>[segments.*]</code></td>
+<td>None</td>
+<td>Wireframe segment definitions for 3D visualization</td>
+</tr>
+<tr>
+<td><code>[source]</code></td>
+<td>None</td>
+<td>Download metadata for in-app weight fetching (see below)</td>
+</tr>
+</tbody>
+</table>
+<h3 id="wireframe-segments">Wireframe Segments<a class="headerlink" href="#wireframe-segments" title="Permanent link">&para;</a></h3>
+<p>Each segment definition requires:
+- <code>color</code>: Matplotlib color string (e.g., <code>"r"</code>, <code>"blue"</code>, <code>"#FF5733"</code>)
+- <code>points</code>: 2-element list of point names (must exist in <code>[points]</code> section)</p>
+<p>Segments are used by the 3D visualizer to draw connections between keypoints, making it easier to interpret motion trajectories.</p>
+<h3 id="source-section-for-in-app-download">Source Section (For In-App Download)<a class="headerlink" href="#source-section-for-in-app-download" title="Permanent link">&para;</a></h3>
+<p>Model cards can include a <code>[source]</code> section that enables in-app downloading of weights. This is optional — custom models without a <code>[source]</code> section work normally but require manual placement of the <code>.onnx</code> file.</p>
+<div class="highlight"><pre><span></span><code><span class="k">[source]</span>
+<span class="n">url</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;https://download.openmmlab.com/mmpose/v1/projects/rtmposev1/onnx_sdk/rtmpose-t_simcc-body7_pt-body7-halpe26_700e-256x192-6020f8a6_20230605.zip&quot;</span>
+<span class="n">extraction</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;zip_end2end&quot;</span>
+<span class="n">license</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;Apache-2.0&quot;</span>
+<span class="n">license_url</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;https://github.com/open-mmlab/mmpose/blob/main/LICENSE&quot;</span>
+<span class="n">file_size_mb</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">13</span>
+<span class="n">sha256</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;de5fa6ef754e1b19a0f8199d53affef122813e30c580c48be87fcf86c4ec47a7&quot;</span>
+</code></pre></div>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Required</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>url</code></td>
+<td>Yes</td>
+<td>Direct download URL for the model weights</td>
+</tr>
+<tr>
+<td><code>extraction</code></td>
+<td>Yes (when <code>url</code> present)</td>
+<td>How to handle the download: <code>"zip_end2end"</code> (extract <code>.onnx</code> from zip) or <code>"direct"</code> (URL points directly to <code>.onnx</code>)</td>
+</tr>
+<tr>
+<td><code>license</code></td>
+<td>No</td>
+<td>SPDX license identifier shown to user before download</td>
+</tr>
+<tr>
+<td><code>license_url</code></td>
+<td>No</td>
+<td>Link to the full license text</td>
+</tr>
+<tr>
+<td><code>file_size_mb</code></td>
+<td>No</td>
+<td>Approximate download size shown in the UI</td>
+</tr>
+<tr>
+<td><code>sha256</code></td>
+<td>No</td>
+<td>SHA-256 hash for integrity verification after download</td>
+</tr>
+</tbody>
+</table>
+<h2 id="simcc-vs-heatmap-formats">SimCC vs Heatmap Formats<a class="headerlink" href="#simcc-vs-heatmap-formats" title="Permanent link">&para;</a></h2>
+<p>ONNX pose estimation models output predictions in different formats. You must specify which format your model uses in the <code>model.format</code> field.</p>
+<h3 id="simcc-simulated-coordinate-classification">SimCC (Simulated Coordinate Classification)<a class="headerlink" href="#simcc-simulated-coordinate-classification" title="Permanent link">&para;</a></h3>
+<p><strong>Used by:</strong> RTMPose family (MMPose/OpenMMLab)</p>
+<p><strong>How it works:</strong> The model outputs two 1D probability distributions per keypoint, one for the X coordinate and one for the Y coordinate. The coordinate is the argmax of each distribution. This provides sub-pixel accuracy (0.5px resolution) built into the architecture.</p>
+<p><strong>When to use:</strong> If your model was trained with RTMPose or uses the SimCC head architecture, use <code>format = "simcc"</code>.</p>
+<p><strong>Output structure:</strong> Two tensors of shape <code>(batch, num_keypoints, input_width * simcc_split_ratio)</code> and <code>(batch, num_keypoints, input_height * simcc_split_ratio)</code>. The default <code>simcc_split_ratio</code> is 2.0, so for a model with <code>input_size = [192, 256]</code>, the X vector length is 384 and the Y vector length is 512.</p>
+<h3 id="heatmap">Heatmap<a class="headerlink" href="#heatmap" title="Permanent link">&para;</a></h3>
+<p><strong>Used by:</strong> SLEAP ONNX exports, many pose estimation frameworks</p>
+<p><strong>How it works:</strong> The model outputs a 2D "heat image" per keypoint. The coordinate is the location of the brightest pixel, refined with quadratic interpolation for sub-pixel accuracy.</p>
+<p><strong>When to use:</strong> If your model was trained with SLEAP, or uses a heatmap-based architecture (common in many pose estimation systems), use <code>format = "heatmap"</code>.</p>
+<p><strong>Output structure:</strong> One tensor of shape <code>(batch, num_keypoints, heatmap_height, heatmap_width)</code>.</p>
+<p>If you're unsure which format your model uses, check the training framework's documentation or inspect the model's output tensors. SimCC models will have two outputs, heatmap models will have one.</p>
+<h2 id="built-in-model-cards">Built-in Model Cards<a class="headerlink" href="#built-in-model-cards" title="Permanent link">&para;</a></h2>
+<p>The following RTMPose Halpe26 models ship as built-in model cards. Weights are downloaded in-app on first use.</p>
+<table>
+<thead>
+<tr>
+<th>Model</th>
+<th>Format</th>
+<th>Input Size</th>
+<th>Keypoints</th>
+<th>Download Size</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>RTMPose-t Halpe26</td>
+<td>SimCC</td>
+<td>192×256</td>
+<td>26</td>
+<td>13 MB</td>
+<td>Fastest, good for real-time</td>
+</tr>
+<tr>
+<td>RTMPose-s Halpe26</td>
+<td>SimCC</td>
+<td>192×256</td>
+<td>26</td>
+<td>21 MB</td>
+<td>Balanced speed/accuracy</td>
+</tr>
+<tr>
+<td>RTMPose-m Halpe26</td>
+<td>SimCC</td>
+<td>192×256</td>
+<td>26</td>
+<td>50 MB</td>
+<td>Higher accuracy</td>
+</tr>
+<tr>
+<td>RTMPose-l Halpe26</td>
+<td>SimCC</td>
+<td>192×256</td>
+<td>26</td>
+<td>100 MB</td>
+<td>High accuracy</td>
+</tr>
+<tr>
+<td>RTMPose-x Halpe26</td>
+<td>SimCC</td>
+<td>288×384</td>
+<td>26</td>
+<td>178 MB</td>
+<td>Highest accuracy, largest input</td>
+</tr>
+</tbody>
+</table>
+<p>All models use the Halpe26 keypoint set (26 body landmarks including feet) and are licensed under Apache-2.0 by OpenMMLab.</p>
+<p>Other RTMPose variants and SLEAP-exported models should work with appropriate model card configuration. If you successfully use a model not listed here, consider contributing the model card.</p>
+<h2 id="troubleshooting">Troubleshooting<a class="headerlink" href="#troubleshooting" title="Permanent link">&para;</a></h2>
+<h3 id="model-not-appearing-in-dropdown">Model not appearing in dropdown<a class="headerlink" href="#model-not-appearing-in-dropdown" title="Permanent link">&para;</a></h3>
+<p><strong>Symptoms:</strong> After creating a model card and restarting Caliscope, your custom tracker doesn't appear in the reconstruction tab's dropdown menu.</p>
+<p><strong>Diagnosis:</strong>
+1. Verify the <code>.toml</code> file is in the correct models directory (see platform paths above)
+2. Launch Caliscope from a terminal to see error messages
+3. Check the log file for parsing errors</p>
+<p><strong>Common causes:</strong>
+- TOML syntax error (missing quotes, incorrect nesting)
+- Missing required fields (<code>model_path</code>, <code>format</code>, <code>input_size</code>, or <code>[points]</code> section)
+- Invalid <code>format</code> value (must be exactly <code>"simcc"</code> or <code>"heatmap"</code>)</p>
+<h3 id="poor-detection-quality">Poor detection quality<a class="headerlink" href="#poor-detection-quality" title="Permanent link">&para;</a></h3>
+<p><strong>Symptoms:</strong> Few keypoints detected, erratic tracking, or complete detection failure.</p>
+<p><strong>Solutions:</strong>
+- <strong>Lower the confidence threshold:</strong> Try <code>confidence_threshold = 0.1</code> to include more marginal detections
+- <strong>Verify input size:</strong> Ensure <code>input_size</code> exactly matches what the model was trained on (check model documentation)
+- <strong>Check preprocessing compatibility:</strong> SimCC format expects ImageNet normalization; if your model uses different preprocessing, it may not work correctly</p>
+<p><strong>Note:</strong> Wrong input size will produce garbage output because the model receives distorted or incorrectly scaled input.</p>
+<h3 id="wrong-keypoint-positions">Wrong keypoint positions<a class="headerlink" href="#wrong-keypoint-positions" title="Permanent link">&para;</a></h3>
+<p><strong>Symptoms:</strong> Keypoints appear in incorrect anatomical locations (e.g., left elbow predicted where right wrist should be).</p>
+<p><strong>Diagnosis:</strong> The <code>[points]</code> mapping in your model card doesn't match the model's actual output ordering.</p>
+<p><strong>Solution:</strong>
+1. Consult your model's training framework documentation for the keypoint ordering
+2. Verify the indices in your <code>[points]</code> section match that ordering exactly
+3. Different model families use different conventions even for the same body landmarks (e.g., COCO vs Halpe vs OpenPose keypoint orderings)</p>
+<h3 id="model-file-path-issues">Model file path issues<a class="headerlink" href="#model-file-path-issues" title="Permanent link">&para;</a></h3>
+<p><strong>Symptoms:</strong> Error about model file not found, even though the file exists.</p>
+<p><strong>Solution:</strong>
+- Use absolute paths in <code>model_path</code>, not relative paths
+- Verify the path is correct (no typos, correct extension)
+- Ensure the file has read permissions</p>
+<h2 id="performance-characteristics">Performance Characteristics<a class="headerlink" href="#performance-characteristics" title="Permanent link">&para;</a></h2>
+<p>ONNX trackers in Caliscope use CPU inference through onnxruntime. Processing speed depends on:</p>
+<ul>
+<li><strong>Model size:</strong> Smaller models (RTMPose-t) process faster than larger ones (RTMPose-m)</li>
+<li><strong>Input resolution:</strong> Models with smaller input sizes process faster</li>
+<li><strong>CPU capabilities:</strong> More cores and newer processors improve throughput</li>
+</ul>
+<p>A three-tier crop-and-track strategy helps maintain robust detection across frames:</p>
+<ol>
+<li><strong>Tier 1:</strong> Crop to previous detection (fast, common case)</li>
+<li><strong>Tier 2:</strong> Full-frame letterbox (cold start or lost tracking)</li>
+<li><strong>Tier 3:</strong> Sliding window scan (thorough search when full-frame fails)</li>
+</ol>
+<p>This ensures reliable detection even when subjects move rapidly or temporarily leave the crop region.</p>
+<h2 id="limitations">Limitations<a class="headerlink" href="#limitations" title="Permanent link">&para;</a></h2>
+<p>The ONNX tracker currently supports single-person detection with CPU inference only. GPU acceleration and multi-person tracking are not yet implemented. If you have a use case that requires these features, please <a href="https://github.com/mprib/caliscope/issues">open an issue</a>.</p>
+
+
+
+
+
+
+
+  
+    
+  
+  
+
+
+  <aside class="md-source-file">
+    
+      
+  <span class="md-source-file__fact">
+    <span class="md-icon" title="Last update">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
+    </span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="March 3, 2026 19:12:57 UTC">March 3, 2026</span>
+  </span>
+
+    
+    
+    
+    
+  </aside>
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+    <div class="md-copyright__highlight">
+      &copy; 2026 <a href="https://github.com/mprib"  target="_blank" rel="noopener">Mac Prible</a>
+
+    </div>
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": [], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>

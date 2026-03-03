@@ -56,25 +56,16 @@ workspace/
         ├── cam_0.mp4
         ├── cam_1.mp4
         ├── cam_2.mp4
-        └── timestamps.csv      # Optional: only needed for software synchronization
+        └── timestamps.csv      # Optional: per-frame timing data
 ```
 
-### Synchronization Methods
+### Frame Synchronization
 
-Caliscope supports two approaches to synchronization:
+Caliscope needs to know which frames across cameras correspond to the same moment in time. There are two ways to provide this information:
 
-**1. Hardware Synchronization (Preferred)**
+**If you have per-frame timestamps**, place a `timestamps.csv` file in the recording directory. This is the most accurate option. It handles cameras with different frame rates, dropped frames, and different start times.
 
-Record all videos with a common external trigger so each frame captures the same moment in time. All video files should:
-- Start and stop at the same time
-- Have the same number of frames
-- Have matching frame timestamps
-
-When using hardware synchronization, no `timestamps.csv` file is needed.
-
-**2. Software Synchronization**
-
-If cameras record independently without a common trigger, provide a `timestamps.csv` file containing the timestamp for each captured frame.
+**If you don't have per-frame timestamps**, Caliscope infers timing from the video files themselves. This works when all cameras recorded at the same frame rate and captured a similar number of frames (e.g., videos that were trimmed to the same length in editing software). Caliscope saves its assumptions as `inferred_timestamps.csv` in the recording directory so you can inspect them.
 
 ### `timestamps.csv` Format
 
@@ -93,14 +84,12 @@ cam_id,frame_time
 ...
 ```
 
-Requirements:
 - **cam_id**: Must match the camera IDs from your video filenames
-- **frame_time**: Numerical timestamp showing relative time (e.g., from Python's `time.perf_counter()`)
+- **frame_time**: Numerical timestamp for when the frame was captured (e.g., from Python's `time.perf_counter()`)
 - Rows can be in any order
-- Files do not need the same number of frames
-- Cameras do not need to start on the same frame
+- Cameras do not need the same number of frames or the same start time
 
-Caliscope automatically synchronizes the videos during processing, inserting blank frames when necessary to maintain temporal alignment.
+Caliscope automatically aligns the videos during processing, inserting blank frames where necessary to maintain temporal correspondence.
 
 ### Calibration Output
 
@@ -113,7 +102,8 @@ workspace/
         ├── cam_0.mp4
         ├── cam_1.mp4
         ├── cam_2.mp4
-        ├── timestamps.csv           # If using software sync
+        ├── timestamps.csv           # If per-frame timing was provided
+        ├── inferred_timestamps.csv  # Written by Caliscope when no timestamps.csv exists
         ├── CHARUCO/                 # Extraction output (tracker name varies)
         │   └── image_points.csv
         └── capture_volume/          # Calibration result
@@ -126,7 +116,7 @@ The `capture_volume/` directory contains the complete calibrated camera system a
 
 ## Stage 3: Recording and Reconstruction
 
-For each motion capture session, create a subfolder within `recordings/` and populate it with synchronized videos following the same requirements as extrinsic calibration (hardware sync preferred, software sync via `timestamps.csv` if needed).
+For each motion capture session, create a subfolder within `recordings/` and populate it with synchronized videos. The same synchronization rules apply: provide a `timestamps.csv` if you have per-frame timing, otherwise Caliscope infers from video metadata.
 
 ```
 workspace/
@@ -147,7 +137,7 @@ workspace/
         ├── cam_0.mp4
         ├── cam_1.mp4
         ├── cam_2.mp4
-        ├── timestamps.csv
+        ├── timestamps.csv                  # If provided
         └── POSE/                           # Output subdirectory (tracker name)
             ├── camera_array.toml           # Snapshot of calibration used
             ├── xy_POSE.csv                 # 2D tracked points per camera

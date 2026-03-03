@@ -19,7 +19,8 @@ The application monitors these directories and automatically updates when files 
 
 ## Camera Identification
 
-Cameras are identified by integer IDs assigned through your video file naming. Video files must follow the naming convention `cam_N.mp4`, where N is the camera ID (e.g., `cam_0.mp4`, `cam_1.mp4`, `cam_2.mp4`).
+Cameras are identified by integer IDs assigned through your video file naming.
+Video files must follow the naming convention `cam_N.mp4`, where N is the camera ID (e.g., `cam_0.mp4`, `cam_1.mp4`, `cam_2.mp4`).
 
 - Camera IDs can be any non-negative integer
 - Camera IDs do not need to be contiguous (e.g., `cam_0.mp4`, `cam_3.mp4`, `cam_7.mp4` is valid)
@@ -30,7 +31,9 @@ Cameras are identified by integer IDs assigned through your video file naming. V
 
 Intrinsic calibration determines each camera's internal properties (focal length, principal point, lens distortion).
 
-Place one video per camera in `calibration/intrinsic/`. These videos **do not need to be synchronized**. Each video should show a calibration target (Charuco board, chessboard, or ArUco grid) being moved throughout the camera's field of view.
+Place one video per camera in `calibration/intrinsic/`.
+These videos **do not need to be synchronized**.
+Each video should show a calibration target (Charuco board, chessboard, or ArUco grid) being moved throughout the camera's field of view.
 
 ```
 workspace/
@@ -47,7 +50,8 @@ After calibration, each camera's intrinsic parameters are stored internally for 
 
 Extrinsic calibration determines the spatial relationship between cameras (their positions and orientations in 3D space).
 
-Place synchronized videos in `calibration/extrinsic/`. All cameras must observe the same physical space during the same time period.
+Place synchronized videos in `calibration/extrinsic/`.
+All cameras must observe the same physical space during the same time period.
 
 ```
 workspace/
@@ -56,25 +60,24 @@ workspace/
         ├── cam_0.mp4
         ├── cam_1.mp4
         ├── cam_2.mp4
-        └── timestamps.csv      # Optional: only needed for software synchronization
+        └── timestamps.csv      # Optional: per-frame timing data
 ```
 
-### Synchronization Methods
+### Frame Synchronization
 
-Caliscope supports two approaches to synchronization:
+Caliscope needs to know which frames across cameras correspond to the same moment in time.
 
-**1. Hardware Synchronization (Preferred)**
+**If you have per-frame timestamps**, place a `timestamps.csv` file in the recording directory.
+This handles cameras with different frame rates, dropped frames, and different start/stop times.
 
-Record all videos with a common external trigger so each frame captures the same moment in time. All video files should:
-- Start and stop at the same time
-- Have the same number of frames
-- Have matching frame timestamps
+**If you don't have per-frame timestamps**, leave out `timestamps.csv` and Caliscope will infer timing from the video files.
+It reads each video's frame count and frame rate, then spaces each camera's frames evenly across a shared average duration.
+The inferred frame times are saved to `inferred_timestamps.csv` for inspection.
+Hardware synchronization will result in the same number of frames in each file which Caliscope synchronizes exactly.
+In the absence of hardware synchronization, ensure that the files start and stop at the same moment in time.
+The inferred timestamp approach will attempt to time align these files even in the presence of mild drift in frame rate.
 
-When using hardware synchronization, no `timestamps.csv` file is needed.
-
-**2. Software Synchronization**
-
-If cameras record independently without a common trigger, provide a `timestamps.csv` file containing the timestamp for each captured frame.
+Misalignment of the start or stop frames along with drift in the actual recording will impact the time alignment.
 
 ### `timestamps.csv` Format
 
@@ -93,14 +96,12 @@ cam_id,frame_time
 ...
 ```
 
-Requirements:
 - **cam_id**: Must match the camera IDs from your video filenames
-- **frame_time**: Numerical timestamp showing relative time (e.g., from Python's `time.perf_counter()`)
+- **frame_time**: Numerical timestamp for when the frame was captured (e.g., from Python's `time.perf_counter()`)
 - Rows can be in any order
-- Files do not need the same number of frames
-- Cameras do not need to start on the same frame
+- Cameras do not need the same number of frames or the same start time
 
-Caliscope automatically synchronizes the videos during processing, inserting blank frames when necessary to maintain temporal alignment.
+Caliscope automatically aligns the videos during processing, inserting blank frames where necessary to maintain temporal correspondence.
 
 ### Calibration Output
 
@@ -113,7 +114,8 @@ workspace/
         ├── cam_0.mp4
         ├── cam_1.mp4
         ├── cam_2.mp4
-        ├── timestamps.csv           # If using software sync
+        ├── timestamps.csv           # If per-frame timing was provided
+        ├── inferred_timestamps.csv  # Caliscope's timing assumptions when no timestamps.csv provided (not read back)
         ├── CHARUCO/                 # Extraction output (tracker name varies)
         │   └── image_points.csv
         └── capture_volume/          # Calibration result
@@ -126,7 +128,8 @@ The `capture_volume/` directory contains the complete calibrated camera system a
 
 ## Stage 3: Recording and Reconstruction
 
-For each motion capture session, create a subfolder within `recordings/` and populate it with synchronized videos following the same requirements as extrinsic calibration (hardware sync preferred, software sync via `timestamps.csv` if needed).
+For each motion capture session, create a subfolder within `recordings/` and populate it with synchronized videos.
+The same synchronization rules apply: provide a `timestamps.csv` if you have per-frame timing, or Caliscope infers from the video files (see [Frame Synchronization](#frame-synchronization)).
 
 ```
 workspace/
@@ -138,7 +141,7 @@ workspace/
         └── timestamps.csv          # Optional: same format as extrinsic
 ```
 
-After processing with a motion tracking system (e.g., POSE, HAND, HOLISTIC), output files are created in a tracker-named subdirectory:
+After processing with a motion tracking system, output files are created in a tracker-named subdirectory:
 
 ```
 workspace/
@@ -147,7 +150,7 @@ workspace/
         ├── cam_0.mp4
         ├── cam_1.mp4
         ├── cam_2.mp4
-        ├── timestamps.csv
+        ├── timestamps.csv                  # If provided
         └── POSE/                           # Output subdirectory (tracker name)
             ├── camera_array.toml           # Snapshot of calibration used
             ├── xy_POSE.csv                 # 2D tracked points per camera

@@ -27,6 +27,7 @@ from caliscope.core.process_synchronized_recording import (
     get_initial_thumbnails,
     process_synchronized_recording,
 )
+from caliscope.recording.synchronized_timestamps import SynchronizedTimestamps
 from caliscope.task_manager.cancellation import CancellationToken
 from caliscope.task_manager.task_handle import TaskHandle
 from caliscope.task_manager.task_manager import TaskManager
@@ -260,7 +261,10 @@ class MultiCameraProcessingPresenter(QObject):
     def start_processing(self, subsample: int = 1) -> None:
         """Start background processing.
 
-        Submits process_synchronized_recording to TaskManager.
+        Constructs SynchronizedTimestamps synchronously at the boundary before
+        submitting the worker task. A ValueError from timestamp construction
+        (e.g., incompatible frame counts) is emitted via processing_failed
+        immediately -- no state transition to PROCESSING.
 
         Args:
             subsample: Process every Nth sync index (1 = all)
@@ -275,19 +279,30 @@ class MultiCameraProcessingPresenter(QObject):
 
         logger.info(f"Starting multi-camera processing: {self._recording_dir}")
 
-        # Clear previous results
-        self._reset_results()
-
         # Capture values for closure
         recording_dir = self._recording_dir
         cameras = dict(self._cameras)
         tracker = self._tracker
+        cam_ids = list(cameras.keys())
+
+        # Construct timestamps synchronously at the boundary (Amendment 6).
+        # ValueError means incompatible videos -- emit failure and stay READY.
+        try:
+            synced_timestamps = SynchronizedTimestamps.load(recording_dir, cam_ids)
+        except ValueError as e:
+            logger.error(f"Cannot load timestamps: {e}")
+            self.processing_failed.emit(str(e))
+            return
+
+        # Clear previous results only after successful timestamp construction
+        self._reset_results()
 
         def worker(token: CancellationToken, handle: TaskHandle) -> ImagePoints:
             return process_synchronized_recording(
                 recording_dir=recording_dir,
                 cameras=cameras,
                 tracker=tracker,
+                synced_timestamps=synced_timestamps,
                 subsample=subsample,
                 on_progress=self._on_progress,
                 on_frame_data=self._on_frame_data,

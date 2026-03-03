@@ -14,6 +14,7 @@ from caliscope.core.process_synchronized_recording import (
     get_initial_thumbnails,
     process_synchronized_recording,
 )
+from caliscope.recording.synchronized_timestamps import SynchronizedTimestamps
 from caliscope.task_manager.cancellation import CancellationToken
 from caliscope.trackers.charuco_tracker import CharucoTracker
 
@@ -36,16 +37,23 @@ def tracker():
     return CharucoTracker(charuco)
 
 
+@pytest.fixture
+def synced_timestamps():
+    """Load SynchronizedTimestamps from test session."""
+    return SynchronizedTimestamps.from_csv(RECORDING_DIR)
+
+
 class TestProcessSynchronizedRecording:
     """Tests for process_synchronized_recording function."""
 
-    def test_produces_image_points(self, cameras, tracker):
+    def test_produces_image_points(self, cameras, tracker, synced_timestamps):
         """Verify function returns valid ImagePoints with tracked data."""
         # Process a small subset to keep test fast
         image_points = process_synchronized_recording(
             RECORDING_DIR,
             cameras,
             tracker,
+            synced_timestamps,
             subsample=50,  # Only process every 50th frame for speed
         )
 
@@ -67,13 +75,14 @@ class TestProcessSynchronizedRecording:
         cam_ids_in_data = image_points.df["cam_id"].unique()
         assert len(cam_ids_in_data) > 1
 
-    def test_subsample_reduces_processed_frames(self, cameras, tracker):
+    def test_subsample_reduces_processed_frames(self, cameras, tracker, synced_timestamps):
         """Verify subsample parameter reduces frames processed proportionally."""
         # Process every 50th frame (fast)
         all_50 = process_synchronized_recording(
             RECORDING_DIR,
             cameras,
             tracker,
+            synced_timestamps,
             subsample=50,
         )
 
@@ -82,6 +91,7 @@ class TestProcessSynchronizedRecording:
             RECORDING_DIR,
             cameras,
             tracker,
+            synced_timestamps,
             subsample=100,
         )
 
@@ -93,7 +103,7 @@ class TestProcessSynchronizedRecording:
         assert syncs_50 >= syncs_100
         assert syncs_50 <= syncs_100 * 2 + 5  # Allow small margin
 
-    def test_progress_callback_invoked(self, cameras, tracker):
+    def test_progress_callback_invoked(self, cameras, tracker, synced_timestamps):
         """Verify progress callback is called during processing."""
         progress_calls: list[tuple[int, int]] = []
 
@@ -104,6 +114,7 @@ class TestProcessSynchronizedRecording:
             RECORDING_DIR,
             cameras,
             tracker,
+            synced_timestamps,
             subsample=100,  # Fast
             on_progress=on_progress,
         )
@@ -122,7 +133,7 @@ class TestProcessSynchronizedRecording:
         last_current, last_total = progress_calls[-1]
         assert last_current == last_total
 
-    def test_frame_data_callback_invoked(self, cameras, tracker):
+    def test_frame_data_callback_invoked(self, cameras, tracker, synced_timestamps):
         """Verify frame_data callback receives frame data for each sync index."""
         frame_data_calls: list[tuple[int, dict[int, FrameData]]] = []
 
@@ -133,6 +144,7 @@ class TestProcessSynchronizedRecording:
             RECORDING_DIR,
             cameras,
             tracker,
+            synced_timestamps,
             subsample=100,  # Fast
             on_frame_data=on_frame_data,
         )
@@ -155,7 +167,7 @@ class TestProcessSynchronizedRecording:
 class TestCancellation:
     """Tests for cancellation support."""
 
-    def test_cancellation_stops_processing(self, cameras, tracker):
+    def test_cancellation_stops_processing(self, cameras, tracker, synced_timestamps):
         """Verify CancellationToken stops processing gracefully."""
         token = CancellationToken()
         frames_seen: list[int] = []
@@ -169,6 +181,7 @@ class TestCancellation:
             RECORDING_DIR,
             cameras,
             tracker,
+            synced_timestamps,
             subsample=10,  # Process more frames to see cancellation
             on_frame_data=on_frame_data,
             token=token,
@@ -206,6 +219,7 @@ if __name__ == "__main__":
     cams = camera_array.cameras
     charuco = persistence.load_charuco(TEST_SESSION / "charuco.toml")
     trk = CharucoTracker(charuco)
+    synced = SynchronizedTimestamps.from_csv(RECORDING_DIR)
 
     # Run a basic test
     print("Testing process_synchronized_recording...")
@@ -213,6 +227,7 @@ if __name__ == "__main__":
         RECORDING_DIR,
         cams,
         trk,
+        synced,
         subsample=50,
     )
     print(f"Found {len(image_points.df)} point observations")

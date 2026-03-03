@@ -1,7 +1,7 @@
 """Batch processing of synchronized multi-camera video.
 
 Pure function that extracts 2D landmarks from synchronized video streams.
-Uses batch synchronization from timestamps.csv — no real-time streaming.
+Uses batch synchronization from SynchronizedTimestamps -- no real-time streaming.
 """
 
 import logging
@@ -17,7 +17,7 @@ from caliscope.cameras.camera_array import CameraData
 from caliscope.core.point_data import ImagePoints
 from caliscope.packets import PointPacket
 from caliscope.recording.frame_source import FrameSource
-from caliscope.recording.frame_sync import compute_sync_indices
+from caliscope.recording.synchronized_timestamps import SynchronizedTimestamps
 from caliscope.task_manager.cancellation import CancellationToken
 from caliscope.tracker import Tracker
 
@@ -37,6 +37,7 @@ def process_synchronized_recording(
     recording_dir: Path,
     cameras: dict[int, CameraData],
     tracker: Tracker,
+    synced_timestamps: SynchronizedTimestamps,
     *,
     subsample: int = 1,
     on_progress: Callable[[int, int], None] | None = None,
@@ -45,13 +46,14 @@ def process_synchronized_recording(
 ) -> ImagePoints:
     """Process synchronized video recordings to extract 2D landmarks.
 
-    Reads timestamps.csv to determine frame alignment, then processes
-    each sync index by seeking directly to aligned frames.
+    Uses SynchronizedTimestamps for frame alignment, then processes each
+    sync index by seeking directly to aligned frames.
 
     Args:
-        recording_dir: Directory containing cam_N.mp4 and timestamps.csv
+        recording_dir: Directory containing cam_N.mp4 files
         cameras: Camera data by cam_id (provides rotation_count for frame orientation)
         tracker: Tracker for 2D point extraction (handles per-cam_id state internally)
+        synced_timestamps: Pre-constructed timestamp alignment object
         subsample: Process every Nth sync index (1 = all, 10 = every 10th)
         on_progress: Called with (current, total) during processing
         on_frame_data: Called with (sync_index, {cam_id: FrameData}) for live display
@@ -60,45 +62,33 @@ def process_synchronized_recording(
     Returns:
         ImagePoints containing all tracked 2D observations
     """
-    # Load frame timestamps and compute sync assignments
-    timestamps_csv = recording_dir / "timestamps.csv"
-    sync_map = compute_sync_indices(timestamps_csv)
+    all_sync_indices = synced_timestamps.sync_indices[::subsample]
+    total = len(all_sync_indices)
 
-    # Load frame_time data for enriching output
-    timestamps_df = pd.read_csv(timestamps_csv)
-    frame_times = _build_frame_time_lookup(timestamps_df)
+    logger.info(
+        f"Processing {total} sync indices "
+        f"(subsample={subsample}, total available={len(synced_timestamps.sync_indices)})"
+    )
 
-    # Get sync indices to process (with subsampling)
-    all_sync_indices = sorted(sync_map.keys())
-    sync_indices_to_process = all_sync_indices[::subsample]
-    total = len(sync_indices_to_process)
-
-    logger.info(f"Processing {total} sync indices (subsample={subsample}, total available={len(all_sync_indices)})")
-
-    # Create frame sources (one per camera, for seeking)
     frame_sources = _create_frame_sources(recording_dir, cameras)
-
-    # Point accumulation
     point_rows: list[dict] = []
 
     try:
-        for i, sync_index in enumerate(sync_indices_to_process):
-            # Check cancellation
+        for i, sync_index in enumerate(all_sync_indices):
             if token is not None and token.is_cancelled:
                 logger.info("Processing cancelled")
                 break
 
-            # Read and track frames for this sync index
             frame_data: dict[int, FrameData] = {}
-            cam_id_assignments = sync_map[sync_index]
 
-            for cam_id, frame_index in cam_id_assignments.items():
+            for cam_id in synced_timestamps.cam_ids:
+                frame_index = synced_timestamps.frame_for(sync_index, cam_id)
+
                 if frame_index is None:
                     logger.debug(f"Dropped frame: sync={sync_index}, cam_id={cam_id}")
                     continue
 
                 if cam_id not in frame_sources:
-                    # Camera in sync_map but not in cameras dict (shouldn't happen)
                     logger.warning(f"cam_id {cam_id} not in cameras dict, skipping")
                     continue
 
@@ -111,15 +101,12 @@ def process_synchronized_recording(
                     )
                     continue
 
-                # Tracker handles per-cam_id state internally via cam_id parameter
                 points = tracker.get_points(frame, cam_id, camera.rotation_count)
                 frame_data[cam_id] = FrameData(frame, points, frame_index)
 
-                # Accumulate points
-                frame_time = frame_times.get((cam_id, frame_index), 0.0)
+                frame_time = synced_timestamps.time_for(cam_id, frame_index)
                 _accumulate_points(point_rows, sync_index, cam_id, frame_index, frame_time, points)
 
-            # Invoke callbacks
             if on_frame_data is not None:
                 on_frame_data(sync_index, frame_data)
             if on_progress is not None:
@@ -182,22 +169,6 @@ def _create_frame_sources(recording_dir: Path, cameras: dict[int, CameraData]) -
     return sources
 
 
-def _build_frame_time_lookup(timestamps_df: pd.DataFrame) -> dict[tuple[int, int], float]:
-    """Build lookup table: (cam_id, frame_index) -> frame_time.
-
-    Frame index is the row number within each cam_id's sequence.
-    """
-    lookup: dict[tuple[int, int], float] = {}
-
-    for cam_id, group in timestamps_df.groupby("cam_id"):
-        sorted_group = group.sort_values("frame_time").reset_index(drop=True)
-        for frame_index, row in sorted_group.iterrows():
-            # frame_index here is actually the integer index from iterrows
-            lookup[(int(cam_id), int(frame_index))] = float(row["frame_time"])  # type: ignore[arg-type]
-
-    return lookup
-
-
 def _accumulate_points(
     point_rows: list[dict],
     sync_index: int,
@@ -214,7 +185,6 @@ def _accumulate_points(
     if point_count == 0:
         return
 
-    # Get obj_loc columns (may be None)
     obj_loc_x, obj_loc_y, obj_loc_z = points.obj_loc_list
 
     for i in range(point_count):
@@ -237,7 +207,6 @@ def _accumulate_points(
 def _build_image_points(point_rows: list[dict]) -> ImagePoints:
     """Construct ImagePoints from accumulated point data."""
     if not point_rows:
-        # Return empty ImagePoints with correct schema
         df = pd.DataFrame(
             columns=[
                 "sync_index",

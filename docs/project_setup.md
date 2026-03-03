@@ -19,7 +19,8 @@ The application monitors these directories and automatically updates when files 
 
 ## Camera Identification
 
-Cameras are identified by integer IDs assigned through your video file naming. Video files must follow the naming convention `cam_N.mp4`, where N is the camera ID (e.g., `cam_0.mp4`, `cam_1.mp4`, `cam_2.mp4`).
+Cameras are identified by integer IDs assigned through your video file naming.
+Video files must follow the naming convention `cam_N.mp4`, where N is the camera ID (e.g., `cam_0.mp4`, `cam_1.mp4`, `cam_2.mp4`).
 
 - Camera IDs can be any non-negative integer
 - Camera IDs do not need to be contiguous (e.g., `cam_0.mp4`, `cam_3.mp4`, `cam_7.mp4` is valid)
@@ -30,7 +31,9 @@ Cameras are identified by integer IDs assigned through your video file naming. V
 
 Intrinsic calibration determines each camera's internal properties (focal length, principal point, lens distortion).
 
-Place one video per camera in `calibration/intrinsic/`. These videos **do not need to be synchronized**. Each video should show a calibration target (Charuco board, chessboard, or ArUco grid) being moved throughout the camera's field of view.
+Place one video per camera in `calibration/intrinsic/`.
+These videos **do not need to be synchronized**.
+Each video should show a calibration target (Charuco board, chessboard, or ArUco grid) being moved throughout the camera's field of view.
 
 ```
 workspace/
@@ -47,7 +50,8 @@ After calibration, each camera's intrinsic parameters are stored internally for 
 
 Extrinsic calibration determines the spatial relationship between cameras (their positions and orientations in 3D space).
 
-Place synchronized videos in `calibration/extrinsic/`. All cameras must observe the same physical space during the same time period.
+Place synchronized videos in `calibration/extrinsic/`.
+All cameras must observe the same physical space during the same time period.
 
 ```
 workspace/
@@ -61,11 +65,19 @@ workspace/
 
 ### Frame Synchronization
 
-Caliscope needs to know which frames across cameras correspond to the same moment in time. There are two ways to provide this information:
+Caliscope needs to know which frames across cameras correspond to the same moment in time.
 
-**If you have per-frame timestamps**, place a `timestamps.csv` file in the recording directory. This is the most accurate option. It handles cameras with different frame rates, dropped frames, and different start times.
+**If you have per-frame timestamps**, place a `timestamps.csv` file in the recording directory.
+This handles cameras with different frame rates, dropped frames, and different start/stop times.
 
-**If you don't have per-frame timestamps**, Caliscope infers timing from the video files themselves. This works when all cameras recorded at the same frame rate and captured a similar number of frames (e.g., videos that were trimmed to the same length in editing software). Caliscope saves its assumptions as `inferred_timestamps.csv` in the recording directory so you can inspect them.
+**If you don't have per-frame timestamps**, leave out `timestamps.csv` and Caliscope will infer timing from the video files.
+It reads each video's frame count and frame rate, then spaces each camera's frames evenly across a shared average duration.
+The inferred frame times are saved to `inferred_timestamps.csv` for inspection.
+Hardware synchronization will result in the same number of frames in each file which Caliscope synchronizes exactly.
+In the absence of hardware synchronization, ensure that the files start and stop at the same moment in time.
+The inferred timestamp approach will attempt to time align these files even in the presence of mild drift in frame rate.
+
+Misalignment of the start or stop frames along with drift in the actual recording will impact the time alignment.
 
 ### `timestamps.csv` Format
 
@@ -103,7 +115,7 @@ workspace/
         ├── cam_1.mp4
         ├── cam_2.mp4
         ├── timestamps.csv           # If per-frame timing was provided
-        ├── inferred_timestamps.csv  # Written by Caliscope when no timestamps.csv exists
+        ├── inferred_timestamps.csv  # Caliscope's timing assumptions when no timestamps.csv provided (not read back)
         ├── CHARUCO/                 # Extraction output (tracker name varies)
         │   └── image_points.csv
         └── capture_volume/          # Calibration result
@@ -116,7 +128,8 @@ The `capture_volume/` directory contains the complete calibrated camera system a
 
 ## Stage 3: Recording and Reconstruction
 
-For each motion capture session, create a subfolder within `recordings/` and populate it with synchronized videos. The same synchronization rules apply: provide a `timestamps.csv` if you have per-frame timing, otherwise Caliscope infers from video metadata.
+For each motion capture session, create a subfolder within `recordings/` and populate it with synchronized videos.
+The same synchronization rules apply: provide a `timestamps.csv` if you have per-frame timing, or Caliscope infers from the video files (see [Frame Synchronization](#frame-synchronization)).
 
 ```
 workspace/
@@ -128,7 +141,7 @@ workspace/
         └── timestamps.csv          # Optional: same format as extrinsic
 ```
 
-After processing with a motion tracking system (e.g., POSE, HAND, HOLISTIC), output files are created in a tracker-named subdirectory:
+After processing with a motion tracking system, output files are created in a tracker-named subdirectory:
 
 ```
 workspace/

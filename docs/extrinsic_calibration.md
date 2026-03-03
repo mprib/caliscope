@@ -17,7 +17,7 @@ See [Calibration Targets](calibration_targets.md) for detailed information on ea
 
 ### 1. Recording and File Setup
 
-Save synchronized videos to `project_root/calibration/extrinsic/` according to the naming convention outlined in [Project Setup](project_setup.md#stage-2-extrinsic-calibration). If you have per-frame timestamps, include a [`timestamps.csv`](project_setup.md#timestampscsv-format) file. Otherwise, Caliscope infers timing from video metadata (see [Frame Synchronization](project_setup.md#frame-synchronization)).
+Save synchronized videos to `project_root/calibration/extrinsic/` according to the naming convention outlined in [Project Setup](project_setup.md#stage-2-extrinsic-calibration). If you have per-frame timestamps, include a [`timestamps.csv`](project_setup.md#timestampscsv-format) file. Otherwise, Caliscope infers timing from the video files (see [Frame Synchronization](project_setup.md#frame-synchronization)).
 
 ### 2. Extraction
 

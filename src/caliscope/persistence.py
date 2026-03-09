@@ -1,4 +1,5 @@
 import logging
+import os
 from pathlib import Path
 from typing import Any
 import cv2
@@ -25,6 +26,31 @@ class PersistenceError(Exception):
 
 
 CSV_FLOAT_PRECISION = "%.6f"  # 6 decimal places = micron precision at meter scale
+
+
+def _safe_write_csv(df: pd.DataFrame, path: Path, **kwargs: Any) -> None:
+    """Write CSV via temp file with fsync to prevent data loss on crash.
+
+    NTFS journals metadata but not data by default. A crash between file
+    allocation and data flush produces null bytes in the output. Writing to
+    a temp file, fsyncing, then atomically renaming avoids this.
+    """
+    tmp_path = path.with_suffix(path.suffix + ".tmp")
+    with open(tmp_path, "w", newline="", encoding="utf-8") as f:
+        df.to_csv(f, **kwargs)
+        f.flush()
+        os.fsync(f.fileno())
+    os.replace(tmp_path, path)
+
+
+def _safe_write_toml(data: dict, path: Path) -> None:
+    """Write TOML via temp file with fsync to prevent data loss on crash."""
+    tmp_path = path.with_suffix(path.suffix + ".tmp")
+    with open(tmp_path, "w", encoding="utf-8") as f:
+        rtoml.dump(data, f)
+        f.flush()
+        os.fsync(f.fileno())
+    os.replace(tmp_path, path)
 
 
 def _clean_scalar(value: Any) -> Any:
@@ -75,7 +101,7 @@ def _list_to_array(lst: Any, dtype: type[np.generic] = np.float64) -> np.ndarray
 
 def _write_toml(data: dict, path: Path) -> None:
     """
-    Write TOML file directly with error handling.
+    Write TOML file with error handling.
 
     Args:
         data: Dictionary to serialize
@@ -85,8 +111,7 @@ def _write_toml(data: dict, path: Path) -> None:
         PersistenceError: If write fails
     """
     try:
-        with open(path, "w") as f:
-            rtoml.dump(data, f)
+        _safe_write_toml(data, path)
     except Exception as e:
         raise PersistenceError(f"Failed to write {path}: {e}") from e
 
@@ -631,7 +656,7 @@ def save_image_points_csv(image_points: ImagePoints, path: Path) -> None:
         validated_df: pd.DataFrame = ImagePointSchema.validate(image_points.df)
         # Ensure parent directory exists
         path.parent.mkdir(parents=True, exist_ok=True)
-        validated_df.to_csv(path, index=False, float_format=CSV_FLOAT_PRECISION)
+        _safe_write_csv(validated_df, path, index=False, float_format=CSV_FLOAT_PRECISION)
     except Exception as e:
         raise PersistenceError(f"Failed to save image points to {path}: {e}") from e
 
@@ -678,10 +703,9 @@ def save_world_points_csv(world_points: WorldPoints, path: Path) -> None:
     try:
         # Validate before saving to ensure data consistency
         validated_df: pd.DataFrame = WorldPointSchema.validate(world_points.df)
-        # Ensure parent directory exists (atomic file operations)
+        # Ensure parent directory exists
         path.parent.mkdir(parents=True, exist_ok=True)
-        # Use consistent float precision for reproducibility
-        validated_df.to_csv(path, index=False, float_format=CSV_FLOAT_PRECISION)
+        _safe_write_csv(validated_df, path, index=False, float_format=CSV_FLOAT_PRECISION)
     except Exception as e:
         raise PersistenceError(f"Failed to save world points to {path}: {e}") from e
 

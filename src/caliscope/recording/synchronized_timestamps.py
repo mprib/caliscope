@@ -210,7 +210,7 @@ class SynchronizedTimestamps:
             frame_count = props["frame_count"]
             fps = props["fps"]
 
-            if frame_count == 0:
+            if frame_count <= 0:
                 raise ValueError(f"Could not determine frame count for cam_{cam_id}")
 
             if fps <= 0:

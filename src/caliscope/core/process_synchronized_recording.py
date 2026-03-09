@@ -125,7 +125,9 @@ def get_initial_thumbnails(
 ) -> dict[int, NDArray[np.uint8]]:
     """Extract first frame from each camera for thumbnail display.
 
-    Uses same FrameSource mechanism as processing, just reads frame 0.
+    Opens each video briefly with PyAV to decode the first frame,
+    then closes immediately. No keyframe scanning or frame index
+    construction -- much faster than FrameSource for this use case.
 
     Args:
         recording_dir: Directory containing cam_N.mp4 files
@@ -134,22 +136,29 @@ def get_initial_thumbnails(
     Returns:
         Mapping of cam_id -> first frame (BGR image)
     """
+    import av
+
     thumbnails: dict[int, NDArray[np.uint8]] = {}
 
     for cam_id in cameras:
-        try:
-            source = FrameSource(recording_dir, cam_id)
-            frame = source.get_frame(0)
-            source.close()
-
-            if frame is not None:
-                thumbnails[cam_id] = frame
-            else:
-                logger.warning(f"Could not read first frame for cam_id {cam_id}")
-        except FileNotFoundError:
+        video_path = recording_dir / f"cam_{cam_id}.mp4"
+        if not video_path.exists():
             logger.warning(f"Video file not found for cam_id {cam_id}")
-        except ValueError as e:
-            logger.warning(f"Error opening video for cam_id {cam_id}: {e}")
+            continue
+
+        try:
+            container = av.open(str(video_path))
+            try:
+                stream = container.streams.video[0]
+                for frame in container.decode(stream):
+                    # bgr24 always produces uint8; PyAV stubs don't narrow the type
+                    arr: NDArray[np.uint8] = frame.to_ndarray(format="bgr24")  # type: ignore[assignment]
+                    thumbnails[cam_id] = arr
+                    break
+            finally:
+                container.close()
+        except Exception as e:
+            logger.warning(f"Error reading first frame for cam_id {cam_id}: {e}")
 
     return thumbnails
 

@@ -5,6 +5,7 @@ Uses batch synchronization from SynchronizedTimestamps -- no real-time streaming
 """
 
 import logging
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable
@@ -164,18 +165,28 @@ def get_initial_thumbnails(
 
 
 def _create_frame_sources(recording_dir: Path, cameras: dict[int, CameraData]) -> dict[int, FrameSource]:
-    """Create FrameSource for each camera cam_id."""
-    sources: dict[int, FrameSource] = {}
+    """Create FrameSource for each camera cam_id.
 
-    for cam_id in cameras:
+    Each FrameSource runs a keyframe scan on init (I/O-bound), so cameras
+    are initialized in parallel threads.
+    """
+
+    def _init_one(cam_id: int) -> tuple[int, FrameSource | None]:
         try:
-            sources[cam_id] = FrameSource(recording_dir, cam_id)
+            return cam_id, FrameSource(recording_dir, cam_id)
         except FileNotFoundError:
             logger.warning(f"Video file not found for cam_id {cam_id}, skipping")
+            return cam_id, None
         except ValueError as e:
             logger.warning(f"Error opening video for cam_id {cam_id}: {e}")
+            return cam_id, None
 
-    return sources
+    cam_ids = list(cameras.keys())
+
+    with ThreadPoolExecutor(max_workers=len(cam_ids)) as pool:
+        results = pool.map(_init_one, cam_ids)
+
+    return {cam_id: source for cam_id, source in results if source is not None}
 
 
 def _accumulate_points(

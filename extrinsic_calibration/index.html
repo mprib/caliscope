@@ -1,0 +1,1303 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="GUI-based multicamera calibration and 3D motion capture for researchers">
+      
+      
+      
+        <link rel="canonical" href="https://mprib.github.io/caliscope/extrinsic_calibration/">
+      
+      
+        <link rel="prev" href="../intrinsic_calibration/">
+      
+      
+        <link rel="next" href="../reconstruction/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../images/box3d-center.svg">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.4">
+    
+    
+      
+        <title>Extrinsic Calibration - Caliscope</title>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="blue" data-md-color-accent="green">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#capture-volume-extrinsic-calibration" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href=".." title="Caliscope" class="md-header__button md-logo" aria-label="Caliscope" data-md-component="logo">
+      
+  <img src="../images/box3d-center.svg" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Caliscope
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Extrinsic Calibration
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="blue" data-md-color-accent="green"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M17 6H7c-3.31 0-6 2.69-6 6s2.69 6 6 6h10c3.31 0 6-2.69 6-6s-2.69-6-6-6m0 10H7c-2.21 0-4-1.79-4-4s1.79-4 4-4h10c2.21 0 4 1.79 4 4s-1.79 4-4 4M7 9c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="blue" data-md-color-accent="green"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M17 7H7a5 5 0 0 0-5 5 5 5 0 0 0 5 5h10a5 5 0 0 0 5-5 5 5 0 0 0-5-5m0 8a3 3 0 0 1-3-3 3 3 0 0 1 3-3 3 3 0 0 1 3 3 3 3 0 0 1-3 3"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/mprib/caliscope" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    caliscope
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href=".." title="Caliscope" class="md-nav__button md-logo" aria-label="Caliscope" data-md-component="logo">
+      
+  <img src="../images/box3d-center.svg" alt="logo">
+
+    </a>
+    Caliscope
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/mprib/caliscope" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    caliscope
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href=".." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../installation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Installation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting Started
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Getting Started
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../project_setup/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Project Setup
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../sample_project/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Sample Project
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Calibration
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Calibration
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../calibration_targets/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Calibration Targets
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../intrinsic_calibration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Intrinsic Calibration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Extrinsic Calibration
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Extrinsic Calibration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#supported-calibration-targets" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Supported Calibration Targets
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#workflow" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Workflow
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Workflow">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#1-recording-and-file-setup" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. Recording and File Setup
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#2-extraction" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Extraction
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#3-initial-camera-positions-from-pairwise-estimation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. Initial Camera Positions from Pairwise Estimation
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#4-bundle-adjustment" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. Bundle Adjustment
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#5-filter-and-re-optimize" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5. Filter and Re-optimize
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#6-origin-setting" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6. Origin Setting
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#7-rotation-controls" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7. Rotation Controls
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#8-quality-metrics" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        8. Quality Metrics
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#practical-recording-guidelines" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Practical Recording Guidelines
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Practical Recording Guidelines">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#coverage-and-overlap" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Coverage and Overlap
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#board-size" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Board Size
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#motion-blur" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Motion Blur
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#focus" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Focus
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#origin-frame" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Origin Frame
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Reconstruction
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Reconstruction
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reconstruction/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tracking & Triangulation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../onnx_trackers/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Custom ONNX Trackers
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#supported-calibration-targets" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Supported Calibration Targets
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#workflow" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Workflow
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Workflow">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#1-recording-and-file-setup" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. Recording and File Setup
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#2-extraction" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Extraction
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#3-initial-camera-positions-from-pairwise-estimation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. Initial Camera Positions from Pairwise Estimation
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#4-bundle-adjustment" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. Bundle Adjustment
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#5-filter-and-re-optimize" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5. Filter and Re-optimize
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#6-origin-setting" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6. Origin Setting
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#7-rotation-controls" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7. Rotation Controls
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#8-quality-metrics" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        8. Quality Metrics
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#practical-recording-guidelines" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Practical Recording Guidelines
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Practical Recording Guidelines">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#coverage-and-overlap" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Coverage and Overlap
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#board-size" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Board Size
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#motion-blur" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Motion Blur
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#focus" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Focus
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#origin-frame" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Origin Frame
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="capture-volume-extrinsic-calibration">Capture Volume: Extrinsic Calibration<a class="headerlink" href="#capture-volume-extrinsic-calibration" title="Permanent link">&para;</a></h1>
+<p>Extrinsic calibration determines the position and orientation of every camera in a common 3D coordinate frame. This process requires synchronized video of a calibration target visible to multiple cameras. Once complete, the calibrated camera array enables 3D triangulation of tracked landmarks from multiple camera views.</p>
+<p>Caliscope uses a two-stage approach: first, it estimates relative camera positions from pairs of cameras that share a view of the calibration target; second, bundle adjustment simultaneously refines all camera positions and 3D point estimates to minimize reprojection error.</p>
+<h2 id="supported-calibration-targets">Supported Calibration Targets<a class="headerlink" href="#supported-calibration-targets" title="Permanent link">&para;</a></h2>
+<p>Caliscope supports two types of calibration targets for extrinsic calibration:</p>
+<ul>
+<li><strong>ChArUco Board</strong>: A chessboard pattern with ArUco markers embedded in the black squares. Provides more detection points per frame (all interior corners) and is robust to partial occlusion.</li>
+<li><strong>ArUco Marker</strong>: A single planar marker. Simpler to produce but provides only four corner points per detection.</li>
+</ul>
+<p>See <a href="../calibration_targets/">Calibration Targets</a> for detailed information on each target type, including how to generate and print them.</p>
+<h2 id="workflow">Workflow<a class="headerlink" href="#workflow" title="Permanent link">&para;</a></h2>
+<h3 id="1-recording-and-file-setup">1. Recording and File Setup<a class="headerlink" href="#1-recording-and-file-setup" title="Permanent link">&para;</a></h3>
+<p>Save synchronized videos to <code>project_root/calibration/extrinsic/</code> according to the naming convention outlined in <a href="../project_setup/#stage-2-extrinsic-calibration">Project Setup</a>. If you have per-frame timestamps, include a <a href="../project_setup/#timestampscsv-format"><code>timestamps.csv</code></a> file. Otherwise, Caliscope infers timing from the video files (see <a href="../project_setup/#frame-synchronization">Frame Synchronization</a>).</p>
+<h3 id="2-extraction">2. Extraction<a class="headerlink" href="#2-extraction" title="Permanent link">&para;</a></h3>
+<p>The first processing step is extraction. Select which calibration target type to use (ChArUco or ArUco), then run extraction. Caliscope detects the target in each frame of each camera and records the 2D image locations of detected corners or marker corners.</p>
+<p>The extraction output is saved as <code>image_points.csv</code> in either <code>calibration/extrinsic/CHARUCO/</code> or <code>calibration/extrinsic/ARUCO/</code>, depending on the target type selected.</p>
+<h3 id="3-initial-camera-positions-from-pairwise-estimation">3. Initial Camera Positions from Pairwise Estimation<a class="headerlink" href="#3-initial-camera-positions-from-pairwise-estimation" title="Permanent link">&para;</a></h3>
+<p>After extraction, Caliscope estimates the initial position and orientation of every camera. The calibration target does <strong>not</strong> need to be visible in all cameras simultaneously. Instead:</p>
+<ul>
+<li>For each pair of cameras that both see the target in the same frame, Caliscope estimates their relative position and orientation</li>
+<li>It chains these pairwise relationships together: if the relationship between cameras A and B is known, and the relationship between B and C is known, then A to C can be derived transitively</li>
+<li>This process repeats until all cameras that share any chain of connections have estimated positions</li>
+</ul>
+<p>This means you can calibrate surround-view setups where no single position of the target is visible to all cameras at once. The pairwise estimates serve as the starting point for bundle adjustment.</p>
+<h3 id="4-bundle-adjustment">4. Bundle Adjustment<a class="headerlink" href="#4-bundle-adjustment" title="Permanent link">&para;</a></h3>
+<p>Bundle adjustment is a nonlinear least-squares optimization that simultaneously refines all camera positions and all 3D point estimates to minimize reprojection error. Reprojection error is the distance (in pixels) between where a 3D point projects into a camera image using the current camera parameters, versus where the point was actually observed in that image.</p>
+<p>Caliscope uses scipy's optimization routines to solve this large-scale problem, producing the final calibrated camera array. The optimized result is automatically saved to <code>calibration/extrinsic/capture_volume/</code> as three files:</p>
+<ul>
+<li><code>camera_array.toml</code>: Camera intrinsics and extrinsics</li>
+<li><code>image_points.csv</code>: The 2D observations used (potentially filtered)</li>
+<li><code>world_points.csv</code>: The triangulated 3D points</li>
+</ul>
+<p>These three files together form a complete snapshot of the calibrated capture volume.</p>
+<p>An aniposelib-compatible version of the camera parameters is also written as <code>camera_array_aniposelib.toml</code> in the same directory. Tools that consume the aniposelib calibration format, such as <a href="https://github.com/perfanalytics/pose2sim">Pose2Sim</a>, can use this file directly.</p>
+<h3 id="5-filter-and-re-optimize">5. Filter and Re-optimize<a class="headerlink" href="#5-filter-and-re-optimize" title="Permanent link">&para;</a></h3>
+<p>The initial calibration pipeline includes a built-in outlier removal pass that removes the worst 2.5% of observations per camera and re-optimizes. After this automatic pass completes, a filter control allows you to apply additional filtering. The default filter threshold also targets the 2.5<sup>th</sup> percentile, applied per camera (not globally). Per-camera filtering ensures that cameras with fewer observations are not disproportionately stripped. Removing additional outliers and re-running bundle adjustment can further improve the calibration result.</p>
+<p>During re-optimization, the calibration controls remain visible but are disabled. Once re-optimization completes, the controls re-enable and the updated results are displayed.</p>
+<h3 id="6-origin-setting">6. Origin Setting<a class="headerlink" href="#6-origin-setting" title="Permanent link">&para;</a></h3>
+<p>After calibration, you can choose a frame where the calibration target is positioned at the desired world origin. Caliscope applies a similarity transformation (using the Umeyama algorithm) that includes rotation, translation, and scale refinement to align the coordinate frame with the board's position in the selected frame.</p>
+<p><strong>Setting the origin enables volumetric scale accuracy metrics</strong> (see Quality Metrics below). It also establishes the world coordinate frame in a physically meaningful location, such as the floor of your capture volume.</p>
+<h3 id="7-rotation-controls">7. Rotation Controls<a class="headerlink" href="#7-rotation-controls" title="Permanent link">&para;</a></h3>
+<p>After setting the origin, 90-degree rotation buttons allow you to align the coordinate axes with your lab conventions. For example, you may want Y-up versus Z-up, or you may want to rotate the axes to match the layout of your room or experimental apparatus.</p>
+<h3 id="8-quality-metrics">8. Quality Metrics<a class="headerlink" href="#8-quality-metrics" title="Permanent link">&para;</a></h3>
+<p>Once the origin is set, Caliscope computes volumetric scale accuracy metrics:</p>
+<p><strong>Pooled RMSE (in mm)</strong>: This is the root-mean-square error of pairwise distances between reconstructed board corners, compared to the known board geometry. It measures how accurately the 3D reconstruction preserves physical scale.</p>
+<p>Interpretation guidelines:
+- <strong>Good</strong>: &lt; 2mm
+- <strong>Acceptable</strong>: 2-5mm
+- <strong>Concerning</strong>: &gt; 5mm</p>
+<p><strong>Sparkline</strong>: A small inline chart showing per-frame scale accuracy across the entire calibration sequence. This allows you to quickly identify frames with particularly high or low accuracy.</p>
+<p><strong>Bias interpretation</strong>: The scale error can reveal systematic biases:
+- If errors are consistently positive (reconstructed distances larger than known distances), the entered board size may be slightly too small
+- If errors are consistently negative (reconstructed distances smaller than known distances), the entered board size may be too large</p>
+<p>This helps catch measurement errors in the board dimensions you entered during setup.</p>
+<h2 id="practical-recording-guidelines">Practical Recording Guidelines<a class="headerlink" href="#practical-recording-guidelines" title="Permanent link">&para;</a></h2>
+<h3 id="coverage-and-overlap">Coverage and Overlap<a class="headerlink" href="#coverage-and-overlap" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Move the calibration target throughout the entire volume where the cameras' fields of view overlap</li>
+<li>Ensure there is sufficient overlap in the fields of view between different cameras</li>
+<li>With pairwise bootstrapping, the target does NOT need to be visible in all cameras at once, but each camera pair must share visibility at some point during the recording</li>
+</ul>
+<h3 id="board-size">Board Size<a class="headerlink" href="#board-size" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Use a board with sufficiently large markers for your capture volume</li>
+<li>Larger ArUco markers can be identified from farther away, enabling calibration of larger capture volumes</li>
+<li>For close-range setups, smaller markers provide higher precision</li>
+</ul>
+<h3 id="motion-blur">Motion Blur<a class="headerlink" href="#motion-blur" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Motion blur can substantially compromise corner detection</li>
+<li>Move the board slowly and smoothly</li>
+<li>Using a higher frame rate can reduce motion blur, but will require more light to maintain good illumination</li>
+</ul>
+<h3 id="focus">Focus<a class="headerlink" href="#focus" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Use manual focus if available to keep focus consistent throughout the recording</li>
+<li>Auto-focus can introduce inconsistencies as the board moves through the scene</li>
+</ul>
+<h3 id="origin-frame">Origin Frame<a class="headerlink" href="#origin-frame" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Setting the board origin is for convenience and not a strict requirement</li>
+<li>To use the board for origin setting, place it at the desired world origin position (e.g., touching the floor) in at least one frame</li>
+<li>Ensure the board is fully visible in that frame for best results</li>
+</ul>
+
+
+
+
+
+
+
+  
+    
+  
+  
+
+
+  <aside class="md-source-file">
+    
+      
+  <span class="md-source-file__fact">
+    <span class="md-icon" title="Last update">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
+    </span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="March 9, 2026 20:27:09 UTC">March 9, 2026</span>
+  </span>
+
+    
+    
+    
+    
+  </aside>
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+    <div class="md-copyright__highlight">
+      &copy; 2026 <a href="https://github.com/mprib"  target="_blank" rel="noopener">Mac Prible</a>
+
+    </div>
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": [], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>

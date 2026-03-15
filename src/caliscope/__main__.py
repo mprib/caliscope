@@ -1,10 +1,4 @@
-# Platform compatibility patches (must run before Qt imports)
-import os
 import sys
-
-# Linux + Wayland: VTK doesn't support native Wayland rendering, force XWayland
-if sys.platform == "linux" and os.environ.get("XDG_SESSION_TYPE") == "wayland":
-    os.environ.setdefault("QT_QPA_PLATFORM", "xcb")
 
 # pyside6-essentials compatibility: qtpy needs PySide6.__version__ which essentials doesn't provide
 import PySide6

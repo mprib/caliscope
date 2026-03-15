@@ -169,7 +169,7 @@ class PlaybackViewModel:
         Crucially, this returns a FIXED SIZE array (N, 3).
         Points missing in this frame are filled with NaN.
         """
-        # Initialize with NaN (invisible in VTK)
+        # Initialize with NaN (invisible — Qt3D moves these off-screen)
         # Shape is (N, 3)
         points_buffer = np.full((self.n_points, 3), np.nan, dtype=np.float32)
 

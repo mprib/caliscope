@@ -1,13 +1,7 @@
 """Top-level package for Caliscope."""
 
-# VTK/PyVista environment configuration
-# Must be set before any Qt or VTK imports
 import os
-import sys
 from pathlib import Path
-
-if sys.platform == "linux" and os.environ.get("XDG_SESSION_TYPE") == "wayland":
-    os.environ.setdefault("QT_QPA_PLATFORM", "xcb")
 
 os.environ.setdefault("QT_API", "pyside6")
 

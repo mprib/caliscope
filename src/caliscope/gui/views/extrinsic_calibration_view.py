@@ -38,7 +38,7 @@ from caliscope.gui.presenters.extrinsic_calibration_presenter import (
 from caliscope.gui.theme import Styles
 from caliscope.gui.view_models.playback_view_model import PlaybackViewModel
 from caliscope.gui.widgets.coverage_heatmap import CoverageHeatmapWidget
-from caliscope.gui.widgets.playback_viz_widget import PlaybackVizWidget
+from caliscope.gui.widgets.qt3d_playback_widget import Qt3DPlaybackWidget
 from caliscope.gui.widgets.quality_panel import QualityPanel
 from caliscope.gui.widgets.scale_detail_dialog import ScaleDetailDialog
 from caliscope.gui.widgets.scale_sparkline import ScaleSparkline
@@ -75,10 +75,7 @@ class ExtrinsicCalibrationView(QWidget):
         super().__init__(parent)
         self._presenter = presenter
 
-        # Lazy-init: created on first view model update WHEN VISIBLE
-        # This prevents VTK OpenGL context issues when tab starts disabled
-        self._pyvista_widget: PlaybackVizWidget | None = None
-        self._pending_view_model: PlaybackViewModel | None = None
+        self._viz_widget: Qt3DPlaybackWidget | None = None
 
         # Valid sync indices for frame navigation (sparse data support)
         # Slider position = index into this array, not the actual sync_index
@@ -118,7 +115,7 @@ class ExtrinsicCalibrationView(QWidget):
         viz_layout.setSpacing(0)
         self._viz_layout = viz_layout
 
-        # Placeholder shown until PyVista widget is created
+        # Placeholder shown until visualization widget is created
         self._viz_placeholder = QLabel("Run calibration to see 3D visualization")
         self._viz_placeholder.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self._viz_placeholder.setStyleSheet(
@@ -564,8 +561,8 @@ class ExtrinsicCalibrationView(QWidget):
 
         actual_sync_index = int(self._valid_sync_indices[value])
 
-        if self._pyvista_widget is not None:
-            self._pyvista_widget.set_sync_index(actual_sync_index)
+        if self._viz_widget is not None:
+            self._viz_widget.set_sync_index(actual_sync_index)
         self._presenter.set_sync_index(actual_sync_index)
         self._sparkline.set_cursor(actual_sync_index)
         if self._scale_detail_dialog is not None:
@@ -652,34 +649,28 @@ class ExtrinsicCalibrationView(QWidget):
 
     def _on_view_model_updated(self, view_model: PlaybackViewModel) -> None:
         """Handle view model update from presenter."""
-        if self._pyvista_widget is None:
-            if self.isVisible():
-                self._create_pyvista_widget(view_model)
-            else:
-                logger.debug("Deferring PyVista widget creation until tab is visible")
-                self._pending_view_model = view_model
+        if self._viz_widget is None:
+            self._create_viz_widget(view_model)
         else:
-            self._pyvista_widget.set_view_model(view_model, preserve_camera=True)
+            self._viz_widget.set_view_model(view_model, preserve_camera=True)
 
         self._update_slider_for_view_model(view_model)
 
-    def _create_pyvista_widget(self, view_model: PlaybackViewModel) -> None:
-        """Create the PyVista widget. Only call when visible."""
-        logger.debug("Creating PyVista widget (tab is visible)")
+    def _create_viz_widget(self, view_model: PlaybackViewModel) -> None:
+        """Create the Qt3D visualization widget."""
+        logger.debug("Creating Qt3D visualization widget")
 
         self._viz_placeholder.hide()
 
-        self._pyvista_widget = PlaybackVizWidget(view_model)
-        self._pyvista_widget.show_playback_controls(False)
-        self._viz_layout.insertWidget(0, self._pyvista_widget)
-        self._viz_layout.setStretchFactor(self._pyvista_widget, 1)
+        self._viz_widget = Qt3DPlaybackWidget(view_model)
+        self._viz_widget.show_playback_controls(False)
+        self._viz_layout.insertWidget(0, self._viz_widget)
+        self._viz_layout.setStretchFactor(self._viz_widget, 1)
 
         # Give 3D widget more splitter space
         self._splitter.setSizes([750, 250])
         self._splitter.setStretchFactor(0, 4)
         self._splitter.setStretchFactor(1, 1)
-
-        self._pending_view_model = None
 
     def _update_slider_for_view_model(self, view_model: PlaybackViewModel) -> None:
         """Update slider state for the given view model."""
@@ -720,32 +711,27 @@ class ExtrinsicCalibrationView(QWidget):
         self._frame_display.setText(f"{actual_sync_index} / {max_sync_index}")
 
     # -------------------------------------------------------------------------
-    # VTK Lifecycle
+    # Lifecycle
     # -------------------------------------------------------------------------
 
     def showEvent(self, event) -> None:
-        """Handle show event - create deferred PyVista widget if needed."""
         super().showEvent(event)
 
-        if self._pending_view_model is not None and self._pyvista_widget is None:
-            logger.debug("Tab now visible - creating deferred PyVista widget")
-            self._create_pyvista_widget(self._pending_view_model)
-
     def suspend_vtk(self) -> None:
-        """Pause VTK rendering when tab not active."""
-        if self._pyvista_widget is not None:
-            self._pyvista_widget.suspend_vtk()
+        """Pause rendering when tab not active."""
+        if self._viz_widget is not None:
+            self._viz_widget.suspend_vtk()
 
     def resume_vtk(self) -> None:
-        """Resume VTK rendering when tab becomes active."""
-        if self._pyvista_widget is not None:
-            self._pyvista_widget.resume_vtk()
+        """Resume rendering when tab becomes active."""
+        if self._viz_widget is not None:
+            self._viz_widget.resume_vtk()
 
     def cleanup(self) -> None:
         """Explicit cleanup - call before destruction."""
-        if self._pyvista_widget is not None:
-            self._pyvista_widget.close()
-            self._pyvista_widget = None
+        if self._viz_widget is not None:
+            self._viz_widget.close()
+            self._viz_widget = None
         logger.info("ExtrinsicCalibrationView cleaned up")
 
     def closeEvent(self, event) -> None:

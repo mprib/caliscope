@@ -1,7 +1,7 @@
 """Widget for reconstruction workflow (post-processing).
 
 Provides UI for selecting recordings, choosing trackers, and running
-reconstruction to generate 3D trajectories. Visualization via PyVista
+reconstruction to generate 3D trajectories. Visualization via Qt3D
 shows triangulated points when reconstruction completes.
 
 This is a thin MVP widget following the state-driven UI pattern.
@@ -29,7 +29,7 @@ from caliscope.gui.presenters.reconstruction_presenter import (
     ReconstructionState,
 )
 from caliscope.gui.view_models.playback_view_model import PlaybackViewModel
-from caliscope.gui.widgets.playback_viz_widget import PlaybackVizWidget
+from caliscope.gui.widgets.qt3d_playback_widget import Qt3DPlaybackWidget
 from caliscope import MODELS_DIR
 from caliscope.gui.theme import Colors
 from caliscope.trackers import tracker_registry
@@ -51,7 +51,7 @@ class ReconstructionWidget(QWidget):
     ):
         super().__init__(parent)
         self._presenter = presenter
-        self._pyvista_widget: PlaybackVizWidget | None = None
+        self._viz_widget: Qt3DPlaybackWidget | None = None
 
         self._setup_ui()
         self._connect_signals()
@@ -156,9 +156,9 @@ class ReconstructionWidget(QWidget):
         right_layout = QVBoxLayout(right_panel)
         right_layout.setContentsMargins(0, 0, 0, 0)
 
-        # Container for PyVista widget (progressive enhancement: always show cameras)
-        self._pyvista_container = QVBoxLayout()
-        right_layout.addLayout(self._pyvista_container)
+        # Container for 3D visualization widget (progressive enhancement: always show cameras)
+        self._viz_container = QVBoxLayout()
+        right_layout.addLayout(self._viz_container)
 
         splitter.addWidget(right_panel)
 
@@ -391,13 +391,13 @@ class ReconstructionWidget(QWidget):
                 view_model = PlaybackViewModel.from_camera_array_only(camera_array)
 
             # Create or update widget
-            if self._pyvista_widget is None:
-                self._pyvista_widget = PlaybackVizWidget(view_model)
-                self._pyvista_container.addWidget(self._pyvista_widget)
+            if self._viz_widget is None:
+                self._viz_widget = Qt3DPlaybackWidget(view_model)
+                self._viz_container.addWidget(self._viz_widget)
             else:
-                self._pyvista_widget.set_view_model(view_model)
+                self._viz_widget.set_view_model(view_model)
 
-            self._pyvista_widget.show()
+            self._viz_widget.show()
 
         except Exception as e:
             logger.error(f"Failed to create visualization: {e}")
@@ -441,19 +441,19 @@ class ReconstructionWidget(QWidget):
 
     def cleanup(self) -> None:
         """Explicit cleanup - call before destruction."""
-        if self._pyvista_widget is not None:
-            self._pyvista_widget.close()
-            self._pyvista_widget = None
+        if self._viz_widget is not None:
+            self._viz_widget.close()
+            self._viz_widget = None
 
     def suspend_vtk(self) -> None:
         """Pause VTK rendering when widget is not active."""
-        if self._pyvista_widget is not None:
-            self._pyvista_widget.suspend_vtk()
+        if self._viz_widget is not None:
+            self._viz_widget.suspend_vtk()
 
     def resume_vtk(self) -> None:
         """Resume VTK rendering when widget becomes active."""
-        if self._pyvista_widget is not None:
-            self._pyvista_widget.resume_vtk()
+        if self._viz_widget is not None:
+            self._viz_widget.resume_vtk()
 
     def closeEvent(self, event) -> None:
         """Handle close event."""

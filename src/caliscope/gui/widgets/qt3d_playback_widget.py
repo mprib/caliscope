@@ -12,10 +12,11 @@ with playback controls for play/pause, looping, speed adjustment, and frame scru
 from __future__ import annotations
 
 import logging
+import math
 from typing import cast
 
 import numpy as np
-from PySide6.QtCore import QEvent, QObject, Qt, QTimer
+from PySide6.QtCore import QEvent, QObject, Qt, QTimer, Signal
 from PySide6.QtGui import QColor, QIcon, QImage, QMouseEvent, QVector3D, QWheelEvent
 from PySide6.QtWidgets import (
     QCheckBox,
@@ -61,25 +62,34 @@ class Qt3DPlaybackWidget(QWidget):
     - Play/pause animation with configurable speed (0.1x to 3.0x)
     - Loop toggle for continuous playback
     - Frame slider for manual scrubbing
-    - Camera label visibility toggle (overlay stub, deferred)
+    - Adjustable camera frustum size and floor grid size via sliders
     - QRenderCapture-based screenshot support
 
     Note: Inherits from QWidget (not QMainWindow) so it can be embedded in layouts.
     """
 
-    # Default camera frustum scale for production scenes (meters, small scale)
-    DEFAULT_CAMERA_SCALE = 0.0002
+    camera_size_multiplier_changed = Signal(float)
+    grid_size_multiplier_changed = Signal(float)
 
     def __init__(
         self,
         view_model: PlaybackViewModel,
         parent: QWidget | None = None,
         camera_scale: float | None = None,
+        camera_size_multiplier: float = 1.0,
+        grid_size_multiplier: float = 1.0,
     ):
         super().__init__(parent)
 
         self.view_model = view_model
-        self._camera_scale = camera_scale if camera_scale is not None else self.DEFAULT_CAMERA_SCALE
+        # If caller provides an explicit scale, use it (e.g., synthetic tests).
+        # Otherwise, computed adaptively from scene extent in _set_adaptive_camera().
+        self._camera_scale_override = camera_scale
+        self._camera_scale: float = 0.0  # Set by _set_adaptive_camera or override
+        self._default_camera_scale: float = 0.0  # Adaptive baseline (slider 1.0x)
+        self._default_grid_size: float = 5.0  # Adaptive baseline (slider 1.0x)
+        self._camera_scale_multiplier: float = camera_size_multiplier  # Current slider multiplier
+        self._grid_size_multiplier: float = grid_size_multiplier  # Current slider multiplier
         self.sync_index: int = self.view_model.min_index
 
         # UI state
@@ -93,6 +103,32 @@ class Qt3DPlaybackWidget(QWidget):
         self._wire_entity: Qt3DCore.QEntity | None = None
         self._wire_buffer: Qt3DCore.QBuffer | None = None
         self._wire_indices: np.ndarray | None = None
+
+        # Container entities for selective rebuilding — cameras and grid can be
+        # rebuilt independently when their slider changes, without touching the
+        # dynamic point cloud or each other.
+        self._camera_container: Qt3DCore.QEntity | None = None
+        self._grid_container: Qt3DCore.QEntity | None = None
+
+        # Python reference lists for all Qt3D entities.
+        # PySide6's shiboken wrapper garbage-collects Python objects even when
+        # the underlying C++ QObject has a Qt parent. Without Python references,
+        # entities created in helper functions (build_origin_axes, build_floor_grid,
+        # create_double_sided_mesh) get collected, corrupting the scene graph
+        # that Qt3D's render thread is traversing → segfault.
+        self._owned_entities: list[Qt3DCore.QEntity] = []
+
+        # Debounce timers for slider-driven geometry rebuilds.
+        # Without debouncing, dragging a slider fires valueChanged on every
+        # pixel of movement, triggering ~10-20 full geometry rebuilds per drag.
+        self._cam_rebuild_timer = QTimer(self)
+        self._cam_rebuild_timer.setSingleShot(True)
+        self._cam_rebuild_timer.setInterval(50)
+        self._cam_rebuild_timer.timeout.connect(self._create_camera_geometry)
+        self._grid_rebuild_timer = QTimer(self)
+        self._grid_rebuild_timer.setSingleShot(True)
+        self._grid_rebuild_timer.setInterval(50)
+        self._grid_rebuild_timer.timeout.connect(self._create_grid_geometry)
 
         # Label anchor positions for future 2D overlay
         self._label_anchors: list | None = None
@@ -129,9 +165,14 @@ class Qt3DPlaybackWidget(QWidget):
         container = QWidget.createWindowContainer(self._view, self)
         main_layout.addWidget(container, stretch=1)
 
-        # --- Controls bar ---
-        self._control_bar = self._create_controls()
-        main_layout.addWidget(self._control_bar)
+        # --- Controls bars ---
+        # Playback and appearance are separate widgets so that
+        # show_playback_controls(False) can hide play/pause/slider
+        # without hiding the camera-size / grid-size sliders.
+        self._playback_bar = self._create_playback_controls()
+        self._appearance_bar = self._create_appearance_controls()
+        main_layout.addWidget(self._playback_bar)
+        main_layout.addWidget(self._appearance_bar)
 
         # --- Scene setup ---
         # Root entity is created once and set once. setRootEntity() is a one-shot
@@ -151,8 +192,12 @@ class Qt3DPlaybackWidget(QWidget):
         """Build a fresh scene container under the permanent root entity.
 
         If an old scene container exists, it is disabled immediately (safe for
-        the render thread — setEnabled is a batched property change) and then
-        scheduled for deletion on the next event loop cycle.
+        the render thread — setEnabled is a batched property change).
+
+        Camera and grid containers are created once per scene and reused across
+        slider rebuilds. This prevents disabled container accumulation in the
+        scene graph, which causes Qt3D's render aspect to intermittently drop
+        geometry when iterating large numbers of disabled siblings.
         """
         # Retire old scene: disable for immediate visual removal.
         # We intentionally do NOT detach or delete the old scene entity.
@@ -160,18 +205,40 @@ class Qt3DPlaybackWidget(QWidget):
         # or deleteLater() on entities the engine manages causes use-after-free
         # in PySide6 (the C++ object is destroyed but Python holds a dangling ref).
         # setEnabled(False) is a safe batched property change that hides the old
-        # scene from rendering. For our scene sizes (~50 entities per rebuild,
-        # ~5 rebuilds per session), the retained disabled subtrees are negligible.
+        # scene from rendering.
         if self._scene is not None:
             self._scene.setEnabled(False)
 
         # Build new scene as child of root — Qt3D adds it to the render tree
         # automatically when we set its parent
         self._scene = Qt3DCore.QEntity(self._root)
+
+        # Create persistent containers for camera and grid geometry.
+        # These are reused (children cleared) on slider rebuilds rather than
+        # being replaced. This keeps the scene graph flat and avoids the
+        # disabled-entity accumulation that causes intermittent render drops.
+        self._camera_container = Qt3DCore.QEntity(self._scene)
+        self._grid_container = Qt3DCore.QEntity(self._scene)
+
+        # Clear Python reference list — old scene is disabled, so old refs
+        # can be released safely (render thread won't access disabled subtrees).
+        self._owned_entities.clear()
+
         self._setup_camera()
-        self._create_static_geometry()
+        self._create_camera_geometry()
+        self._create_grid_geometry()
+        self._owned_entities.extend(build_origin_axes(self._scene))
         self._create_dynamic_geometry()
         self._on_sync_index_changed(self.sync_index)
+
+        logger.info(
+            "Scene built: camera_container=%s, grid_container=%s, sphere_cloud=%s, wire_entity=%s, scene_enabled=%s",
+            self._camera_container is not None,
+            self._grid_container is not None,
+            self._sphere_cloud is not None,
+            self._wire_entity is not None,
+            self._scene.isEnabled() if self._scene else "N/A",
+        )
 
     # -------------------------------------------------------------------------
     # Camera setup
@@ -185,9 +252,17 @@ class Qt3DPlaybackWidget(QWidget):
         self._set_adaptive_camera()
 
     def _set_adaptive_camera(self) -> None:
-        """Position camera based on scene extent derived from camera positions."""
+        """Position camera and compute adaptive defaults from scene extent.
+
+        Derives sensible defaults for camera frustum scale and grid size
+        from the spatial distribution of cameras. These defaults serve as
+        the 1.0x baseline for the user-adjustable sliders.
+        """
         positions = self.view_model.get_camera_positions()
         if positions is None or len(positions) == 0:
+            self._default_camera_scale = 0.0005
+            self._default_grid_size = 5.0
+            self._camera_scale = self._camera_scale_override or self._default_camera_scale
             self._cam_controller.set_focus(QVector3D(0, 0, 0))
             self._cam_controller.set_distance(6.0)
             return
@@ -197,9 +272,41 @@ class Qt3DPlaybackWidget(QWidget):
         center = (min_coords + max_coords) / 2
         extent = max_coords - min_coords
         max_extent = float(max(extent))
+        scene_extent = max(max_extent, 0.5)
 
+        # Position the viewing camera
         self._cam_controller.set_focus(QVector3D(float(center[0]), float(center[1]), float(center[2])))
-        self._cam_controller.set_distance(max(max_extent * 2.0, 0.5))
+        view_distance = max(scene_extent * 2.0, 0.5)
+        self._cam_controller.set_distance(view_distance)
+
+        # Adapt near/far clipping planes to scene scale.
+        # The far plane must contain the entire scene from the viewing distance.
+        # Near plane uses a 1:10000 ratio to avoid z-fighting while keeping
+        # close geometry visible.
+        far = max(view_distance * 5.0, 100.0)
+        near = far * 0.0001
+        self._view.camera().lens().setPerspectiveProjection(45.0, 16.0 / 9.0, near, far)
+        logger.info(f"Clipping planes: near={near:.6f}, far={far:.1f}")
+
+        # Adaptive camera frustum scale: make frustum depth ~5% of scene extent.
+        # build_camera_geometry computes depth as focal_length * scale, and typical
+        # focal lengths are ~1000px, so scale ≈ scene_extent * 5e-5.
+        self._default_camera_scale = scene_extent * 5e-5
+        logger.info(
+            f"Scene extent={scene_extent:.2f}m, "
+            f"default camera scale={self._default_camera_scale:.6f}, "
+            f"view distance={view_distance:.2f}m, far={far:.1f}"
+        )
+
+        # Override takes precedence (e.g., synthetic storyboard with known scale)
+        if self._camera_scale_override is not None:
+            self._camera_scale = self._camera_scale_override
+        else:
+            self._camera_scale = self._default_camera_scale * self._camera_scale_multiplier
+
+        # Adaptive grid size: cover the camera spread with margin
+        distances = np.sqrt((positions[:, :2] ** 2).sum(axis=1))
+        self._default_grid_size = float(max(distances.max() * 2.5, 0.5))
 
     # -------------------------------------------------------------------------
     # Event filter — forward mouse/wheel events to terrain controller
@@ -207,8 +314,13 @@ class Qt3DPlaybackWidget(QWidget):
 
     def eventFilter(self, obj: QObject, event: QEvent) -> bool:
         if obj is self._view:
+            # Guard: controller may not exist yet during __init__ (event filter
+            # is installed before _build_scene creates the controller), or
+            # during set_view_model when the scene is being rebuilt.
+            if not hasattr(self, "_cam_controller"):
+                return True
+
             event_type = event.type()
-            # Qt guarantees the correct subtype for each event type
             if event_type == QEvent.Type.MouseButtonPress:
                 self._cam_controller.mouse_press(cast(QMouseEvent, event))
                 return True
@@ -221,47 +333,115 @@ class Qt3DPlaybackWidget(QWidget):
             elif event_type == QEvent.Type.Wheel:
                 self._cam_controller.wheel(cast(QWheelEvent, event))
                 return True
+            elif event_type == QEvent.Type.MouseButtonDblClick:
+                # Consume double-clicks to prevent Qt3D from attempting
+                # object picking, which can crash without a pick handler.
+                return True
         return super().eventFilter(obj, event)
 
     # -------------------------------------------------------------------------
-    # Scene construction
+    # Scene construction — static geometry (cameras, grid, axes)
     # -------------------------------------------------------------------------
 
-    def _create_static_geometry(self) -> None:
-        """Build camera frustums, floor grid, and origin axes."""
+    @staticmethod
+    def _retire_container_children(container: Qt3DCore.QEntity) -> None:
+        """Disable all entity children of a container for reuse.
+
+        Instead of creating a new container each rebuild (which accumulates
+        disabled containers at the scene level), we reuse the same container
+        and disable its children. Disabled children within a container are
+        bounded per rebuild (~3-5 entities) and don't grow the scene graph's
+        top-level traversal.
+
+        We ONLY call setEnabled(False) — no component removal, no reparenting.
+        removeComponent() is a structural scene graph change that can race with
+        Qt3D's render thread traversal, causing segfaults.
+        """
+        for child in list(container.children()):
+            if isinstance(child, Qt3DCore.QEntity):
+                child.setEnabled(False)
+
+    def _log_scene_graph_stats(self, context: str) -> None:
+        """Log scene graph entity counts for debugging render issues."""
+        if self._scene is None:
+            return
+        scene_children = [c for c in self._scene.children() if isinstance(c, Qt3DCore.QEntity)]
+        enabled_count = sum(1 for c in scene_children if c.isEnabled())
+        cam_children = (
+            len([c for c in self._camera_container.children() if isinstance(c, Qt3DCore.QEntity)])
+            if self._camera_container
+            else 0
+        )
+        grid_children = (
+            len([c for c in self._grid_container.children() if isinstance(c, Qt3DCore.QEntity)])
+            if self._grid_container
+            else 0
+        )
+        logger.info(
+            "[%s] Scene entities: %d total (%d enabled), cam container children: %d, grid container children: %d",
+            context,
+            len(scene_children),
+            enabled_count,
+            cam_children,
+            grid_children,
+        )
+
+    def _create_camera_geometry(self) -> None:
+        """Build camera frustum entities under a dedicated container.
+
+        The container is reused across rebuilds — old children are disabled
+        and new entities are added to the same container. This avoids
+        accumulating disabled containers at the scene level, which causes
+        Qt3D's render aspect to intermittently drop geometry.
+        """
+        assert self._camera_container is not None
+        self._retire_container_children(self._camera_container)
+
         camera_geom = self.view_model.get_camera_geometry(scale=self._camera_scale)
+        logger.info(
+            "Camera geometry: scale=%.6f, geom=%s",
+            self._camera_scale,
+            f"{len(camera_geom['vertices'])} verts" if camera_geom else "None",
+        )
         if camera_geom is not None:
             vertices = camera_geom["vertices"].astype(np.float32)
 
             # Solid faces (dark green, double-sided)
-            create_double_sided_mesh(
+            face_entity = create_double_sided_mesh(
                 vertices,
                 camera_geom["triangles"].flatten().astype(np.uint32),
                 QColor(30, 120, 30),
-                self._scene,
+                self._camera_container,
             )
+            self._owned_entities.append(face_entity)
 
             # Bright edge wireframe
-            create_line_entity(
+            edge_entity, _ = create_line_entity(
                 vertices,
                 camera_geom["edges"].flatten().astype(np.uint32),
                 QColor(80, 255, 80),
-                self._scene,
+                self._camera_container,
             )
+            self._owned_entities.append(edge_entity)
 
             # Store label anchors for future 2D overlay
             self._label_anchors = camera_geom["labels"]
 
-        # Floor grid and axes — size based on camera spread
-        positions = self.view_model.get_camera_positions()
-        if positions is not None and len(positions) > 0:
-            distances = np.sqrt((positions[:, :2] ** 2).sum(axis=1))
-            grid_size = float(max(distances.max() * 2.5, 0.5))
-        else:
-            grid_size = 5.0
+        self._log_scene_graph_stats("camera_rebuild")
 
-        build_floor_grid(self._scene, size=grid_size)
-        build_origin_axes(self._scene)
+    def _create_grid_geometry(self) -> None:
+        """Build floor grid entities under a dedicated container.
+
+        The container is reused across rebuilds — old children are disabled
+        and new entities are added to the same container.
+        """
+        assert self._grid_container is not None
+        self._retire_container_children(self._grid_container)
+
+        grid_size = self._default_grid_size * self._grid_size_multiplier
+        grid_entities = build_floor_grid(self._grid_container, size=grid_size)
+        self._owned_entities.extend(grid_entities)
+        self._log_scene_graph_stats("grid_rebuild")
 
     def _create_dynamic_geometry(self) -> None:
         """Create sphere cloud and wireframe line entity for per-frame updates."""
@@ -273,6 +453,7 @@ class Qt3DPlaybackWidget(QWidget):
         lines, line_colors = self.view_model.get_static_wireframe_data()
 
         # Sphere cloud — one sphere per tracked point
+        assert self._scene is not None
         self._sphere_cloud = SphereCloud(
             n_points=self.view_model.n_points,
             color=QColor(200, 200, 200),
@@ -309,17 +490,27 @@ class Qt3DPlaybackWidget(QWidget):
         self._sphere_cloud.update_positions(frame_geom.points)
 
         if self._wire_buffer is not None:
-            self._wire_buffer.setData(numpy_to_qbytearray(frame_geom.points))
+            # Sanitize NaN positions before pushing to the GPU. Missing points
+            # are NaN in the frame geometry. Feeding NaN floats into a vertex
+            # buffer causes undefined GPU rasterizer behavior — lines connecting
+            # NaN vertices can corrupt the depth buffer, making other geometry
+            # (cameras, grid) fail the depth test and vanish. Moving missing
+            # vertices far off-screen produces zero-length degenerate lines
+            # that the GPU safely discards.
+            sanitized = frame_geom.points.copy()
+            nan_mask = np.isnan(sanitized[:, 0])
+            sanitized[nan_mask] = 99999.0
+            self._wire_buffer.setData(numpy_to_qbytearray(sanitized))
 
     # -------------------------------------------------------------------------
     # Controls bar
     # -------------------------------------------------------------------------
 
-    def _create_controls(self) -> QWidget:
+    def _create_playback_controls(self) -> QWidget:
         """Create playback control bar with play/loop/speed controls and slider."""
-        controls = QWidget(self)
-        layout = QHBoxLayout(controls)
-        layout.setContentsMargins(5, 5, 5, 5)
+        bar = QWidget(self)
+        layout = QHBoxLayout(bar)
+        layout.setContentsMargins(5, 2, 5, 2)
 
         # Play/Pause button
         self.play_button = QPushButton(self)
@@ -370,7 +561,110 @@ class Qt3DPlaybackWidget(QWidget):
         self.slider.valueChanged.connect(self._on_sync_index_changed)
         layout.addWidget(self.slider, stretch=1)
 
-        return controls
+        return bar
+
+    def _create_appearance_controls(self) -> QWidget:
+        """Create scene appearance bar with camera-size and grid-size sliders.
+
+        This is a separate widget from the playback bar so that
+        show_playback_controls(False) can hide play/pause without
+        also hiding these appearance sliders.
+        """
+        bar = QWidget(self)
+        layout = QHBoxLayout(bar)
+        layout.setContentsMargins(5, 2, 5, 2)
+
+        # Camera size slider — logarithmic mapping for intuitive control.
+        # Slider position 50 = 1.0x (default), 0 = 0.1x, 100 = 10x.
+        layout.addWidget(QLabel("Cam Size:", self))
+        self._cam_size_slider = QSlider(Qt.Orientation.Horizontal, self)
+        self._cam_size_slider.setMinimum(0)
+        self._cam_size_slider.setMaximum(100)
+        self._cam_size_slider.setValue(self._multiplier_to_slider(self._camera_scale_multiplier))
+        self._cam_size_slider.setFixedWidth(100)
+        self._cam_size_slider.setToolTip("Camera frustum size (1.0x = adaptive default)")
+        self._cam_size_slider.valueChanged.connect(self._on_cam_size_changed)
+        self._cam_size_slider.sliderReleased.connect(self._on_cam_size_released)
+        layout.addWidget(self._cam_size_slider)
+        self._cam_size_label = QLabel(f"{self._camera_scale_multiplier:.1f}x", self)
+        self._cam_size_label.setFixedWidth(35)
+        layout.addWidget(self._cam_size_label)
+
+        layout.addSpacing(20)
+
+        # Grid size slider — same logarithmic mapping
+        layout.addWidget(QLabel("Grid Size:", self))
+        self._grid_size_slider = QSlider(Qt.Orientation.Horizontal, self)
+        self._grid_size_slider.setMinimum(0)
+        self._grid_size_slider.setMaximum(100)
+        self._grid_size_slider.setValue(self._multiplier_to_slider(self._grid_size_multiplier))
+        self._grid_size_slider.setFixedWidth(100)
+        self._grid_size_slider.setToolTip("Floor grid size (1.0x = adaptive default)")
+        self._grid_size_slider.valueChanged.connect(self._on_grid_size_changed)
+        self._grid_size_slider.sliderReleased.connect(self._on_grid_size_released)
+        layout.addWidget(self._grid_size_slider)
+        self._grid_size_label = QLabel(f"{self._grid_size_multiplier:.1f}x", self)
+        self._grid_size_label.setFixedWidth(35)
+        layout.addWidget(self._grid_size_label)
+
+        layout.addStretch()
+
+        return bar
+
+    # -------------------------------------------------------------------------
+    # Slider value <-> multiplier conversion
+    # -------------------------------------------------------------------------
+
+    @staticmethod
+    def _slider_to_multiplier(value: int) -> float:
+        """Convert slider position [0, 100] to a log-scale multiplier.
+
+        Position 50 = 1.0x (default). The mapping is 10^((value - 50) / 50),
+        giving a range of 0.1x at position 0 to 10x at position 100.
+        """
+        return 10.0 ** ((value - 50) / 50.0)
+
+    @staticmethod
+    def _multiplier_to_slider(multiplier: float) -> int:
+        """Convert a log-scale multiplier to slider position [0, 100].
+
+        Inverse of _slider_to_multiplier. Position 50 = 1.0x.
+        Clamps to valid slider range [0, 100].
+        """
+        return max(0, min(100, round(50 + 50 * math.log10(max(multiplier, 0.1)))))
+
+    # -------------------------------------------------------------------------
+    # Appearance slider callbacks
+    # -------------------------------------------------------------------------
+
+    def _on_cam_size_changed(self, value: int) -> None:
+        """Update camera scale state and schedule a debounced geometry rebuild.
+
+        Label updates are immediate (cheap). The actual geometry rebuild is
+        deferred via a 50ms single-shot timer so that dragging the slider
+        doesn't trigger 10-20 rebuilds — only one, after the user pauses.
+        """
+        if self._camera_scale_override is not None:
+            return  # Explicit scale overrides slider
+
+        self._camera_scale_multiplier = self._slider_to_multiplier(value)
+        self._cam_size_label.setText(f"{self._camera_scale_multiplier:.1f}x")
+        self._camera_scale = self._default_camera_scale * self._camera_scale_multiplier
+        self._cam_rebuild_timer.start()  # Restart debounce timer
+
+    def _on_grid_size_changed(self, value: int) -> None:
+        """Update grid size state and schedule a debounced geometry rebuild."""
+        self._grid_size_multiplier = self._slider_to_multiplier(value)
+        self._grid_size_label.setText(f"{self._grid_size_multiplier:.1f}x")
+        self._grid_rebuild_timer.start()  # Restart debounce timer
+
+    def _on_cam_size_released(self) -> None:
+        """Emit camera size multiplier when user releases the slider."""
+        self.camera_size_multiplier_changed.emit(self._camera_scale_multiplier)
+
+    def _on_grid_size_released(self) -> None:
+        """Emit grid size multiplier when user releases the slider."""
+        self.grid_size_multiplier_changed.emit(self._grid_size_multiplier)
 
     # -------------------------------------------------------------------------
     # Playback control callbacks
@@ -504,14 +798,16 @@ class Qt3DPlaybackWidget(QWidget):
         self.slider.blockSignals(False)
 
     def show_playback_controls(self, visible: bool) -> None:
-        """Show or hide the playback control bar.
+        """Show or hide the playback control bar (play/pause, speed, frame slider).
 
+        The appearance controls (camera size, grid size) remain visible.
         Use this when embedding the widget in a container with shared controls.
-
-        Args:
-            visible: If False, hides the slider, play/pause button, speed control, etc.
         """
-        self._control_bar.setVisible(visible)
+        self._playback_bar.setVisible(visible)
+
+    def show_appearance_controls(self, visible: bool) -> None:
+        """Show or hide the appearance control bar (camera size, grid size sliders)."""
+        self._appearance_bar.setVisible(visible)
 
     def suspend_vtk(self) -> None:
         """No-op. Qt3D's render loop is event-driven.

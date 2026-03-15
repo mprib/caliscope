@@ -2,6 +2,12 @@
 
 Converts numpy arrays into Qt3D entities (meshes, lines, sphere clouds, grids).
 No domain knowledge — purely geometric primitives.
+
+All materials use flat (unlit) shading: ambient set to the desired color,
+diffuse and specular zeroed out. This eliminates directional lighting and
+shadow artifacts, producing clean uniform colors suitable for a technical
+visualization tool. The Phong shader still runs but computes a constant
+color per fragment — negligible overhead at our entity counts (~50).
 """
 
 import numpy as np
@@ -10,6 +16,36 @@ from PySide6.QtGui import QColor, QVector3D
 from PySide6.Qt3DCore import Qt3DCore
 from PySide6.Qt3DExtras import Qt3DExtras
 from PySide6.Qt3DRender import Qt3DRender
+
+# Shared zero-color for disabling diffuse/specular lighting
+_BLACK = QColor(0, 0, 0)
+
+
+def _flat_material(color: QColor, parent: Qt3DCore.QEntity) -> Qt3DExtras.QPhongMaterial:
+    """Create a flat (unlit) opaque material.
+
+    Sets ambient to the desired color and zeroes diffuse/specular so the
+    object renders as a uniform color regardless of light direction.
+    """
+    mat = Qt3DExtras.QPhongMaterial(parent)
+    mat.setAmbient(color)
+    mat.setDiffuse(_BLACK)
+    mat.setSpecular(_BLACK)
+    mat.setShininess(0.0)
+    return mat
+
+
+def _flat_alpha_material(
+    color: QColor, parent: Qt3DCore.QEntity, opacity: float = 0.6
+) -> Qt3DExtras.QPhongAlphaMaterial:
+    """Create a flat (unlit) transparent material."""
+    mat = Qt3DExtras.QPhongAlphaMaterial(parent)
+    mat.setAmbient(color)
+    mat.setDiffuse(_BLACK)
+    mat.setSpecular(_BLACK)
+    mat.setShininess(0.0)
+    mat.setAlpha(opacity)
+    return mat
 
 
 def numpy_to_qbytearray(arr: np.ndarray) -> QByteArray:
@@ -65,12 +101,8 @@ def create_line_entity(
     renderer.setGeometry(geometry)
     renderer.setPrimitiveType(Qt3DRender.QGeometryRenderer.PrimitiveType.Lines)
 
-    material = Qt3DExtras.QPhongMaterial(entity)
-    material.setAmbient(color)
-    material.setDiffuse(color)
-
     entity.addComponent(renderer)
-    entity.addComponent(material)
+    entity.addComponent(_flat_material(color, entity))
 
     return entity, vertex_buf
 
@@ -80,12 +112,13 @@ def create_double_sided_mesh(
     indices: np.ndarray,
     color: QColor,
     parent: Qt3DCore.QEntity,
-    opacity: float = 0.6,
 ) -> Qt3DCore.QEntity:
     """Create a triangle mesh visible from both sides.
 
     Duplicates triangles with reversed winding order for double-sided rendering.
-    Uses QPhongAlphaMaterial for transparency support.
+    Uses opaque flat material — QPhongAlphaMaterial's transparent pass has
+    depth-sorting issues that cause geometry to disappear when other entities
+    are added to the scene graph.
     """
     reversed_indices = indices.reshape(-1, 3)[:, ::-1].flatten()
     all_indices = np.concatenate([indices, reversed_indices]).astype(np.uint32)
@@ -120,13 +153,8 @@ def create_double_sided_mesh(
     renderer.setGeometry(geometry)
     renderer.setPrimitiveType(Qt3DRender.QGeometryRenderer.PrimitiveType.Triangles)
 
-    material = Qt3DExtras.QPhongAlphaMaterial(entity)
-    material.setAmbient(color)
-    material.setDiffuse(color)
-    material.setAlpha(opacity)
-
     entity.addComponent(renderer)
-    entity.addComponent(material)
+    entity.addComponent(_flat_material(color, entity))
 
     return entity
 
@@ -162,15 +190,11 @@ class SphereCloud:
             mesh.setRings(8)
             mesh.setSlices(8)
 
-            material = Qt3DExtras.QPhongMaterial(entity)
-            material.setAmbient(color)
-            material.setDiffuse(color)
+            entity.addComponent(mesh)
+            entity.addComponent(_flat_material(color, entity))
 
             transform = Qt3DCore.QTransform(entity)
             transform.setTranslation(self._HIDDEN_POS)
-
-            entity.addComponent(mesh)
-            entity.addComponent(material)
             entity.addComponent(transform)
 
             self._transforms.append(transform)
@@ -192,20 +216,27 @@ class SphereCloud:
 def build_floor_grid(
     parent: Qt3DCore.QEntity,
     size: float = 5.0,
-    spacing: float = 0.5,
+    target_lines: int = 20,
     color: QColor = QColor(80, 80, 80),
     axis_color: QColor = QColor(120, 120, 120),
-) -> None:
+) -> list[Qt3DCore.QEntity]:
     """Add a grid at z=0 for spatial reference.
 
+    Spacing scales with size to keep approximately ``target_lines`` lines
+    per direction, preventing hundreds of line entities at large grid sizes.
     Lines through the origin are drawn brighter to mark the principal axes.
+
+    Returns the created entities so callers can hold Python references
+    (prevents PySide6 shiboken GC from destroying them).
     """
     half = size / 2
-    n_lines = int(size / spacing)
+    spacing = size / max(target_lines, 2)
+    n_lines = target_lines
 
     idx = 0
     regular_verts: list[list[float]] = []
     regular_indices: list[int] = []
+    entities: list[Qt3DCore.QEntity] = []
 
     for i in range(n_lines + 1):
         coord = -half + i * spacing
@@ -233,7 +264,8 @@ def build_floor_grid(
     if regular_verts:
         verts_arr = np.array(regular_verts, dtype=np.float32)
         idx_arr = np.array(regular_indices, dtype=np.uint32)
-        create_line_entity(verts_arr, idx_arr, color, parent)
+        entity, _ = create_line_entity(verts_arr, idx_arr, color, parent)
+        entities.append(entity)
 
     # Origin axis lines (brighter)
     axis_verts = np.array(
@@ -246,17 +278,26 @@ def build_floor_grid(
         dtype=np.float32,
     )
     axis_indices = np.array([0, 1, 2, 3], dtype=np.uint32)
-    create_line_entity(axis_verts, axis_indices, axis_color, parent)
+    axis_entity, _ = create_line_entity(axis_verts, axis_indices, axis_color, parent)
+    entities.append(axis_entity)
+
+    return entities
 
 
-def build_origin_axes(parent: Qt3DCore.QEntity, length: float = 0.3) -> None:
-    """Add XYZ axis indicators at the origin using colored cylinders."""
+def build_origin_axes(parent: Qt3DCore.QEntity, length: float = 0.3) -> list[Qt3DCore.QEntity]:
+    """Add XYZ axis indicators at the origin using colored cylinders.
+
+    Returns the created entities so callers can hold Python references.
+    PySide6's shiboken GC will destroy entities whose Python wrappers are
+    collected, even if Qt's parent-child tree still references them.
+    """
     axes = [
         (QVector3D(1, 0, 0), QColor("red"), QVector3D(0, 0, -90)),  # X
         (QVector3D(0, 1, 0), QColor("green"), QVector3D(0, 0, 0)),  # Y
         (QVector3D(0, 0, 1), QColor("blue"), QVector3D(90, 0, 0)),  # Z
     ]
 
+    entities: list[Qt3DCore.QEntity] = []
     for direction, color, euler_rot in axes:
         entity = Qt3DCore.QEntity(parent)
 
@@ -264,16 +305,15 @@ def build_origin_axes(parent: Qt3DCore.QEntity, length: float = 0.3) -> None:
         mesh.setRadius(0.008)
         mesh.setLength(length)
 
-        material = Qt3DExtras.QPhongMaterial(entity)
-        material.setAmbient(color)
-        material.setDiffuse(color)
+        entity.addComponent(mesh)
+        entity.addComponent(_flat_material(color, entity))
 
         transform = Qt3DCore.QTransform(entity)
         offset = direction * (length / 2)
         transform.setTranslation(offset)
         transform.setRotationX(euler_rot.x())
         transform.setRotationZ(euler_rot.z())
-
-        entity.addComponent(mesh)
-        entity.addComponent(material)
         entity.addComponent(transform)
+        entities.append(entity)
+
+    return entities

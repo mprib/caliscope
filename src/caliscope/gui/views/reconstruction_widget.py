@@ -403,7 +403,13 @@ class ReconstructionWidget(QWidget):
 
             # Create or update widget
             if self._viz_widget is None:
-                self._viz_widget = Qt3DPlaybackWidget(view_model)
+                self._viz_widget = Qt3DPlaybackWidget(
+                    view_model,
+                    camera_size_multiplier=self._presenter.get_camera_size_multiplier(),
+                    grid_size_multiplier=self._presenter.get_grid_size_multiplier(),
+                )
+                self._viz_widget.camera_size_multiplier_changed.connect(self._presenter.save_camera_size_multiplier)
+                self._viz_widget.grid_size_multiplier_changed.connect(self._presenter.save_grid_size_multiplier)
                 self._viz_container.addWidget(self._viz_widget)
             else:
                 self._viz_widget.set_view_model(view_model)

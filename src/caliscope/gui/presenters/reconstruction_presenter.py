@@ -8,6 +8,8 @@ This is a state machine presenter following the IntrinsicCalibrationPresenter
 pattern. States are computed from reality (task state + file existence).
 """
 
+from __future__ import annotations
+
 import logging
 from enum import Enum, auto
 from pathlib import Path
@@ -18,6 +20,7 @@ from caliscope import persistence
 from caliscope.cameras.camera_array import CameraArray
 from caliscope.gui.geometry.wireframe import WireframeSegment, wireframe_segments_from_view
 from caliscope.reconstruction.reconstructor import Reconstructor
+from caliscope.repositories.project_settings_repository import ProjectSettingsRepository
 from caliscope.task_manager.task_handle import TaskHandle
 from caliscope.task_manager.task_manager import TaskManager
 from caliscope.task_manager.task_state import TaskState
@@ -69,6 +72,7 @@ class ReconstructionPresenter(QObject):
         workspace_dir: Path,
         camera_array: CameraArray,
         task_manager: TaskManager,
+        project_settings: ProjectSettingsRepository | None = None,
         parent: QObject | None = None,
     ) -> None:
         """Initialize the presenter.
@@ -77,6 +81,7 @@ class ReconstructionPresenter(QObject):
             workspace_dir: Root workspace directory
             camera_array: Calibrated camera array for triangulation
             task_manager: TaskManager for background processing
+            project_settings: Repository for persisting 3D view appearance settings.
             parent: Optional Qt parent
         """
         super().__init__(parent)
@@ -84,6 +89,7 @@ class ReconstructionPresenter(QObject):
         self._workspace_dir = workspace_dir
         self._camera_array = camera_array
         self._task_manager = task_manager
+        self._project_settings = project_settings
 
         # Selection state
         self._selected_recording: str | None = None
@@ -361,6 +367,32 @@ class ReconstructionPresenter(QObject):
         if self._processing_task is not None and self._processing_task.state == TaskState.RUNNING:
             logger.info("Cancelling reconstruction")
             self._processing_task.cancel()
+
+    # -------------------------------------------------------------------------
+    # Scene Appearance Settings
+    # -------------------------------------------------------------------------
+
+    def save_camera_size_multiplier(self, multiplier: float) -> None:
+        """Persist the camera frustum size multiplier to project settings."""
+        if self._project_settings is not None:
+            self._project_settings.set_scene_camera_size_multiplier(multiplier)
+
+    def save_grid_size_multiplier(self, multiplier: float) -> None:
+        """Persist the floor grid size multiplier to project settings."""
+        if self._project_settings is not None:
+            self._project_settings.set_scene_grid_size_multiplier(multiplier)
+
+    def get_camera_size_multiplier(self) -> float:
+        """Load camera frustum size multiplier from project settings (default: 1.0)."""
+        if self._project_settings is not None:
+            return self._project_settings.get_scene_camera_size_multiplier()
+        return 1.0
+
+    def get_grid_size_multiplier(self) -> float:
+        """Load floor grid size multiplier from project settings (default: 1.0)."""
+        if self._project_settings is not None:
+            return self._project_settings.get_scene_grid_size_multiplier()
+        return 1.0
 
     def cleanup(self) -> None:
         """Clean up resources. Call before discarding presenter."""

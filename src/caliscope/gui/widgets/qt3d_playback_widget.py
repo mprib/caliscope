@@ -12,10 +12,11 @@ with playback controls for play/pause, looping, speed adjustment, and frame scru
 from __future__ import annotations
 
 import logging
+from typing import cast
 
 import numpy as np
-from PySide6.QtCore import QEvent, Qt, QTimer
-from PySide6.QtGui import QColor, QIcon, QImage, QVector3D
+from PySide6.QtCore import QEvent, QObject, Qt, QTimer
+from PySide6.QtGui import QColor, QIcon, QImage, QMouseEvent, QVector3D, QWheelEvent
 from PySide6.QtWidgets import (
     QCheckBox,
     QHBoxLayout,
@@ -170,20 +171,21 @@ class Qt3DPlaybackWidget(QWidget):
     # Event filter — forward mouse/wheel events to terrain controller
     # -------------------------------------------------------------------------
 
-    def eventFilter(self, obj: object, event: QEvent) -> bool:
+    def eventFilter(self, obj: QObject, event: QEvent) -> bool:
         if obj is self._view:
             event_type = event.type()
+            # Qt guarantees the correct subtype for each event type
             if event_type == QEvent.Type.MouseButtonPress:
-                self._cam_controller.mouse_press(event)
+                self._cam_controller.mouse_press(cast(QMouseEvent, event))
                 return True
             elif event_type == QEvent.Type.MouseButtonRelease:
-                self._cam_controller.mouse_release(event)
+                self._cam_controller.mouse_release(cast(QMouseEvent, event))
                 return True
             elif event_type == QEvent.Type.MouseMove:
-                self._cam_controller.mouse_move(event)
+                self._cam_controller.mouse_move(cast(QMouseEvent, event))
                 return True
             elif event_type == QEvent.Type.Wheel:
-                self._cam_controller.wheel(event)
+                self._cam_controller.wheel(cast(QWheelEvent, event))
                 return True
         return super().eventFilter(obj, event)
 

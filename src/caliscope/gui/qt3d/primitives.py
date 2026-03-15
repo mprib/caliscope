@@ -269,7 +269,7 @@ def build_origin_axes(parent: Qt3DCore.QEntity, length: float = 0.3) -> None:
         material.setDiffuse(color)
 
         transform = Qt3DCore.QTransform(entity)
-        offset = direction * length / 2
+        offset = direction * (length / 2)
         transform.setTranslation(offset)
         transform.setRotationX(euler_rot.x())
         transform.setRotationZ(euler_rot.z())

@@ -227,9 +227,9 @@ class StoryboardView(QWidget):
 
         for i in range(grid_layout.count()):
             item = grid_layout.itemAt(i)
-            if item and item.widget():
+            if item is not None:
                 widget = item.widget()
-                if widget.property("key") == key:
+                if widget is not None and widget.property("key") == key:
                     return widget
         return None
 

@@ -80,6 +80,8 @@ Independent of API work — can overlap with Phase 4.
 |------|------------|
 | `port-to-cam-rename` | PR #944 (commit 71d96e77) — codebase uses `cam_id` everywhere |
 | `drop-numba` | Merged to `epic/scriptable-core` (2026-03-14). Replaced numba-JIT with two-tier batched numpy SVD: `triangulate_sync_index` (per-frame) + `triangulate_image_points` (bulk). 15.9ms vs 14ms numba baseline. All tests pass. -181 MB install footprint. |
+| `drop-pandera` | Merged to `epic/scriptable-core` (2026-03-14). Replaced `ImagePointSchema`/`WorldPointSchema` with `_validate_dataframe()` + column spec dicts. Removed 3 redundant re-validation calls in `persistence.py`. Uses transient `Int64` for null-safe coercion, downcasts to `int64` for numpy compat. -30 MB install footprint. |
+| `fix-frame-skip-label` | Merged to `epic/scriptable-core` (2026-03-14). Changed intrinsic tab label from "Frames to skip:" to "Process every" to match extrinsic tab pattern. |
 
 ## Failed Approaches (from design sessions)
 
@@ -99,5 +101,6 @@ Independent of API work — can overlap with Phase 4.
 
 1. ~~Create `epic/scriptable-core` branch from `main`~~ (done)
 2. ~~`drop-numba`~~ (done — merged to epic)
-3. `drop-pandera` — next up. Replace `ImagePointSchema`/`WorldPointSchema` with manual validation.
-4. `fix-frame-skip-label` — trivial, can be done alongside pandera or after.
+3. ~~`drop-pandera`~~ (done — merged to epic)
+4. ~~`fix-frame-skip-label`~~ (done — merged to epic)
+5. Phase 1 complete. Next: Phase 2 (`domain-object-serialization`, then `rename-bundle-to-capture-volume`).

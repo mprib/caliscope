@@ -8,7 +8,7 @@ import numpy as np
 
 from caliscope.cameras.camera_array import CameraData
 from caliscope.packets import FramePacket
-from caliscope.recording import FramePacketStreamer
+from caliscope.recording.frame_packet_streamer import FramePacketStreamer
 
 logger = logging.getLogger(__name__)
 

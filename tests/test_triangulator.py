@@ -18,7 +18,7 @@ import pandas as pd
 from caliscope import __root__
 from caliscope.cameras.synchronizer import Synchronizer
 from caliscope.helper import copy_contents_to_clean_dest
-from caliscope.recording import create_streamer
+from caliscope.recording.frame_packet_streamer import create_streamer
 from caliscope.trackers.charuco_tracker import CharucoTracker
 from caliscope.triangulate.sync_packet_triangulator import SyncPacketTriangulator
 from caliscope.cameras.camera_array import CameraArray

@@ -5,7 +5,7 @@ from time import sleep
 
 from caliscope import __root__
 from caliscope.core.charuco import Charuco
-from caliscope.recording import create_streamer
+from caliscope.recording.frame_packet_streamer import create_streamer
 from caliscope.trackers.charuco_tracker import CharucoTracker
 
 logger = logging.getLogger(__name__)

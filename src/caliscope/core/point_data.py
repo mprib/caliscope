@@ -7,9 +7,7 @@ from time import time
 import numpy as np
 from numpy.typing import NDArray
 import pandas as pd
-import pandera.pandas as pa
 from collections import defaultdict
-from pandera.typing import Series
 from scipy.signal import butter, filtfilt
 from caliscope.cameras.camera_array import CameraArray
 from dataclasses import dataclass
@@ -243,36 +241,72 @@ def _undistort_batch(xy_df: pd.DataFrame, camera_array: CameraArray) -> pd.DataF
     return xy_undistorted_df
 
 
-class ImagePointSchema(pa.DataFrameModel):
-    """Pandera schema for validating 2D (x,y) point data."""
+# Column name constants (serve as both validation spec and column name registry).
+# Call sites that only need column names use .keys().
+IMAGE_POINT_COLUMNS: dict[str, dict] = {
+    "sync_index": {"dtype": "int", "nullable": False},
+    "cam_id": {"dtype": "int", "nullable": False},
+    "point_id": {"dtype": "int", "nullable": False},
+    "img_loc_x": {"dtype": "float", "nullable": False},
+    "img_loc_y": {"dtype": "float", "nullable": False},
+    "obj_loc_x": {"dtype": "float", "nullable": True},
+    "obj_loc_y": {"dtype": "float", "nullable": True},
+    "obj_loc_z": {"dtype": "float", "nullable": True},
+}
 
-    sync_index: Series[int] = pa.Field(coerce=True)
-    cam_id: Series[int] = pa.Field(coerce=True)
-    point_id: Series[int] = pa.Field(coerce=True)
-    img_loc_x: Series[float] = pa.Field(coerce=True)
-    img_loc_y: Series[float] = pa.Field(coerce=True)
-    obj_loc_x: Series[float] = pa.Field(coerce=True, nullable=True)
-    obj_loc_y: Series[float] = pa.Field(coerce=True, nullable=True)
-    obj_loc_z: Series[float] = pa.Field(coerce=True, nullable=True)
-
-    class Config(pa.DataFrameModel.Config):
-        strict = False
-        coerce = True
+WORLD_POINT_COLUMNS: dict[str, dict] = {
+    "sync_index": {"dtype": "int", "nullable": False},
+    "point_id": {"dtype": "int", "nullable": False},
+    "x_coord": {"dtype": "float", "nullable": False},
+    "y_coord": {"dtype": "float", "nullable": False},
+    "z_coord": {"dtype": "float", "nullable": False},
+    "frame_time": {"dtype": "float", "nullable": True},
+}
 
 
-class WorldPointSchema(pa.DataFrameModel):
-    """Pandera schema for validating 3D (x,y,z) point data."""
+def _validate_dataframe(
+    df: pd.DataFrame,
+    schema: dict[str, dict],
+    schema_name: str,
+) -> pd.DataFrame:
+    """Validate and coerce a DataFrame against a column schema.
 
-    sync_index: Series[int] = pa.Field(coerce=True)
-    point_id: Series[int] = pa.Field(coerce=True)
-    x_coord: Series[float] = pa.Field(coerce=True)
-    y_coord: Series[float] = pa.Field(coerce=True)
-    z_coord: Series[float] = pa.Field(coerce=True)
-    frame_time: Series[float] = pa.Field(coerce=True, nullable=True)
+    Checks that all required columns are present, coerces types, and verifies
+    non-nullable columns contain no NaN/None values. Extra columns are allowed
+    (strict=False equivalent).
 
-    class Config(pa.DataFrameModel.Config):
-        strict = False
-        coerce = True
+    Returns the coerced DataFrame. Raises ValueError on validation failure.
+    """
+    # 1. Check column presence
+    missing = [col for col in schema if col not in df.columns]
+    if missing:
+        raise ValueError(
+            f"{schema_name} validation failed: column(s) {missing} not in dataframe. Columns found: {list(df.columns)}"
+        )
+
+    # 2. Coerce types
+    for col, spec in schema.items():
+        if spec["dtype"] == "int":
+            df[col] = pd.to_numeric(df[col], errors="coerce").astype("Int64")
+        elif spec["dtype"] == "float":
+            df[col] = pd.to_numeric(df[col], errors="coerce")
+
+    # 3. Check nullability
+    for col, spec in schema.items():
+        if not spec["nullable"] and df[col].isna().any():
+            n_null = df[col].isna().sum()
+            raise ValueError(
+                f"{schema_name} validation failed: non-nullable column '{col}' contains {n_null} null value(s)"
+            )
+
+    # 4. Downcast non-nullable Int64 → int64 for numpy compatibility.
+    # Int64 (nullable extension type) produces object arrays from .to_numpy().
+    # After confirming no nulls, downcast to standard int64 for clean numpy interop.
+    for col, spec in schema.items():
+        if spec["dtype"] == "int" and not spec["nullable"]:
+            df[col] = df[col].astype("int64")
+
+    return df
 
 
 class ImagePoints:
@@ -291,7 +325,7 @@ class ImagePoints:
             if col not in df.columns:
                 df[col] = np.nan
 
-        self._df = ImagePointSchema.validate(df)
+        self._df = _validate_dataframe(df, IMAGE_POINT_COLUMNS, "ImagePoints")
 
     @classmethod
     def from_csv(cls, path: str | Path) -> ImagePoints:
@@ -331,7 +365,7 @@ class ImagePoints:
         """Triangulates 2D points to create 3D points using the provided CameraArray."""
         xy_df = self.df
         if xy_df.empty:
-            return WorldPoints(pd.DataFrame(columns=list(WorldPointSchema.to_schema().columns.keys())))
+            return WorldPoints(pd.DataFrame(columns=list(WORLD_POINT_COLUMNS.keys())))
 
         # Only process cameras that are both in data AND posed
         cam_ids_in_data = xy_df["cam_id"].unique()
@@ -340,7 +374,7 @@ class ImagePoints:
 
         if not valid_cam_ids:
             logger.warning("No cameras in data have extrinsics for triangulation")
-            return WorldPoints(pd.DataFrame(columns=list(WorldPointSchema.to_schema().columns.keys())))
+            return WorldPoints(pd.DataFrame(columns=list(WORLD_POINT_COLUMNS.keys())))
 
         normalized_projection_matrices = camera_array.normalized_projection_matrices
 
@@ -352,7 +386,7 @@ class ImagePoints:
         valid_data = undistorted_xy[mask]
 
         if valid_data.empty:
-            return WorldPoints(pd.DataFrame(columns=list(WorldPointSchema.to_schema().columns.keys())))
+            return WorldPoints(pd.DataFrame(columns=list(WORLD_POINT_COLUMNS.keys())))
 
         # Compute mean frame_time per sync_index
         frame_times = xy_df.groupby("sync_index")["frame_time"].mean()
@@ -387,7 +421,7 @@ class ImagePoints:
         )
 
         if len(out_pid) == 0:
-            return WorldPoints(pd.DataFrame(columns=list(WorldPointSchema.to_schema().columns.keys())))
+            return WorldPoints(pd.DataFrame(columns=list(WORLD_POINT_COLUMNS.keys())))
 
         # Build DataFrame directly from arrays
         out_frame_times = frame_times.reindex(out_sync).to_numpy()
@@ -416,7 +450,8 @@ class WorldPoints:
 
     def __post_init__(self):
         # Validate schema
-        object.__setattr__(self, "_df", WorldPointSchema.validate(self._df))
+        validated = _validate_dataframe(self._df.copy(), WORLD_POINT_COLUMNS, "WorldPoints")
+        object.__setattr__(self, "_df", validated)
 
         # calculate start and stop index
         min_index = int(self._df["sync_index"].min())
@@ -487,4 +522,4 @@ class WorldPoints:
         Optional: frame_time (nullable)
         """
         df = pd.read_csv(path)
-        return cls(df)  # Constructor handles validation via WorldPointSchema
+        return cls(df)  # Constructor handles validation on construction

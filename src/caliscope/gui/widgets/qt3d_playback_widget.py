@@ -114,11 +114,13 @@ class Qt3DPlaybackWidget(QWidget):
         self._view = Qt3DExtras.Qt3DWindow()
         self._view.defaultFrameGraph().setClearColor(QColor(25, 25, 25))
 
-        # QRenderCapture must be a child of the active frame graph node so it
-        # intercepts the render pipeline. widget.grab() cannot capture Qt3D
-        # content because Qt3DWindow renders to its own GPU surface via
-        # createWindowContainer.
-        self._render_capture = Qt3DRender.QRenderCapture(self._view.activeFrameGraph())
+        # QRenderCapture is created lazily in capture_screenshot() because
+        # merely attaching it to the frame graph crashes under xvfb/software
+        # rendering (Mesa llvmpipe). The RHI OpenGL backend segfaults in the
+        # render thread when QRenderCapture tries to read back framebuffer
+        # pixels from a virtual framebuffer. Deferring creation means headless
+        # tests never trigger the crash.
+        self._render_capture: Qt3DRender.QRenderCapture | None = None
 
         # Forward mouse/wheel events from the Qt3DWindow to our terrain controller.
         # Qt3DWindow is a QWindow (not a QWidget), so we install a filter on it.
@@ -132,12 +134,44 @@ class Qt3DPlaybackWidget(QWidget):
         main_layout.addWidget(self._control_bar)
 
         # --- Scene setup ---
+        # Root entity is created once and set once. setRootEntity() is a one-shot
+        # initialization — calling it again while the render thread is mid-traversal
+        # causes use-after-free segfaults. All scene content lives in a swappable
+        # _scene container child of root.
         self._root = Qt3DCore.QEntity()
+        self._scene: Qt3DCore.QEntity | None = None
+        self._build_scene()
+        self._view.setRootEntity(self._root)
+
+    # -------------------------------------------------------------------------
+    # Scene lifecycle
+    # -------------------------------------------------------------------------
+
+    def _build_scene(self) -> None:
+        """Build a fresh scene container under the permanent root entity.
+
+        If an old scene container exists, it is disabled immediately (safe for
+        the render thread — setEnabled is a batched property change) and then
+        scheduled for deletion on the next event loop cycle.
+        """
+        # Retire old scene: disable for immediate visual removal.
+        # We intentionally do NOT detach or delete the old scene entity.
+        # Qt3D's aspect engine owns the entity subtree — calling setParent(None)
+        # or deleteLater() on entities the engine manages causes use-after-free
+        # in PySide6 (the C++ object is destroyed but Python holds a dangling ref).
+        # setEnabled(False) is a safe batched property change that hides the old
+        # scene from rendering. For our scene sizes (~50 entities per rebuild,
+        # ~5 rebuilds per session), the retained disabled subtrees are negligible.
+        if self._scene is not None:
+            self._scene.setEnabled(False)
+
+        # Build new scene as child of root — Qt3D adds it to the render tree
+        # automatically when we set its parent
+        self._scene = Qt3DCore.QEntity(self._root)
         self._setup_camera()
         self._create_static_geometry()
         self._create_dynamic_geometry()
         self._on_sync_index_changed(self.sync_index)
-        self._view.setRootEntity(self._root)
 
     # -------------------------------------------------------------------------
     # Camera setup
@@ -204,7 +238,7 @@ class Qt3DPlaybackWidget(QWidget):
                 vertices,
                 camera_geom["triangles"].flatten().astype(np.uint32),
                 QColor(30, 120, 30),
-                self._root,
+                self._scene,
             )
 
             # Bright edge wireframe
@@ -212,7 +246,7 @@ class Qt3DPlaybackWidget(QWidget):
                 vertices,
                 camera_geom["edges"].flatten().astype(np.uint32),
                 QColor(80, 255, 80),
-                self._root,
+                self._scene,
             )
 
             # Store label anchors for future 2D overlay
@@ -226,8 +260,8 @@ class Qt3DPlaybackWidget(QWidget):
         else:
             grid_size = 5.0
 
-        build_floor_grid(self._root, size=grid_size)
-        build_origin_axes(self._root)
+        build_floor_grid(self._scene, size=grid_size)
+        build_origin_axes(self._scene)
 
     def _create_dynamic_geometry(self) -> None:
         """Create sphere cloud and wireframe line entity for per-frame updates."""
@@ -242,7 +276,7 @@ class Qt3DPlaybackWidget(QWidget):
         self._sphere_cloud = SphereCloud(
             n_points=self.view_model.n_points,
             color=QColor(200, 200, 200),
-            parent=self._root,
+            parent=self._scene,
         )
         self._sphere_cloud.update_positions(frame_geom.points)
 
@@ -253,7 +287,7 @@ class Qt3DPlaybackWidget(QWidget):
                 frame_geom.points,
                 wire_indices,
                 QColor(100, 180, 255),
-                self._root,
+                self._scene,
             )
             self._wire_indices = wire_indices
         else:
@@ -441,14 +475,12 @@ class Qt3DPlaybackWidget(QWidget):
         self.slider.setMaximum(view_model.max_index)
         self.slider.setValue(self.sync_index)
 
-        # Rebuild: create a new root entity, attach everything to it, then
-        # swap it in. The old root's Qt3D subtree is cleaned up by Qt.
-        self._root = Qt3DCore.QEntity()
-        self._setup_camera()
-        self._create_static_geometry()
-        self._create_dynamic_geometry()
-        self._on_sync_index_changed(self.sync_index)
-        self._view.setRootEntity(self._root)
+        # Rebuild scene content under the permanent root. _build_scene() retires
+        # the old _scene container (disable + deleteLater) and creates a new one.
+        # The root entity is never replaced — setRootEntity() is called exactly
+        # once in __init__. This avoids the use-after-free segfault that occurs
+        # when the render thread is mid-traversal during a root swap.
+        self._build_scene()
 
         # Restore camera orientation if requested
         if saved_cam is not None:
@@ -506,11 +538,18 @@ class Qt3DPlaybackWidget(QWidget):
         intercepts the render pipeline directly and returns the framebuffer
         contents as a QImage.
 
+        QRenderCapture is created lazily on first call because attaching it
+        to the frame graph crashes under xvfb/software rendering (Mesa
+        llvmpipe segfault in glReadPixels path).
+
         Returns:
             QImage on success, None if the capture does not complete within
             500ms (e.g., render pipeline not yet initialised).
         """
         from PySide6.QtCore import QEventLoop
+
+        if self._render_capture is None:
+            self._render_capture = Qt3DRender.QRenderCapture(self._view.activeFrameGraph())
 
         reply = self._render_capture.requestCapture()
 

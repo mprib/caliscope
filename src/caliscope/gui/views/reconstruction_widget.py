@@ -9,7 +9,7 @@ This is a thin MVP widget following the state-driven UI pattern.
 
 import logging
 
-from PySide6.QtCore import Qt, QUrl
+from PySide6.QtCore import Qt, QTimer, QUrl
 from PySide6.QtGui import QDesktopServices
 from PySide6.QtWidgets import (
     QComboBox,
@@ -52,6 +52,7 @@ class ReconstructionWidget(QWidget):
         super().__init__(parent)
         self._presenter = presenter
         self._viz_widget: Qt3DPlaybackWidget | None = None
+        self._viz_pending = False  # Debounce flag for _update_visualization
 
         self._setup_ui()
         self._connect_signals()
@@ -369,10 +370,20 @@ class ReconstructionWidget(QWidget):
         # State change will update UI via _update_ui_for_state
 
     def _update_visualization(self) -> None:
-        """Update PyVista widget based on current state.
+        """Schedule a visualization update on the next event loop cycle.
 
-        Progressive enhancement: always show cameras, add points when available.
+        Multiple callers (recording change, tracker change, state change) may
+        trigger this in quick succession during init. Debouncing via
+        QTimer.singleShot(0) coalesces them into a single scene rebuild,
+        avoiding redundant Qt3D scene graph construction.
         """
+        if not self._viz_pending:
+            self._viz_pending = True
+            QTimer.singleShot(0, self._do_update_visualization)
+
+    def _do_update_visualization(self) -> None:
+        """Actually rebuild the visualization. Called from debounce timer."""
+        self._viz_pending = False
         camera_array = self._presenter.camera_array
         output_path = self._presenter.xyz_output_path
 

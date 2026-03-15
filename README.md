@@ -54,9 +54,7 @@ For questions, post in [Discussions](https://github.com/mprib/caliscope/discussi
 ## Acknowledgments
 
 Caliscope was inspired by [anipose](https://github.com/lambdaloop/anipose), created by Lili Karashchuk, PhD, which demonstrated the value of accessible multicamera calibration for the research community.
-Several lines of the original anipose triangulation code are used in this code base.
 
 ## License
 
 Caliscope is licensed under the [BSD 2-Clause license](https://opensource.org/license/bsd-2-clause/).
-The triangulation function was adapted from [anipose](https://github.com/lambdaloop/anipose), also licensed under BSD-2-Clause.

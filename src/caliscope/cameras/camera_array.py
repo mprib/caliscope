@@ -6,7 +6,6 @@ from typing import Dict, Literal
 
 import cv2
 import numpy as np
-from numba.typed import Dict as NumbaDict
 from numpy.typing import NDArray
 
 logger = logging.getLogger(__name__)
@@ -339,12 +338,10 @@ class CameraArray:
         return all(cam.matrix is not None and cam.distortions is not None for cam in self.cameras.values())
 
     @property
-    def normalized_projection_matrices(self):
-        """Generates normalized projection matrices for *posed and non-ignored* cameras only."""
+    def normalized_projection_matrices(self) -> dict[int, np.ndarray]:
+        """Generates normalized projection matrices for posed and non-ignored cameras."""
         logger.info("Creating normalized projection matrices for posed and non-ignored cameras.")
-        # Note: This NumbaDict should only contain cameras used in optimization
-        proj_mat = NumbaDict()  # type: ignore
-        for cam_id in self.posed_cam_id_to_index.keys():  # cam_id_to_index keys are posed and not ignored
+        proj_mat: dict[int, np.ndarray] = {}
+        for cam_id in self.posed_cam_id_to_index.keys():
             proj_mat[cam_id] = self.cameras[cam_id].normalized_projection_matrix
-
         return proj_mat

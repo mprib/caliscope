@@ -13,6 +13,8 @@ import pytest
 
 
 HEADLESS_IMPORTS = [
+    # Top-level package __init__.py -- must not pull in Qt
+    "caliscope",
     # Primary API export -- the highest-value canary
     "caliscope.core.capture_volume",
     # Recently cleaned: Qt imports removed in this branch

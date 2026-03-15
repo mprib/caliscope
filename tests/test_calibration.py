@@ -34,7 +34,7 @@ logger = logging.getLogger(__name__)
 
 
 def test_xy_charuco_creation(tmp_path: Path):
-    original_session_path = Path(__root__, "tests", "sessions", "mediapipe_calibration")
+    original_session_path = Path(__root__, "tests", "sessions", "charuco_calibration")
 
     copy_contents_to_clean_dest(original_session_path, tmp_path)
 

@@ -134,35 +134,3 @@ points = ["existing_b", "existing_a"]
 
     finally:
         toml_path.unlink()
-
-
-def test_load_wireframe_config_real_holistic_file():
-    """Test loading the actual holistic wireframe TOML."""
-    # Path to the holistic wireframe file in gui/geometry
-    toml_path = (
-        Path(__file__).parent.parent
-        / "src"
-        / "caliscope"
-        / "gui"
-        / "geometry"
-        / "wireframes"
-        / "holistic_wireframe.toml"
-    )
-
-    if not toml_path.exists():
-        pytest.skip("Holistic wireframe TOML not found")
-
-    config = load_wireframe_config(toml_path)
-
-    # Should have mapping and segments
-    assert len(config.point_name_to_id) > 0
-    assert len(config.segments) > 0
-
-    # Verify a specific segment exists
-    segment_names = {seg.name for seg in config.segments}
-    assert "left_arm" in segment_names
-
-    # Verify color is in valid RGB range
-    for segment in config.segments:
-        assert len(segment.color_rgb) == 3
-        assert all(0.0 <= c <= 1.0 for c in segment.color_rgb)

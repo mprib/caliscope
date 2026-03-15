@@ -9,7 +9,8 @@ from caliscope.core.bootstrap_pose.build_paired_pose_network import build_paired
 from caliscope.helper import copy_contents_to_clean_dest
 from caliscope.core.point_data import ImagePoints
 from caliscope.core.point_data_bundle import PointDataBundle
-from caliscope import persistence
+from caliscope.cameras.camera_array import CameraArray
+from caliscope.core.charuco import Charuco
 
 logger = logging.getLogger(__name__)
 
@@ -23,8 +24,8 @@ def test_calibration_workflow(tmp_path: Path):
 
     xy_data_path = Path(tmp_path, "xy_CHARUCO.csv")
     #    camera_array = config.get_camera_array()
-    persistence.load_charuco(tmp_path / "charuco.toml")
-    camera_array = persistence.load_camera_array(tmp_path / "camera_array.toml")
+    Charuco.from_toml(tmp_path / "charuco.toml")
+    camera_array = CameraArray.from_toml(tmp_path / "camera_array.toml")
     logger.info("Creating stereocalibrator")
 
     image_points = ImagePoints.from_csv(xy_data_path)

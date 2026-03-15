@@ -10,7 +10,8 @@ import numpy as np
 from caliscope import __root__
 from caliscope.core.point_data_bundle import PointDataBundle
 from caliscope.core.point_data import ImagePoints, WorldPoints
-from caliscope import persistence
+from caliscope.cameras.camera_array import CameraArray
+from caliscope.core.charuco import Charuco
 from caliscope.helper import copy_contents_to_clean_dest
 from caliscope.logger import setup_logging
 
@@ -25,8 +26,8 @@ def test_reprojection_report_generation(tmp_path: Path):
     copy_contents_to_clean_dest(original_session_path, tmp_path)
 
     # Load calibration data
-    camera_array = persistence.load_camera_array(tmp_path / "camera_array.toml")
-    persistence.load_charuco(tmp_path / "charuco.toml")
+    camera_array = CameraArray.from_toml(tmp_path / "camera_array.toml")
+    Charuco.from_toml(tmp_path / "charuco.toml")
 
     # Load from CSV format
     csv_dir = tmp_path / "calibration" / "extrinsic" / "CHARUCO"
@@ -95,7 +96,7 @@ def test_unmatched_observation_tracking(tmp_path: Path):
     original_session_path = Path(__root__, "tests", "sessions", session_name)
     copy_contents_to_clean_dest(original_session_path, tmp_path)
 
-    camera_array = persistence.load_camera_array(tmp_path / "camera_array.toml")
+    camera_array = CameraArray.from_toml(tmp_path / "camera_array.toml")
     csv_dir = tmp_path / "calibration" / "extrinsic" / "CHARUCO"
     image_points = ImagePoints.from_csv(csv_dir / "xy_CHARUCO.csv")
     world_points = WorldPoints.from_csv(csv_dir / "xyz_CHARUCO.csv")

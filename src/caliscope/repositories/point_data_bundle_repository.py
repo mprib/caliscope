@@ -15,16 +15,10 @@ Key design principles:
 from pathlib import Path
 import logging
 
+from caliscope.cameras.camera_array import CameraArray
+from caliscope.core.point_data import ImagePoints, WorldPoints
 from caliscope.core.point_data_bundle import PointDataBundle
-from caliscope.persistence import (
-    load_camera_array,
-    save_camera_array,
-    load_image_points_csv,
-    save_image_points_csv,
-    load_world_points_csv,
-    save_world_points_csv,
-    PersistenceError,
-)
+from caliscope.persistence import PersistenceError
 
 logger = logging.getLogger(__name__)
 
@@ -72,9 +66,9 @@ class PointDataBundleRepository:
         """
         try:
             # Load components in dependency order
-            camera_array = load_camera_array(self.camera_array_path)
-            image_points = load_image_points_csv(self.image_points_path)
-            world_points = load_world_points_csv(self.world_points_path)
+            camera_array = CameraArray.from_toml(self.camera_array_path)
+            image_points = ImagePoints.from_csv(self.image_points_path)
+            world_points = WorldPoints.from_csv(self.world_points_path)
 
             return PointDataBundle(
                 camera_array=camera_array,
@@ -105,9 +99,9 @@ class PointDataBundleRepository:
         try:
             # Save components in order: data first, metadata last
             # This ensures bundle.toml only exists if all data is present
-            save_camera_array(bundle.camera_array, self.camera_array_path)
-            save_image_points_csv(bundle.image_points, self.image_points_path)
-            save_world_points_csv(bundle.world_points, self.world_points_path)
+            bundle.camera_array.to_toml(self.camera_array_path)
+            bundle.image_points.to_csv(self.image_points_path)
+            bundle.world_points.to_csv(self.world_points_path)
 
             logger.info(f"Successfully saved PointDataBundle to {self.base_path}")
         except Exception as e:

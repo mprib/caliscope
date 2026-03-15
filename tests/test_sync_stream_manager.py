@@ -8,7 +8,8 @@ from caliscope import __root__
 from caliscope.helper import copy_contents_to_clean_dest
 from caliscope.managers.synchronized_stream_manager import SynchronizedStreamManager
 from caliscope.trackers.charuco_tracker import CharucoTracker
-from caliscope import persistence
+from caliscope.cameras.camera_array import CameraArray
+from caliscope.core.charuco import Charuco
 
 logger = logging.getLogger(__name__)
 
@@ -22,9 +23,9 @@ def test_sync_stream_manager(tmp_path: Path):
 
     copy_contents_to_clean_dest(original_workspace, tmp_path)
 
-    charuco = persistence.load_charuco(tmp_path / "charuco.toml")
+    charuco = Charuco.from_toml(tmp_path / "charuco.toml")
     tracker = CharucoTracker(charuco)
-    camera_array = persistence.load_camera_array(tmp_path / "camera_array.toml")
+    camera_array = CameraArray.from_toml(tmp_path / "camera_array.toml")
 
     # tracker = None
     # all_camera_data = camera_array.cameras

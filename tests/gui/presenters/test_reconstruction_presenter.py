@@ -19,7 +19,7 @@ from caliscope.gui.presenters.reconstruction_presenter import (
     ReconstructionState,
 )
 from caliscope.helper import copy_contents_to_clean_dest
-from caliscope.persistence import load_camera_array
+from caliscope.cameras.camera_array import CameraArray
 from caliscope.task_manager.task_state import TaskState
 
 # Test session with 4 cameras and recordings
@@ -51,7 +51,7 @@ def workspace_with_recordings(tmp_path):
 @pytest.fixture
 def camera_array(workspace_with_recordings):
     """Load real camera array from test session."""
-    return load_camera_array(workspace_with_recordings / "camera_array.toml")
+    return CameraArray.from_toml(workspace_with_recordings / "camera_array.toml")
 
 
 @pytest.fixture

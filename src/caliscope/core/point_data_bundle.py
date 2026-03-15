@@ -733,7 +733,7 @@ if __name__ == "__main__":
     from caliscope import __root__
     from caliscope.core.point_data import ImagePoints
     from caliscope.core.point_data_bundle import PointDataBundle
-    from caliscope import persistence
+    from caliscope.cameras.camera_array import CameraArray
 
     # Load test data
     session_path = Path(__root__, "tests", "sessions", "larger_calibration_post_monocal")
@@ -741,7 +741,7 @@ if __name__ == "__main__":
     array_path = session_path / "camera_array.toml"
 
     image_points = ImagePoints.from_csv(xy_path)
-    camera_array = persistence.load_camera_array(array_path)
+    camera_array = CameraArray.from_toml(array_path)
     world_points = image_points.triangulate(camera_array)
 
     bundle = PointDataBundle(camera_array, image_points, world_points)

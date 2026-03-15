@@ -9,9 +9,11 @@
 import logging
 from collections import defaultdict
 from itertools import combinations
+from pathlib import Path
 
 import cv2
 import numpy as np
+import rtoml
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QImage, QPixmap
 
@@ -208,6 +210,55 @@ class Charuco:
         """
         corners = np.asarray(self.board.getChessboardCorners())
         return corners[corner_ids, :]
+
+    @classmethod
+    def from_toml(cls, path: Path) -> "Charuco":
+        """Load Charuco board definition from TOML file.
+
+        Raises:
+            PersistenceError: If file doesn't exist or contains invalid parameters
+        """
+        from caliscope.persistence import PersistenceError
+
+        if not path.exists():
+            raise PersistenceError(f"Charuco file not found: {path}")
+
+        try:
+            data = rtoml.load(path)
+            return cls(**data)
+        except Exception as e:
+            raise PersistenceError(f"Failed to load Charuco from {path}: {e}") from e
+
+    def to_toml(self, path: Path) -> None:
+        """Save Charuco board definition to TOML file.
+
+        Enumerates fields explicitly rather than using __dict__ to avoid
+        serializing computed properties or internal state.
+
+        Raises:
+            PersistenceError: If write fails
+        """
+        from caliscope.persistence import PersistenceError, _safe_write_toml
+
+        try:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            data = {
+                "columns": self.columns,
+                "rows": self.rows,
+                "board_height": self.board_height,
+                "board_width": self.board_width,
+                "dictionary": self.dictionary,
+                "units": self.units,
+                "aruco_scale": self.aruco_scale,
+                "square_size_overide_cm": self.square_size_overide_cm,
+                "inverted": self.inverted,
+                "legacy_pattern": self.legacy_pattern,
+            }
+            # Filter None values to prevent rtoml "null" strings
+            clean_data = {k: v for k, v in data.items() if v is not None}
+            _safe_write_toml(clean_data, path)
+        except Exception as e:
+            raise PersistenceError(f"Failed to save Charuco to {path}: {e}") from e
 
     def summary(self):
         text = f"Columns: {self.columns}\n"

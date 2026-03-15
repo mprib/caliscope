@@ -22,7 +22,8 @@ from caliscope.helper import copy_contents_to_clean_dest
 from caliscope.core.point_data import ImagePoints
 from caliscope.managers.synchronized_stream_manager import SynchronizedStreamManager
 from caliscope.trackers.charuco_tracker import CharucoTracker
-from caliscope import persistence
+from caliscope.cameras.camera_array import CameraArray
+from caliscope.core.charuco import Charuco
 from caliscope.core.point_data_bundle import PointDataBundle
 
 if TYPE_CHECKING:
@@ -39,7 +40,7 @@ def test_xy_charuco_creation(tmp_path: Path):
 
     # This test begins with a set of cameras with calibrated intrinsics
     logger.info(f"Getting charuco from {tmp_path}")
-    charuco = persistence.load_charuco(tmp_path / "charuco.toml")
+    charuco = Charuco.from_toml(tmp_path / "charuco.toml")
     charuco_tracker = CharucoTracker(charuco)
 
     # create publishers for synchronized processing
@@ -47,7 +48,7 @@ def test_xy_charuco_creation(tmp_path: Path):
     recording_path = Path(tmp_path, "calibration", "extrinsic")
     point_data_path = Path(recording_path, "CHARUCO", "xy_CHARUCO.csv")
 
-    camera_array = persistence.load_camera_array(tmp_path / "camera_array.toml")
+    camera_array = CameraArray.from_toml(tmp_path / "camera_array.toml")
     sync_stream_manager = SynchronizedStreamManager(
         recording_dir=recording_path, all_camera_data=camera_array.cameras, tracker=charuco_tracker
     )
@@ -130,7 +131,7 @@ def test_filter_percentile_modes(tmp_path: Path):
     original_session_path = Path(__root__, "tests", "sessions", "larger_calibration_post_monocal")
     copy_contents_to_clean_dest(original_session_path, tmp_path)
 
-    camera_array = persistence.load_camera_array(tmp_path / "camera_array.toml")
+    camera_array = CameraArray.from_toml(tmp_path / "camera_array.toml")
     image_points = ImagePoints.from_csv(tmp_path / "calibration" / "extrinsic" / "CHARUCO" / "xy_CHARUCO.csv")
 
     # Subsample to stride=10

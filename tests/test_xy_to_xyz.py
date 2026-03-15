@@ -7,7 +7,6 @@ from caliscope.cameras.camera_array import CameraArray
 from caliscope.core.point_data import ImagePoints, WorldPoints
 from caliscope import __root__
 from caliscope.helper import copy_contents_to_clean_dest
-from caliscope import persistence
 
 from caliscope.triangulate.triangulation import triangulate_from_files
 
@@ -31,7 +30,7 @@ def test_image_points_to_world_points(tmp_path: Path):
     original_xyz = pd.read_csv(original_xyz_path)
 
     image_points = ImagePoints.from_csv(xy_path)
-    camera_array: CameraArray = persistence.load_camera_array(tmp_path / "camera_array.toml")
+    camera_array: CameraArray = CameraArray.from_toml(tmp_path / "camera_array.toml")
 
     start = time.time()
     logger.info(f"beginning triangulation at {time.time()}")

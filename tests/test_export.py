@@ -6,7 +6,8 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from caliscope import __root__, persistence
+from caliscope import __root__
+from caliscope.cameras.camera_array import CameraArray
 from caliscope.core.point_data import ImagePoints
 from caliscope.export import xyz_to_trc, xyz_to_wide_labelled
 from caliscope.helper import copy_contents_to_clean_dest
@@ -63,7 +64,7 @@ def test_gap_fill_pipeline_accuracy(tmp_path: Path):
     session_tmp = tmp_path.parent / "session"
 
     # Load camera array for triangulation
-    camera_array = persistence.load_camera_array(session_tmp / "camera_array.toml")
+    camera_array = CameraArray.from_toml(session_tmp / "camera_array.toml")
 
     tracker = HolisticTracker()
     xy_csv_path = Path(tmp_path, f"xy_{tracker.name}.csv")

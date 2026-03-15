@@ -8,7 +8,7 @@ from caliscope import __root__
 # specify a source directory (with recordings)
 from caliscope.helper import copy_contents_to_clean_dest
 from caliscope.reconstruction.reconstructor import Reconstructor
-from caliscope import persistence
+from caliscope.cameras.camera_array import CameraArray
 
 logger = logging.getLogger(__name__)
 
@@ -18,7 +18,7 @@ def test_xy_point_creation(tmp_path: Path):
     session_path = Path(__root__, "tests", "sessions", "mediapipe_calibration_2_cam")
     copy_contents_to_clean_dest(session_path, tmp_path)
 
-    camera_array = persistence.load_camera_array(tmp_path / "camera_array.toml")
+    camera_array = CameraArray.from_toml(tmp_path / "camera_array.toml")
 
     recording_path = Path(tmp_path, "recordings", "recording_1")
     tracker_name = "HAND"

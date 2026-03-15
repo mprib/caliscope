@@ -7,7 +7,7 @@ import logging
 from pathlib import Path
 
 from caliscope.cameras.camera_array import CameraArray, CameraData
-from caliscope import persistence
+from caliscope.persistence import PersistenceError
 
 logger = logging.getLogger(__name__)
 
@@ -39,8 +39,8 @@ class CameraArrayRepository:
             ValueError: If file exists but contains malformed data
         """
         try:
-            return persistence.load_camera_array(self.path)
-        except persistence.PersistenceError as e:
+            return CameraArray.from_toml(self.path)
+        except PersistenceError as e:
             raise ValueError(f"Failed to load camera array: {e}") from e
 
     def save(self, camera_array: CameraArray) -> None:
@@ -54,9 +54,9 @@ class CameraArrayRepository:
             ValueError: If save operation fails
         """
         try:
-            persistence.save_camera_array(camera_array, self.path)
+            camera_array.to_toml(self.path)
             logger.info(f"Saved camera array with {len(camera_array.cameras)} cameras")
-        except persistence.PersistenceError as e:
+        except PersistenceError as e:
             raise ValueError(f"Failed to save camera array: {e}") from e
 
     def save_camera(self, camera: CameraData) -> None:
@@ -78,5 +78,5 @@ class CameraArrayRepository:
             camera_array.cameras[camera.cam_id] = camera
             self.save(camera_array)
             logger.debug(f"Updated camera {camera.cam_id} in array")
-        except persistence.PersistenceError as e:
+        except PersistenceError as e:
             raise ValueError(f"Failed to save camera {camera.cam_id}: {e}") from e

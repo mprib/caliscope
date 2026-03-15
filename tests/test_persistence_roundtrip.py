@@ -5,10 +5,11 @@ import numpy as np
 import pandas as pd
 
 from caliscope import __root__
-from caliscope import persistence
+from caliscope.core.bootstrap_pose.paired_pose_network import PairedPoseNetwork
 from caliscope.core.bootstrap_pose.build_paired_pose_network import build_paired_pose_network
 from caliscope.core.charuco import Charuco
 from caliscope.cameras.camera_array import CameraArray, CameraData
+from caliscope.core.point_data import ImagePoints, WorldPoints
 
 logger = logging.getLogger(__name__)
 
@@ -84,16 +85,16 @@ def load_fixture_data(session_name: str = "post_optimization") -> dict:
 
     # Load camera array
     camera_array_path = session_path / "camera_array.toml"
-    camera_array = persistence.load_camera_array(camera_array_path)
+    camera_array = CameraArray.from_toml(camera_array_path)
 
     # Load charuco
     charuco_path = session_path / "charuco.toml"
-    charuco = persistence.load_charuco(charuco_path)
+    charuco = Charuco.from_toml(charuco_path)
 
     # Load image and world points from CSV
     csv_dir = session_path / "calibration" / "extrinsic" / "CHARUCO"
-    image_points = persistence.load_image_points_csv(csv_dir / "xy_CHARUCO.csv")
-    world_points = persistence.load_world_points_csv(csv_dir / "xyz_CHARUCO.csv")
+    image_points = ImagePoints.from_csv(csv_dir / "xy_CHARUCO.csv")
+    world_points = WorldPoints.from_csv(csv_dir / "xyz_CHARUCO.csv")
 
     # Build paired pose network
     paired_pose_network = build_paired_pose_network(image_points, camera_array)
@@ -116,8 +117,8 @@ def test_camera_array_roundtrip(tmp_path: Path):
     file_path = tmp_path / "camera_array.toml"
 
     # Save and load
-    persistence.save_camera_array(original, file_path)
-    loaded = persistence.load_camera_array(file_path)
+    original.to_toml(file_path)
+    loaded = CameraArray.from_toml(file_path)
 
     # Assert equivalence
     assert len(loaded.cameras) == len(original.cameras)
@@ -172,8 +173,8 @@ def test_charuco_roundtrip(tmp_path: Path):
     file_path = tmp_path / "charuco.toml"
 
     # Save and load
-    persistence.save_charuco(original, file_path)
-    loaded = persistence.load_charuco(file_path)
+    original.to_toml(file_path)
+    loaded = Charuco.from_toml(file_path)
 
     # Assert equivalence
     assert loaded.columns == original.columns
@@ -200,8 +201,8 @@ def test_world_points_roundtrip(tmp_path: Path):
     file_path = tmp_path / "xyz_test.csv"
 
     # Save and load
-    persistence.save_world_points_csv(original, file_path)
-    loaded = persistence.load_world_points_csv(file_path)
+    original.to_csv(file_path)
+    loaded = WorldPoints.from_csv(file_path)
 
     # Assert equivalence
     pd.testing.assert_frame_equal(loaded.df, original.df, check_dtype=True)
@@ -219,8 +220,8 @@ def test_paired_pose_network_roundtrip(tmp_path: Path):
     file_path = tmp_path / "stereo_pairs.toml"
 
     # Save and load
-    persistence.save_stereo_pairs(original, file_path)
-    loaded = persistence.load_stereo_pairs(file_path)
+    original.to_toml(file_path)
+    loaded = PairedPoseNetwork.from_toml(file_path)
 
     # Assert equivalence
     assert len(loaded._pairs) == len(original._pairs)
@@ -249,8 +250,8 @@ def test_image_points_roundtrip(tmp_path: Path):
     file_path = tmp_path / "xy_test.csv"
 
     # Save and load
-    persistence.save_image_points_csv(original, file_path)
-    loaded = persistence.load_image_points_csv(file_path)
+    original.to_csv(file_path)
+    loaded = ImagePoints.from_csv(file_path)
 
     # Assert equivalence
     pd.testing.assert_frame_equal(loaded.df, original.df, check_dtype=True)

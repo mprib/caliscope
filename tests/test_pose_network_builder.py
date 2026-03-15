@@ -15,7 +15,6 @@ from caliscope.cameras.camera_array import CameraArray
 from caliscope.core.point_data import ImagePoints
 from caliscope.core.bootstrap_pose.pose_network_builder import PoseNetworkBuilder
 from caliscope.core.point_data_bundle import PointDataBundle
-from caliscope import persistence
 
 logger = logging.getLogger(__name__)
 
@@ -29,7 +28,7 @@ def test_pose_network_builder_end_to_end(tmp_path: Path):
     copy_contents_to_clean_dest(source_dir, tmp_path)
 
     # Load data the same way the prototyping script does
-    camera_array = persistence.load_camera_array(tmp_path / "camera_array.toml")
+    camera_array = CameraArray.from_toml(tmp_path / "camera_array.toml")
     image_points = ImagePoints.from_csv(tmp_path / "calibration" / "extrinsic" / "CHARUCO" / "xy_CHARUCO.csv")
 
     # Reset poses to ensure clean state
@@ -78,7 +77,7 @@ def test_builder_parameter_propagation(tmp_path: Path):
     source_dir = Path(__root__, "tests/sessions/post_optimization")
     copy_contents_to_clean_dest(source_dir, tmp_path)
 
-    camera_array = persistence.load_camera_array(tmp_path / "camera_array.toml")
+    camera_array = CameraArray.from_toml(tmp_path / "camera_array.toml")
     image_points = ImagePoints.from_csv(tmp_path / "calibration" / "extrinsic" / "CHARUCO" / "xy_CHARUCO.csv")
 
     # Lenient config: more data passes through
@@ -110,7 +109,7 @@ def test_builder_enforces_execution_order(tmp_path: Path):
     source_dir = Path(__root__, "tests/sessions/post_optimization")
     copy_contents_to_clean_dest(source_dir, tmp_path)
 
-    camera_array = persistence.load_camera_array(tmp_path / "camera_array.toml")
+    camera_array = CameraArray.from_toml(tmp_path / "camera_array.toml")
     image_points = ImagePoints.from_csv(tmp_path / "calibration" / "extrinsic" / "CHARUCO" / "xy_CHARUCO.csv")
 
     builder = PoseNetworkBuilder(camera_array, image_points)
@@ -137,7 +136,7 @@ def test_apply_to_with_disconnected_camera(tmp_path: Path):
     source_dir = Path(__root__, "tests/sessions/post_optimization")
     copy_contents_to_clean_dest(source_dir, tmp_path)
 
-    camera_array = persistence.load_camera_array(tmp_path / "camera_array.toml")
+    camera_array = CameraArray.from_toml(tmp_path / "camera_array.toml")
     image_points = ImagePoints.from_csv(tmp_path / "calibration" / "extrinsic" / "CHARUCO" / "xy_CHARUCO.csv")
 
     builder = PoseNetworkBuilder(camera_array, image_points)

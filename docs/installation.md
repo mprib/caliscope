@@ -30,7 +30,7 @@ If you don't have `uv` installed, you can install it with a single command.
 
 ## 3. Create a virtual environment
 
-We strongly advise installing Caliscope within a virtual environment to avoid conflicts with other packages. Caliscope is compatible with Python 3.10, 3.11, and 3.12.
+We strongly advise installing Caliscope within a virtual environment to avoid conflicts with other packages. Caliscope is compatible with Python 3.10 through 3.13.
 
 === "Windows"
 
@@ -85,13 +85,23 @@ We strongly advise installing Caliscope within a virtual environment to avoid co
 
 With your virtual environment activated, you can now install Caliscope using `uv`.
 
+For the **desktop app** (GUI with 3D visualization):
+
+```bash
+uv pip install caliscope[gui]
+```
+
+For **headless use** (scripting, CI pipelines, servers — no GUI dependencies):
+
 ```bash
 uv pip install caliscope
 ```
 
+The headless install includes calibration, tracking, reconstruction, and ONNX inference — everything except the PySide6 desktop interface and 3D visualization.
+
 Installation may take a moment as some dependencies are large.
 
-ONNX model inference via `onnxruntime` is included in the standard installation. See [Custom ONNX Trackers](onnx_trackers.md) for details.
+ONNX model inference via `onnxruntime` is included in both install targets. See [Custom ONNX Trackers](onnx_trackers.md) for details.
 
 ## 5. Launch from the command line
 

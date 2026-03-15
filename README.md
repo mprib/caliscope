@@ -22,7 +22,15 @@ https://github.com/user-attachments/assets/b8bb78de-866e-4ba2-b5c7-674e3a33dd9e
 
 ## Quick Start
 
-Installation instructions are in the [docs](https://mprib.github.io/caliscope/installation/).
+```bash
+# Desktop app (GUI + 3D visualization)
+pip install caliscope[gui]
+
+# Headless (scripting, CI, servers — no PySide6/VTK)
+pip install caliscope
+```
+
+Full installation instructions are in the [docs](https://mprib.github.io/caliscope/installation/).
 
 For a walkthrough with test data after installing, see the [sample project](https://mprib.github.io/caliscope/sample_project/).
 

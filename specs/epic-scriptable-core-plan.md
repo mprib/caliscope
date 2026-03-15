@@ -40,11 +40,14 @@ Doing the rename here means `api.py` exports the real class name, not an alias.
 
 Depends on Phase 2 (serialization methods must exist before packaging split).
 
-| Branch | Task ID(s) | Scope | Risk |
-|--------|------------|-------|------|
-| `feature/charuco-qt-cleanup` | `charuco-qt-import-debt`, `unify-target-save-patterns` | Remove Qt from `core/charuco.py`, unify board image generation to return ndarrays | Low |
-| `feature/import-boundary-cleanup` | (part of `optional-gui-extras`) | Fix `logger.py` QtHandler, verify `task_manager/` isolation, add subprocess import boundary test | Medium |
-| `feature/optional-gui-packaging` | (part of `optional-gui-extras`) | Split pyproject.toml into core/`[gui]`/`[tracking]` extras, verify headless install | Medium — integration risk |
+Two branches: first clean up Qt imports so core is headless-safe, then split packaging.
+
+| Branch | Scope | Risk |
+|--------|-------|------|
+| `feature/import-boundary-cleanup` | Commit 1: Remove dead `board_pixmap()` + Qt imports from `core/charuco.py`. Commit 2: Guard `logger.py` QtHandler with `try/except ImportError`, remove `FramePacketStreamer` from `recording/__init__.py` re-exports, update 6 callers to direct imports, add subprocess import boundary test (28 modules). See `specs/phase3-import-boundary-spec.md`. | Low-Medium |
+| `feature/optional-gui-packaging` | Split pyproject.toml: base keeps numpy/opencv/pyav/onnxruntime, `[gui]` extra gets PySide6-essentials/pyvista/pyvistaqt. Remove mediapipe entirely (planned deprecation). Guard `__init__.py` QT_API env var. Verify headless install. | Medium — integration risk |
+
+**Packaging decision**: onnxruntime (47 MB) stays in base — the install friction of a separate `[tracking]` extra outweighs the footprint savings. Only PySide6 + 3D viz move to `[gui]`. The headless API works with primitives (`CameraArray`, `CaptureVolume`, `ImagePoints`) and convenience functions; no coordinator needed.
 
 ## Phase 4: API Surface
 
@@ -82,6 +85,9 @@ Independent of API work — can overlap with Phase 4.
 | `drop-numba` | Merged to `epic/scriptable-core` (2026-03-14). Replaced numba-JIT with two-tier batched numpy SVD: `triangulate_sync_index` (per-frame) + `triangulate_image_points` (bulk). 15.9ms vs 14ms numba baseline. All tests pass. -181 MB install footprint. |
 | `drop-pandera` | Merged to `epic/scriptable-core` (2026-03-14). Replaced `ImagePointSchema`/`WorldPointSchema` with `_validate_dataframe()` + column spec dicts. Removed 3 redundant re-validation calls in `persistence.py`. Uses transient `Int64` for null-safe coercion, downcasts to `int64` for numpy compat. -30 MB install footprint. |
 | `fix-frame-skip-label` | Merged to `epic/scriptable-core` (2026-03-14). Changed intrinsic tab label from "Frames to skip:" to "Process every" to match extrinsic tab pattern. |
+| `domain-object-serialization` | Merged to `epic/scriptable-core` (2026-03-15). Moved serialization from monolithic `persistence.py` (~700 lines) into domain objects with Path-based methods (`from_toml(path)`, `to_toml(path)`, `to_csv(path)`). persistence.py reduced to ~126 lines of atomic write utilities. 38 files changed, net -186 lines. Bug fix: `rotation.any()` → `rotation is not None`. PairedPoseNetwork legacy `to_dict()`/`from_legacy_dict()` replaced with `to_toml()`/`from_toml()`. |
+| `rename-bundle-to-capture-volume` | Merged to `epic/scriptable-core` (2026-03-15). Renamed `PointDataBundle` → `CaptureVolume`, `PointDataBundleRepository` → `CaptureVolumeRepository`, plus all variable/signal/method names (`_bundle` → `_capture_volume`, `bundle_changed` → `capture_volume_changed`, etc.). 3 files renamed, 15 files changed. Only "bundle adjustment" (algorithm name) preserved. |
+| `import-boundary-cleanup` | Merged to `epic/scriptable-core` (2026-03-15). Removed dead `board_pixmap()` + Qt imports from `core/charuco.py`. Guarded `logger.py` Qt classes with `try/except ImportError`. Removed `FramePacketStreamer`/`create_streamer` from `recording/__init__.py` re-exports, updated 6 callers to direct imports. Added `test_import_boundary.py` (7 subprocess-based boundary tests). 11 files changed. |
 
 ## Failed Approaches (from design sessions)
 
@@ -95,7 +101,7 @@ Independent of API work — can overlap with Phase 4.
 
 - **TOML format** (`camera-toml-format` task): Rodrigues vs 3x3 rotation, metadata separation. Backlog.
 - **`extract_image_points` progress callback**: spec says `logging` + optional callback. Rich integration may change this — decide during Phase 4.
-- **Charuco board image generation**: OpenCV or PIL to replace QPixmap? Decide during Phase 3.
+- ~~**Charuco board image generation**: OpenCV or PIL to replace QPixmap?~~ Resolved — `board_pixmap()` was dead code, deleted. GUI uses `render_charuco_pixmap()` in `gui/utils/`.
 
 ## Next Steps
 
@@ -103,4 +109,9 @@ Independent of API work — can overlap with Phase 4.
 2. ~~`drop-numba`~~ (done — merged to epic)
 3. ~~`drop-pandera`~~ (done — merged to epic)
 4. ~~`fix-frame-skip-label`~~ (done — merged to epic)
-5. Phase 1 complete. Next: Phase 2 (`domain-object-serialization`, then `rename-bundle-to-capture-volume`).
+5. Phase 1 complete.
+6. ~~`domain-object-serialization`~~ (done — merged to epic)
+7. ~~`rename-bundle-to-capture-volume`~~ (done — merged to epic)
+8. Phase 2 complete.
+9. ~~`import-boundary-cleanup`~~ (done — merged to epic)
+10. Next: Phase 3 — `optional-gui-packaging` (split pyproject.toml, remove mediapipe).

@@ -19,13 +19,13 @@ from caliscope.repositories import (
     CalibrationTargetsRepository,
     ProjectSettingsRepository,
 )
-from caliscope.repositories.point_data_bundle_repository import PointDataBundleRepository
+from caliscope.repositories.capture_volume_repository import CaptureVolumeRepository
 from caliscope.repositories.calibration_targets_repository import (
     IntrinsicTargetType,
     ExtrinsicTargetType,
     TargetRouting,
 )
-from caliscope.core.point_data_bundle import PointDataBundle
+from caliscope.core.capture_volume import CaptureVolume
 from caliscope.core.workflow_status import WorkflowStatus
 from caliscope.persistence import PersistenceError
 from caliscope.repositories.intrinsic_report_repository import IntrinsicReportRepository
@@ -58,7 +58,7 @@ class WorkspaceCoordinator(QObject):
 
     Orchestrates the calibration workflow by coordinating between repositories
     (persistence), stream managers (video processing), and domain objects
-    (CameraArray, PointDataBundle). Maintains no business logic itself beyond
+    (CameraArray, CaptureVolume). Maintains no business logic itself beyond
     workflow state management.
 
     This is session-scoped to a workspace directory. All data access is delegated
@@ -69,7 +69,7 @@ class WorkspaceCoordinator(QObject):
     new_camera_data = Signal(int, OrderedDict)  # cam_id, camera_display_dictionary
     intrinsic_target_changed = Signal()  # Emitted when intrinsic target config is updated
     extrinsic_target_changed = Signal()  # Emitted when extrinsic target config is updated
-    bundle_updated = Signal()  # Immediate: in-memory state changed, use for UI refresh
+    capture_volume_updated = Signal()  # Immediate: in-memory state changed, use for UI refresh
     status_changed = Signal()  # Deferred: fires after filesystem operations complete
 
     def __init__(self, workspace_dir: Path):
@@ -84,13 +84,13 @@ class WorkspaceCoordinator(QObject):
             workspace_dir / "calibration" / "intrinsic" / "reports"
         )
 
-        # PointDataBundle (extrinsic calibration system)
+        # CaptureVolume (extrinsic calibration system)
         # Capture volume lives as a sibling to the tracker extraction directory.
-        # Extraction writes to .../ARUCO/image_points.csv, bundle saves to .../capture_volume/.
-        self.bundle_repository = PointDataBundleRepository(
+        # Extraction writes to .../ARUCO/image_points.csv, capture volume saves to .../capture_volume/.
+        self.capture_volume_repository = CaptureVolumeRepository(
             workspace_dir / "calibration" / "extrinsic" / "capture_volume"
         )
-        self._point_data_bundle: PointDataBundle | None = None
+        self._capture_volume: CaptureVolume | None = None
 
         # Initialize project files if they don't exist
         self._initialize_project_files()
@@ -234,9 +234,9 @@ class WorkspaceCoordinator(QObject):
             else:
                 logger.info("Skipping camera array load (no intrinsic videos)")
 
-            # Load point data bundle if extrinsic calibration complete
+            # Load capture volume if extrinsic calibration complete
             if self.capture_volume_tab_enabled:
-                logger.info("Extrinsic calibration available (loaded via point_data_bundle property)")
+                logger.info("Extrinsic calibration available (loaded via capture_volume property)")
             else:
                 logger.info("Skipping capture volume load (not calibrated)")
 
@@ -269,8 +269,8 @@ class WorkspaceCoordinator(QObject):
         cameras_good = self.camera_array.all_extrinsics_calibrated()
         logger.info(f"All extrinsics calculated: {cameras_good}")
 
-        # Check for calibration data in PointDataBundle system
-        point_estimates_good = self.bundle_repository.camera_array_path.exists()
+        # Check for calibration data in CaptureVolume system
+        point_estimates_good = self.capture_volume_repository.camera_array_path.exists()
         logger.info(f"Point estimates available: {point_estimates_good}")
 
         all_data_available = self.workspace_guide.all_extrinsic_mp4s_available()
@@ -548,7 +548,7 @@ class WorkspaceCoordinator(QObject):
         The presenter handles bootstrap triangulation, bundle adjustment, and
         coordinate frame transformations.
 
-        If a calibration bundle already exists (from a previous session), it's passed
+        If a capture volume already exists (from a previous session), it's passed
         to the presenter so the UI starts in the CALIBRATED state with visualization.
 
         The caller is responsible for:
@@ -561,17 +561,17 @@ class WorkspaceCoordinator(QObject):
         image_points_path = self.extrinsic_image_points_path
 
         # Check for existing calibration (restores state on project reopen)
-        existing_bundle = self.point_data_bundle
+        existing_capture_volume = self.capture_volume
 
         presenter = ExtrinsicCalibrationPresenter(
             task_manager=self.task_manager,
             camera_array=self.camera_array,
             image_points_path=image_points_path,
-            existing_bundle=existing_bundle,
+            existing_capture_volume=existing_capture_volume,
         )
 
         # Wire signal directly - no passthrough needed
-        presenter.bundle_changed.connect(self.update_bundle)
+        presenter.capture_volume_changed.connect(self.update_capture_volume)
 
         return presenter
 
@@ -579,7 +579,7 @@ class WorkspaceCoordinator(QObject):
         """Persist 2D image points from multi-camera processing.
 
         Saves ImagePoints to the extrinsic calibration directory for use by
-        the Extrinsic Calibration tab. The full PointDataBundle (with WorldPoints)
+        the Extrinsic Calibration tab. The full CaptureVolume (with WorldPoints)
         is created later after bootstrapping and triangulation.
 
         Args:
@@ -659,95 +659,95 @@ class WorkspaceCoordinator(QObject):
         return self._intrinsic_points.get(cam_id)
 
     # -------------------------------------------------------------------------
-    # PointDataBundle API
+    # CaptureVolume API
     # -------------------------------------------------------------------------
 
     @property
-    def point_data_bundle(self) -> PointDataBundle | None:
-        """Get the current PointDataBundle for extrinsic calibration.
+    def capture_volume(self) -> CaptureVolume | None:
+        """Get the current CaptureVolume for extrinsic calibration.
 
         Loading priority:
-        1. Return cached bundle if available
-        2. Try to load from PointDataBundleRepository
+        1. Return cached capture volume if available
+        2. Try to load from CaptureVolumeRepository
         3. Return None if no data available
         """
-        if self._point_data_bundle is not None:
-            return self._point_data_bundle
+        if self._capture_volume is not None:
+            return self._capture_volume
 
-        # Try loading from bundle repository
-        if self.bundle_repository.camera_array_path.exists():
+        # Try loading from capture volume repository
+        if self.capture_volume_repository.camera_array_path.exists():
             try:
-                self._point_data_bundle = self.bundle_repository.load()
-                logger.info("Loaded PointDataBundle from repository")
-                return self._point_data_bundle
+                self._capture_volume = self.capture_volume_repository.load()
+                logger.info("Loaded CaptureVolume from repository")
+                return self._capture_volume
             except PersistenceError as e:
                 logger.warning(f"Bundle repository exists but load failed: {e}")
 
         return None
 
-    def update_bundle(self, bundle: PointDataBundle) -> None:
-        """Update the in-memory bundle and persist in background.
+    def update_capture_volume(self, capture_volume: CaptureVolume) -> None:
+        """Update the in-memory capture volume and persist in background.
 
-        Emits bundle_updated immediately (for UI refresh using in-memory state).
+        Emits capture_volume_updated immediately (for UI refresh using in-memory state).
         Emits status_changed after save completes (for filesystem-based status checks).
 
         Also updates the main camera_array so that on restart, the calibrated
         extrinsics are available (enables tab and correct state detection).
 
         Args:
-            bundle: The new PointDataBundle to store
+            capture_volume: The new CaptureVolume to store
         """
-        self._point_data_bundle = bundle
-        self.camera_array = bundle.camera_array  # Keep main camera_array in sync
-        self.bundle_updated.emit()  # Immediate - consumers use in-memory state
+        self._capture_volume = capture_volume
+        self.camera_array = capture_volume.camera_array  # Keep main camera_array in sync
+        self.capture_volume_updated.emit()  # Immediate - consumers use in-memory state
 
         # Capture for closure (background worker)
-        bundle_to_save = bundle
+        capture_volume_to_save = capture_volume
         camera_repo = self.camera_repository
         aniposelib_path = self.workspace / "camera_array_aniposelib.toml"
 
         def worker(_token, _handle):
             try:
-                self.bundle_repository.save(bundle_to_save)
-                logger.info("PointDataBundle persisted to disk")
+                self.capture_volume_repository.save(capture_volume_to_save)
+                logger.info("CaptureVolume persisted to disk")
                 # Also save camera_array to main repo for restart detection
-                camera_repo.save(bundle_to_save.camera_array)
+                camera_repo.save(capture_volume_to_save.camera_array)
                 logger.info("Camera array with extrinsics persisted")
                 # Export aniposelib-compatible format to workspace root for downstream tools
-                bundle_to_save.camera_array.to_aniposelib_toml(aniposelib_path)
+                capture_volume_to_save.camera_array.to_aniposelib_toml(aniposelib_path)
                 logger.info("Aniposelib-compatible camera array exported")
             except PersistenceError as e:
                 # Log prominently - user's changes may be lost on restart
-                logger.error(f"Failed to persist PointDataBundle: {e}")
+                logger.error(f"Failed to persist CaptureVolume: {e}")
 
-        handle = self.task_manager.submit(worker, name="save_point_data_bundle")
+        handle = self.task_manager.submit(worker, name="save_capture_volume")
         handle.completed.connect(lambda _: self.status_changed.emit())  # Post-save
 
-    def rotate_calibration_bundle(self, axis: Literal["x", "y", "z"], angle_degrees: float) -> None:
-        """Rotate the calibration bundle and persist.
+    def rotate_capture_volume(self, axis: Literal["x", "y", "z"], angle_degrees: float) -> None:
+        """Rotate the capture volume and persist.
 
-        The bundle's rotate() method returns a new immutable bundle with transformed
-        world points and camera extrinsics. We update and persist via update_bundle().
+        The CaptureVolume.rotate() method returns a new immutable instance with transformed
+        world points and camera extrinsics. We update and persist via update_capture_volume().
         """
-        bundle = self.point_data_bundle
-        if bundle is None:
-            logger.warning("Cannot rotate: no calibration bundle loaded")
+        capture_volume = self.capture_volume
+        if capture_volume is None:
+            logger.warning("Cannot rotate: no capture volume loaded")
             return
-        new_bundle = bundle.rotate(axis, angle_degrees)
-        self.update_bundle(new_bundle)
+        new_capture_volume = capture_volume.rotate(axis, angle_degrees)
+        self.update_capture_volume(new_capture_volume)
 
-    def set_calibration_bundle_origin(self, sync_index: int) -> None:
+    def set_capture_volume_origin(self, sync_index: int) -> None:
         """Set world origin to board position at sync_index and persist.
 
         Uses the charuco board detected at the given sync_index to define
         a new coordinate frame, transforming all points and cameras accordingly.
         """
-        bundle = self.point_data_bundle
-        if bundle is None:
-            logger.warning("Cannot set origin: no calibration bundle loaded")
+        capture_volume = self.capture_volume
+        if capture_volume is None:
+            logger.warning("Cannot set origin: no capture volume loaded")
             return
-        new_bundle = bundle.align_to_object(sync_index)
-        self.update_bundle(new_bundle)
+        new_capture_volume = capture_volume.align_to_object(sync_index)
+        self.update_capture_volume(new_capture_volume)
 
     def process_recordings(self, recording_path: Path, tracker_name: str) -> TaskHandle:
         """

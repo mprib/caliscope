@@ -14,7 +14,7 @@ from caliscope.helper import copy_contents_to_clean_dest
 from caliscope.cameras.camera_array import CameraArray
 from caliscope.core.point_data import ImagePoints
 from caliscope.core.bootstrap_pose.pose_network_builder import PoseNetworkBuilder
-from caliscope.core.point_data_bundle import PointDataBundle
+from caliscope.core.capture_volume import CaptureVolume
 
 logger = logging.getLogger(__name__)
 
@@ -61,12 +61,12 @@ def test_pose_network_builder_end_to_end(tmp_path: Path):
         assert cam.translation is not None and cam.translation.shape == (3,)
         assert np.isclose(np.linalg.det(cam.rotation), 1.0, atol=1e-5)
 
-    # Verify that bundle can be created from array and points, and optimization converges
+    # Verify that capture volume can be created from array and points, and optimization converges
     world_points = image_points.triangulate(test_array)
-    bundle = PointDataBundle(test_array, image_points, world_points)
-    optimized_bundle = bundle.optimize()
-    assert optimized_bundle.optimization_status is not None
-    assert optimized_bundle.optimization_status.converged
+    capture_volume = CaptureVolume(test_array, image_points, world_points)
+    optimized = capture_volume.optimize()
+    assert optimized.optimization_status is not None
+    assert optimized.optimization_status.converged
 
 
 def test_builder_parameter_propagation(tmp_path: Path):

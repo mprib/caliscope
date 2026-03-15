@@ -8,7 +8,7 @@ import pytest
 
 from caliscope.core.bootstrap_pose.build_paired_pose_network import build_paired_pose_network
 from caliscope.core.point_data import ImagePoints
-from caliscope.core.point_data_bundle import PointDataBundle
+from caliscope.core.capture_volume import CaptureVolume
 from caliscope.synthetic.calibration_object import CalibrationObject
 from caliscope.synthetic.camera_synthesizer import CameraSynthesizer
 from caliscope.synthetic.filter_config import FilterConfig
@@ -62,8 +62,8 @@ class TestDroppedCameras:
         # Triangulate with posed cameras only
         world_points = filtered_image_points.triangulate(intrinsics_only)
 
-        # Create bundle and verify setup
-        bundle = PointDataBundle(intrinsics_only, filtered_image_points, world_points)
+        # Create capture volume and verify setup
+        capture_volume = CaptureVolume(intrinsics_only, filtered_image_points, world_points)
 
         # Key assertions on camera configuration
         posed_cam_ids = set(intrinsics_only.posed_cameras.keys())
@@ -75,7 +75,7 @@ class TestDroppedCameras:
         assert len(intrinsics_only.posed_cam_id_to_index) == 10
 
         # Core test: optimization completes without crashing
-        optimized = bundle.optimize()
+        optimized = capture_volume.optimize()
 
         assert optimized.optimization_status is not None
         assert optimized.optimization_status.converged
@@ -180,10 +180,10 @@ class TestIsolatedIslands:
         # Attempt triangulation and optimization (may or may not work)
         if len(posed_cam_ids) >= 2:
             world_points = filtered_image_points.triangulate(intrinsics_only)
-            bundle = PointDataBundle(intrinsics_only, filtered_image_points, world_points)
+            capture_volume = CaptureVolume(intrinsics_only, filtered_image_points, world_points)
 
             # Core test: does optimization complete?
-            optimized = bundle.optimize()
+            optimized = capture_volume.optimize()
 
             print(f"Optimization converged: {optimized.optimization_status.converged}")
             print(f"Reprojection RMSE: {optimized.reprojection_report.overall_rmse:.3f}")

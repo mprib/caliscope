@@ -9,11 +9,11 @@ and their serialized representations.
 from caliscope.repositories.camera_array_repository import CameraArrayRepository
 from caliscope.repositories.calibration_targets_repository import CalibrationTargetsRepository
 from caliscope.repositories.project_settings_repository import ProjectSettingsRepository
-from caliscope.repositories.point_data_bundle_repository import PointDataBundleRepository
+from caliscope.repositories.capture_volume_repository import CaptureVolumeRepository
 
 __all__ = [
     "CameraArrayRepository",
     "CalibrationTargetsRepository",
     "ProjectSettingsRepository",
-    "PointDataBundleRepository",
+    "CaptureVolumeRepository",
 ]

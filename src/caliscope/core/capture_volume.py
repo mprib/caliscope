@@ -63,13 +63,13 @@ _SCIPY_STATUS_REASONS: dict[int, str] = {
 
 
 @dataclass(frozen=True)
-class PointDataBundle:
+class CaptureVolume:
     camera_array: CameraArray
     image_points: ImagePoints
     world_points: WorldPoints
     # Computed field: maps each image observation to its world point index (-1 if unmatched)
     img_to_obj_map: np.ndarray = field(init=False)
-    # Optimization metadata: None if bundle hasn't been optimized or was filtered post-optimization
+    # Optimization metadata: None if capture volume hasn't been optimized or was filtered post-optimization
     _optimization_status: OptimizationStatus | None = field(default=None, compare=False)
 
     @property
@@ -112,7 +112,6 @@ class PointDataBundle:
 
     def _compute_img_to_obj_map(self) -> np.ndarray:
         """Map each image observation to its world point index. Returns -1 for unmatched."""
-        # Same logic as before, just renamed
         world_df = self.world_points.df.reset_index().rename(columns={"index": "world_idx"})
         mapping = world_df.set_index(["sync_index", "point_id"])["world_idx"].to_dict()
 
@@ -130,7 +129,7 @@ class PointDataBundle:
     def reprojection_report(self) -> ReprojectionReport:
         """
         Generate comprehensive reprojection error report in pixel units.
-        Cached automatically since bundle data is immutable.
+        Cached automatically since capture volume data is immutable.
         """
         # 1. Filter to matched observations from posed cameras only
         matched_mask = self.img_to_obj_map >= 0
@@ -215,12 +214,12 @@ class PointDataBundle:
         ftol: float = 1e-8,
         max_nfev: int = 1000,
         verbose: int = 2,
-    ) -> PointDataBundle:
+    ) -> CaptureVolume:
         """
-        Perform bundle adjustment optimization on this PointDataBundle.
+        Perform bundle adjustment optimization on this CaptureVolume.
 
-        Returns a NEW PointDataBundle with optimized camera parameters and 3D points.
-        The original bundle remains unchanged (immutable pattern).
+        Returns a NEW CaptureVolume with optimized camera parameters and 3D points.
+        The original remains unchanged (immutable pattern).
         """
         # Extract static data once - filter to matched observations from posed cameras
         matched_mask = self.img_to_obj_map >= 0
@@ -269,7 +268,7 @@ class PointDataBundle:
             final_cost=float(result.cost),
         )
 
-        # Create new bundle with optimized parameters
+        # Create new capture volume with optimized parameters
         new_camera_array = deepcopy(self.camera_array)
         new_camera_array.update_extrinsic_params(result.x)
 
@@ -285,7 +284,7 @@ class PointDataBundle:
 
         new_world_points = WorldPoints(new_world_df)
 
-        return PointDataBundle(
+        return CaptureVolume(
             camera_array=new_camera_array,
             image_points=self.image_points,
             world_points=new_world_points,
@@ -351,7 +350,7 @@ class PointDataBundle:
 
         return np.concatenate([camera_params.ravel(), points_3d.ravel()])
 
-    def _filter_by_reprojection_thresholds(self, thresholds: dict[int, float], min_per_camera: int) -> PointDataBundle:
+    def _filter_by_reprojection_thresholds(self, thresholds: dict[int, float], min_per_camera: int) -> CaptureVolume:
         """
         Internal: Filter observations using per-camera error thresholds with safety enforcement.
 
@@ -360,7 +359,7 @@ class PointDataBundle:
             min_per_camera: minimum observations to preserve per camera
 
         Returns:
-            New PointDataBundle with filtered observations
+            New CaptureVolume with filtered observations
         """
         # Get reprojection data (cached)
         report = self.reprojection_report
@@ -405,13 +404,13 @@ class PointDataBundle:
 
         filtered_world_points = WorldPoints(filtered_world_df)
 
-        return PointDataBundle(
+        return CaptureVolume(
             camera_array=self.camera_array,
             image_points=filtered_image_points,
             world_points=filtered_world_points,
         )
 
-    def filter_by_absolute_error(self, max_pixels: float, min_per_camera: int = 10) -> PointDataBundle:
+    def filter_by_absolute_error(self, max_pixels: float, min_per_camera: int = 10) -> CaptureVolume:
         """
         Remove observations with reprojection error > max_pixels.
 
@@ -424,7 +423,7 @@ class PointDataBundle:
             min_per_camera: Minimum observations per camera (safety floor)
 
         Returns:
-            New PointDataBundle with filtered observations
+            New CaptureVolume with filtered observations
         """
         if max_pixels <= 0:
             raise ValueError(f"max_pixels must be positive, got {max_pixels}")
@@ -439,7 +438,7 @@ class PointDataBundle:
 
     def filter_by_percentile_error(
         self, percentile: float, scope: Literal["per_camera", "overall"] = "per_camera", min_per_camera: int = 10
-    ) -> PointDataBundle:
+    ) -> CaptureVolume:
         """
         Remove worst N% of observations based on reprojection error.
 
@@ -449,7 +448,7 @@ class PointDataBundle:
             min_per_camera: Minimum observations per camera (safety floor)
 
         Returns:
-            New PointDataBundle with filtered observations
+            New CaptureVolume with filtered observations
         """
         if not (0 < percentile <= 100):
             raise ValueError(f"percentile must be between 0 and 100, got {percentile}")
@@ -567,9 +566,9 @@ class PointDataBundle:
         # Return report (empty if no valid frames)
         return VolumetricScaleReport(frame_errors=tuple(frame_errors))
 
-    def align_to_object(self, sync_index: int) -> "PointDataBundle":
+    def align_to_object(self, sync_index: int) -> "CaptureVolume":
         """
-        Align the bundle to real-world units using object point correspondences.
+        Align the capture volume to real-world units using object point correspondences.
 
         Uses the 3D points triangulated at the given sync_index and their
         corresponding ground truth object positions (from obj_loc columns) to
@@ -586,7 +585,7 @@ class PointDataBundle:
             sync_index: Frame index where object is visible and has obj_loc data
 
         Returns:
-            New PointDataBundle with cameras and world points in object coordinate units
+            New CaptureVolume with cameras and world points in object coordinate units
 
         Raises:
             ValueError: If insufficient valid correspondences (< 3 points) or missing data
@@ -644,7 +643,7 @@ class PointDataBundle:
 
         new_camera_array, new_world_points = apply_similarity_transform(self.camera_array, self.world_points, transform)
 
-        return PointDataBundle(
+        return CaptureVolume(
             camera_array=new_camera_array,
             image_points=self.image_points,
             world_points=new_world_points,
@@ -661,7 +660,7 @@ class PointDataBundle:
         indices = self.world_points.df["sync_index"].unique()
         return np.sort(indices)
 
-    def rotate(self, axis: Literal["x", "y", "z"], angle_degrees: float) -> "PointDataBundle":
+    def rotate(self, axis: Literal["x", "y", "z"], angle_degrees: float) -> "CaptureVolume":
         """
         Rotate the coordinate system around the specified axis.
 
@@ -669,14 +668,14 @@ class PointDataBundle:
         when looking down the positive axis toward the origin.
 
         Transforms both camera extrinsics and world points, returning a new
-        immutable bundle. The original bundle remains unchanged.
+        immutable CaptureVolume. The original remains unchanged.
 
         Args:
             axis: The axis to rotate around ("x", "y", or "z")
             angle_degrees: Rotation angle in degrees (positive = counter-clockwise)
 
         Returns:
-            New PointDataBundle with rotated coordinate system.
+            New CaptureVolume with rotated coordinate system.
         """
         angle_rad = np.radians(angle_degrees)
         c, s = np.cos(angle_rad), np.sin(angle_rad)
@@ -720,7 +719,7 @@ class PointDataBundle:
 
         new_camera_array, new_world_points = apply_similarity_transform(self.camera_array, self.world_points, transform)
 
-        return PointDataBundle(
+        return CaptureVolume(
             camera_array=new_camera_array,
             image_points=self.image_points,
             world_points=new_world_points,
@@ -732,7 +731,7 @@ if __name__ == "__main__":
     from pathlib import Path
     from caliscope import __root__
     from caliscope.core.point_data import ImagePoints
-    from caliscope.core.point_data_bundle import PointDataBundle
+    from caliscope.core.capture_volume import CaptureVolume
     from caliscope.cameras.camera_array import CameraArray
 
     # Load test data
@@ -744,7 +743,7 @@ if __name__ == "__main__":
     camera_array = CameraArray.from_toml(array_path)
     world_points = image_points.triangulate(camera_array)
 
-    bundle = PointDataBundle(camera_array, image_points, world_points)
+    capture_volume = CaptureVolume(camera_array, image_points, world_points)
 
     # Inspect the reprojection report
-    report = bundle.reprojection_report
+    report = capture_volume.reprojection_report

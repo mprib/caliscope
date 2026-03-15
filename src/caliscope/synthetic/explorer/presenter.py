@@ -13,7 +13,7 @@ from PySide6.QtCore import QObject, Signal
 
 from caliscope.cameras.camera_array import CameraArray
 from caliscope.core.point_data import ImagePoints, WorldPoints
-from caliscope.core.point_data_bundle import PointDataBundle
+from caliscope.core.capture_volume import CaptureVolume
 from caliscope.core.bootstrap_pose.build_paired_pose_network import (
     build_paired_pose_network,
 )
@@ -219,7 +219,7 @@ class ExplorerPresenter(QObject):
 
         Stages:
         1. Bootstrap: Stereo calibration -> PairedPoseNetwork -> initial extrinsics
-        2. Optimize: Bundle adjustment via PointDataBundle.optimize()
+        2. Optimize: Bundle adjustment via CaptureVolume.optimize()
         3. Align: Umeyama alignment to ground truth using obj_loc at origin_frame
         """
         if self._filtered_image_points is None:
@@ -292,18 +292,18 @@ class ExplorerPresenter(QObject):
 
         # Stage 2: Optimize
         try:
-            bundle = PointDataBundle(
+            capture_volume = CaptureVolume(
                 camera_array=result.bootstrapped_cameras,
                 image_points=image_points,
                 world_points=result.bootstrapped_world_points,
             )
 
-            optimized_bundle = bundle.optimize(ftol=1e-8, verbose=0)
+            optimized = capture_volume.optimize(ftol=1e-8, verbose=0)
 
-            result.optimized_cameras = optimized_bundle.camera_array
-            result.optimized_world_points = optimized_bundle.world_points
+            result.optimized_cameras = optimized.camera_array
+            result.optimized_world_points = optimized.world_points
 
-            logger.info(f"Optimization complete. RMSE: {optimized_bundle.reprojection_report.overall_rmse:.3f}px")
+            logger.info(f"Optimization complete. RMSE: {optimized.reprojection_report.overall_rmse:.3f}px")
 
         except Exception as e:
             result.optimization_error = str(e)
@@ -317,19 +317,19 @@ class ExplorerPresenter(QObject):
         try:
             origin_frame = scene.trajectory.origin_frame
 
-            aligned_bundle = PointDataBundle(
+            aligned = CaptureVolume(
                 camera_array=result.optimized_cameras,
                 image_points=image_points,
                 world_points=result.optimized_world_points,
             ).align_to_object(sync_index=origin_frame)
 
-            result.aligned_cameras = aligned_bundle.camera_array
-            result.aligned_world_points = aligned_bundle.world_points
+            result.aligned_cameras = aligned.camera_array
+            result.aligned_world_points = aligned.world_points
 
             logger.info("Alignment complete")
 
             # Compute error metrics after successful alignment
-            reprojection_report = optimized_bundle.reprojection_report
+            reprojection_report = optimized.reprojection_report
             result.reprojection_rmse = reprojection_report.overall_rmse
 
             # Compute per-camera pose errors and observation counts

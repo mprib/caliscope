@@ -8,7 +8,7 @@ import tempfile
 import numpy as np
 
 from caliscope import __root__
-from caliscope.core.point_data_bundle import PointDataBundle
+from caliscope.core.capture_volume import CaptureVolume
 from caliscope.core.point_data import ImagePoints, WorldPoints
 from caliscope.cameras.camera_array import CameraArray
 from caliscope.core.charuco import Charuco
@@ -34,15 +34,15 @@ def test_reprojection_report_generation(tmp_path: Path):
     image_points = ImagePoints.from_csv(csv_dir / "xy_CHARUCO.csv")
     world_points = image_points.triangulate(camera_array)
 
-    # Create PointDataBundle
-    bundle = PointDataBundle(
+    # Create CaptureVolume
+    capture_volume = CaptureVolume(
         camera_array=camera_array,
         image_points=image_points,
         world_points=world_points,
     )
 
     # Generate reprojection report
-    report = bundle.reprojection_report
+    report = capture_volume.reprojection_report
 
     # === Validation Assertions ===
 
@@ -79,7 +79,7 @@ def test_reprojection_report_generation(tmp_path: Path):
     assert abs(report.overall_rmse - calculated_overall_rmse) < 1e-10
 
     # Verify caching works (returns same object)
-    report2 = bundle.reprojection_report
+    report2 = capture_volume.reprojection_report
     assert report2 is report, "Caching failed - should return same object"
 
     logger.info(
@@ -101,22 +101,24 @@ def test_unmatched_observation_tracking(tmp_path: Path):
     image_points = ImagePoints.from_csv(csv_dir / "xy_CHARUCO.csv")
     world_points = WorldPoints.from_csv(csv_dir / "xyz_CHARUCO.csv")
 
-    bundle = PointDataBundle(
+    capture_volume = CaptureVolume(
         camera_array=camera_array,
         image_points=image_points,
         world_points=world_points,
     )
 
-    report = bundle.reprojection_report
+    report = capture_volume.reprojection_report
 
     # Verify unmatched counting logic
-    total_observations = len(bundle.image_points.df)
+    total_observations = len(capture_volume.image_points.df)
     matched_observations = report.n_observations_matched
 
     # Manual verification of unmatched by camera
     for cam_id in camera_array.cameras.keys():
-        cam_total = (bundle.image_points.df["cam_id"] == cam_id).sum()
-        cam_matched = ((bundle.image_points.df["cam_id"] == cam_id) & (bundle.img_to_obj_map >= 0)).sum()
+        cam_total = (capture_volume.image_points.df["cam_id"] == cam_id).sum()
+        cam_matched = (
+            (capture_volume.image_points.df["cam_id"] == cam_id) & (capture_volume.img_to_obj_map >= 0)
+        ).sum()
         expected_unmatched = cam_total - cam_matched
 
         assert report.unmatched_by_camera[cam_id] == expected_unmatched, f"Unmatched count mismatch for camera {cam_id}"

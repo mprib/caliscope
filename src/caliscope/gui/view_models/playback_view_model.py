@@ -40,7 +40,7 @@ class PlaybackViewModel:
             self.all_point_ids = np.array([], dtype=np.int64)
             self.n_points = 0
             self.id_to_index: dict[int, int] = {}
-            self._static_lines = np.empty((0, 3), dtype=np.int32)
+            self._static_lines = np.empty((0, 2), dtype=np.int32)
             self._static_line_colors = np.empty((0, 3), dtype=np.float32)
             self._grouped_points: dict[Any, Any] = {}
             logger.info("PlaybackViewModel initialized in camera-only mode (no points).")
@@ -61,7 +61,7 @@ class PlaybackViewModel:
 
         # 2. Pre-compute Static Wireframe Topology
         # This converts point IDs to buffer indices.
-        # Result is (n_lines, 3) array: [2, index_A, index_B] per row.
+        # Result is (n_lines, 2) array: [index_A, index_B] per row.
         self._static_lines, self._static_line_colors = self._build_static_topology()
 
         # 3. Pre-group data for fast lookup during playback
@@ -157,7 +157,7 @@ class PlaybackViewModel:
         Returns the static connectivity data for the wireframe.
 
         Returns:
-            lines: (L, 3) int32 array. Format: [2, index_A, index_B]
+            lines: (L, 2) int32 array of edge pairs. Format: [index_A, index_B]
             colors: (L, 3) float32 array. RGB colors for each line segment.
         """
         return self._static_lines, self._static_line_colors
@@ -218,14 +218,13 @@ class PlaybackViewModel:
                 idx_a = self.id_to_index[segment.point_a_id]
                 idx_b = self.id_to_index[segment.point_b_id]
 
-                # PyVista line format: [num_points, idx1, idx2]
-                lines.append([2, idx_a, idx_b])
+                lines.append([idx_a, idx_b])
                 colors.append(segment.color_rgb)
 
         if not lines:
             # Return empty arrays if no wireframe
             return (
-                np.empty((0, 3), dtype=np.int32),
+                np.empty((0, 2), dtype=np.int32),
                 np.empty((0, 3), dtype=np.float32),
             )
 

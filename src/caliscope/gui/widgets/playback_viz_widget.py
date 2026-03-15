@@ -312,7 +312,16 @@ class PlaybackVizWidget(QWidget):
         if camera_geom is None:
             return
 
-        mesh = pv.PolyData(camera_geom["vertices"], faces=camera_geom["faces"])
+        # Convert renderer-neutral triangles to PyVista face format
+        triangles = camera_geom["triangles"]
+        pv_faces = np.column_stack(
+            [
+                np.full(len(triangles), 3, dtype=np.int32),
+                triangles,
+            ]
+        ).ravel()
+
+        mesh = pv.PolyData(camera_geom["vertices"], faces=pv_faces)
         mesh.point_data["colors"] = camera_geom["colors"]
 
         self.plotter.add_mesh(
@@ -359,6 +368,17 @@ class PlaybackVizWidget(QWidget):
         # 2. Get static wireframe topology
         lines, line_colors = self.view_model.get_static_wireframe_data()
 
+        # Convert renderer-neutral line pairs to PyVista line format
+        if len(lines) > 0:
+            pv_lines = np.column_stack(
+                [
+                    np.full(len(lines), 2, dtype=np.int32),
+                    lines,
+                ]
+            ).astype(np.int32)
+        else:
+            pv_lines = lines  # empty array, PyVista handles it fine
+
         # --- Point Cloud Mesh ---
         self._point_cloud_mesh = pv.PolyData(frame_geom.points)
         self._point_cloud_mesh.point_data["colors"] = frame_geom.colors
@@ -376,7 +396,7 @@ class PlaybackVizWidget(QWidget):
         # --- Wireframe Mesh ---
         # Note: We create a separate PolyData but it will be updated with the
         # same point coordinates in the loop.
-        self._wireframe_mesh = pv.PolyData(frame_geom.points, lines=lines)
+        self._wireframe_mesh = pv.PolyData(frame_geom.points, lines=pv_lines)
 
         # Wireframe colors are static (Cell Data), so we set them once here
         if len(line_colors) > 0:

@@ -24,7 +24,8 @@ def build_camera_geometry(camera_array: CameraArray, scale: float = 0.0005) -> d
         return None
 
     all_vertices = []
-    all_faces = []
+    all_triangles = []
+    all_edges = []
     all_colors = []
     labels = []
     vertex_offset = 0
@@ -72,19 +73,30 @@ def build_camera_geometry(camera_array: CameraArray, scale: float = 0.0005) -> d
 
         verts_world = (verts_local @ cam.rotation) + t_world
 
-        # 4. Define faces (standard pyramid topology)
-        # PyVista uses: [n_verts, v0, v1, v2, ...]
-        faces = [
-            [3, 0, 1, 2],  # Side: Apex to Top
-            [3, 0, 2, 3],  # Side: Apex to Right
-            [3, 0, 3, 4],  # Side: Apex to Bottom
-            [3, 0, 4, 1],  # Side: Apex to Left
-            [4, 1, 2, 3, 4],  # Base: Image Plane
+        # 4. Define triangles (standard pyramid topology, base quad split into 2 triangles)
+        o = vertex_offset
+        triangles = [
+            [o + 0, o + 1, o + 2],  # Side: Apex to Top
+            [o + 0, o + 2, o + 3],  # Side: Apex to Right
+            [o + 0, o + 3, o + 4],  # Side: Apex to Bottom
+            [o + 0, o + 4, o + 1],  # Side: Apex to Left
+            [o + 1, o + 2, o + 3],  # Base: first triangle
+            [o + 1, o + 3, o + 4],  # Base: second triangle
         ]
+        all_triangles.extend(triangles)
 
-        # Convert to flat array with vertex offsets for PyVista PolyData
-        for face in faces:
-            all_faces.append([face[0]] + [v + vertex_offset for v in face[1:]])
+        # 5. Define edges for wireframe rendering
+        edges = [
+            [o + 0, o + 1],  # Apex to Top-Left
+            [o + 0, o + 2],  # Apex to Top-Right
+            [o + 0, o + 3],  # Apex to Bottom-Right
+            [o + 0, o + 4],  # Apex to Bottom-Left
+            [o + 1, o + 2],  # Base: Top edge
+            [o + 2, o + 3],  # Base: Right edge
+            [o + 3, o + 4],  # Base: Bottom edge
+            [o + 4, o + 1],  # Base: Left edge
+        ]
+        all_edges.extend(edges)
 
         all_vertices.append(verts_world)
         all_colors.append(np.tile(cam_color, (len(verts_world), 1)))
@@ -100,7 +112,8 @@ def build_camera_geometry(camera_array: CameraArray, scale: float = 0.0005) -> d
 
     return {
         "vertices": np.concatenate(all_vertices),
-        "faces": np.array([item for sublist in all_faces for item in sublist], dtype=np.int32),
+        "triangles": np.array(all_triangles, dtype=np.int32),
+        "edges": np.array(all_edges, dtype=np.int32),
         "colors": np.concatenate(all_colors),
         "labels": labels,
     }

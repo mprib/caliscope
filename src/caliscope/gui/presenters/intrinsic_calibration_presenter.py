@@ -25,7 +25,7 @@ from caliscope.core.calibrate_intrinsics import (
 from caliscope.core.frame_selector import IntrinsicCoverageReport, select_calibration_frames
 from caliscope.core.point_data import ImagePoints
 from caliscope.packets import FramePacket, PointPacket
-from caliscope.recording import create_streamer
+from caliscope.recording.frame_packet_streamer import create_streamer
 from caliscope.recording.frame_source import FrameSource
 from caliscope.task_manager.cancellation import CancellationToken
 from caliscope.task_manager.task_handle import TaskHandle

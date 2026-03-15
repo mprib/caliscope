@@ -5,7 +5,8 @@ from pathlib import Path
 from caliscope.cameras.camera_array import CameraData
 from caliscope.cameras.synchronizer import Synchronizer
 from caliscope.tracker import Tracker
-from caliscope.recording import FramePacketStreamer, create_streamer, read_video_properties
+from caliscope.recording import read_video_properties
+from caliscope.recording.frame_packet_streamer import FramePacketStreamer, create_streamer
 from caliscope.recording.video_recorder import VideoRecorder
 from caliscope.trackers.charuco_tracker import CharucoTracker
 

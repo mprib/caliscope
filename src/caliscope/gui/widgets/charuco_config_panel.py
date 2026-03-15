@@ -72,7 +72,7 @@ class CharucoConfigPanel(QWidget):
             "inverted": charuco.inverted,
             "dictionary": charuco.dictionary,
             "aruco_scale": charuco.aruco_scale,
-            "square_size_overide_cm": charuco.square_size_overide_cm,
+            "square_size_override_cm": charuco.square_size_override_cm,
             "legacy_pattern": charuco.legacy_pattern,
         }
 
@@ -161,7 +161,7 @@ class CharucoConfigPanel(QWidget):
         self._square_size_spin.setMaximum(1000.0)
         self._square_size_spin.setMaximumWidth(100)
 
-        override_value = self._charuco_params["square_size_overide_cm"]
+        override_value = self._charuco_params["square_size_override_cm"]
         if override_value is not None:
             self._square_size_spin.setValue(override_value)
         else:
@@ -202,7 +202,7 @@ class CharucoConfigPanel(QWidget):
             units=self._units_combo.currentText(),
             dictionary=self._charuco_params["dictionary"],
             aruco_scale=self._charuco_params["aruco_scale"],
-            square_size_overide_cm=round(self._square_size_spin.value(), 2),
+            square_size_override_cm=round(self._square_size_spin.value(), 2),
             inverted=self._invert_checkbox.isChecked(),
             legacy_pattern=self._charuco_params["legacy_pattern"],
         )
@@ -242,8 +242,8 @@ class CharucoConfigPanel(QWidget):
         self._height_spin.setValue(charuco.board_height)
         self._units_combo.setCurrentText(charuco.units)
         self._invert_checkbox.setChecked(charuco.inverted)
-        if charuco.square_size_overide_cm is not None:
-            self._square_size_spin.setValue(charuco.square_size_overide_cm)
+        if charuco.square_size_override_cm is not None:
+            self._square_size_spin.setValue(charuco.square_size_override_cm)
 
         self._row_spin.blockSignals(False)
         self._column_spin.blockSignals(False)

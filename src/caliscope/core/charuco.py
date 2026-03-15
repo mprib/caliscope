@@ -35,13 +35,13 @@ class Charuco:
         dictionary="DICT_4X4_50",
         units="inch",
         aruco_scale=0.75,
-        square_size_overide_cm=None,
+        square_size_override_cm=None,
         inverted=False,
         legacy_pattern=False,
     ):  # after printing, measure actual and return to overide
         """
         Create board based on shape and dimensions
-        square_size_overide_cm: correct for the actual printed size of the board
+        square_size_override_cm: correct for the actual printed size of the board
         """
         self.columns = columns
         self.rows = rows
@@ -54,7 +54,7 @@ class Charuco:
         self.aruco_scale = aruco_scale
         # if square length not provided, calculate based on board dimensions
         # to maximize size of squares
-        self.square_size_overide_cm = square_size_overide_cm
+        self.square_size_override_cm = square_size_override_cm
         self.inverted = inverted
         self.legacy_pattern = legacy_pattern
 
@@ -97,8 +97,8 @@ class Charuco:
 
     @property
     def board(self):
-        if self.square_size_overide_cm:
-            square_length = self.square_size_overide_cm / 100  # note: in cm within GUI
+        if self.square_size_override_cm:
+            square_length = self.square_size_override_cm / 100  # note: in cm within GUI
         else:
             board_height_m = self.board_height_cm / 100
             board_width_m = self.board_width_cm / 100
@@ -231,7 +231,7 @@ class Charuco:
                 "dictionary": self.dictionary,
                 "units": self.units,
                 "aruco_scale": self.aruco_scale,
-                "square_size_overide_cm": self.square_size_overide_cm,
+                "square_size_override_cm": self.square_size_override_cm,
                 "inverted": self.inverted,
                 "legacy_pattern": self.legacy_pattern,
             }
@@ -247,7 +247,7 @@ class Charuco:
         text = text + f"Board Size: {self.board_width} x {self.board_height} {self.units}\n"
         text = text + f"Inverted:  {self.inverted}\n"
         text = text + "\n"
-        text = text + f"Square Edge Length: {self.square_size_overide_cm} cm"
+        text = text + f"Square Edge Length: {self.square_size_override_cm} cm"
         return text
 
 
@@ -278,7 +278,7 @@ ARUCO_DICTIONARIES = {
 
 
 if __name__ == "__main__":
-    charuco = Charuco(4, 5, 4, 8.5, aruco_scale=0.75, units="inch", inverted=True, square_size_overide_cm=5.25)
+    charuco = Charuco(4, 5, 4, 8.5, aruco_scale=0.75, units="inch", inverted=True, square_size_override_cm=5.25)
     charuco.save_image("test_charuco.png")
     width, height = charuco.board_img().shape
     logger.info(f"Board width is {width}\nBoard height is {height}")

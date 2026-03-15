@@ -213,7 +213,7 @@ class CaptureVolume:
         self,
         ftol: float = 1e-8,
         max_nfev: int = 1000,
-        verbose: int = 2,
+        verbose: int = 0,
     ) -> CaptureVolume:
         """
         Perform bundle adjustment optimization on this CaptureVolume.

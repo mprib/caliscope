@@ -1,7 +1,6 @@
 """Tracker registry — maps string keys to zero-arg factory callables.
 
-Built-in trackers register at import time. ONNX trackers register via
-scan_onnx_models() called at app startup.
+ONNX trackers register via scan_onnx_models() called at app startup.
 """
 
 from __future__ import annotations
@@ -134,30 +133,3 @@ def clear() -> None:
     _display_names.clear()
     _wireframes.clear()
     _model_cards.clear()
-
-
-def _register_builtins() -> None:
-    """Register the 4 built-in reconstruction trackers."""
-    from pathlib import Path
-
-    from caliscope.trackers.hand_tracker import HandTracker
-    from caliscope.trackers.holistic.holistic_tracker import POINT_NAMES as HOLISTIC_POINT_NAMES
-    from caliscope.trackers.holistic.holistic_tracker import HolisticTracker
-    from caliscope.trackers.pose_tracker import PoseTracker
-    from caliscope.trackers.simple_holistic_tracker import SimpleHolisticTracker
-    from caliscope.trackers.wireframe_builder import get_wireframe
-
-    # Load holistic wireframe for registration metadata
-    holistic_wireframe_path = Path(Path(__file__).parent.parent, "gui/geometry/wireframes/holistic_wireframe.toml")
-    # Invert POINT_NAMES from {id: name} to {name: id} for WireFrameView
-    point_names_inverted = {name: pid for pid, name in HOLISTIC_POINT_NAMES.items()}
-    holistic_wireframe = get_wireframe(holistic_wireframe_path, point_names_inverted)
-
-    register("HAND", HandTracker, display_name="Hand")
-    register("POSE", PoseTracker, display_name="Pose")
-    register("SIMPLE_HOLISTIC", SimpleHolisticTracker, display_name="Simple Holistic")
-    register("HOLISTIC", HolisticTracker, display_name="Holistic", wireframe=holistic_wireframe)
-
-
-# Auto-register builtins on import
-_register_builtins()

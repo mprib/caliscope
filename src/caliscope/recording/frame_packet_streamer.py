@@ -367,7 +367,7 @@ class FramePacketStreamer:
     def close(self) -> None:
         """Release all resources."""
         self.stop()
-        # Clean up tracker resources (MediaPipe threads, GPU memory) before closing frame source
+        # Clean up tracker resources (threads, GPU memory) before closing frame source
         if self._tracker is not None:
             self._tracker.cleanup()
         self._frame_source.close()

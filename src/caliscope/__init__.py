@@ -1,15 +1,6 @@
 """Top-level package for Caliscope."""
 
-# VTK/PyVista environment configuration
-# Must be set before any Qt or VTK imports
-import os
-import sys
 from pathlib import Path
-
-if sys.platform == "linux" and os.environ.get("XDG_SESSION_TYPE") == "wayland":
-    os.environ.setdefault("QT_QPA_PLATFORM", "xcb")
-
-os.environ.setdefault("QT_API", "pyside6")
 
 from platformdirs import user_data_dir
 
@@ -41,6 +32,3 @@ MODELS_DIR = APP_DIR / "models"
 
 # A helpful reference to the source code root
 __root__ = Path(__file__).parent.parent.parent
-
-# Package-internal directory aliases
-ICONS_DIR = Path(__file__).parent / "gui" / "icons"

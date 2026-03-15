@@ -13,20 +13,19 @@ from caliscope.triangulate.triangulation import triangulate_from_files
 
 logger = logging.getLogger(__name__)
 
+# Post-optimization session has both calibrated camera_array.toml and charuco xy/xyz CSVs
+POST_OPT_SESSION = Path(__root__, "tests", "sessions", "post_optimization")
+CHARUCO_DATA_DIR = POST_OPT_SESSION / "calibration" / "extrinsic" / "CHARUCO"
+
 
 def test_image_points_to_world_points(tmp_path: Path):
-    # load in file of xy point data
-    origin_data = Path(__root__, "tests", "sessions", "4_cam_recording")
+    # Use post_optimization charuco data for triangulation regression testing
+    copy_contents_to_clean_dest(POST_OPT_SESSION, tmp_path)
 
-    copy_contents_to_clean_dest(origin_data, tmp_path)
+    xy_path = tmp_path / "calibration" / "extrinsic" / "CHARUCO" / "xy_CHARUCO.csv"
 
-    recording_directory = Path(tmp_path, "recordings", "recording_1")
-    tracker_name = "HOLISTIC"
-
-    xy_path = Path(recording_directory, tracker_name, f"xy_{tracker_name}.csv")
-
-    # load in previously triangulated data
-    original_xyz_path = Path(xy_path.parent, f"xyz_{tracker_name}.csv")
+    # load in previously triangulated data as the reference
+    original_xyz_path = tmp_path / "calibration" / "extrinsic" / "CHARUCO" / "xyz_CHARUCO.csv"
     original_xyz = pd.read_csv(original_xyz_path)
 
     image_points = ImagePoints.from_csv(xy_path)
@@ -43,39 +42,28 @@ def test_image_points_to_world_points(tmp_path: Path):
 
     xyz_recalculated = world_points.df
 
-    # After loading original_xyz and calculating xyz_recalculated:
-    # Filter both datasets to only include face points, which have point_ids >= 500
-    # other points moved in and out of view causing more jitter that was smoothed
-    # with downstream filtering in the original triangulation process.
-    original_xyz_face = original_xyz[original_xyz["point_id"] >= 500]
-    xyz_recalculated_face = xyz_recalculated[xyz_recalculated["point_id"] >= 500]
-
-    # Reset indices after filtering
-    original_xyz_face = original_xyz_face.reset_index(drop=True)
-    xyz_recalculated_face = xyz_recalculated_face.reset_index(drop=True)
-
-    # Remove index column if it exists and select common columns for comparison
-    original_xyz_face = original_xyz_face.drop("Unnamed: 0", axis=1, errors="ignore")
+    # Select common columns for comparison (charuco data has fewer points, no face-point filter needed)
+    original_xyz = original_xyz.drop("Unnamed: 0", axis=1, errors="ignore")
     common_cols = ["sync_index", "point_id", "x_coord", "y_coord", "z_coord"]
-    original_xyz_face = original_xyz_face[common_cols]
-    xyz_recalculated_face = xyz_recalculated_face[common_cols]
-
-    # Make sure both filtered dataframes have the same shape
-    assert original_xyz_face.shape == xyz_recalculated_face.shape, (
-        f"Shape mismatch: original {original_xyz_face.shape}, recalculated {xyz_recalculated_face.shape}"
-    )
+    original_xyz_filtered = original_xyz[common_cols]
+    xyz_recalculated_filtered = xyz_recalculated[common_cols]
 
     # Sort both dataframes by sync_index and point_id to ensure they're aligned
-    original_xyz_face = original_xyz_face.sort_values(["sync_index", "point_id"]).reset_index(drop=True)
-    xyz_recalculated_face = xyz_recalculated_face.sort_values(["sync_index", "point_id"]).reset_index(drop=True)
+    original_xyz_filtered = original_xyz_filtered.sort_values(["sync_index", "point_id"]).reset_index(drop=True)
+    xyz_recalculated_filtered = xyz_recalculated_filtered.sort_values(["sync_index", "point_id"]).reset_index(drop=True)
+
+    # Make sure both filtered dataframes have the same shape
+    assert original_xyz_filtered.shape == xyz_recalculated_filtered.shape, (
+        f"Shape mismatch: original {original_xyz_filtered.shape}, recalculated {xyz_recalculated_filtered.shape}"
+    )
 
     # Define acceptable tolerance for floating point comparisons
     MAX_DEVIATION_METERS = 0.015
 
     # Compare coordinates with tolerance
-    coord_diff_x = abs(original_xyz_face["x_coord"] - xyz_recalculated_face["x_coord"])
-    coord_diff_y = abs(original_xyz_face["y_coord"] - xyz_recalculated_face["y_coord"])
-    coord_diff_z = abs(original_xyz_face["z_coord"] - xyz_recalculated_face["z_coord"])
+    coord_diff_x = abs(original_xyz_filtered["x_coord"] - xyz_recalculated_filtered["x_coord"])
+    coord_diff_y = abs(original_xyz_filtered["y_coord"] - xyz_recalculated_filtered["y_coord"])
+    coord_diff_z = abs(original_xyz_filtered["z_coord"] - xyz_recalculated_filtered["z_coord"])
 
     # Assert maximum differences are within tolerance
     assert coord_diff_x.max() < MAX_DEVIATION_METERS, (
@@ -107,23 +95,18 @@ def test_image_points_to_world_points(tmp_path: Path):
 
     logger.info(f"{pct_close_x:.1f}% of x coordinates are within strict tolerance")
     logger.info(f"{pct_close_y:.1f}% of y coordinates are within strict tolerance")
-    logger.info(f"{pct_close_x:.1f}% of z coordinates are within strict tolerance")
+    logger.info(f"{pct_close_z:.1f}% of z coordinates are within strict tolerance")
 
-    output_path = Path(recording_directory, "xyz.csv")
+    output_path = tmp_path / "xyz_recalculated.csv"
     xyz_recalculated = pd.DataFrame(xyz_recalculated)
     xyz_recalculated.to_csv(output_path)
 
 
 def test_triangulate_from_files(tmp_path: Path):
-    # load in file of xy point data
-    origin_data = Path(__root__, "tests", "sessions", "4_cam_recording")
+    # Use post_optimization charuco data for triangulation regression testing
+    copy_contents_to_clean_dest(POST_OPT_SESSION, tmp_path)
 
-    copy_contents_to_clean_dest(origin_data, tmp_path)
-
-    recording_directory = Path(tmp_path, "recordings", "recording_1")
-    tracker_name = "HOLISTIC"
-
-    xy_path = Path(recording_directory, tracker_name, f"xy_{tracker_name}.csv")
+    xy_path = tmp_path / "calibration" / "extrinsic" / "CHARUCO" / "xy_CHARUCO.csv"
 
     start = time.time()
     logger.info(f"beginning triangulation at {time.time()}")
@@ -137,44 +120,32 @@ def test_triangulate_from_files(tmp_path: Path):
 
     logger.info(f"Elapsed time is {stop - start:.1f} seconds.")
 
-    # load in previously triangulated data
-    original_xyz_path = Path(xy_path.parent, f"xyz_{tracker_name}.csv")
+    # load in previously triangulated data as the reference
+    original_xyz_path = tmp_path / "calibration" / "extrinsic" / "CHARUCO" / "xyz_CHARUCO.csv"
     original_xyz = pd.read_csv(original_xyz_path)
 
-    # After loading original_xyz and calculating xyz_recalculated:
-
-    # Filter both datasets to only include face points, which have point_ids >= 500
-    # other points moved in and out of view causing more jitter that was smoothed
-    # with downstream filtering in the original triangulation process.
-    original_xyz_face = original_xyz[original_xyz["point_id"] >= 500]
-    xyz_recalculated_face = xyz_recalculated[xyz_recalculated["point_id"] >= 500]
-
-    # Reset indices after filtering
-    original_xyz_face = original_xyz_face.reset_index(drop=True)
-    xyz_recalculated_face = xyz_recalculated_face.reset_index(drop=True)
-
-    # Remove index column if it exists and select common columns for comparison
-    original_xyz_face = original_xyz_face.drop("Unnamed: 0", axis=1, errors="ignore")
+    # Select common columns for comparison
+    original_xyz = original_xyz.drop("Unnamed: 0", axis=1, errors="ignore")
     common_cols = ["sync_index", "point_id", "x_coord", "y_coord", "z_coord"]
-    original_xyz_face = original_xyz_face[common_cols]
-    xyz_recalculated_face = xyz_recalculated_face[common_cols]
-
-    # Make sure both filtered dataframes have the same shape
-    assert original_xyz_face.shape == xyz_recalculated_face.shape, (
-        f"Shape mismatch: original {original_xyz_face.shape}, recalculated {xyz_recalculated_face.shape}"
-    )
+    original_xyz_filtered = original_xyz[common_cols]
+    xyz_recalculated_filtered = xyz_recalculated[common_cols]
 
     # Sort both dataframes by sync_index and point_id to ensure they're aligned
-    original_xyz_face = original_xyz_face.sort_values(["sync_index", "point_id"]).reset_index(drop=True)
-    xyz_recalculated_face = xyz_recalculated_face.sort_values(["sync_index", "point_id"]).reset_index(drop=True)
+    original_xyz_filtered = original_xyz_filtered.sort_values(["sync_index", "point_id"]).reset_index(drop=True)
+    xyz_recalculated_filtered = xyz_recalculated_filtered.sort_values(["sync_index", "point_id"]).reset_index(drop=True)
+
+    # Make sure both filtered dataframes have the same shape
+    assert original_xyz_filtered.shape == xyz_recalculated_filtered.shape, (
+        f"Shape mismatch: original {original_xyz_filtered.shape}, recalculated {xyz_recalculated_filtered.shape}"
+    )
 
     # Define acceptable tolerance for floating point comparisons
     MAX_DEVIATION_METERS = 0.015
 
     # Compare coordinates with tolerance
-    coord_diff_x = abs(original_xyz_face["x_coord"] - xyz_recalculated_face["x_coord"])
-    coord_diff_y = abs(original_xyz_face["y_coord"] - xyz_recalculated_face["y_coord"])
-    coord_diff_z = abs(original_xyz_face["z_coord"] - xyz_recalculated_face["z_coord"])
+    coord_diff_x = abs(original_xyz_filtered["x_coord"] - xyz_recalculated_filtered["x_coord"])
+    coord_diff_y = abs(original_xyz_filtered["y_coord"] - xyz_recalculated_filtered["y_coord"])
+    coord_diff_z = abs(original_xyz_filtered["z_coord"] - xyz_recalculated_filtered["z_coord"])
 
     # Assert maximum differences are within tolerance
     assert coord_diff_x.max() < MAX_DEVIATION_METERS, (
@@ -206,9 +177,9 @@ def test_triangulate_from_files(tmp_path: Path):
 
     logger.info(f"{pct_close_x:.1f}% of x coordinates are within strict tolerance")
     logger.info(f"{pct_close_y:.1f}% of y coordinates are within strict tolerance")
-    logger.info(f"{pct_close_x:.1f}% of z coordinates are within strict tolerance")
+    logger.info(f"{pct_close_z:.1f}% of z coordinates are within strict tolerance")
 
-    output_path = Path(recording_directory, "xyz.csv")
+    output_path = tmp_path / "xyz_recalculated_from_files.csv"
     xyz_recalculated = pd.DataFrame(xyz_recalculated)
     xyz_recalculated.to_csv(output_path)
 
@@ -217,6 +188,7 @@ if __name__ == "__main__":
     import caliscope.logger
 
     caliscope.logger.setup_logging()
-    temp = Path(__file__).parent / "debug"
-    test_image_points_to_world_points(temp)
-    test_image_points_to_world_points(temp)
+    temp = Path(__file__).parent / "tmp"
+    temp.mkdir(exist_ok=True)
+    test_image_points_to_world_points(temp / "image_points_to_world_points")
+    test_triangulate_from_files(temp / "triangulate_from_files")

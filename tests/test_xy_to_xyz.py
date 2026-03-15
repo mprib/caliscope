@@ -40,9 +40,7 @@ def test_image_points_to_world_points(tmp_path: Path):
 
     logger.info(f"ending triangulation at {time.time()}")
     stop = time.time()
-    logger.info(
-        f"Elapsed time is {stop - start:.1f} seconds. Note that on first iteration, @jit functions will take longer"
-    )
+    logger.info(f"Elapsed time is {stop - start:.1f} seconds.")
 
     xyz_recalculated = world_points.df
 
@@ -138,9 +136,7 @@ def test_triangulate_from_files(tmp_path: Path):
     logger.info(f"ending triangulation at {time.time()}")
     stop = time.time()
 
-    logger.info(
-        f"Elapsed time is {stop - start:.1f} seconds. Note that on first iteration, @jit functions will take longer"
-    )
+    logger.info(f"Elapsed time is {stop - start:.1f} seconds.")
 
     # load in previously triangulated data
     original_xyz_path = Path(xy_path.parent, f"xyz_{tracker_name}.csv")

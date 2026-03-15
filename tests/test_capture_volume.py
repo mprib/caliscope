@@ -8,9 +8,9 @@ import numpy as np
 import pandas as pd
 import pytest
 from caliscope import __root__
-from caliscope.core.point_data_bundle import PointDataBundle
+from caliscope.core.capture_volume import CaptureVolume
 from caliscope.helper import copy_contents_to_clean_dest
-from caliscope.repositories import PointDataBundleRepository
+from caliscope.repositories import CaptureVolumeRepository
 from caliscope.core.point_data import ImagePoints, WorldPoints
 from caliscope.cameras.camera_array import CameraArray
 from caliscope.core.charuco import Charuco
@@ -73,8 +73,8 @@ def test_triangulation_consistency(tmp_path: Path):
     logger.info("=" * 50)
 
 
-def test_point_data_bundle(tmp_path: Path):
-    """Test PointDataBundle implementation with optimized session data."""
+def test_capture_volume(tmp_path: Path):
+    """Test CaptureVolume implementation with optimized session data."""
     version = "post_optimization"
     original_session_path = Path(__root__, "tests", "sessions", version)
     copy_contents_to_clean_dest(original_session_path, tmp_path)
@@ -92,9 +92,9 @@ def test_point_data_bundle(tmp_path: Path):
     logger.info(f"Loaded {len(image_points.df)} image observations from CSV")
     logger.info(f"Loaded {len(world_points.df)} world points from CSV")
 
-    # Create PointDataBundle
-    logger.info("Creating PointDataBundle...")
-    bundle = PointDataBundle(
+    # Create CaptureVolume
+    logger.info("Creating CaptureVolume...")
+    capture_volume = CaptureVolume(
         camera_array=camera_array,
         image_points=image_points,
         world_points=world_points,
@@ -104,11 +104,11 @@ def test_point_data_bundle(tmp_path: Path):
     logger.info("=" * 50)
     logger.info("TEST 1: RMSE Calculation")
     logger.info("=" * 50)
-    error_report = bundle.reprojection_report
-    bundle_rmse = error_report.overall_rmse
+    error_report = capture_volume.reprojection_report
+    original_rmse = error_report.overall_rmse
 
-    logger.info(f"PointDataBundle RMSE: {bundle_rmse:.6f} pixels")
-    assert bundle_rmse > 0, "RMSE should be positive"
+    logger.info(f"CaptureVolume RMSE: {original_rmse:.6f} pixels")
+    assert original_rmse > 0, "RMSE should be positive"
 
     # Verify per-camera RMSE is available
     per_camera_rmse = error_report.by_camera
@@ -119,29 +119,27 @@ def test_point_data_bundle(tmp_path: Path):
     logger.info("\n" + "=" * 50)
     logger.info("TEST 2: Save/Load Roundtrip")
     logger.info("=" * 50)
-    bundle_dir = tmp_path / "test_bundle"
-    bundle_dir.mkdir(exist_ok=True)
+    capture_volume_dir = tmp_path / "test_capture_volume"
+    capture_volume_dir.mkdir(exist_ok=True)
 
-    repository = PointDataBundleRepository(bundle_dir)
-    logger.info(f"Saving bundle to {bundle_dir}...")
-    repository.save(bundle)
+    repository = CaptureVolumeRepository(capture_volume_dir)
+    logger.info(f"Saving capture volume to {capture_volume_dir}...")
+    repository.save(capture_volume)
 
-    logger.info("Loading bundle back...")
-    loaded_bundle = repository.load()
+    logger.info("Loading capture volume back...")
+    loaded = repository.load()
 
     # Verify data integrity
-    assert len(loaded_bundle.image_points.df) == len(bundle.image_points.df), "Image point count mismatch after load"
-    assert len(loaded_bundle.world_points.df) == len(bundle.world_points.df), "World point count mismatch after load"
+    assert len(loaded.image_points.df) == len(capture_volume.image_points.df), "Image point count mismatch after load"
+    assert len(loaded.world_points.df) == len(capture_volume.world_points.df), "World point count mismatch after load"
 
     # Verify RMSE preserved
-    loaded_bundle_report = loaded_bundle.reprojection_report
+    loaded_rmse = loaded.reprojection_report.overall_rmse
 
-    loaded_rmse = loaded_bundle_report.overall_rmse
-
-    logger.info(f"Original RMSE: {bundle_rmse:.6f}")
+    logger.info(f"Original RMSE: {original_rmse:.6f}")
     logger.info(f"Loaded RMSE: {loaded_rmse:.6f}")
-    assert abs(loaded_rmse - bundle_rmse) < RMSE_TOLERANCE, (
-        f"RMSE changed after save/load: {loaded_rmse} vs {bundle_rmse}"
+    assert abs(loaded_rmse - original_rmse) < RMSE_TOLERANCE, (
+        f"RMSE changed after save/load: {loaded_rmse} vs {original_rmse}"
     )
 
     logger.info("\n" + "=" * 50)
@@ -150,7 +148,7 @@ def test_point_data_bundle(tmp_path: Path):
 
 
 def test_align_bundle_to_charuco_board(larger_calibration_session_reduced: CalibrationTestData):
-    """Test aligning a PointDataBundle to Charuco board coordinates."""
+    """Test aligning a CaptureVolume to Charuco board coordinates."""
     # Setup: load a calibration session with Charuco data including obj_loc coordinates
     camera_array = larger_calibration_session_reduced.camera_array
     Charuco.from_toml(larger_calibration_session_reduced.session_path / "charuco.toml")
@@ -168,9 +166,9 @@ def test_align_bundle_to_charuco_board(larger_calibration_session_reduced: Calib
     assert not image_points.df["obj_loc_x"].isna().any(), "obj_loc_x contains NaN values"
     assert not image_points.df["obj_loc_z"].isna().any(), "obj_loc_z contains NaN values"
 
-    # Create initial bundle (in arbitrary reconstruction units)
+    # Create initial capture volume (in arbitrary reconstruction units)
     world_points = image_points.triangulate(camera_array)
-    bundle = PointDataBundle(camera_array, image_points, world_points)
+    capture_volume = CaptureVolume(camera_array, image_points, world_points)
 
     # Select a sync_index where board is well-visible (most detections)
     sync_index_counts = image_points.df["sync_index"].value_counts()
@@ -178,21 +176,21 @@ def test_align_bundle_to_charuco_board(larger_calibration_session_reduced: Calib
     logger.info(f"Using sync_index {sync_index} for alignment (has {sync_index_counts.max()} detections)")
 
     # Align to object
-    aligned_bundle = bundle.align_to_object(sync_index)
+    aligned = capture_volume.align_to_object(sync_index)
 
     # Verification 1: RMSE should be preserved (geometrically identical)
-    original_rmse = bundle.reprojection_report.overall_rmse
-    aligned_rmse = aligned_bundle.reprojection_report.overall_rmse
+    original_rmse = capture_volume.reprojection_report.overall_rmse
+    aligned_rmse = aligned.reprojection_report.overall_rmse
     assert abs(original_rmse - aligned_rmse) < 1e-6, f"RMSE changed after alignment: {original_rmse} vs {aligned_rmse}"
 
     # Verification 2: Retriangulate with aligned cameras
     # The retriangulated points should match the aligned world points
-    retriangulated_points = aligned_bundle.image_points.triangulate(aligned_bundle.camera_array)
+    retriangulated_points = aligned.image_points.triangulate(aligned.camera_array)
 
     # Compare retriangulated vs aligned world points
     merged_points = pd.merge(
         retriangulated_points.df,
-        aligned_bundle.world_points.df,
+        aligned.world_points.df,
         on=["sync_index", "point_id"],
         suffixes=("_retri", "_aligned"),
     )
@@ -205,7 +203,7 @@ def test_align_bundle_to_charuco_board(larger_calibration_session_reduced: Calib
         assert max_diff < 1e-4, f"Retriangulated points don't match aligned points for {axis} axis: max diff {max_diff}"
 
     # Verification 3: At alignment sync_index, points should match object coordinates
-    aligned_world_at_sync = aligned_bundle.world_points.df[aligned_bundle.world_points.df["sync_index"] == sync_index]
+    aligned_world_at_sync = aligned.world_points.df[aligned.world_points.df["sync_index"] == sync_index]
 
     # Get object coordinates from image points
     img_at_sync = image_points.df[image_points.df["sync_index"] == sync_index]
@@ -229,10 +227,9 @@ def test_align_bundle_to_charuco_board(larger_calibration_session_reduced: Calib
 @pytest.mark.parametrize("axis", ["x", "y", "z"])
 def test_rotation_invariance(axis: Literal["x", "y", "z"], tmp_path: Path):
     """
-    Tests that 4x90-degree rotations around any axis returns bundle to original state.
+    Tests that 4x90-degree rotations around any axis returns the capture volume to original state.
 
-    This is the migrated version of test_rotation_invariance from test_capture_volume_transformation.py.
-    Uses PointDataBundle's immutable rotation API instead of CaptureVolume's mutable rotate() method.
+    Uses CaptureVolume's immutable rotation API.
     """
     # SETUP: Use optimized session with stable calibration
     source_session_path = Path(__root__, "tests", "sessions", "post_optimization")
@@ -244,29 +241,27 @@ def test_rotation_invariance(axis: Literal["x", "y", "z"], tmp_path: Path):
     csv_dir = tmp_path / "calibration" / "extrinsic" / "CHARUCO"
     image_points = ImagePoints.from_csv(csv_dir / "xy_CHARUCO.csv")
     world_points = WorldPoints.from_csv(csv_dir / "xyz_CHARUCO.csv")
-    bundle = PointDataBundle(camera_array, image_points, world_points)
+    capture_volume = CaptureVolume(camera_array, image_points, world_points)
 
     # STORE INITIAL STATE
-    initial_points = bundle.world_points.points.copy()
+    initial_points = capture_volume.world_points.points.copy()
     initial_transforms = {
-        cam_id: cam.transformation.copy() for cam_id, cam in bundle.camera_array.posed_cameras.items()
+        cam_id: cam.transformation.copy() for cam_id, cam in capture_volume.camera_array.posed_cameras.items()
     }
 
     logger.info(f"Testing rotation invariance around {axis} axis")
     logger.info(f"Initial state: {len(initial_points)} points, {len(initial_transforms)} cameras")
 
     # EXECUTE & ASSERT: 4x90-degree rotations
-    current_bundle = bundle
+    current = capture_volume
     for i in range(1, 5):
         logger.info(f"Applying rotation {i}/4 ({i * 90} degrees total)")
 
-        # Rotate 90 degrees (immutable operation returns new bundle)
-        current_bundle = current_bundle.rotate(axis, 90.0)
+        # Rotate 90 degrees (immutable operation returns new capture volume)
+        current = current.rotate(axis, 90.0)
 
-        current_points = current_bundle.world_points.points
-        current_transforms = {
-            cam_id: cam.transformation for cam_id, cam in current_bundle.camera_array.posed_cameras.items()
-        }
+        current_points = current.world_points.points
+        current_transforms = {cam_id: cam.transformation for cam_id, cam in current.camera_array.posed_cameras.items()}
 
         if i < 4:
             # After 90, 180, 270 degrees: state should be DIFFERENT
@@ -301,7 +296,7 @@ def test_rotation_invariance(axis: Literal["x", "y", "z"], tmp_path: Path):
 
 
 def test_bundle_filter(tmp_path: Path):
-    """Test filtering workflow with PointDataBundle.
+    """Test filtering workflow with CaptureVolume.
 
     Moved from test_optimization_unlinked.py during test consolidation.
     """
@@ -317,48 +312,48 @@ def test_bundle_filter(tmp_path: Path):
     image_points = ImagePoints.from_csv(csv_dir / "xy_CHARUCO.csv")
     world_points = WorldPoints.from_csv(csv_dir / "xyz_CHARUCO.csv")
 
-    logger.info("Creating PointDataBundle from loaded data")
-    bundle = PointDataBundle(camera_array, image_points, world_points)
-    logger.info("PointDataBundle initialized")
+    logger.info("Creating CaptureVolume from loaded data")
+    capture_volume = CaptureVolume(camera_array, image_points, world_points)
+    logger.info("CaptureVolume initialized")
 
     logger.info("Point counts BEFORE filtering:")
-    logger.info(f"  3D points: {len(bundle.world_points.df)}")
-    logger.info(f"  2D observations: {len(bundle.image_points.df)}")
-    logger.info(f"  Cameras: {len(bundle.camera_array.posed_cameras)}")
+    logger.info(f"  3D points: {len(capture_volume.world_points.df)}")
+    logger.info(f"  2D observations: {len(capture_volume.image_points.df)}")
+    logger.info(f"  Cameras: {len(capture_volume.camera_array.posed_cameras)}")
 
     # Save initial state
-    initial_repo = PointDataBundleRepository(tmp_path / "initial")
-    initial_repo.save(bundle)
+    initial_repo = CaptureVolumeRepository(tmp_path / "initial")
+    initial_repo.save(capture_volume)
 
     # Optimize
-    optimized_bundle = bundle.optimize()
-    optimized_repo = PointDataBundleRepository(tmp_path / "post_optimization")
-    optimized_repo.save(optimized_bundle)
+    optimized = capture_volume.optimize()
+    optimized_repo = CaptureVolumeRepository(tmp_path / "post_optimization")
+    optimized_repo.save(optimized)
 
     # Filter out worst 50% of points (percentile filtering)
     filtered_percentile = 50  # Keep best 50%
     logger.info(f"Filtering to keep best {filtered_percentile}% of points")
-    filtered_bundle = optimized_bundle.filter_by_percentile_error(
+    filtered = optimized.filter_by_percentile_error(
         percentile=filtered_percentile, scope="per_camera", min_per_camera=10
     )
-    filtered_repo = PointDataBundleRepository(tmp_path / "post_filtering")
-    filtered_repo.save(filtered_bundle)
+    filtered_repo = CaptureVolumeRepository(tmp_path / "post_filtering")
+    filtered_repo.save(filtered)
 
     logger.info("Point counts AFTER filtering:")
-    logger.info(f"  3D points: {len(filtered_bundle.world_points.df)}")
-    logger.info(f"  2D observations: {len(filtered_bundle.image_points.df)}")
-    logger.info(f"  Cameras: {len(filtered_bundle.camera_array.posed_cameras)}")
+    logger.info(f"  3D points: {len(filtered.world_points.df)}")
+    logger.info(f"  2D observations: {len(filtered.image_points.df)}")
+    logger.info(f"  Cameras: {len(filtered.camera_array.posed_cameras)}")
 
     # Re-optimize with filtered data
-    reoptimized_bundle = filtered_bundle.optimize()
-    reopt_repo = PointDataBundleRepository(tmp_path / "post_filtering_then_optimizing")
-    reopt_repo.save(reoptimized_bundle)
+    reoptimized = filtered.optimize()
+    reopt_repo = CaptureVolumeRepository(tmp_path / "post_filtering_then_optimizing")
+    reopt_repo.save(reoptimized)
 
     # Verify RMSE improves through the filtering and re-optimization stages
-    initial_rmse = bundle.reprojection_report.overall_rmse
-    optimized_rmse = optimized_bundle.reprojection_report.overall_rmse
-    filtered_rmse = filtered_bundle.reprojection_report.overall_rmse
-    final_rmse = reoptimized_bundle.reprojection_report.overall_rmse
+    initial_rmse = capture_volume.reprojection_report.overall_rmse
+    optimized_rmse = optimized.reprojection_report.overall_rmse
+    filtered_rmse = filtered.reprojection_report.overall_rmse
+    final_rmse = reoptimized.reprojection_report.overall_rmse
 
     logger.info(f"RMSE progression: {initial_rmse:.4f} → {optimized_rmse:.4f} → {filtered_rmse:.4f} → {final_rmse:.4f}")
 
@@ -384,7 +379,7 @@ if __name__ == "__main__":
     debug_dir.mkdir(exist_ok=True)
 
     # Run tests that use simple tmp_path pattern
-    test_point_data_bundle(debug_dir)
+    test_capture_volume(debug_dir)
     test_triangulation_consistency(debug_dir)
 
     # Run test that uses CalibrationTestData fixture

@@ -159,8 +159,8 @@ class MainWindow(QMainWindow):
             logger.info("Creating reconstruction tab")
             presenter = self.coordinator.create_reconstruction_presenter()
             self.reconstruction_tab = ReconstructionTab(presenter)
-            # Update camera array when new calibration bundle is saved
-            self.coordinator.bundle_updated.connect(
+            # Update camera array when new capture volume is saved
+            self.coordinator.capture_volume_updated.connect(
                 lambda: presenter.refresh_camera_array(self.coordinator.camera_array)
             )
         else:
@@ -252,7 +252,7 @@ class MainWindow(QMainWindow):
             old = self.central_tab.widget(recon_idx)
             presenter = self.coordinator.create_reconstruction_presenter()
             self.reconstruction_tab = ReconstructionTab(presenter)
-            self.coordinator.bundle_updated.connect(
+            self.coordinator.capture_volume_updated.connect(
                 lambda: presenter.refresh_camera_array(self.coordinator.camera_array)
             )
             self.central_tab.removeTab(recon_idx)

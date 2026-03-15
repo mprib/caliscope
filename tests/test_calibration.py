@@ -24,7 +24,7 @@ from caliscope.managers.synchronized_stream_manager import SynchronizedStreamMan
 from caliscope.trackers.charuco_tracker import CharucoTracker
 from caliscope.cameras.camera_array import CameraArray
 from caliscope.core.charuco import Charuco
-from caliscope.core.point_data_bundle import PointDataBundle
+from caliscope.core.capture_volume import CaptureVolume
 
 if TYPE_CHECKING:
     from conftest import CalibrationTestData
@@ -81,42 +81,41 @@ def _run_bundle_optimization_test(data: CalibrationTestData):
     paired_pose_network = build_paired_pose_network(image_points, camera_array)
     paired_pose_network.apply_to(camera_array, anchor_cam=8)
 
-    # Create initial bundle
+    # Create initial capture volume
     world_points = image_points.triangulate(camera_array)
-    point_data_bundle = PointDataBundle(camera_array, image_points, world_points)
+    capture_volume = CaptureVolume(camera_array, image_points, world_points)
 
-    initial_rmse = point_data_bundle.reprojection_report.overall_rmse
+    initial_rmse = capture_volume.reprojection_report.overall_rmse
     logger.info(f"Initial RMSE (triangulation): {initial_rmse:.4f}px")
 
     # First optimization
-    optimized_bundle = point_data_bundle.optimize()
-    rmse_after_opt1 = optimized_bundle.reprojection_report.overall_rmse
+    optimized = capture_volume.optimize()
+    rmse_after_opt1 = optimized.reprojection_report.overall_rmse
     logger.info(f"RMSE after 1st optimization: {rmse_after_opt1:.4f}px")
     assert initial_rmse > rmse_after_opt1, "RMSE did not decline with first optimization"
-
     # Aggressive filtering (2px threshold)
-    filtered_bundle = optimized_bundle.filter_by_absolute_error(max_pixels=2.0, min_per_camera=50)
-    rmse_after_filter = filtered_bundle.reprojection_report.overall_rmse
+    filtered = optimized.filter_by_absolute_error(max_pixels=2.0, min_per_camera=50)
+    rmse_after_filter = filtered.reprojection_report.overall_rmse
     logger.info(f"RMSE after filtering (2px): {rmse_after_filter:.4f}px")
 
     assert rmse_after_opt1 > rmse_after_filter, "RMSE did not decline after filtering"
 
     # Second optimization
-    reoptimized_bundle = filtered_bundle.optimize()
-    rmse_after_opt2 = reoptimized_bundle.reprojection_report.overall_rmse
+    reoptimized = filtered.optimize()
+    rmse_after_opt2 = reoptimized.reprojection_report.overall_rmse
     logger.info(f"RMSE after 2nd optimization: {rmse_after_opt2:.4f}px")
 
     assert rmse_after_filter > rmse_after_opt2, "RMSE did not decline with second optimization"
 
     # Verify all cameras retained
-    posed_cam_ids = set(reoptimized_bundle.camera_array.posed_cameras.keys())
-    observed_cam_ids = set(reoptimized_bundle.image_points.df["cam_id"].unique())
+    posed_cam_ids = set(reoptimized.camera_array.posed_cameras.keys())
+    observed_cam_ids = set(reoptimized.image_points.df["cam_id"].unique())
     assert posed_cam_ids == observed_cam_ids, "Some cameras lost all observations!"
 
     logger.info("SUCCESS: RMSE decreased at each stage, all cameras retained")
 
 
-def test_point_data_bundle_optimization(larger_calibration_session_reduced: CalibrationTestData):
+def test_capture_volume_optimization(larger_calibration_session_reduced: CalibrationTestData):
     """Test bundle optimization pipeline with subsampled data (~2.5s instead of ~23s)."""
     _run_bundle_optimization_test(larger_calibration_session_reduced)
 
@@ -141,9 +140,9 @@ def test_filter_percentile_modes(tmp_path: Path):
     image_points = ImagePoints(subsampled_df)
     world_points = image_points.triangulate(camera_array)
 
-    bundle = PointDataBundle(camera_array, image_points, world_points)
-    initial_rmse = bundle.reprojection_report.overall_rmse
-    initial_obs = len(bundle.image_points.df)
+    capture_volume = CaptureVolume(camera_array, image_points, world_points)
+    initial_rmse = capture_volume.reprojection_report.overall_rmse
+    initial_obs = len(capture_volume.image_points.df)
 
     logger.info(f"Initial state: {initial_obs} observations, RMSE={initial_rmse:.4f}px")
 
@@ -153,21 +152,21 @@ def test_filter_percentile_modes(tmp_path: Path):
     percentile = 80
     min_per_camera = 10
 
-    bundle_per_cam = bundle.filter_by_percentile_error(
+    filtered_per_cam = capture_volume.filter_by_percentile_error(
         percentile=percentile, scope="per_camera", min_per_camera=min_per_camera
     )
-    bundle_overall = bundle.filter_by_percentile_error(
+    filtered_overall = capture_volume.filter_by_percentile_error(
         percentile=percentile, scope="overall", min_per_camera=min_per_camera
     )
 
-    n_per_cam = len(bundle_per_cam.image_points.df)
-    n_overall = len(bundle_overall.image_points.df)
+    n_per_cam = len(filtered_per_cam.image_points.df)
+    n_overall = len(filtered_overall.image_points.df)
     logger.info(f"Per-camera: {n_per_cam} observations")
     logger.info(f"Overall: {n_overall} observations")
 
     # === ASSERTION 1: Both improve RMSE ===
-    rmse_per_cam = bundle_per_cam.reprojection_report.overall_rmse
-    rmse_overall = bundle_overall.reprojection_report.overall_rmse
+    rmse_per_cam = filtered_per_cam.reprojection_report.overall_rmse
+    rmse_overall = filtered_overall.reprojection_report.overall_rmse
 
     assert rmse_per_cam < initial_rmse, "Per-camera RMSE did not improve"
     assert rmse_overall < initial_rmse, "Overall RMSE did not improve"
@@ -175,9 +174,9 @@ def test_filter_percentile_modes(tmp_path: Path):
     logger.info(f"RMSE improvement: {initial_rmse:.4f} → {rmse_overall:.4f} (overall)")
 
     # === ASSERTION 2: Safety mechanism enforced ===
-    for cam_id in sorted(bundle.camera_array.posed_cameras.keys()):
-        count_per_cam = (bundle_per_cam.image_points.df["cam_id"] == cam_id).sum()
-        count_overall = (bundle_overall.image_points.df["cam_id"] == cam_id).sum()
+    for cam_id in sorted(capture_volume.camera_array.posed_cameras.keys()):
+        count_per_cam = (filtered_per_cam.image_points.df["cam_id"] == cam_id).sum()
+        count_overall = (filtered_overall.image_points.df["cam_id"] == cam_id).sum()
 
         assert count_per_cam >= min_per_camera, f"Per-camera mode dropped camera {cam_id} below minimum"
         assert count_overall >= min_per_camera, f"Overall mode dropped camera {cam_id} below minimum"
@@ -186,15 +185,19 @@ def test_filter_percentile_modes(tmp_path: Path):
 
     # === ASSERTION 3: No orphaned 3D points ===
     # Every 3D point should have at least one observation
-    per_cam_points = set(zip(bundle_per_cam.world_points.df["sync_index"], bundle_per_cam.world_points.df["point_id"]))
+    per_cam_points = set(
+        zip(filtered_per_cam.world_points.df["sync_index"], filtered_per_cam.world_points.df["point_id"])
+    )
     per_cam_obs_keys = set(
-        zip(bundle_per_cam.image_points.df["sync_index"], bundle_per_cam.image_points.df["point_id"])
+        zip(filtered_per_cam.image_points.df["sync_index"], filtered_per_cam.image_points.df["point_id"])
     )
     assert per_cam_points.issubset(per_cam_obs_keys), "Per-camera has orphaned 3D points!"
 
-    overall_points = set(zip(bundle_overall.world_points.df["sync_index"], bundle_overall.world_points.df["point_id"]))
+    overall_points = set(
+        zip(filtered_overall.world_points.df["sync_index"], filtered_overall.world_points.df["point_id"])
+    )
     overall_obs_keys = set(
-        zip(bundle_overall.image_points.df["sync_index"], bundle_overall.image_points.df["point_id"])
+        zip(filtered_overall.image_points.df["sync_index"], filtered_overall.image_points.df["point_id"])
     )
     assert overall_points.issubset(overall_obs_keys), "Overall has orphaned 3D points!"
 
@@ -210,13 +213,13 @@ def test_filter_percentile_modes(tmp_path: Path):
 
     # === ASSERTION 5: Per-camera mode respects camera error distributions ===
     # Cameras with higher initial RMSE should lose more observations in per_camera mode
-    initial_by_camera = bundle.reprojection_report.by_camera
+    initial_by_camera = capture_volume.reprojection_report.by_camera
 
     # Calculate removal fraction per camera for per_camera mode
     removal_fractions = {}
     for cam_id in initial_by_camera.keys():
-        initial_count = (bundle.image_points.df["cam_id"] == cam_id).sum()
-        final_count = (bundle_per_cam.image_points.df["cam_id"] == cam_id).sum()
+        initial_count = (capture_volume.image_points.df["cam_id"] == cam_id).sum()
+        final_count = (filtered_per_cam.image_points.df["cam_id"] == cam_id).sum()
         removal_fractions[cam_id] = (initial_count - final_count) / initial_count
 
     # Sort cameras by initial RMSE
@@ -240,8 +243,8 @@ def test_filter_percentile_modes(tmp_path: Path):
     # Calculate removal fraction per camera for overall mode
     removal_fractions_overall = {}
     for cam_id in initial_by_camera.keys():
-        initial_count = (bundle.image_points.df["cam_id"] == cam_id).sum()
-        final_count = (bundle_overall.image_points.df["cam_id"] == cam_id).sum()
+        initial_count = (capture_volume.image_points.df["cam_id"] == cam_id).sum()
+        final_count = (filtered_overall.image_points.df["cam_id"] == cam_id).sum()
         removal_fractions_overall[cam_id] = (initial_count - final_count) / initial_count
 
     avg_removal_high_overall = np.mean([removal_fractions_overall[p] for p in high_rmse_cam_ids])
@@ -272,7 +275,7 @@ if __name__ == "__main__":
 
     # Run tests with reduced data for fast debugging
     calib_data = _load_calibration_data(temp_path, subsample_stride=20)
-    test_point_data_bundle_optimization(calib_data)
+    test_capture_volume_optimization(calib_data)
 
     # Run other tests that don't use the new fixtures
     test_xy_charuco_creation(temp_path)

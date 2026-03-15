@@ -429,32 +429,32 @@ class ExtrinsicCalibrationView(QWidget):
     def _update_ui_for_state(self, state: ExtrinsicCalibrationState) -> None:
         """Update all UI elements based on presenter state."""
         is_running = state == ExtrinsicCalibrationState.CALIBRATING
-        has_bundle = state == ExtrinsicCalibrationState.CALIBRATED
+        has_capture_volume = state == ExtrinsicCalibrationState.CALIBRATED
 
         # Action button text changes based on state
         if is_running:
             self._action_btn.setText("Cancel")
-        elif has_bundle:
+        elif has_capture_volume:
             self._action_btn.setText("Recalibrate")
         else:
             self._action_btn.setText("Calibrate")
         self._action_btn.setEnabled(True)
 
         # Set Origin only visible when calibrated
-        self._set_origin_btn.setVisible(has_bundle)
+        self._set_origin_btn.setVisible(has_capture_volume)
 
         # Progress only when running
         self._progress_container.setVisible(is_running)
 
-        # Progressive disclosure: show calibrated controls when we have a bundle.
-        # During filter re-optimization (CALIBRATING with bundle preserved),
-        # controls stay visible. Only fresh calibration (bundle cleared) hides them.
-        show_calibrated = has_bundle or (is_running and self._presenter.bundle is not None)
+        # Progressive disclosure: show calibrated controls when we have a capture volume.
+        # During filter re-optimization (CALIBRATING with capture volume preserved),
+        # controls stay visible. Only fresh calibration (capture volume cleared) hides them.
+        show_calibrated = has_capture_volume or (is_running and self._presenter.capture_volume is not None)
         self._calibrated_controls.setVisible(show_calibrated)
 
         # Controls enabled when calibrated and not running
         # During filter re-opt, controls are visible but disabled
-        controls_enabled = has_bundle and not is_running
+        controls_enabled = has_capture_volume and not is_running
         self._frame_slider.setEnabled(controls_enabled)
         self._filter_apply_btn.setEnabled(controls_enabled)
         self._filter_mode.setEnabled(controls_enabled)
@@ -462,8 +462,8 @@ class ExtrinsicCalibrationView(QWidget):
         for btn in self._rotation_btns:
             btn.setEnabled(controls_enabled)
 
-        # Update filter preview when we have bundle
-        if has_bundle:
+        # Update filter preview when we have a capture volume
+        if has_capture_volume:
             self._update_filter_preview()
 
         logger.debug(f"UI updated for state: {state}")

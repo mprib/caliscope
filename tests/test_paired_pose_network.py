@@ -17,7 +17,7 @@ import pytest
 from caliscope import __root__
 from caliscope.core.bootstrap_pose.paired_pose_network import PairedPoseNetwork
 from caliscope.core.bootstrap_pose.build_paired_pose_network import build_paired_pose_network
-from caliscope import persistence
+from caliscope.cameras.camera_array import CameraArray
 from caliscope.core.point_data import ImagePoints
 
 logger = logging.getLogger(__name__)
@@ -189,7 +189,7 @@ def test_stereopair_graph_against_gold_standard():
     # 2. Load test session data
     version = "larger_calibration_post_monocal"
     session_path = Path(__root__, "tests", "sessions", version)
-    camera_array = persistence.load_camera_array(session_path / "camera_array.toml")
+    camera_array = CameraArray.from_toml(session_path / "camera_array.toml")
 
     # ensure camera_array has no extrinsics
     for cam_id, cam in camera_array.cameras.items():

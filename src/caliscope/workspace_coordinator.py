@@ -27,7 +27,7 @@ from caliscope.repositories.calibration_targets_repository import (
 )
 from caliscope.core.point_data_bundle import PointDataBundle
 from caliscope.core.workflow_status import WorkflowStatus
-from caliscope.persistence import PersistenceError, save_camera_array_aniposelib
+from caliscope.persistence import PersistenceError
 from caliscope.repositories.intrinsic_report_repository import IntrinsicReportRepository
 from caliscope.reconstruction.reconstructor import Reconstructor
 from caliscope.recording import read_video_properties
@@ -43,7 +43,6 @@ from caliscope.gui.presenters.intrinsic_calibration_presenter import IntrinsicCa
 from caliscope.gui.presenters.multi_camera_processing_presenter import MultiCameraProcessingPresenter
 from caliscope.gui.presenters.reconstruction_presenter import ReconstructionPresenter
 from caliscope.packets import PointPacket
-from caliscope.persistence import save_image_points_csv
 
 logger = logging.getLogger(__name__)
 
@@ -592,7 +591,7 @@ class WorkspaceCoordinator(QObject):
         tracker_dir.mkdir(parents=True, exist_ok=True)
 
         output_path = tracker_dir / "image_points.csv"
-        save_image_points_csv(image_points, output_path)
+        image_points.to_csv(output_path)
 
         logger.info(f"Persisted extrinsic image points: {len(image_points.df)} observations to {output_path}")
         self.status_changed.emit()
@@ -715,7 +714,7 @@ class WorkspaceCoordinator(QObject):
                 camera_repo.save(bundle_to_save.camera_array)
                 logger.info("Camera array with extrinsics persisted")
                 # Export aniposelib-compatible format to workspace root for downstream tools
-                save_camera_array_aniposelib(bundle_to_save.camera_array, aniposelib_path)
+                bundle_to_save.camera_array.to_aniposelib_toml(aniposelib_path)
                 logger.info("Aniposelib-compatible camera array exported")
             except PersistenceError as e:
                 # Log prominently - user's changes may be lost on restart

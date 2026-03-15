@@ -5,7 +5,6 @@ from pathlib import Path
 
 import pandas as pd
 
-from caliscope import persistence
 from caliscope.core.point_data import ImagePoints
 from caliscope.cameras.camera_array import CameraArray
 
@@ -47,7 +46,7 @@ def triangulate_from_files(
     logger.info(f"Loading configuration from {camera_array_path}")
 
     logger.info("Loading camera array")
-    camera_array: CameraArray = persistence.load_camera_array(camera_array_path)
+    camera_array = CameraArray.from_toml(camera_array_path)
 
     logger.info(f"Loading 2D points from {image_point_path} into a validated XYData object")
     image_points = ImagePoints.from_csv(image_point_path)

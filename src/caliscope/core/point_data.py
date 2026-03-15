@@ -333,6 +333,23 @@ class ImagePoints:
         # Constructor handles adding missing optional columns
         return cls(df)
 
+    def to_csv(self, path: str | Path) -> None:
+        """Save image points to CSV file.
+
+        Uses atomic write (temp file + fsync + rename) to prevent data loss.
+
+        Raises:
+            PersistenceError: If write fails
+        """
+        from caliscope.persistence import _safe_write_csv, CSV_FLOAT_PRECISION, PersistenceError
+
+        path = Path(path)
+        try:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            _safe_write_csv(self._df, path, index=False, float_format=CSV_FLOAT_PRECISION)
+        except Exception as e:
+            raise PersistenceError(f"Failed to save image points to {path}: {e}") from e
+
     def fill_gaps(self, max_gap_size: int = 3) -> ImagePoints:
         xy_filled = pd.DataFrame()
         index_key = "sync_index"
@@ -523,3 +540,20 @@ class WorldPoints:
         """
         df = pd.read_csv(path)
         return cls(df)  # Constructor handles validation on construction
+
+    def to_csv(self, path: str | Path) -> None:
+        """Save world points to CSV file.
+
+        Uses atomic write (temp file + fsync + rename) to prevent data loss.
+
+        Raises:
+            PersistenceError: If write fails
+        """
+        from caliscope.persistence import _safe_write_csv, CSV_FLOAT_PRECISION, PersistenceError
+
+        path = Path(path)
+        try:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            _safe_write_csv(self._df, path, index=False, float_format=CSV_FLOAT_PRECISION)
+        except Exception as e:
+            raise PersistenceError(f"Failed to save world points to {path}: {e}") from e

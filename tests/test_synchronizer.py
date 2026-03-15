@@ -8,7 +8,7 @@ import pandas as pd
 from caliscope import __root__
 from caliscope.helper import copy_contents_to_clean_dest
 from caliscope.managers.synchronized_stream_manager import SynchronizedStreamManager
-from caliscope import persistence
+from caliscope.cameras.camera_array import CameraArray
 
 
 logger = logging.getLogger(__name__)
@@ -28,7 +28,7 @@ def test_synchronizer(tmp_path: Path):
     logger.info("Creating publishers")
     recording_directory = Path(tmp_path, "recordings", "recording_1")
 
-    camera_array = persistence.load_camera_array(tmp_path / "camera_array.toml")
+    camera_array = CameraArray.from_toml(tmp_path / "camera_array.toml")
     stream_manager = SynchronizedStreamManager(recording_dir=recording_directory, all_camera_data=camera_array.cameras)
 
     logger.info("Creating Synchronizer")

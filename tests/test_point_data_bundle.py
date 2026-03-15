@@ -12,7 +12,8 @@ from caliscope.core.point_data_bundle import PointDataBundle
 from caliscope.helper import copy_contents_to_clean_dest
 from caliscope.repositories import PointDataBundleRepository
 from caliscope.core.point_data import ImagePoints, WorldPoints
-from caliscope import persistence
+from caliscope.cameras.camera_array import CameraArray
+from caliscope.core.charuco import Charuco
 
 if TYPE_CHECKING:
     from conftest import CalibrationTestData
@@ -31,7 +32,7 @@ def test_triangulation_consistency(tmp_path: Path):
 
     # Load data
     logger.info("Loading camera array...")
-    camera_array = persistence.load_camera_array(tmp_path / "camera_array.toml")
+    camera_array = CameraArray.from_toml(tmp_path / "camera_array.toml")
 
     recording_path = Path(tmp_path, "calibration", "extrinsic")
     xy_data_path = Path(recording_path, "CHARUCO", "xy_CHARUCO.csv")
@@ -80,8 +81,8 @@ def test_point_data_bundle(tmp_path: Path):
 
     # Load data
     logger.info("Loading camera array and charuco...")
-    camera_array = persistence.load_camera_array(tmp_path / "camera_array.toml")
-    persistence.load_charuco(tmp_path / "charuco.toml")
+    camera_array = CameraArray.from_toml(tmp_path / "camera_array.toml")
+    Charuco.from_toml(tmp_path / "charuco.toml")
 
     # Load from CSV format (the canonical storage format)
     csv_dir = tmp_path / "calibration" / "extrinsic" / "CHARUCO"
@@ -152,7 +153,7 @@ def test_align_bundle_to_charuco_board(larger_calibration_session_reduced: Calib
     """Test aligning a PointDataBundle to Charuco board coordinates."""
     # Setup: load a calibration session with Charuco data including obj_loc coordinates
     camera_array = larger_calibration_session_reduced.camera_array
-    persistence.load_charuco(larger_calibration_session_reduced.session_path / "charuco.toml")
+    Charuco.from_toml(larger_calibration_session_reduced.session_path / "charuco.toml")
     image_points = larger_calibration_session_reduced.image_points
 
     # This session has obj_loc_x and obj_loc_y populated, but obj_loc_z may be missing (planar board)
@@ -237,7 +238,7 @@ def test_rotation_invariance(axis: Literal["x", "y", "z"], tmp_path: Path):
     source_session_path = Path(__root__, "tests", "sessions", "post_optimization")
     copy_contents_to_clean_dest(source_session_path, tmp_path)
 
-    camera_array = persistence.load_camera_array(tmp_path / "camera_array.toml")
+    camera_array = CameraArray.from_toml(tmp_path / "camera_array.toml")
 
     # Load from CSV format
     csv_dir = tmp_path / "calibration" / "extrinsic" / "CHARUCO"
@@ -309,7 +310,7 @@ def test_bundle_filter(tmp_path: Path):
     original_session_path = Path(__root__, "tests", "sessions", version)
     copy_contents_to_clean_dest(original_session_path, tmp_path)
 
-    camera_array = persistence.load_camera_array(tmp_path / "camera_array.toml")
+    camera_array = CameraArray.from_toml(tmp_path / "camera_array.toml")
 
     # Load from CSV format
     csv_dir = tmp_path / "calibration" / "extrinsic" / "CHARUCO"

@@ -4,7 +4,6 @@ import logging
 from pathlib import Path
 from time import sleep
 
-from caliscope import persistence
 from caliscope.cameras.camera_array import CameraArray
 from caliscope.export import xyz_to_trc, xyz_to_wide_labelled
 from caliscope.core.point_data import ImagePoints
@@ -40,10 +39,7 @@ class Reconstructor:
         # Serialize the camera array actually used for triangulation
         tracker_subdirectory = Path(self.recording_path, self.tracker_name)
         tracker_subdirectory.mkdir(exist_ok=True, parents=True)
-        persistence.save_camera_array(
-            self.camera_array,
-            Path(tracker_subdirectory, "camera_array.toml"),
-        )
+        self.camera_array.to_toml(Path(tracker_subdirectory, "camera_array.toml"))
 
         logger.info(f"Creating sync stream manager for videos stored in {self.recording_path}")
         self.sync_stream_manager = SynchronizedStreamManager(

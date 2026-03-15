@@ -21,7 +21,9 @@ from caliscope.helper import copy_contents_to_clean_dest
 from caliscope.recording import create_streamer
 from caliscope.trackers.charuco_tracker import CharucoTracker
 from caliscope.triangulate.sync_packet_triangulator import SyncPacketTriangulator
-from caliscope import persistence
+from caliscope.cameras.camera_array import CameraArray
+from caliscope.core.charuco import Charuco
+from caliscope.core.point_data import WorldPoints
 
 logger = logging.getLogger(__name__)
 
@@ -37,8 +39,8 @@ def test_triangulator(tmp_path: Path):
     # there should be nothing here... this is what we are going to create
     assert not target_xyz_path.exists()
 
-    camera_array = persistence.load_camera_array(tmp_path / "camera_array.toml")
-    charuco = persistence.load_charuco(tmp_path / "charuco.toml")
+    camera_array = CameraArray.from_toml(tmp_path / "camera_array.toml")
+    charuco = Charuco.from_toml(tmp_path / "charuco.toml")
     charuco_tracker = CharucoTracker(charuco)
 
     logger.info("Creating streamers based on calibration recordings")
@@ -77,7 +79,7 @@ def test_triangulator(tmp_path: Path):
 
     # Load the ground truth data from the bundle adjustment (CSV format)
     csv_dir = tmp_path / "calibration" / "extrinsic" / "CHARUCO"
-    world_points = persistence.load_world_points_csv(csv_dir / "xyz_CHARUCO.csv")
+    world_points = WorldPoints.from_csv(csv_dir / "xyz_CHARUCO.csv")
 
     # 2. USE GROUND TRUTH DATAFRAME
     # The CSV already contains unique 3D points (sync_index, point_id, x/y/z_coord)

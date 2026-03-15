@@ -26,6 +26,7 @@ dependencies = [
     # Security floor constraints for transitive dependencies (dependabot alerts)
     "urllib3>=2.6.3",    # CVE fixes: decompression bomb, streaming API
     "fonttools>=4.60.2", # CVE fix: arbitrary file write, XML injection
+    "pyside6-addons>=6.10.2",
 ]
 
 [project.urls]

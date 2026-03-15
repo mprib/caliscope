@@ -59,6 +59,7 @@ def extract_image_points(
     videos: Mapping[int, Path | str],
     tracker: Tracker,
     *,
+    frame_step: int = 1,
     progress: ProgressCallback | None = None,
 ) -> ImagePoints:
     """Extract 2D landmark observations from video files.
@@ -69,6 +70,10 @@ def extract_image_points(
     Args:
         videos: Mapping of camera ID to video file path.
         tracker: Tracker instance to apply to each frame.
+        frame_step: Process every Nth frame (default 1 = every frame).
+            For intrinsic calibration, frame_step=5 is typical since
+            only ~30 diverse frames are needed. For extrinsic calibration,
+            higher density may improve triangulation quality.
         progress: Optional callback invoked per-frame for progress reporting.
 
     Note:
@@ -80,10 +85,14 @@ def extract_image_points(
     Raises:
         CalibrationError: If no points detected across all videos.
         FileNotFoundError: If any video paths do not exist.
+        ValueError: If frame_step < 1.
     """
     import av
     import pandas as pd
     from caliscope.recording.video_utils import read_video_properties
+
+    if frame_step < 1:
+        raise ValueError(f"frame_step must be >= 1, got {frame_step}")
 
     # Validate all paths upfront
     missing = {cam_id: str(Path(p)) for cam_id, p in videos.items() if not Path(p).exists()}
@@ -103,12 +112,18 @@ def extract_image_points(
 
         props = read_video_properties(video_path)
         frame_count = props["frame_count"]
+        # Progress total reflects frames that will actually be processed
+        progress_total = (frame_count + frame_step - 1) // frame_step
 
         if progress is not None:
-            progress.on_video_start(cam_id, frame_count)
+            progress.on_video_start(cam_id, progress_total)
 
         try:
+            progress_index = 0
             for frame_index, frame in enumerate(container.decode(video_stream)):
+                if frame_index % frame_step != 0:
+                    continue
+
                 bgr = frame.to_ndarray(format="bgr24")
                 frame_time = frame.pts * time_base if frame.pts is not None else 0.0
 
@@ -130,8 +145,9 @@ def extract_image_points(
                     }
                     all_rows.append(row)
 
+                progress_index += 1
                 if progress is not None:
-                    progress.on_frame(cam_id, frame_index, n_points)
+                    progress.on_frame(cam_id, progress_index, n_points)
         finally:
             container.close()
 

@@ -79,6 +79,7 @@ Independent of API work — can overlap with Phase 4.
 | Task | Resolution |
 |------|------------|
 | `port-to-cam-rename` | PR #944 (commit 71d96e77) — codebase uses `cam_id` everywhere |
+| `drop-numba` | Merged to `epic/scriptable-core` (2026-03-14). Replaced numba-JIT with two-tier batched numpy SVD: `triangulate_sync_index` (per-frame) + `triangulate_image_points` (bulk). 15.9ms vs 14ms numba baseline. All tests pass. -181 MB install footprint. |
 
 ## Failed Approaches (from design sessions)
 
@@ -96,6 +97,7 @@ Independent of API work — can overlap with Phase 4.
 
 ## Next Steps
 
-1. Create `epic/scriptable-core` branch from `main`
-2. Start Phase 1 branches in parallel: `drop-numba`, `drop-pandera`, `fix-frame-skip-label`
-3. `drop-numba` is the highest-value first task — prototype exists at `/tmp/bench_batched_triangulate.py`
+1. ~~Create `epic/scriptable-core` branch from `main`~~ (done)
+2. ~~`drop-numba`~~ (done — merged to epic)
+3. `drop-pandera` — next up. Replace `ImagePointSchema`/`WorldPointSchema` with manual validation.
+4. `fix-frame-skip-label` — trivial, can be done alongside pandera or after.

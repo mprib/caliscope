@@ -9,7 +9,7 @@ import pandas as pd
 import rtoml
 
 from caliscope.cameras.camera_array import CameraArray, CameraData
-from caliscope.core.point_data import ImagePointSchema, ImagePoints, WorldPoints, WorldPointSchema
+from caliscope.core.point_data import ImagePoints, WorldPoints
 from caliscope.core.charuco import Charuco
 from caliscope.core.chessboard import Chessboard
 from caliscope.core.aruco_target import ArucoTarget
@@ -627,7 +627,7 @@ def load_image_points_csv(path: Path) -> ImagePoints:
 
     Raises:
         PersistenceError: If file doesn't exist, CSV is malformed, or data fails
-                         validation against ImagePointSchema
+                         validation (validated on construction by ImagePoints)
     """
     if not path.exists():
         raise PersistenceError(f"Image points CSV file not found: {path}")
@@ -645,18 +645,16 @@ def save_image_points_csv(image_points: ImagePoints, path: Path) -> None:
     Save 2D image points to CSV file.
 
     Args:
-        df: DataFrame with image point data (must match ImagePointSchema)
+        image_points: ImagePoints instance to save (validated on construction)
         path: Target CSV file path
 
     Raises:
-        PersistenceError: If validation fails or file cannot be written
+        PersistenceError: If file cannot be written
     """
     try:
-        # Validate before saving
-        validated_df: pd.DataFrame = ImagePointSchema.validate(image_points.df)
         # Ensure parent directory exists
         path.parent.mkdir(parents=True, exist_ok=True)
-        _safe_write_csv(validated_df, path, index=False, float_format=CSV_FLOAT_PRECISION)
+        _safe_write_csv(image_points.df, path, index=False, float_format=CSV_FLOAT_PRECISION)
     except Exception as e:
         raise PersistenceError(f"Failed to save image points to {path}: {e}") from e
 
@@ -675,16 +673,14 @@ def load_world_points_csv(path: Path) -> WorldPoints:
 
     Raises:
         PersistenceError: If file doesn't exist, CSV is malformed, or data fails
-                         validation against WorldPointSchema
+                         validation (validated on construction by WorldPoints)
     """
     if not path.exists():
         raise PersistenceError(f"World points CSV file not found: {path}")
 
     try:
         df = pd.read_csv(path)
-        # Validate with Pandera schema to ensure data integrity
-        validated_df = WorldPointSchema.validate(df)
-        return WorldPoints(validated_df)
+        return WorldPoints(df)
     except Exception as e:
         raise PersistenceError(f"Failed to load world points from {path}: {e}") from e
 
@@ -701,11 +697,9 @@ def save_world_points_csv(world_points: WorldPoints, path: Path) -> None:
         PersistenceError: If validation fails or file cannot be written
     """
     try:
-        # Validate before saving to ensure data consistency
-        validated_df: pd.DataFrame = WorldPointSchema.validate(world_points.df)
         # Ensure parent directory exists
         path.parent.mkdir(parents=True, exist_ok=True)
-        _safe_write_csv(validated_df, path, index=False, float_format=CSV_FLOAT_PRECISION)
+        _safe_write_csv(world_points.df, path, index=False, float_format=CSV_FLOAT_PRECISION)
     except Exception as e:
         raise PersistenceError(f"Failed to save world points to {path}: {e}") from e
 

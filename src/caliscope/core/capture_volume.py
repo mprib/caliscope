@@ -209,11 +209,94 @@ class CaptureVolume:
 
         return report
 
+    def save(self, directory: Path | str) -> None:
+        """Save capture volume to a directory.
+
+        Writes camera_array.toml, image_points.csv, world_points.csv.
+        Note: optimization_status is not persisted.
+        """
+        directory = Path(directory)
+        directory.mkdir(parents=True, exist_ok=True)
+
+        self.camera_array.to_toml(directory / "camera_array.toml")
+        self.image_points.to_csv(directory / "image_points.csv")
+        self.world_points.to_csv(directory / "world_points.csv")
+
+    @classmethod
+    def load(cls, directory: Path | str) -> CaptureVolume:
+        """Load capture volume from a directory.
+
+        Expects: camera_array.toml, image_points.csv, world_points.csv.
+        """
+        directory = Path(directory)
+        camera_array = CameraArray.from_toml(directory / "camera_array.toml")
+        image_points = ImagePoints.from_csv(directory / "image_points.csv")
+        world_points = WorldPoints.from_csv(directory / "world_points.csv")
+        return cls(camera_array=camera_array, image_points=image_points, world_points=world_points)
+
+    @classmethod
+    def bootstrap(
+        cls,
+        image_points: ImagePoints,
+        camera_array: CameraArray,
+    ) -> CaptureVolume:
+        """Bootstrap extrinsic calibration from 2D observations.
+
+        Pipeline: deepcopy cameras → build pose network → apply poses → triangulate.
+        Does NOT auto-optimize. Call .optimize() on the result.
+        The input CameraArray is not modified.
+
+        Raises:
+            CalibrationError: If cameras lack intrinsics, cam_ids mismatch,
+                or insufficient stereo pairs exist.
+        """
+        from caliscope.exceptions import CalibrationError
+        from caliscope.core.bootstrap_pose.build_paired_pose_network import (
+            build_paired_pose_network,
+        )
+
+        # Validate: cam_id mismatch
+        point_cam_ids = set(image_points.df["cam_id"].unique())
+        array_cam_ids = set(camera_array.cameras.keys())
+        missing_cameras = point_cam_ids - array_cam_ids
+        if missing_cameras:
+            raise CalibrationError(f"ImagePoints reference cameras {missing_cameras} not in the CameraArray.")
+
+        # Validate: intrinsics
+        uncalibrated = [
+            cam_id for cam_id, cam in camera_array.cameras.items() if cam.matrix is None or cam.distortions is None
+        ]
+        if uncalibrated:
+            raise CalibrationError(
+                f"Cannot run extrinsic calibration -- cameras {uncalibrated} have "
+                f"no intrinsic calibration.\n\n"
+                f"Run calibrate_intrinsics() for each camera first:\n"
+                f"    output = calibrate_intrinsics(points, cameras[{uncalibrated[0]}])\n"
+                f"    cameras[{uncalibrated[0]}] = output.camera"
+            )
+
+        # Validate: obj_loc presence
+        obj_cols = image_points.df[["obj_loc_x", "obj_loc_y", "obj_loc_z"]]
+        if obj_cols.isna().all().all():
+            raise CalibrationError(
+                "ImagePoints contain no object location data (obj_loc columns are all NaN). "
+                "Extrinsic calibration requires a tracker that provides known 3D positions "
+                "(e.g., CharucoTracker)."
+            )
+
+        cameras = deepcopy(camera_array)
+        pose_network = build_paired_pose_network(image_points, cameras)
+        pose_network.apply_to(cameras)
+        world_points = image_points.triangulate(cameras)
+
+        return cls(camera_array=cameras, image_points=image_points, world_points=world_points)
+
     def optimize(
         self,
         ftol: float = 1e-8,
         max_nfev: int = 1000,
         verbose: int = 0,
+        strict: bool = True,
     ) -> CaptureVolume:
         """
         Perform bundle adjustment optimization on this CaptureVolume.
@@ -267,6 +350,14 @@ class CaptureVolume:
             iterations=result.nfev,
             final_cost=float(result.cost),
         )
+
+        if strict and not converged:
+            from caliscope.exceptions import CalibrationError
+
+            raise CalibrationError(
+                f"Bundle adjustment did not converge: {termination_reason}\n"
+                f"Pass strict=False to suppress this error and inspect the result."
+            )
 
         # Create new capture volume with optimized parameters
         new_camera_array = deepcopy(self.camera_array)

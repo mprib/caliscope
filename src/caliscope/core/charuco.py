@@ -1,4 +1,5 @@
 # %%
+from __future__ import annotations
 
 # NOTE: Conversions are being made here between inches and cm because
 # this seems like a reasonable scale for discussing the board, but when
@@ -57,6 +58,46 @@ class Charuco:
         self.square_size_override_cm = square_size_override_cm
         self.inverted = inverted
         self.legacy_pattern = legacy_pattern
+
+    @classmethod
+    def from_squares(
+        cls,
+        columns: int,
+        rows: int,
+        square_size_cm: float,
+        *,
+        dictionary: str = "DICT_4X4_50",
+        aruco_scale: float = 0.75,
+        inverted: bool = False,
+        legacy_pattern: bool = False,
+    ) -> Charuco:
+        """Create a Charuco board from grid dimensions and square size.
+
+        Args:
+            square_size_cm: Edge length of each square in centimeters.
+                This determines the scale of calibrated 3D coordinates,
+                which will be in meters (e.g., 3.0 cm squares produce
+                corners spaced 0.03 m apart in object space).
+                Post-alignment WorldPoints and TRC exports are in meters.
+
+        Example:
+            >>> charuco = Charuco.from_squares(columns=4, rows=5, square_size_cm=3.0)
+        """
+        board_height_cm = rows * square_size_cm
+        board_width_cm = columns * square_size_cm
+
+        return cls(
+            columns=columns,
+            rows=rows,
+            board_height=board_height_cm,
+            board_width=board_width_cm,
+            dictionary=dictionary,
+            units="cm",
+            aruco_scale=aruco_scale,
+            square_size_override_cm=square_size_cm,
+            inverted=inverted,
+            legacy_pattern=legacy_pattern,
+        )
 
     @property
     def board_height_cm(self):

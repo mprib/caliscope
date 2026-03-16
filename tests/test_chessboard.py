@@ -13,7 +13,7 @@ import numpy as np
 import pytest
 
 from caliscope.core.chessboard import Chessboard
-from caliscope.persistence import PersistenceError, load_chessboard, save_chessboard
+from caliscope.persistence import PersistenceError
 from caliscope.trackers.chessboard_tracker import ChessboardTracker
 
 
@@ -64,8 +64,8 @@ def test_save_load_roundtrip(tmp_path: Path):
     """Save/load round-trip should produce identical Chessboard."""
     original = Chessboard(rows=6, columns=9)
     file_path = tmp_path / "chessboard.toml"
-    save_chessboard(original, file_path)
-    loaded = load_chessboard(file_path)
+    original.to_toml(file_path)
+    loaded = Chessboard.from_toml(file_path)
 
     assert loaded.rows == original.rows
     assert loaded.columns == original.columns
@@ -74,7 +74,7 @@ def test_save_load_roundtrip(tmp_path: Path):
 def test_load_nonexistent_file(tmp_path: Path):
     """Load from nonexistent path should raise PersistenceError."""
     with pytest.raises(PersistenceError, match="not found"):
-        load_chessboard(tmp_path / "nonexistent.toml")
+        Chessboard.from_toml(tmp_path / "nonexistent.toml")
 
 
 def test_load_legacy_toml_with_square_size_cm(tmp_path: Path):
@@ -82,7 +82,7 @@ def test_load_legacy_toml_with_square_size_cm(tmp_path: Path):
     file_path = tmp_path / "legacy_chessboard.toml"
     file_path.write_text("rows = 6\ncolumns = 9\nsquare_size_cm = 2.5\n")
 
-    loaded = load_chessboard(file_path)
+    loaded = Chessboard.from_toml(file_path)
 
     assert loaded.rows == 6
     assert loaded.columns == 9
@@ -92,10 +92,10 @@ def test_save_creates_parent_directory(tmp_path: Path):
     """Save should create parent directories if they don't exist."""
     original = Chessboard(rows=6, columns=9)
     file_path = tmp_path / "nested" / "path" / "chessboard.toml"
-    save_chessboard(original, file_path)
+    original.to_toml(file_path)
 
     assert file_path.exists()
-    assert load_chessboard(file_path).rows == original.rows
+    assert Chessboard.from_toml(file_path).rows == original.rows
 
 
 # ── Tracker (real frames) ───────────────────────────────────────────────────

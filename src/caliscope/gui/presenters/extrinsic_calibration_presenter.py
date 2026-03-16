@@ -1,7 +1,7 @@
 """Presenter for extrinsic calibration workflow.
 
 Manages the workflow from ImagePoints through bundle adjustment optimization
-to calibrated camera poses. Wraps PointDataBundle operations with Qt signals
+to calibrated camera poses. Wraps CaptureVolume operations with Qt signals
 for UI integration.
 
 State is computed from internal reality, never stored separately.
@@ -26,7 +26,7 @@ from caliscope.core.bootstrap_pose.build_paired_pose_network import (
 )
 from caliscope.core.coverage_analysis import compute_coverage_matrix
 from caliscope.core.point_data import ImagePoints
-from caliscope.core.point_data_bundle import PointDataBundle
+from caliscope.core.capture_volume import CaptureVolume
 from caliscope.repositories.project_settings_repository import ProjectSettingsRepository
 from caliscope.task_manager.cancellation import CancellationToken
 from caliscope.task_manager.task_handle import TaskHandle
@@ -45,7 +45,7 @@ class ExtrinsicCalibrationState(Enum):
 
     NEEDS_CALIBRATION = auto()  # Have ImagePoints path, need to calibrate
     CALIBRATING = auto()  # Background calibration/optimization running
-    CALIBRATED = auto()  # Have bundle, can refine
+    CALIBRATED = auto()  # Have capture volume, can refine
 
 
 @dataclass(frozen=True)
@@ -116,8 +116,8 @@ class ExtrinsicCalibrationPresenter(QObject):
         state_changed: Emitted when computed state changes. View updates UI.
         progress_updated: Emitted during optimization with (percent, message).
         quality_updated: Emitted when metrics refresh after calibration.
-        bundle_changed: Emitted when bundle is updated (optimization, rotate, align).
-            Contains the new PointDataBundle.
+        capture_volume_changed: Emitted when capture volume is updated (optimization, rotate, align).
+            Contains the new CaptureVolume.
         view_model_updated: Emitted when 3D view needs refresh.
             Contains PlaybackViewModel.
 
@@ -126,7 +126,7 @@ class ExtrinsicCalibrationPresenter(QObject):
             task_manager, camera_array, image_points_path
         )
         presenter.run_calibration()  # Bootstrap + optimize
-        # On completion: bundle_changed emitted with bundle
+        # On completion: capture_volume_changed emitted with capture volume
     """
 
     # State signals
@@ -139,7 +139,7 @@ class ExtrinsicCalibrationPresenter(QObject):
     quality_updated = Signal(object)  # QualityPanelData
     volumetric_accuracy_updated = Signal(object)  # VolumetricScaleReport
     coverage_updated = Signal(object, object)  # (coverage_matrix, cam_id_labels)
-    bundle_changed = Signal(object)  # PointDataBundle
+    capture_volume_changed = Signal(object)  # CaptureVolume
     view_model_updated = Signal(object)  # PlaybackViewModel
 
     def __init__(
@@ -147,7 +147,7 @@ class ExtrinsicCalibrationPresenter(QObject):
         task_manager: TaskManager,
         camera_array: CameraArray,
         image_points_path: Path,
-        existing_bundle: PointDataBundle | None = None,
+        existing_capture_volume: CaptureVolume | None = None,
         project_settings: ProjectSettingsRepository | None = None,
         parent: QObject | None = None,
     ) -> None:
@@ -157,7 +157,7 @@ class ExtrinsicCalibrationPresenter(QObject):
             task_manager: TaskManager for background processing
             camera_array: Initial camera configuration (extrinsics may be unset)
             image_points_path: Path to image_points.csv from Phase 3
-            existing_bundle: Pre-loaded PointDataBundle for restoring calibrated state.
+            existing_capture_volume: Pre-loaded CaptureVolume for restoring calibrated state.
                 If provided, presenter starts in CALIBRATED state with visualization ready.
             project_settings: Repository for persisting 3D view appearance settings.
             parent: Optional Qt parent
@@ -170,7 +170,7 @@ class ExtrinsicCalibrationPresenter(QObject):
         self._project_settings = project_settings
 
         # Processing state (managed internally)
-        self._bundle: PointDataBundle | None = existing_bundle
+        self._capture_volume: CaptureVolume | None = existing_capture_volume
         self._task_handle: TaskHandle | None = None
 
         # Pre-loaded image points for initial coverage display
@@ -179,11 +179,11 @@ class ExtrinsicCalibrationPresenter(QObject):
         # View state
         self._current_sync_index: int = 0
 
-        # Load image points for coverage display (from bundle if available, else CSV)
-        if existing_bundle is not None:
-            self._initial_image_points = existing_bundle.image_points
-            # Set initial sync index from bundle
-            sync_indices = existing_bundle.unique_sync_indices
+        # Load image points for coverage display (from capture volume if available, else CSV)
+        if existing_capture_volume is not None:
+            self._initial_image_points = existing_capture_volume.image_points
+            # Set initial sync index from capture volume
+            sync_indices = existing_capture_volume.unique_sync_indices
             if len(sync_indices) > 0:
                 self._current_sync_index = int(sync_indices[0])
         else:
@@ -211,15 +211,15 @@ class ExtrinsicCalibrationPresenter(QObject):
         if self._is_task_active():
             return ExtrinsicCalibrationState.CALIBRATING
 
-        if self._bundle is not None:
+        if self._capture_volume is not None:
             return ExtrinsicCalibrationState.CALIBRATED
 
         return ExtrinsicCalibrationState.NEEDS_CALIBRATION
 
     @property
-    def bundle(self) -> PointDataBundle | None:
-        """Current bundle (None before calibration)."""
-        return self._bundle
+    def capture_volume(self) -> CaptureVolume | None:
+        """Current capture volume (None before calibration)."""
+        return self._capture_volume
 
     @property
     def current_sync_index(self) -> int:
@@ -234,24 +234,24 @@ class ExtrinsicCalibrationPresenter(QObject):
         """Bootstrap poses and run bundle adjustment.
 
         Loads image_points.csv, performs stereo bootstrap triangulation,
-        then runs bundle adjustment optimization. Emits bundle_changed
-        with the optimized bundle.
+        then runs bundle adjustment optimization. Emits capture_volume_changed
+        with the optimized capture volume.
 
         Can be called from NEEDS_CALIBRATION or CALIBRATED state.
-        In CALIBRATED state, discards current bundle first.
+        In CALIBRATED state, discards current capture volume first.
         """
         if self.state == ExtrinsicCalibrationState.CALIBRATING:
             logger.warning("Cannot run calibration: already running")
             return
 
-        # Clear existing bundle to allow re-calibration from CALIBRATED state
-        self._bundle = None
+        # Clear existing capture volume to allow re-calibration from CALIBRATED state
+        self._capture_volume = None
 
         # Capture for closure - deepcopy camera_array since bootstrap mutates it
         image_points_path = self._image_points_path
         camera_array = deepcopy(self._camera_array)
 
-        def worker(token: CancellationToken, handle: TaskHandle) -> PointDataBundle:
+        def worker(token: CancellationToken, handle: TaskHandle) -> CaptureVolume:
             return self._execute_calibration(image_points_path, camera_array, token, handle)
 
         self._task_handle = self._task_manager.submit(
@@ -262,7 +262,7 @@ class ExtrinsicCalibrationPresenter(QObject):
         # Without explicit QueuedConnection, Qt uses DirectConnection (sender/receiver both
         # have main thread affinity), causing slots to run in the worker thread.
         self._task_handle.completed.connect(
-            self._on_bundle_optimized,
+            self._on_capture_volume_optimized,
             Qt.ConnectionType.QueuedConnection,
         )
         self._task_handle.failed.connect(
@@ -286,7 +286,7 @@ class ExtrinsicCalibrationPresenter(QObject):
         camera_array: CameraArray,
         token: CancellationToken,
         handle: TaskHandle,
-    ) -> PointDataBundle:
+    ) -> CaptureVolume:
         """Execute full calibration pipeline. Runs in background thread.
 
         Stages:
@@ -313,14 +313,14 @@ class ExtrinsicCalibrationPresenter(QObject):
         handle.report_progress(30, "Triangulating 3D points")
         world_points = image_points.triangulate(camera_array)
 
-        handle.report_progress(40, "Building bundle")
-        bundle = PointDataBundle(camera_array, image_points, world_points)
+        handle.report_progress(40, "Building capture volume")
+        capture_volume = CaptureVolume(camera_array, image_points, world_points)
 
         if token.is_cancelled:
             raise InterruptedError("Calibration cancelled")
 
         handle.report_progress(50, "Running initial optimization")
-        optimized = bundle.optimize(ftol=1e-8, verbose=0)
+        optimized = capture_volume.optimize(ftol=1e-8, verbose=0)
         logger.info(f"Initial optimization RMSE: {optimized.reprojection_report.overall_rmse:.3f}px")
 
         if token.is_cancelled:
@@ -349,10 +349,10 @@ class ExtrinsicCalibrationPresenter(QObject):
         Args:
             percentile: Percentage of worst observations to remove (0-100)
         """
-        if self._bundle is None:
+        if self._capture_volume is None:
             return
 
-        filtered = self._bundle.filter_by_percentile_error(percentile)
+        filtered = self._capture_volume.filter_by_percentile_error(percentile)
         logger.info(f"Filtered {percentile}% worst observations, {len(filtered.image_points.df)} remaining")
         self._submit_optimization(filtered)
 
@@ -362,10 +362,10 @@ class ExtrinsicCalibrationPresenter(QObject):
         Args:
             max_error_pixels: Maximum reprojection error in pixels to keep
         """
-        if self._bundle is None:
+        if self._capture_volume is None:
             return
 
-        filtered = self._bundle.filter_by_absolute_error(max_error_pixels)
+        filtered = self._capture_volume.filter_by_absolute_error(max_error_pixels)
         logger.info(f"Filtered to error < {max_error_pixels}px, {len(filtered.image_points.df)} remaining")
         self._submit_optimization(filtered)
 
@@ -376,10 +376,10 @@ class ExtrinsicCalibrationPresenter(QObject):
         - Percentile mode: "Removing 5% would remove observations > 1.23px"
         - Absolute mode: "Removing observations > 1.0px would filter 3.2%"
         """
-        if self._bundle is None:
+        if self._capture_volume is None:
             return FilterPreviewData.empty()
 
-        report = self._bundle.reprojection_report
+        report = self._capture_volume.reprojection_report
         # Use to_numpy() for type safety - .values can return ExtensionArray
         errors = report.raw_errors["euclidean_error"].to_numpy()
 
@@ -409,15 +409,15 @@ class ExtrinsicCalibrationPresenter(QObject):
             axis: "x", "y", or "z"
             degrees: Rotation angle in degrees (positive = counter-clockwise)
         """
-        if self._bundle is None:
+        if self._capture_volume is None:
             return
 
-        # PointDataBundle.rotate() expects Literal["x", "y", "z"]
+        # CaptureVolume.rotate() expects Literal["x", "y", "z"]
         # The domain method validates the axis value
         axis_typed: Literal["x", "y", "z"] = axis  # type: ignore[assignment]
-        new_bundle = self._bundle.rotate(axis_typed, degrees)
-        logger.info(f"Rotated coordinate frame {degrees} around {axis}-axis")
-        self._update_bundle(new_bundle)
+        rotated = self._capture_volume.rotate(axis_typed, degrees)
+        logger.info(f"Rotated coordinate frame {degrees}° around {axis}-axis")
+        self._update_capture_volume(rotated)
 
     def align_to_origin(self, sync_index: int) -> None:
         """Set world origin to board position at sync_index.
@@ -425,13 +425,13 @@ class ExtrinsicCalibrationPresenter(QObject):
         Args:
             sync_index: Frame index where board position defines origin
         """
-        if self._bundle is None:
+        if self._capture_volume is None:
             return
 
-        new_bundle = self._bundle.align_to_object(sync_index)
+        aligned = self._capture_volume.align_to_object(sync_index)
         logger.info(f"Aligned world origin to object at sync_index={sync_index}")
 
-        self._update_bundle(new_bundle)
+        self._update_capture_volume(aligned)
 
     # -------------------------------------------------------------------------
     # View Control (Implemented in 4.3)
@@ -447,11 +447,11 @@ class ExtrinsicCalibrationPresenter(QObject):
         Args:
             index: Sync index to display
         """
-        if self._bundle is None:
+        if self._capture_volume is None:
             return
 
         # Clamp to valid range
-        sync_indices = self._bundle.unique_sync_indices
+        sync_indices = self._capture_volume.unique_sync_indices
         if len(sync_indices) == 0:
             return
 
@@ -531,15 +531,15 @@ class ExtrinsicCalibrationPresenter(QObject):
     # Private: Task Callbacks
     # -------------------------------------------------------------------------
 
-    def _on_bundle_optimized(self, bundle: PointDataBundle) -> None:
+    def _on_capture_volume_optimized(self, capture_volume: CaptureVolume) -> None:
         """Handle successful calibration/optimization completion."""
-        logger.info(f"Calibration complete. RMSE: {bundle.reprojection_report.overall_rmse:.3f}px")
+        logger.info(f"Calibration complete. RMSE: {capture_volume.reprojection_report.overall_rmse:.3f}px")
 
-        self._bundle = bundle
+        self._capture_volume = capture_volume
         self._task_handle = None
 
         # Set initial sync index to first available frame
-        sync_indices = bundle.unique_sync_indices
+        sync_indices = capture_volume.unique_sync_indices
         if len(sync_indices) > 0:
             self._current_sync_index = int(sync_indices[0])
 
@@ -548,7 +548,7 @@ class ExtrinsicCalibrationPresenter(QObject):
         self._refresh_coverage()
         self._refresh_view_model()
         self._refresh_volumetric_accuracy()
-        self.bundle_changed.emit(bundle)
+        self.capture_volume_changed.emit(capture_volume)
 
     def _on_calibration_failed(self, exc_type: str, message: str) -> None:
         """Handle calibration failure."""
@@ -573,17 +573,17 @@ class ExtrinsicCalibrationPresenter(QObject):
         self.state_changed.emit(current_state)
 
     def _refresh_quality_panel(self) -> None:
-        """Build and emit quality panel data from current bundle."""
-        if self._bundle is None:
+        """Build and emit quality panel data from current capture volume."""
+        if self._capture_volume is None:
             return
 
-        report = self._bundle.reprojection_report
-        status = self._bundle.optimization_status
+        report = self._capture_volume.reprojection_report
+        status = self._capture_volume.optimization_status
 
         # Build per-camera rows: (cam_id, n_obs, rmse)
         camera_rows: list[tuple[int, int, float]] = []
         for cam_id in sorted(report.by_camera.keys()):
-            n_obs = int((self._bundle.image_points.df["cam_id"] == cam_id).sum())
+            n_obs = int((self._capture_volume.image_points.df["cam_id"] == cam_id).sum())
             rmse = report.by_camera[cam_id]
             camera_rows.append((cam_id, n_obs, rmse))
 
@@ -601,15 +601,15 @@ class ExtrinsicCalibrationPresenter(QObject):
 
     def _refresh_view_model(self) -> None:
         """Build and emit PlaybackViewModel for 3D visualization."""
-        if self._bundle is None:
+        if self._capture_volume is None:
             return
 
         # Import here to avoid circular dependency at module level
         from caliscope.gui.view_models.playback_view_model import PlaybackViewModel
 
         view_model = PlaybackViewModel(
-            camera_array=self._bundle.camera_array,
-            world_points=self._bundle.world_points,
+            camera_array=self._capture_volume.camera_array,
+            world_points=self._capture_volume.world_points,
         )
         self.view_model_updated.emit(view_model)
 
@@ -620,10 +620,10 @@ class ExtrinsicCalibrationPresenter(QObject):
         RMSE at each frame. Returns empty report if no valid frames exist
         (normal pre-alignment state).
         """
-        if self._bundle is None:
+        if self._capture_volume is None:
             return
 
-        report = self._bundle.compute_volumetric_scale_accuracy()
+        report = self._capture_volume.compute_volumetric_scale_accuracy()
         if report.n_frames_sampled > 0:
             logger.info(
                 f"Volumetric scale accuracy: pooled RMSE={report.pooled_rmse_mm:.2f}mm, "
@@ -649,7 +649,7 @@ class ExtrinsicCalibrationPresenter(QObject):
 
         Call this after connecting signals. Emits:
         - Coverage matrix (always, from ImagePoints)
-        - Quality data and view model (if existing bundle loaded)
+        - Quality data and view model (if existing capture volume loaded)
 
         This enables the view to show the correct initial state:
         - Fresh start: coverage heatmap, "Calibrate" button
@@ -658,11 +658,11 @@ class ExtrinsicCalibrationPresenter(QObject):
         # Always emit coverage from initial image points
         self._refresh_initial_coverage()
 
-        # If we have an existing bundle, emit quality and view model for 3D viz
-        if self._bundle is not None:
-            logger.info("Emitting initial state from existing bundle")
+        # If we have an existing capture volume, emit quality and view model for 3D viz
+        if self._capture_volume is not None:
+            logger.info("Emitting initial state from existing capture volume")
             self._refresh_quality_panel()
-            self._refresh_coverage()  # Use bundle's coverage (may differ after filtering)
+            self._refresh_coverage()  # Use capture volume's coverage (may differ after filtering)
             self._refresh_view_model()
             self._refresh_volumetric_accuracy()
 
@@ -698,46 +698,46 @@ class ExtrinsicCalibrationPresenter(QObject):
         Computes pairwise observation counts between all posed cameras.
         Labels use camera IDs (C1, C2, etc.) matching the camera array.
         """
-        if self._bundle is None:
+        if self._capture_volume is None:
             return
 
-        camera_array = self._bundle.camera_array
+        camera_array = self._capture_volume.camera_array
         cam_id_to_index = camera_array.posed_cam_id_to_index
 
         if not cam_id_to_index:
             logger.debug("No posed cameras for coverage matrix")
             return
 
-        coverage = compute_coverage_matrix(self._bundle.image_points, cam_id_to_index)
+        coverage = compute_coverage_matrix(self._capture_volume.image_points, cam_id_to_index)
         labels = [f"C{c}" for c in sorted(cam_id_to_index.keys())]
 
         self.coverage_updated.emit(coverage, labels)
 
-    def _submit_optimization(self, bundle: PointDataBundle) -> None:
-        """Submit bundle optimization as background task.
+    def _submit_optimization(self, capture_volume: CaptureVolume) -> None:
+        """Submit capture volume optimization as background task.
 
         Used by filter methods to avoid duplicating task setup code.
-        After filtering, the bundle needs re-optimization to update
+        After filtering, the capture volume needs re-optimization to update
         camera extrinsics and world points.
 
         Args:
-            bundle: Filtered bundle to optimize
+            capture_volume: Filtered CaptureVolume to optimize
         """
         if self._is_task_active():
             logger.warning("Cannot start optimization: task already running")
             return
 
-        def worker(token: CancellationToken, handle: TaskHandle) -> PointDataBundle:
+        def worker(token: CancellationToken, handle: TaskHandle) -> CaptureVolume:
             handle.report_progress(10, "Running optimization")
-            optimized = bundle.optimize(ftol=1e-8, verbose=0)
+            optimized = capture_volume.optimize(ftol=1e-8, verbose=0)
             handle.report_progress(100, "Complete")
             logger.info(f"Post-filter optimization RMSE: {optimized.reprojection_report.overall_rmse:.3f}px")
             return optimized
 
-        self._task_handle = self._task_manager.submit(worker, name="Optimize bundle")
+        self._task_handle = self._task_manager.submit(worker, name="Optimize capture volume")
         # Use QueuedConnection - TaskHandle signals emitted from worker threads
         self._task_handle.completed.connect(
-            self._on_bundle_optimized,
+            self._on_capture_volume_optimized,
             Qt.ConnectionType.QueuedConnection,
         )
         self._task_handle.failed.connect(
@@ -754,19 +754,19 @@ class ExtrinsicCalibrationPresenter(QObject):
         )
         self._emit_state_changed()
 
-    def _update_bundle(self, bundle: PointDataBundle) -> None:
-        """Update internal bundle and emit signals.
+    def _update_capture_volume(self, capture_volume: CaptureVolume) -> None:
+        """Update internal capture volume and emit signals.
 
-        Called after synchronous bundle-modifying operations (rotate, align).
+        Called after synchronous capture-volume-modifying operations (rotate, align).
         These operations don't change the optimization status, just transform
         the coordinate frame.
 
         Args:
-            bundle: New bundle after transformation
+            capture_volume: New CaptureVolume after transformation
         """
-        self._bundle = bundle
+        self._capture_volume = capture_volume
         self._emit_state_changed()
         self._refresh_quality_panel()
         self._refresh_view_model()
         self._refresh_volumetric_accuracy()
-        self.bundle_changed.emit(bundle)
+        self.capture_volume_changed.emit(capture_volume)

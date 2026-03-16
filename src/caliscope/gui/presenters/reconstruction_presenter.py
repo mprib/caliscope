@@ -16,7 +16,6 @@ from pathlib import Path
 
 from PySide6.QtCore import QObject, Qt, Signal
 
-from caliscope import persistence
 from caliscope.cameras.camera_array import CameraArray
 from caliscope.gui.geometry.wireframe import WireframeSegment, wireframe_segments_from_view
 from caliscope.reconstruction.reconstructor import Reconstructor
@@ -222,7 +221,7 @@ class ReconstructionPresenter(QObject):
         historical_path = self.historical_camera_array_path
         if historical_path is not None and historical_path.exists():
             try:
-                return persistence.load_camera_array(historical_path)
+                return CameraArray.from_toml(historical_path)
             except Exception:
                 logger.warning(f"Failed to load historical camera array from {historical_path}")
         return self._camera_array

@@ -5,6 +5,7 @@ from pathlib import Path
 
 os.environ.setdefault("QT_API", "pyside6")
 
+
 from platformdirs import user_data_dir
 
 __package_name__ = "caliscope"
@@ -35,6 +36,3 @@ MODELS_DIR = APP_DIR / "models"
 
 # A helpful reference to the source code root
 __root__ = Path(__file__).parent.parent.parent
-
-# Package-internal directory aliases
-ICONS_DIR = Path(__file__).parent / "gui" / "icons"

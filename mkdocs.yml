@@ -1,5 +1,5 @@
 site_name: Caliscope
-site_description: GUI-based multicamera calibration and 3D motion capture for researchers
+site_description: Multicamera calibration and 3D motion capture for researchers
 site_url: https://mprib.github.io/caliscope/
 repo_url: https://github.com/mprib/caliscope
 repo_name: caliscope
@@ -41,6 +41,7 @@ nav:
   - Reconstruction:
       - Tracking & Triangulation: reconstruction.md
       - Custom ONNX Trackers: onnx_trackers.md
+  - Scripting API: scripting.md
 
 plugins:
   - search

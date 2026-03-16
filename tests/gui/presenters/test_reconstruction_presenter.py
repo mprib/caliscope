@@ -19,11 +19,16 @@ from caliscope.gui.presenters.reconstruction_presenter import (
     ReconstructionState,
 )
 from caliscope.helper import copy_contents_to_clean_dest
-from caliscope.persistence import load_camera_array
+from caliscope.cameras.camera_array import CameraArray
 from caliscope.task_manager.task_state import TaskState
+from caliscope.trackers import tracker_registry
 
 # Test session with 4 cameras and recordings
 TEST_SESSION = Path(__root__) / "tests" / "sessions" / "4_cam_recording"
+_CHARUCO_SESSION = Path(__root__) / "tests" / "sessions" / "post_optimization"
+
+# Tracker key used throughout this test module
+_TEST_TRACKER = "CHARUCO"
 
 
 @pytest.fixture
@@ -33,6 +38,26 @@ def qapp():
     if app is None:
         app = QCoreApplication([])
     yield app
+
+
+@pytest.fixture
+def registered_test_tracker():
+    """Register a real CharucoTracker under the test tracker key for the duration of a test.
+
+    The reconstruction presenter uses tracker_registry.available_names() to determine
+    which trackers can be selected. This fixture ensures the test tracker key is registered
+    so presenter selection methods work correctly.
+    """
+    from caliscope.core.charuco import Charuco
+    from caliscope.trackers.charuco_tracker import CharucoTracker
+
+    charuco = Charuco.from_toml(_CHARUCO_SESSION / "charuco.toml")
+    tracker_registry.register(_TEST_TRACKER, lambda: CharucoTracker(charuco), display_name="Charuco")
+    yield
+    # Remove just the test key to avoid polluting other tests
+    tracker_registry._factories.pop(_TEST_TRACKER, None)
+    tracker_registry._display_names.pop(_TEST_TRACKER, None)
+    tracker_registry._wireframes.pop(_TEST_TRACKER, None)
 
 
 @pytest.fixture
@@ -51,7 +76,7 @@ def workspace_with_recordings(tmp_path):
 @pytest.fixture
 def camera_array(workspace_with_recordings):
     """Load real camera array from test session."""
-    return load_camera_array(workspace_with_recordings / "camera_array.toml")
+    return CameraArray.from_toml(workspace_with_recordings / "camera_array.toml")
 
 
 @pytest.fixture
@@ -104,24 +129,24 @@ class TestStateComputation:
     def test_state_complete_when_xyz_exists(self, presenter, workspace_with_recordings):
         """State is COMPLETE when xyz output file exists."""
         presenter._selected_recording = "recording_1"
-        presenter._selected_tracker = "SIMPLE_HOLISTIC"
+        presenter._selected_tracker = "CHARUCO"
 
         # Create the output file (exist_ok because test session may have partial data)
-        output_dir = workspace_with_recordings / "recordings" / "recording_1" / "SIMPLE_HOLISTIC"
+        output_dir = workspace_with_recordings / "recordings" / "recording_1" / "CHARUCO"
         output_dir.mkdir(parents=True, exist_ok=True)
-        (output_dir / "xyz_SIMPLE_HOLISTIC.csv").touch()
+        (output_dir / "xyz_CHARUCO.csv").touch()
 
         assert presenter.state == ReconstructionState.COMPLETE
 
     def test_task_state_takes_precedence_over_file(self, presenter, workspace_with_recordings):
         """Task RUNNING state takes precedence over file existence."""
         presenter._selected_recording = "recording_1"
-        presenter._selected_tracker = "SIMPLE_HOLISTIC"
+        presenter._selected_tracker = "CHARUCO"
 
         # Create the output file (exist_ok because test session may have partial data)
-        output_dir = workspace_with_recordings / "recordings" / "recording_1" / "SIMPLE_HOLISTIC"
+        output_dir = workspace_with_recordings / "recordings" / "recording_1" / "CHARUCO"
         output_dir.mkdir(parents=True, exist_ok=True)
-        (output_dir / "xyz_SIMPLE_HOLISTIC.csv").touch()
+        (output_dir / "xyz_CHARUCO.csv").touch()
 
         # But task is running
         mock_task = MagicMock()
@@ -141,12 +166,11 @@ class TestAvailableOptions:
         assert "recording_1" in recordings
         assert len(recordings) == 1  # Test session has one recording
 
-    def test_available_trackers_only_reconstruction_trackers(self, presenter):
-        """Only reconstruction trackers are registered, not calibration trackers."""
+    def test_available_trackers_excludes_charuco(self, presenter):
+        """CHARUCO is a calibration tracker and must not appear in reconstruction trackers."""
         trackers = presenter.available_trackers
 
         assert "CHARUCO" not in trackers
-        assert "SIMPLE_HOLISTIC" in trackers
 
 
 class TestSelection:
@@ -157,10 +181,10 @@ class TestSelection:
         presenter.select_recording("recording_1")
         assert presenter.selected_recording == "recording_1"
 
-    def test_select_tracker(self, presenter):
+    def test_select_tracker(self, presenter, registered_test_tracker):
         """Selecting a tracker updates selection."""
-        presenter.select_tracker("SIMPLE_HOLISTIC")
-        assert presenter.selected_tracker == "SIMPLE_HOLISTIC"
+        presenter.select_tracker("CHARUCO")
+        assert presenter.selected_tracker == "CHARUCO"
 
     def test_select_recording_clears_error(self, presenter):
         """Selecting a recording clears previous error."""
@@ -168,10 +192,10 @@ class TestSelection:
         presenter.select_recording("recording_1")
         assert presenter._last_error is None
 
-    def test_select_tracker_clears_error(self, presenter):
+    def test_select_tracker_clears_error(self, presenter, registered_test_tracker):
         """Selecting a tracker clears previous error."""
         presenter._last_error = "Previous error"
-        presenter.select_tracker("SIMPLE_HOLISTIC")
+        presenter.select_tracker("CHARUCO")
         assert presenter._last_error is None
 
     def test_select_invalid_recording_ignored(self, presenter):
@@ -190,11 +214,9 @@ class TestXyzOutputPath:
     def test_xyz_output_path_computed_from_selection(self, presenter, workspace_with_recordings):
         """Path is computed from selected recording and tracker."""
         presenter._selected_recording = "recording_1"
-        presenter._selected_tracker = "SIMPLE_HOLISTIC"
+        presenter._selected_tracker = "CHARUCO"
 
-        expected = (
-            workspace_with_recordings / "recordings" / "recording_1" / "SIMPLE_HOLISTIC" / "xyz_SIMPLE_HOLISTIC.csv"
-        )
+        expected = workspace_with_recordings / "recordings" / "recording_1" / "CHARUCO" / "xyz_CHARUCO.csv"
         assert presenter.xyz_output_path == expected
 
 
@@ -211,12 +233,12 @@ class TestSignalEmissions:
         assert len(signal_received) == 1
         assert signal_received[0] == ReconstructionState.IDLE
 
-    def test_state_changed_emitted_on_tracker_selection(self, presenter, qapp):
+    def test_state_changed_emitted_on_tracker_selection(self, presenter, qapp, registered_test_tracker):
         """state_changed signal emitted when tracker selection changes."""
         signal_received = []
         presenter.state_changed.connect(lambda s: signal_received.append(s))
 
-        presenter.select_tracker("SIMPLE_HOLISTIC")
+        presenter.select_tracker("CHARUCO")
 
         assert len(signal_received) == 1
 
@@ -232,14 +254,14 @@ class TestStartReconstruction:
         assert presenter._last_error is not None
         presenter._task_manager.submit.assert_not_called()
 
-    def test_start_submits_task(self, presenter, mock_task_manager, qapp):
+    def test_start_submits_task(self, presenter, mock_task_manager, qapp, registered_test_tracker):
         """Starting reconstruction submits task to manager."""
         mock_handle = MagicMock()
         mock_handle.state = TaskState.RUNNING
         mock_task_manager.submit.return_value = mock_handle
 
         presenter.select_recording("recording_1")
-        presenter.select_tracker("SIMPLE_HOLISTIC")
+        presenter.select_tracker("CHARUCO")
         presenter.start_reconstruction()
 
         mock_task_manager.submit.assert_called_once()

@@ -55,10 +55,7 @@ jobs:
           echo "OMP_NUM_THREADS=1" >> $GITHUB_ENV
 
       - name: Install dependencies
-        run: uv sync --group dev
-
-      - name: Debug MediaPipe installation
-        run: uv run python -c "import mediapipe; print(f'MediaPipe {mediapipe.__version__} at {mediapipe.__file__}')"
+        run: uv sync --group dev --extra gui
 
       - name: Lint with Ruff
         run: uv run ruff check .

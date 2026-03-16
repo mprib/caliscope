@@ -7,8 +7,10 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-# Import the global handler instance directly
-from caliscope.logger import qt_handler_instance
+# PySide6 is always present in GUI code, so QtHandler and its instance exist here
+from caliscope.logger import QtHandler, qt_handler_instance
+
+assert isinstance(qt_handler_instance, QtHandler)
 
 logger = logging.getLogger(__name__)
 

@@ -31,7 +31,7 @@ from PySide6.Qt3DCore import Qt3DCore
 from PySide6.Qt3DExtras import Qt3DExtras
 from PySide6.Qt3DRender import Qt3DRender
 
-from caliscope import ICONS_DIR
+from caliscope.gui import ICONS_DIR
 from caliscope.gui.qt3d.primitives import (
     SphereCloud,
     build_floor_grid,

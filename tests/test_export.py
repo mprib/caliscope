@@ -6,31 +6,56 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from caliscope import __root__, persistence
+from caliscope import __root__
+from caliscope.cameras.camera_array import CameraArray
+from caliscope.core.charuco import Charuco
 from caliscope.core.point_data import ImagePoints
 from caliscope.export import xyz_to_trc, xyz_to_wide_labelled
 from caliscope.helper import copy_contents_to_clean_dest
-from caliscope.trackers.holistic.holistic_tracker import HolisticTracker
+from caliscope.trackers.charuco_tracker import CharucoTracker
 
 logger = logging.getLogger(__name__)
 
-original_data_path = Path(__root__, "tests", "sessions", "4_cam_recording", "recordings", "recording_1", "HOLISTIC")
-session_path = Path(__root__, "tests", "sessions", "4_cam_recording")
+# Use post_optimization session which has calibrated cameras and charuco data
+original_session_path = Path(__root__, "tests", "sessions", "post_optimization")
+original_data_path = original_session_path / "calibration" / "extrinsic" / "CHARUCO"
+
+
+def _make_tracker(session_path: Path) -> CharucoTracker:
+    """Build a real CharucoTracker from the session's charuco.toml."""
+    charuco = Charuco.from_toml(session_path / "charuco.toml")
+    return CharucoTracker(charuco)
+
+
+def _add_frame_time(xyz: pd.DataFrame, timestamps_path: Path) -> pd.DataFrame:
+    """Fill frame_time in xyz DataFrame using mean frame_time per sync_index from timestamps.csv.
+
+    The xyz_CHARUCO.csv has a frame_time column but it's empty (NaN). The timestamps file
+    has per-camera frame times; we use the per-sync_index mean.
+    """
+    timestamps = pd.read_csv(timestamps_path)
+    sync_time = timestamps.groupby("sync_index")["frame_time"].mean()
+
+    # Drop the existing (empty) frame_time column before merging
+    if "frame_time" in xyz.columns:
+        xyz = xyz.drop(columns=["frame_time"])
+
+    sync_time_df = sync_time.reset_index()
+    return xyz.merge(sync_time_df, on="sync_index", how="left")
 
 
 def test_export(tmp_path: Path):
     copy_contents_to_clean_dest(original_data_path, tmp_path)
+    copy_contents_to_clean_dest(original_session_path, tmp_path.parent / "session")
+    session_tmp = tmp_path.parent / "session"
 
-    tracker = HolisticTracker()
+    tracker = _make_tracker(session_tmp)
     xyz_csv_path = Path(tmp_path, f"xyz_{tracker.name}.csv")
     xyz = pd.read_csv(xyz_csv_path)
 
-    # Add frame_time to xyz (legacy test data doesn't have it - new pipeline includes it)
-    # Use xy data as source of frame_time since it matches xyz sync_index range
-    xy_csv_path = Path(tmp_path, f"xy_{tracker.name}.csv")
-    xy = pd.read_csv(xy_csv_path)
-    sync_time = xy.groupby("sync_index")["frame_time"].mean().reset_index()
-    xyz = xyz.merge(sync_time, on="sync_index", how="left")
+    # Add frame_time from timestamps (charuco xy data doesn't carry frame_time)
+    timestamps_path = session_tmp / "calibration" / "extrinsic" / "CHARUCO" / "timestamps.csv"
+    xyz = _add_frame_time(xyz, timestamps_path)
 
     # this file should be created now
     xyz_labelled_path = Path(xyz_csv_path.parent, f"{xyz_csv_path.stem}_labelled.csv")
@@ -59,18 +84,26 @@ def test_gap_fill_pipeline_accuracy(tmp_path: Path):
     Tests the fix for #877 - TRC export failing with NaN frame indices.
     """
     copy_contents_to_clean_dest(original_data_path, tmp_path)
-    copy_contents_to_clean_dest(session_path, tmp_path.parent / "session")
+    copy_contents_to_clean_dest(original_session_path, tmp_path.parent / "session")
     session_tmp = tmp_path.parent / "session"
 
     # Load camera array for triangulation
-    camera_array = persistence.load_camera_array(session_tmp / "camera_array.toml")
+    camera_array = CameraArray.from_toml(session_tmp / "camera_array.toml")
 
-    tracker = HolisticTracker()
+    tracker = _make_tracker(session_tmp)
     xy_csv_path = Path(tmp_path, f"xy_{tracker.name}.csv")
+
+    # Add frame_time to xy from timestamps
+    timestamps_path = session_tmp / "calibration" / "extrinsic" / "CHARUCO" / "timestamps.csv"
+    timestamps = pd.read_csv(timestamps_path)
+    sync_time_map = timestamps.groupby("sync_index")["frame_time"].mean().reset_index()
 
     # 1. Load original xy data and triangulate to get gold standard xyz
     logger.info("Loading original xy data and triangulating gold standard...")
-    original_xy = ImagePoints.from_csv(xy_csv_path)
+    original_xy_df = pd.read_csv(xy_csv_path)
+    # Inject frame_time into xy so triangulation carries it through to xyz
+    original_xy_df = original_xy_df.merge(sync_time_map, on="sync_index", how="left")
+    original_xy = ImagePoints(original_xy_df)
     gold_xyz = original_xy.triangulate(camera_array)
     gold_df = gold_xyz.df
 
@@ -145,18 +178,16 @@ def test_gap_fill_pipeline_accuracy(tmp_path: Path):
         )
         logger.info("=" * 60 + "\n")
 
-        # Note: We don't assert a hard tolerance because:
-        # - Body landmarks (torso, head) have low interpolation error (~1-5mm)
-        # - Fast-moving extremities (hands, fingers) can have high error (>50mm)
-        # The primary goal is verifying TRC export works with gap-filled data.
-        # A mean error < 10mm indicates reasonable overall accuracy.
+        # Note: We don't assert a hard tolerance because interpolation error varies
+        # with point motion speed between frames. The primary goal is verifying
+        # TRC export works with gap-filled data.
         mean_error = np.mean(errors)
         if mean_error > 10:
             logger.warning(f"Mean interpolation error {mean_error:.1f}mm is higher than expected")
     else:
         logger.warning("No gap-filled points to compare!")
 
-    # 6. Verify TRC export works with gap-filled data
+    # 5. Verify TRC export works with gap-filled data
     trc_path = Path(tmp_path, "gap_filled.trc")
     xyz_to_trc(filled_df, tracker, target_path=trc_path)
     assert trc_path.exists(), "TRC export failed for gap-filled data"

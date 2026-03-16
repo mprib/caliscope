@@ -11,3 +11,5 @@ This project illustrates the workflow with a minimal setup. Several improvements
 - better lighting
 - larger calibration board
 - hardware synchronization rather than software frame alignment
+
+For a scripting-based alternative to the GUI walkthrough, see `scripts/demo_api.py` which exercises the same calibration pipeline programmatically.

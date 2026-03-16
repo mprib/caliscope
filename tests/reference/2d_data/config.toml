@@ -59,7 +59,7 @@ board_width = 8.5
 dictionary = "DICT_4X4_50"
 units = "inch"
 aruco_scale = 0.75
-square_size_overide_cm = 5.4
+square_size_override_cm = 5.4
 inverted = true
 
 [point_estimates]

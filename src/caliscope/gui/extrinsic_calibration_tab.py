@@ -1,4 +1,4 @@
-"""Extrinsic Calibration tab for bundle adjustment workflow.
+"""Extrinsic Calibration tab for the capture volume workflow.
 
 Glue layer that connects ExtrinsicCalibrationPresenter to the View and Coordinator.
 Handles presenter lifecycle and signal wiring.
@@ -25,13 +25,12 @@ logger = logging.getLogger(__name__)
 class ExtrinsicCalibrationTab(QWidget):
     """Tab container for extrinsic calibration workflow.
 
-    Creates and manages the presenter/view pair for bundle adjustment
-    calibration. On completion, persists the calibrated PointDataBundle
-    via the coordinator.
+    Creates and manages the presenter/view pair for extrinsic calibration.
+    On completion, persists the calibrated CaptureVolume via the coordinator.
 
     Lifecycle:
     - Presenter created on tab construction
-    - On calibration complete: bundle persisted via coordinator.update_bundle()
+    - On calibration complete: capture volume persisted via coordinator.update_capture_volume()
     - cleanup() must be called before tab is destroyed
     """
 

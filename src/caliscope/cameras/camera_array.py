@@ -1,12 +1,16 @@
 # %%
+from __future__ import annotations
+
 import logging
 from collections import OrderedDict
+from collections.abc import Mapping
 from dataclasses import dataclass
-from typing import Dict, Literal
+from pathlib import Path
+from typing import Any, Dict, Literal
 
 import cv2
 import numpy as np
-from numba.typed import Dict as NumbaDict
+import rtoml
 from numpy.typing import NDArray
 
 logger = logging.getLogger(__name__)
@@ -15,12 +19,13 @@ CAMERA_PARAM_COUNT = 6
 
 @dataclass
 class CameraData:
-    """Holds the complete intrinsic and extrinsic calibration state for a single camera.
+    """Single camera with calibration parameters.
 
-    This class serves as the abstraction layer for the camera's lens model.
-    It provides a unified interface (`undistort_points`) that allows the rest of
-    the application to work with universal, normalized coordinates, regardless of
-    whether the source camera is standard or fisheye.
+    Calibration-relevant fields:
+        cam_id, size, matrix, distortions, rotation, translation, fisheye
+
+    Workspace fields (ignore in scripting context):
+        rotation_count, exposure, grid_count, ignore
     """
 
     cam_id: int
@@ -289,6 +294,38 @@ class CameraArray:
         """
         return {value: key for key, value in self.posed_cam_id_to_index.items()}
 
+    def __getitem__(self, cam_id: int) -> CameraData:
+        return self.cameras[cam_id]
+
+    def __setitem__(self, cam_id: int, camera: CameraData) -> None:
+        self.cameras[cam_id] = camera
+
+    @classmethod
+    def from_video_metadata(cls, videos: Mapping[int, Path | str]) -> CameraArray:
+        """Create uncalibrated CameraArray from video file metadata.
+
+        Reads resolution from each video via PyAV. No frames are decoded.
+        """
+        from caliscope.recording.video_utils import read_video_properties
+
+        cameras = {}
+        for cam_id, video_path in videos.items():
+            props = read_video_properties(Path(video_path))
+            cameras[cam_id] = CameraData(cam_id=cam_id, size=props["size"])
+        return cls(cameras)
+
+    @classmethod
+    def from_image_sizes(cls, sizes: dict[int, tuple[int, int]]) -> CameraArray:
+        """Create uncalibrated CameraArray from known image sizes.
+
+        Args:
+            sizes: Mapping of cam_id to (width, height).
+        """
+        cameras = {}
+        for cam_id, size in sizes.items():
+            cameras[cam_id] = CameraData(cam_id=cam_id, size=size)
+        return cls(cameras)
+
     def get_extrinsic_params(self) -> NDArray | None:
         """
         Builds the extrinsic parameter vector for all *posed* cameras.
@@ -339,12 +376,165 @@ class CameraArray:
         return all(cam.matrix is not None and cam.distortions is not None for cam in self.cameras.values())
 
     @property
-    def normalized_projection_matrices(self):
-        """Generates normalized projection matrices for *posed and non-ignored* cameras only."""
+    def normalized_projection_matrices(self) -> dict[int, np.ndarray]:
+        """Generates normalized projection matrices for posed and non-ignored cameras."""
         logger.info("Creating normalized projection matrices for posed and non-ignored cameras.")
-        # Note: This NumbaDict should only contain cameras used in optimization
-        proj_mat = NumbaDict()  # type: ignore
-        for cam_id in self.posed_cam_id_to_index.keys():  # cam_id_to_index keys are posed and not ignored
+        proj_mat: dict[int, np.ndarray] = {}
+        for cam_id in self.posed_cam_id_to_index.keys():
             proj_mat[cam_id] = self.cameras[cam_id].normalized_projection_matrix
-
         return proj_mat
+
+    @classmethod
+    def from_toml(cls, path: Path) -> "CameraArray":
+        """Load CameraArray from TOML file.
+
+        Rotation is stored as a 3x1 Rodrigues vector in TOML but may be a 3x3
+        matrix in legacy data. This method handles both formats.
+
+        Raises:
+            PersistenceError: If file doesn't exist, is invalid TOML, or contains
+                             malformed data
+        """
+        from caliscope.persistence import PersistenceError
+        from caliscope.core.toml_helpers import _list_to_array, _clean_scalar
+
+        if not path.exists():
+            raise PersistenceError(f"CameraArray file not found: {path}")
+
+        try:
+            data = rtoml.load(path)
+        except Exception as e:
+            raise PersistenceError(f"Failed to load CameraArray from {path}: {e}") from e
+
+        if not data or "cameras" not in data:
+            return cls({})
+
+        cameras_dict = {}
+        for cam_id_str, camera_data in data["cameras"].items():
+            try:
+                cam_id = int(cam_id_str)
+
+                matrix = _list_to_array(camera_data.get("matrix"))
+                distortions = _list_to_array(camera_data.get("distortions"))
+                translation = _list_to_array(camera_data.get("translation"))
+
+                rotation_raw = _list_to_array(camera_data.get("rotation"))
+                if rotation_raw is not None:
+                    if rotation_raw.shape == (3, 3):
+                        rotation = rotation_raw
+                    elif rotation_raw.shape in [(3,), (3, 1)]:
+                        rotation = cv2.Rodrigues(rotation_raw)[0]
+                    else:
+                        raise ValueError(f"Invalid rotation shape: {rotation_raw.shape}")
+                else:
+                    rotation = None
+
+                camera = CameraData(
+                    cam_id=cam_id,
+                    size=(camera_data["size"][0], camera_data["size"][1]),
+                    rotation_count=camera_data.get("rotation_count", 0),
+                    error=_clean_scalar(camera_data.get("error")),
+                    matrix=matrix,
+                    distortions=distortions,
+                    exposure=_clean_scalar(camera_data.get("exposure")),
+                    grid_count=_clean_scalar(camera_data.get("grid_count")),
+                    ignore=camera_data.get("ignore", False),
+                    translation=translation,
+                    rotation=rotation,
+                    fisheye=camera_data.get("fisheye", False),
+                )
+                cameras_dict[cam_id] = camera
+
+            except Exception as e:
+                raise PersistenceError(f"Failed to parse camera {cam_id_str}: {e}") from e
+
+        return cls(cameras_dict)
+
+    def to_toml(self, path: Path) -> None:
+        """Save CameraArray to TOML file.
+
+        Converts 3x3 rotation matrices to 3x1 Rodrigues vectors for storage.
+
+        Raises:
+            PersistenceError: If serialization or write fails
+        """
+        from caliscope.persistence import PersistenceError, _safe_write_toml
+        from caliscope.core.toml_helpers import _array_to_list
+
+        try:
+            path.parent.mkdir(parents=True, exist_ok=True)
+
+            cameras_data = {}
+            for cam_id, camera in self.cameras.items():
+                # Use `is not None` (not `.any()`) -- the .any() check would drop
+                # identity rotation (all-zeros in Rodrigues form).
+                rotation_for_config = None
+                if camera.rotation is not None:
+                    rotation_for_config = cv2.Rodrigues(camera.rotation)[0][:, 0].tolist()
+
+                camera_dict = {
+                    "cam_id": camera.cam_id,
+                    "size": camera.size,
+                    "rotation_count": camera.rotation_count,
+                    "error": camera.error,
+                    "matrix": _array_to_list(camera.matrix),
+                    "distortions": _array_to_list(camera.distortions),
+                    "translation": _array_to_list(camera.translation),
+                    "rotation": rotation_for_config,
+                    "exposure": camera.exposure,
+                    "grid_count": camera.grid_count,
+                    "fisheye": camera.fisheye,
+                }
+
+                # In TOML, missing key = None/Null. Prevents rtoml "null" strings.
+                clean_camera_dict = {k: v for k, v in camera_dict.items() if v is not None}
+                cameras_data[str(cam_id)] = clean_camera_dict
+
+            data = {"cameras": cameras_data}
+            _safe_write_toml(data, path)
+
+        except Exception as e:
+            raise PersistenceError(f"Failed to save CameraArray to {path}: {e}") from e
+
+    def to_aniposelib_toml(self, path: Path) -> None:
+        """Save CameraArray in aniposelib-compatible TOML format.
+
+        Only exports posed cameras. Uses top-level [cam_N] sections instead of
+        nested structure. Rotation stored as 3x1 Rodrigues vector.
+
+        Raises:
+            PersistenceError: If serialization or write fails
+        """
+        from caliscope.persistence import PersistenceError, _safe_write_toml
+        from caliscope.core.toml_helpers import _array_to_list
+
+        try:
+            path.parent.mkdir(parents=True, exist_ok=True)
+
+            data: dict[str, Any] = {}
+            for cam_id, camera in self.posed_cameras.items():
+                # Use `is not None` (not `.any()`) -- the .any() check would drop
+                # identity rotation (all-zeros in Rodrigues form).
+                rotation_rodrigues = None
+                if camera.rotation is not None:
+                    rotation_rodrigues = cv2.Rodrigues(camera.rotation)[0][:, 0].tolist()
+
+                distortions_flat = camera.distortions.ravel().tolist() if camera.distortions is not None else None
+                translation_flat = camera.translation.ravel().tolist() if camera.translation is not None else None
+
+                camera_dict = {
+                    "name": f"cam_{cam_id}",
+                    "size": [int(camera.size[0]), int(camera.size[1])],
+                    "matrix": _array_to_list(camera.matrix),
+                    "distortions": distortions_flat,
+                    "rotation": rotation_rodrigues,
+                    "translation": translation_flat,
+                }
+                data[f"cam_{cam_id}"] = camera_dict
+
+            data["metadata"] = {"adjusted": False, "error": 0.0}
+            _safe_write_toml(data, path)
+            logger.info(f"Saved aniposelib-compatible camera array to {path}")
+
+        except Exception as e:
+            raise PersistenceError(f"Failed to save aniposelib CameraArray to {path}: {e}") from e

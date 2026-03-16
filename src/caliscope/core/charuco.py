@@ -1,4 +1,5 @@
 # %%
+from __future__ import annotations
 
 # NOTE: Conversions are being made here between inches and cm because
 # this seems like a reasonable scale for discussing the board, but when
@@ -9,11 +10,11 @@
 import logging
 from collections import defaultdict
 from itertools import combinations
+from pathlib import Path
 
 import cv2
 import numpy as np
-from PySide6.QtCore import Qt
-from PySide6.QtGui import QImage, QPixmap
+import rtoml
 
 logger = logging.getLogger(__name__)
 
@@ -57,6 +58,46 @@ class Charuco:
         self.square_size_override_cm = square_size_override_cm
         self.inverted = inverted
         self.legacy_pattern = legacy_pattern
+
+    @classmethod
+    def from_squares(
+        cls,
+        columns: int,
+        rows: int,
+        square_size_cm: float,
+        *,
+        dictionary: str = "DICT_4X4_50",
+        aruco_scale: float = 0.75,
+        inverted: bool = False,
+        legacy_pattern: bool = False,
+    ) -> Charuco:
+        """Create a Charuco board from grid dimensions and square size.
+
+        Args:
+            square_size_cm: Edge length of each square in centimeters.
+                This determines the scale of calibrated 3D coordinates,
+                which will be in meters (e.g., 3.0 cm squares produce
+                corners spaced 0.03 m apart in object space).
+                Post-alignment WorldPoints and TRC exports are in meters.
+
+        Example:
+            >>> charuco = Charuco.from_squares(columns=4, rows=5, square_size_cm=3.0)
+        """
+        board_height_cm = rows * square_size_cm
+        board_width_cm = columns * square_size_cm
+
+        return cls(
+            columns=columns,
+            rows=rows,
+            board_height=board_height_cm,
+            board_width=board_width_cm,
+            dictionary=dictionary,
+            units="cm",
+            aruco_scale=aruco_scale,
+            square_size_override_cm=square_size_cm,
+            inverted=inverted,
+            legacy_pattern=legacy_pattern,
+        )
 
     @property
     def board_height_cm(self):
@@ -133,23 +174,6 @@ class Charuco:
 
         return img
 
-    def board_pixmap(self, width, height):
-        """
-        Convert from an opencv image to QPixmap
-        this can be used for creating thumbnail images
-        """
-        rgb_image = cv2.cvtColor(self.board_img(), cv2.COLOR_BGR2RGB)
-        h, w, ch = rgb_image.shape
-        bytes_per_line = ch * w
-        charuco_QImage = QImage(rgb_image.data, w, h, bytes_per_line, QImage.Format.Format_RGB888)
-        p = charuco_QImage.scaled(
-            width,
-            height,
-            Qt.AspectRatioMode.KeepAspectRatio,
-            Qt.TransformationMode.SmoothTransformation,
-        )
-        return QPixmap.fromImage(p)
-
     def save_image(self, path):
         """
         Saving image at 10x higher resolution than used for GUI
@@ -208,6 +232,55 @@ class Charuco:
         """
         corners = np.asarray(self.board.getChessboardCorners())
         return corners[corner_ids, :]
+
+    @classmethod
+    def from_toml(cls, path: Path) -> "Charuco":
+        """Load Charuco board definition from TOML file.
+
+        Raises:
+            PersistenceError: If file doesn't exist or contains invalid parameters
+        """
+        from caliscope.persistence import PersistenceError
+
+        if not path.exists():
+            raise PersistenceError(f"Charuco file not found: {path}")
+
+        try:
+            data = rtoml.load(path)
+            return cls(**data)
+        except Exception as e:
+            raise PersistenceError(f"Failed to load Charuco from {path}: {e}") from e
+
+    def to_toml(self, path: Path) -> None:
+        """Save Charuco board definition to TOML file.
+
+        Enumerates fields explicitly rather than using __dict__ to avoid
+        serializing computed properties or internal state.
+
+        Raises:
+            PersistenceError: If write fails
+        """
+        from caliscope.persistence import PersistenceError, _safe_write_toml
+
+        try:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            data = {
+                "columns": self.columns,
+                "rows": self.rows,
+                "board_height": self.board_height,
+                "board_width": self.board_width,
+                "dictionary": self.dictionary,
+                "units": self.units,
+                "aruco_scale": self.aruco_scale,
+                "square_size_override_cm": self.square_size_override_cm,
+                "inverted": self.inverted,
+                "legacy_pattern": self.legacy_pattern,
+            }
+            # Filter None values to prevent rtoml "null" strings
+            clean_data = {k: v for k, v in data.items() if v is not None}
+            _safe_write_toml(clean_data, path)
+        except Exception as e:
+            raise PersistenceError(f"Failed to save Charuco to {path}: {e}") from e
 
     def summary(self):
         text = f"Columns: {self.columns}\n"

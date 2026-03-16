@@ -10,7 +10,7 @@ from caliscope.core.charuco import Charuco
 from caliscope.core.intrinsic_calibrator import IntrinsicCalibrator
 from caliscope.cameras.camera_array import CameraData
 from caliscope.helper import copy_contents_to_clean_dest
-from caliscope.recording import create_streamer
+from caliscope.recording.frame_packet_streamer import create_streamer
 from caliscope.trackers.charuco_tracker import CharucoTracker
 
 logger = logging.getLogger(__name__)

@@ -1,3 +1,7 @@
+# NOTE: the docs below align with `main` and not necessarily PyPI
+
+I will be pushing a minor update to PyPI in the coming days [now March 16, 2026].
+
 <div align="center">
 
 # Caliscope
@@ -22,7 +26,15 @@ https://github.com/user-attachments/assets/b8bb78de-866e-4ba2-b5c7-674e3a33dd9e
 
 ## Quick Start
 
-Installation instructions are in the [docs](https://mprib.github.io/caliscope/installation/).
+```bash
+# Desktop app (GUI + 3D visualization)
+pip install caliscope[gui]
+
+# Library only (scripting, CI, servers — no PySide6/VTK)
+pip install caliscope
+```
+
+Full installation instructions are in the [docs](https://mprib.github.io/caliscope/installation/).
 
 For a walkthrough with test data after installing, see the [sample project](https://mprib.github.io/caliscope/sample_project/).
 
@@ -46,6 +58,14 @@ You can load ONNX pose estimation models (RTMPose, SLEAP, DeepLabCut, or custom)
 For more complete reconstruction workflows, tools like [anipose](https://anipose.readthedocs.io/) and [Pose2Sim](https://github.com/perfanalytics/pose2sim) will serve you better.
 The aniposelib-compatible export makes it straightforward to use Caliscope for calibration and hand off to these tools for downstream processing.
 
+## Scripting API
+
+The standard install (`pip install caliscope`) exposes intrinsic and extrinsic camera calibration as importable Python functions. Rich progress bars appear automatically; pass `progress=None` for silent operation.
+
+For the desktop app with 3D visualization: `pip install caliscope[gui]`
+
+See the [Scripting API docs](https://mprib.github.io/caliscope/scripting/) and `scripts/demo_api.py` for examples.
+
 ## Community & Support
 
 To report a bug or request a feature, please [open an issue](https://github.com/mprib/caliscope/issues).
@@ -54,9 +74,7 @@ For questions, post in [Discussions](https://github.com/mprib/caliscope/discussi
 ## Acknowledgments
 
 Caliscope was inspired by [anipose](https://github.com/lambdaloop/anipose), created by Lili Karashchuk, PhD, which demonstrated the value of accessible multicamera calibration for the research community.
-Several lines of the original anipose triangulation code are used in this code base.
 
 ## License
 
 Caliscope is licensed under the [BSD 2-Clause license](https://opensource.org/license/bsd-2-clause/).
-The triangulation function was adapted from [anipose](https://github.com/lambdaloop/anipose), also licensed under BSD-2-Clause.

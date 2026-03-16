@@ -7,15 +7,7 @@ import rtoml
 
 from caliscope.cameras.camera_array import CameraArray
 from caliscope.core.point_data import ImagePoints, WorldPoints
-from caliscope.persistence import (
-    PersistenceError,
-    load_camera_array,
-    load_image_points_csv,
-    load_world_points_csv,
-    save_camera_array,
-    save_image_points_csv,
-    save_world_points_csv,
-)
+from caliscope.persistence import PersistenceError
 from caliscope.synthetic.synthetic_scene import SyntheticScene
 
 
@@ -57,9 +49,9 @@ class SyntheticFixtureRepository:
         """Save synthetic scene as fixture."""
         self.base_path.mkdir(parents=True, exist_ok=True)
 
-        save_camera_array(scene.camera_array, self._camera_path)
-        save_world_points_csv(scene.world_points, self._world_points_path)
-        save_image_points_csv(scene.image_points_noisy, self._image_points_path)
+        scene.camera_array.to_toml(self._camera_path)
+        scene.world_points.to_csv(self._world_points_path)
+        scene.image_points_noisy.to_csv(self._image_points_path)
 
         metadata = {
             "name": name,
@@ -76,9 +68,9 @@ class SyntheticFixtureRepository:
         if not self._metadata_path.exists():
             raise PersistenceError(f"Fixture not found at {self.base_path}")
 
-        camera_array = load_camera_array(self._camera_path)
-        world_points = load_world_points_csv(self._world_points_path)
-        image_points = load_image_points_csv(self._image_points_path)
+        camera_array = CameraArray.from_toml(self._camera_path)
+        world_points = WorldPoints.from_csv(self._world_points_path)
+        image_points = ImagePoints.from_csv(self._image_points_path)
 
         with open(self._metadata_path) as f:
             metadata = rtoml.load(f)

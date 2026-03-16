@@ -20,7 +20,7 @@ from PySide6.QtWidgets import (
 )
 from numpy.typing import NDArray
 
-from caliscope import ICONS_DIR
+from caliscope.gui import ICONS_DIR
 from caliscope.gui.frame_emitters.tools import apply_rotation, cv2_to_qlabel
 
 if TYPE_CHECKING:

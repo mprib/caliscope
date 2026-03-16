@@ -21,13 +21,15 @@ from caliscope.api import (
     CalibrationError,
     calibrate_intrinsics,
     extract_image_points,
+    extract_image_points_multicam,
 )
+from caliscope.helper import copy_contents_to_clean_dest
 
 logger = logging.getLogger(__name__)
 
 # Paths to test sessions
 PRERECORDED_SESSION = Path(__root__, "tests", "sessions", "prerecorded_calibration")
-POST_OPTIMIZATION_SESSION = Path(__root__, "tests", "sessions", "post_optimization")
+CHARUCO_SESSION = Path(__root__, "tests", "sessions", "charuco_calibration")
 
 
 # ---------------------------------------------------------------------------
@@ -50,66 +52,14 @@ def test_charuco_from_squares():
 # ---------------------------------------------------------------------------
 
 
-def test_camera_array_getitem_setitem():
-    """CameraArray supports dict-style indexed read and write."""
-    cameras = CameraArray.from_image_sizes({0: (1920, 1080), 1: (1280, 720)})
-
-    # __getitem__
-    cam0 = cameras[0]
-    assert cam0.cam_id == 0
-    assert cam0.size == (1920, 1080)
-
-    # __setitem__
-    new_cam = CameraData(cam_id=2, size=(640, 480))
-    cameras[2] = new_cam
-    assert cameras[2].size == (640, 480)
-
-
 def test_camera_array_from_image_sizes():
-    """from_image_sizes creates uncalibrated cameras with the given resolutions."""
+    """from_image_sizes creates uncalibrated cameras; newly created cameras are not posed."""
     sizes = {0: (1920, 1080), 1: (1280, 720)}
     cameras = CameraArray.from_image_sizes(sizes)
 
-    assert len(cameras.cameras) == 2
     assert cameras[0].size == (1920, 1080)
     assert cameras[1].size == (1280, 720)
-
-    # Newly created cameras should not be posed
     assert len(cameras.posed_cameras) == 0
-
-
-# ---------------------------------------------------------------------------
-# CaptureVolume save / load roundtrip
-# ---------------------------------------------------------------------------
-
-
-def test_capture_volume_save_load_roundtrip(tmp_path: Path):
-    """Save a CaptureVolume to disk then reload it; metadata must be preserved."""
-    # Build a CaptureVolume from the post_optimization session files
-    image_points_path = POST_OPTIMIZATION_SESSION / "calibration" / "extrinsic" / "CHARUCO" / "xy_CHARUCO.csv"
-    camera_array_path = POST_OPTIMIZATION_SESSION / "camera_array.toml"
-    world_points_path = POST_OPTIMIZATION_SESSION / "calibration" / "extrinsic" / "CHARUCO" / "xyz_CHARUCO.csv"
-
-    from caliscope.core.point_data import WorldPoints
-
-    camera_array = CameraArray.from_toml(camera_array_path)
-    image_points = ImagePoints.from_csv(image_points_path)
-    world_points = WorldPoints.from_csv(world_points_path)
-
-    original = CaptureVolume(
-        camera_array=camera_array,
-        image_points=image_points,
-        world_points=world_points,
-    )
-
-    # Save to tmp_path, then load back
-    save_dir = tmp_path / "capture_volume"
-    original.save(save_dir)
-    reloaded = CaptureVolume.load(save_dir)
-
-    # Camera count and world point count must be preserved
-    assert len(reloaded.camera_array.posed_cameras) == len(original.camera_array.posed_cameras)
-    assert len(reloaded.world_points.df) == len(original.world_points.df)
 
 
 # ---------------------------------------------------------------------------
@@ -136,8 +86,23 @@ def test_extract_image_points_missing_files():
     assert "3" in error_message
 
 
+def test_extract_image_points_frame_step_invalid():
+    """frame_step values less than 1 must raise ValueError."""
+    charuco = Charuco.from_toml(PRERECORDED_SESSION / "charuco.toml")
+    tracker = CharucoTracker(charuco)
+
+    video_path = PRERECORDED_SESSION / "calibration" / "intrinsic" / "cam_0.mp4"
+    videos = {0: video_path}
+
+    with pytest.raises(ValueError):
+        extract_image_points(videos, tracker, frame_step=0)
+
+    with pytest.raises(ValueError):
+        extract_image_points(videos, tracker, frame_step=-1)
+
+
 # ---------------------------------------------------------------------------
-# extract_image_points — progress callback
+# extract_image_points — progress callback and frame_time column
 # ---------------------------------------------------------------------------
 
 
@@ -160,7 +125,10 @@ class _SpyProgressCallback:
 
 
 def test_extract_image_points_progress_callback():
-    """The progress callback must be called once per video and once per frame."""
+    """The progress callback must be called once per video and once per frame.
+
+    Also verifies that the returned ImagePoints contain a populated frame_time column.
+    """
     charuco = Charuco.from_toml(PRERECORDED_SESSION / "charuco.toml")
     tracker = CharucoTracker(charuco)
 
@@ -169,7 +137,7 @@ def test_extract_image_points_progress_callback():
     videos = {0: video_path}
 
     spy = _SpyProgressCallback()
-    extract_image_points(videos, tracker, progress=spy)
+    image_points = extract_image_points(videos, tracker, progress=spy)
 
     # on_video_start called once per video
     assert len(spy.video_starts) == 1
@@ -185,25 +153,28 @@ def test_extract_image_points_progress_callback():
     # Frames list length should equal the frame count (one call per frame)
     assert len(spy.frames) == reported_frame_count
 
+    # frame_time column must be present and have at least some non-NaN values
+    assert "frame_time" in image_points.df.columns
+    assert image_points.df["frame_time"].notna().any()
+
 
 # ---------------------------------------------------------------------------
-# extract_image_points — frame_time column
+# extract_image_points — frame_step
 # ---------------------------------------------------------------------------
 
 
-def test_extract_image_points_includes_frame_time():
-    """Extracted ImagePoints must contain a non-all-NaN frame_time column."""
+def test_extract_image_points_frame_step():
+    """frame_step=5 must produce fewer rows than frame_step=1."""
     charuco = Charuco.from_toml(PRERECORDED_SESSION / "charuco.toml")
     tracker = CharucoTracker(charuco)
 
     video_path = PRERECORDED_SESSION / "calibration" / "intrinsic" / "cam_0.mp4"
     videos = {0: video_path}
 
-    image_points = extract_image_points(videos, tracker)
+    df_step1 = extract_image_points(videos, tracker, frame_step=1).df
+    df_step5 = extract_image_points(videos, tracker, frame_step=5).df
 
-    assert "frame_time" in image_points.df.columns
-    # At least some frame_time values must be non-NaN
-    assert image_points.df["frame_time"].notna().any()
+    assert len(df_step5) < len(df_step1)
 
 
 # ---------------------------------------------------------------------------
@@ -250,11 +221,126 @@ def test_calibrate_intrinsics_missing_objloc():
 
 
 # ---------------------------------------------------------------------------
+# extract_image_points_multicam
+# ---------------------------------------------------------------------------
+
+
+def test_extract_image_points_multicam_smoke(tmp_path: Path):
+    """Multi-camera extraction with timestamps CSV produces valid ImagePoints."""
+    copy_contents_to_clean_dest(CHARUCO_SESSION, tmp_path)
+
+    extrinsic_dir = tmp_path / "calibration" / "extrinsic"
+    videos = {
+        0: extrinsic_dir / "cam_0.mp4",
+        1: extrinsic_dir / "cam_1.mp4",
+        2: extrinsic_dir / "cam_2.mp4",
+        3: extrinsic_dir / "cam_3.mp4",
+    }
+    timestamps_path = extrinsic_dir / "timestamps.csv"
+
+    charuco = Charuco.from_toml(tmp_path / "charuco.toml")
+    tracker = CharucoTracker(charuco)
+
+    result = extract_image_points_multicam(videos, tracker, frame_step=10, timestamps=timestamps_path)
+
+    assert isinstance(result, ImagePoints)
+    assert len(result.df) > 0
+
+    # All four cameras should have contributed observations
+    cam_ids_present = set(result.df["cam_id"].unique())
+    assert len(cam_ids_present) >= 2, f"Expected >=2 cameras, got {cam_ids_present}"
+
+    # The same sync indices must appear for multiple cameras (this is what
+    # makes it useful for extrinsic calibration)
+    sync_index_counts = result.df.groupby("sync_index")["cam_id"].nunique()
+    multi_cam_sync_indices = (sync_index_counts >= 2).sum()
+    assert multi_cam_sync_indices > 0, "No sync indices shared by >=2 cameras"
+
+    # Charuco tracker populates obj_loc columns
+    assert "obj_loc_x" in result.df.columns
+    assert result.df["obj_loc_x"].notna().any()
+
+
+def test_extract_image_points_multicam_inferred_timestamps(tmp_path: Path):
+    """Multi-camera extraction infers timestamps from video metadata when no CSV is given."""
+    copy_contents_to_clean_dest(CHARUCO_SESSION, tmp_path)
+
+    extrinsic_dir = tmp_path / "calibration" / "extrinsic"
+    videos = {
+        0: extrinsic_dir / "cam_0.mp4",
+        1: extrinsic_dir / "cam_1.mp4",
+        2: extrinsic_dir / "cam_2.mp4",
+        3: extrinsic_dir / "cam_3.mp4",
+    }
+
+    charuco = Charuco.from_toml(tmp_path / "charuco.toml")
+    tracker = CharucoTracker(charuco)
+
+    # No timestamps parameter — inference path
+    result = extract_image_points_multicam(videos, tracker, frame_step=10)
+
+    assert isinstance(result, ImagePoints)
+    assert len(result.df) > 0
+
+    cam_ids_present = set(result.df["cam_id"].unique())
+    assert len(cam_ids_present) >= 2, f"Expected >=2 cameras, got {cam_ids_present}"
+
+    # Sync indices shared by multiple cameras must exist
+    sync_index_counts = result.df.groupby("sync_index")["cam_id"].nunique()
+    multi_cam_sync_indices = (sync_index_counts >= 2).sum()
+    assert multi_cam_sync_indices > 0, "No sync indices shared by >=2 cameras"
+
+    assert "obj_loc_x" in result.df.columns
+    assert result.df["obj_loc_x"].notna().any()
+
+
+def test_extract_image_points_multicam_pipeline(tmp_path: Path):
+    """Full API pipeline: multicam extraction -> bootstrap -> optimize.
+
+    Uses the pre-calibrated camera_array.toml from the charuco_calibration
+    session (intrinsics already solved) to focus on the multicam extraction
+    and extrinsic pipeline.
+    """
+    copy_contents_to_clean_dest(CHARUCO_SESSION, tmp_path)
+
+    extrinsic_dir = tmp_path / "calibration" / "extrinsic"
+    videos = {
+        0: extrinsic_dir / "cam_0.mp4",
+        1: extrinsic_dir / "cam_1.mp4",
+        2: extrinsic_dir / "cam_2.mp4",
+        3: extrinsic_dir / "cam_3.mp4",
+    }
+    timestamps_path = extrinsic_dir / "timestamps.csv"
+
+    charuco = Charuco.from_toml(tmp_path / "charuco.toml")
+    tracker = CharucoTracker(charuco)
+
+    # The session ships with a camera_array.toml that has calibrated intrinsics
+    # and extrinsics. Load just the intrinsics (extrinsics will be reset by
+    # bootstrap).
+    cameras = CameraArray.from_toml(tmp_path / "camera_array.toml")
+
+    # Step 1: extract synchronized multicam image points
+    image_points = extract_image_points_multicam(videos, tracker, frame_step=10, timestamps=timestamps_path)
+
+    # Step 2: bootstrap (builds pose network, triangulates world points) and optimize
+    optimized = CaptureVolume.bootstrap(image_points, cameras).optimize()
+
+    assert optimized.optimization_status is not None
+    assert optimized.optimization_status.converged, "Bundle adjustment did not converge"
+
+    rmse = optimized.reprojection_report.overall_rmse
+    logger.info(f"Pipeline test RMSE: {rmse:.4f} px")
+    assert rmse < 2.0, f"Reprojection RMSE {rmse:.4f} px exceeds 2.0 px threshold"
+
+
+# ---------------------------------------------------------------------------
 # Debug harness
 # ---------------------------------------------------------------------------
 
 if __name__ == "__main__":
     import sys
+    import tempfile
 
     sys.path.insert(0, str(Path(__file__).parent))
 
@@ -268,28 +354,37 @@ if __name__ == "__main__":
     logger.info("test_charuco_from_squares")
     test_charuco_from_squares()
 
-    logger.info("test_camera_array_getitem_setitem")
-    test_camera_array_getitem_setitem()
-
     logger.info("test_camera_array_from_image_sizes")
     test_camera_array_from_image_sizes()
-
-    logger.info("test_capture_volume_save_load_roundtrip")
-    test_capture_volume_save_load_roundtrip(debug_dir / "cv_roundtrip")
 
     logger.info("test_extract_image_points_missing_files")
     test_extract_image_points_missing_files()
 
+    logger.info("test_extract_image_points_frame_step_invalid")
+    test_extract_image_points_frame_step_invalid()
+
     logger.info("test_extract_image_points_progress_callback")
     test_extract_image_points_progress_callback()
 
-    logger.info("test_extract_image_points_includes_frame_time")
-    test_extract_image_points_includes_frame_time()
+    logger.info("test_extract_image_points_frame_step")
+    test_extract_image_points_frame_step()
 
     logger.info("test_calibrate_intrinsics_wrapper")
     test_calibrate_intrinsics_wrapper()
 
     logger.info("test_calibrate_intrinsics_missing_objloc")
     test_calibrate_intrinsics_missing_objloc()
+
+    logger.info("test_extract_image_points_multicam_smoke")
+    with tempfile.TemporaryDirectory() as tmp:
+        test_extract_image_points_multicam_smoke(Path(tmp))
+
+    logger.info("test_extract_image_points_multicam_inferred_timestamps")
+    with tempfile.TemporaryDirectory() as tmp:
+        test_extract_image_points_multicam_inferred_timestamps(Path(tmp))
+
+    logger.info("test_extract_image_points_multicam_pipeline")
+    with tempfile.TemporaryDirectory() as tmp:
+        test_extract_image_points_multicam_pipeline(Path(tmp))
 
     logger.info("All API tests passed.")

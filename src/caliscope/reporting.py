@@ -10,6 +10,7 @@ protocol parameter instead.
 
 from __future__ import annotations
 
+import threading
 from typing import Protocol, runtime_checkable
 
 from rich.console import Console
@@ -72,6 +73,7 @@ class RichProgressBar:
         )
         self._tasks: dict[int, TaskID] = {}
         self._started = False
+        self._lock = threading.Lock()
 
     def __enter__(self) -> RichProgressBar:
         self._progress.start()
@@ -83,23 +85,27 @@ class RichProgressBar:
         self._started = False
 
     def _ensure_started(self) -> None:
+        """Start the progress display if not already started. Must be called while lock is held."""
         if not self._started:
             self._progress.start()
             self._started = True
 
     def on_video_start(self, cam_id: int, total_frames: int) -> None:
-        self._ensure_started()
-        task_id = self._progress.add_task(f"  cam {cam_id}", total=total_frames)
-        self._tasks[cam_id] = task_id
+        with self._lock:
+            self._ensure_started()
+            task_id = self._progress.add_task(f"  cam {cam_id}", total=total_frames)
+            self._tasks[cam_id] = task_id
 
     def on_frame(self, cam_id: int, frame_index: int, n_points: int) -> None:
-        if cam_id in self._tasks:
-            self._progress.update(self._tasks[cam_id], completed=frame_index + 1)
+        with self._lock:
+            if cam_id in self._tasks:
+                self._progress.update(self._tasks[cam_id], completed=frame_index + 1)
 
     def on_video_complete(self, cam_id: int) -> None:
-        if cam_id in self._tasks:
-            task = self._progress.tasks[self._tasks[cam_id]]
-            self._progress.update(self._tasks[cam_id], completed=task.total)
+        with self._lock:
+            if cam_id in self._tasks:
+                task = self._progress.tasks[self._tasks[cam_id]]
+                self._progress.update(self._tasks[cam_id], completed=task.total)
 
 
 # --- Internal helpers ---

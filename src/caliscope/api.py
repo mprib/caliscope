@@ -49,6 +49,7 @@ __all__ = [
     "IntrinsicCalibrationReport",
     # Functions
     "extract_image_points",
+    "extract_image_points_multicam",
     "calibrate_intrinsics",
     # Exceptions
     "CalibrationError",
@@ -153,6 +154,167 @@ def extract_image_points(
 
         if progress is not None:
             progress.on_video_complete(cam_id)
+
+    if not all_rows:
+        raise CalibrationError(
+            "No landmarks detected in any video. Check that:\n"
+            "  1. The calibration target is visible in the videos\n"
+            "  2. The correct tracker is being used\n"
+            "  3. Video files are not corrupted"
+        )
+
+    flat_rows: dict[str, list] = {k: [] for k in all_rows[0].keys()}
+    for row in all_rows:
+        for k, v in row.items():
+            flat_rows[k].extend(v)
+
+    return ImagePoints(pd.DataFrame(flat_rows))
+
+
+def extract_image_points_multicam(
+    videos: Mapping[int, Path | str],
+    tracker: Tracker,
+    *,
+    frame_step: int = 1,
+    timestamps: Path | str | None = None,
+    progress: ProgressCallback | None = None,
+) -> ImagePoints:
+    """Extract synchronized 2D landmark observations from multiple camera videos.
+
+    For each sync index (a common moment in time across all cameras), reads the
+    corresponding frame from each camera, runs the tracker, and assembles all
+    observations into a flat DataFrame. Designed for extrinsic calibration where
+    frame correspondence across cameras is required.
+
+    The tracker must be thread-safe: it will be called concurrently from
+    multiple threads (one per camera). Stateless trackers (CharucoTracker,
+    ArucoTracker) are safe. ONNX trackers with shared session state may
+    require external locking.
+
+    Args:
+        videos: Mapping of cam_id to video file path.
+        tracker: Tracker instance applied to each frame.
+        frame_step: Process every Nth sync index (default 1 = every sync index).
+            Operates on sync indices, not raw frame indices. For example,
+            frame_step=5 processes sync indices 0, 5, 10, ... regardless of
+            which raw frame index each camera uses for that sync index.
+        timestamps: Optional path to a timestamps CSV file. The CSV must have
+            columns ``cam_id`` and ``frame_time`` (one row per frame per camera).
+            If omitted, timestamps are inferred from video metadata (FPS and
+            frame count). Providing a CSV is recommended for recordings where
+            cameras did not start at exactly the same time.
+        progress: Optional callback invoked per-frame for progress reporting.
+
+    Returns:
+        ImagePoints containing columns: sync_index, cam_id, frame_index,
+        frame_time, point_id, img_loc_x, img_loc_y, obj_loc_x, obj_loc_y,
+        obj_loc_z. Each row is one detected landmark observation.
+
+    Raises:
+        CalibrationError: If no landmarks detected across all videos.
+        FileNotFoundError: If any video paths (or the timestamps CSV) do not exist.
+        ValueError: If frame_step < 1.
+    """
+    import concurrent.futures
+    import pandas as pd
+    from concurrent.futures import ThreadPoolExecutor
+
+    from caliscope.recording.frame_source import FrameSource
+    from caliscope.recording.synchronized_timestamps import SynchronizedTimestamps
+
+    if frame_step < 1:
+        raise ValueError(f"frame_step must be >= 1, got {frame_step}")
+
+    # Normalize all video paths upfront
+    video_paths: dict[int, Path] = {cam_id: Path(p) for cam_id, p in videos.items()}
+
+    # Validate all video paths at once
+    missing = {cam_id: str(p) for cam_id, p in video_paths.items() if not p.exists()}
+    if missing:
+        detail = "\n".join(f"  cam {cid}: {p}" for cid, p in missing.items())
+        raise FileNotFoundError(f"Video files not found:\n{detail}")
+
+    # Build sync mapping
+    if timestamps is not None:
+        synced = SynchronizedTimestamps.from_csv_path(Path(timestamps))
+    else:
+        synced = SynchronizedTimestamps.from_video_paths(video_paths)
+
+    # Select sync indices honoring frame_step
+    selected_sync_indices = synced.sync_indices[::frame_step]
+
+    # Per-camera work list: (sync_index, frame_index) pairs where the camera
+    # has a valid (non-dropped) frame for that sync index.
+    def _build_work_list(cam_id: int) -> list[tuple[int, int]]:
+        work: list[tuple[int, int]] = []
+        for sync_index in selected_sync_indices:
+            frame_index = synced.frame_for(sync_index, cam_id)
+            if frame_index is not None:
+                work.append((sync_index, frame_index))
+        return work
+
+    def _process_camera(cam_id: int, work_list: list[tuple[int, int]], video_path: Path) -> list[dict]:
+        frame_source = FrameSource.from_path(video_path, cam_id=cam_id)
+        try:
+            if progress is not None:
+                progress.on_video_start(cam_id, len(work_list))
+
+            rows: list[dict] = []
+            for processed_count, (sync_index, frame_index) in enumerate(work_list):
+                frame = frame_source.get_frame(frame_index)
+                if frame is None:
+                    if progress is not None:
+                        progress.on_frame(cam_id, processed_count, 0)
+                    continue
+
+                frame_time = synced.time_for(cam_id, frame_index)
+                point_packet = tracker.get_points(frame, cam_id=cam_id, rotation_count=0)
+
+                n_points = len(point_packet.point_id)
+                if n_points > 0:
+                    row: dict = {
+                        "sync_index": [sync_index] * n_points,
+                        "cam_id": [cam_id] * n_points,
+                        "frame_index": [frame_index] * n_points,
+                        "frame_time": [frame_time] * n_points,
+                        "point_id": point_packet.point_id.tolist(),
+                        "img_loc_x": point_packet.img_loc[:, 0].tolist(),
+                        "img_loc_y": point_packet.img_loc[:, 1].tolist(),
+                        "obj_loc_x": point_packet.obj_loc_list[0],
+                        "obj_loc_y": point_packet.obj_loc_list[1],
+                        "obj_loc_z": point_packet.obj_loc_list[2],
+                    }
+                    rows.append(row)
+
+                if progress is not None:
+                    progress.on_frame(cam_id, processed_count, n_points)
+
+            if progress is not None:
+                progress.on_video_complete(cam_id)
+
+            return rows
+        finally:
+            frame_source.close()
+
+    # Process cameras concurrently
+    max_workers = min(len(video_paths), 8)
+    all_camera_rows: list[list[dict]] = []
+
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        futures = {
+            executor.submit(_process_camera, cam_id, _build_work_list(cam_id), video_paths[cam_id]): cam_id
+            for cam_id in video_paths
+        }
+        try:
+            for future in concurrent.futures.as_completed(futures):
+                all_camera_rows.append(future.result())
+        except Exception:
+            for f in futures:
+                f.cancel()
+            raise
+
+    # Flatten per-camera row lists
+    all_rows: list[dict] = [row for camera_rows in all_camera_rows for row in camera_rows]
 
     if not all_rows:
         raise CalibrationError(

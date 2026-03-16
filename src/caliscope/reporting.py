@@ -344,13 +344,14 @@ def print_extrinsic_report(capture_volume: CaptureVolume, *, console: Console | 
         c.print(f"    Worst frame:     {worst_mm:.2f} mm")
 
         bias_sign = "+" if bias_mm >= 0 else ""
-        c.print(f"    Bias:           {bias_sign}{bias_mm:.2f} mm")
+        c.print(f"    Bias:            {bias_sign}{bias_mm:.2f} mm")
         c.print(f"    Frames sampled:  {scale_report.n_frames_sampled}")
 
         # Sparkline of per-frame RMSE (distance_rmse_mm is already in mm)
         frame_rmses = [fe.distance_rmse_mm for fe in scale_report.frame_errors]
+        max_rmse = max(frame_rmses)
         spark = _sparkline(frame_rmses)
-        c.print(f"    Sparkline:       {spark}")
+        c.print(f"    Sparkline:       {spark}  (max: {max_rmse:.2f} mm)")
 
     c.print()
 

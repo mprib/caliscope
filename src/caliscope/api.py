@@ -2,13 +2,18 @@
 
 Quick start (pre-calibrated cameras):
 
-    from caliscope.api import CameraArray, CaptureVolume, CharucoTracker, Charuco, extract_image_points
+    from caliscope.api import (
+        CameraArray, CaptureVolume, Charuco, CharucoTracker,
+        extract_image_points, extract_image_points_multicam,
+    )
 
     charuco = Charuco.from_squares(columns=4, rows=5, square_size_cm=3.0)
     cameras = CameraArray.from_toml("camera_array.toml")
 
+    points = extract_image_points("extrinsic/cam_0.mp4", 0, CharucoTracker(charuco))
+    # Or for synchronized multi-camera extraction:
     videos = {0: "extrinsic/cam_0.mp4", 1: "extrinsic/cam_1.mp4"}
-    points = extract_image_points(videos, CharucoTracker(charuco))
+    points = extract_image_points_multicam(videos, CharucoTracker(charuco))
     volume = CaptureVolume.bootstrap(points, cameras).optimize()
     volume.save("capture_volume")
 
@@ -57,35 +62,30 @@ __all__ = [
 
 
 def extract_image_points(
-    videos: Mapping[int, Path | str],
+    video_path: Path | str,
+    cam_id: int,
     tracker: Tracker,
     *,
     frame_step: int = 1,
     progress: ProgressCallback | None = None,
 ) -> ImagePoints:
-    """Extract 2D landmark observations from video files.
+    """Extract 2D landmark observations from a single camera video.
 
-    Opens each video with PyAV, runs the tracker frame-by-frame, and assembles
+    Opens the video with PyAV, runs the tracker frame-by-frame, and assembles
     results into a validated ImagePoints DataFrame.
 
     Args:
-        videos: Mapping of camera ID to video file path.
+        video_path: Path to the video file.
+        cam_id: Camera ID to assign to all observations in the result.
         tracker: Tracker instance to apply to each frame.
         frame_step: Process every Nth frame (default 1 = every frame).
             For intrinsic calibration, frame_step=5 is typical since
-            only ~30 diverse frames are needed. For extrinsic calibration,
-            higher density may improve triangulation quality.
+            only ~30 diverse frames are needed.
         progress: Optional callback invoked per-frame for progress reporting.
 
-    Note:
-        For multi-camera use (extrinsic calibration), videos must be
-        synchronized: frame N in each video must correspond to the same
-        moment in time. Single-camera use (intrinsic calibration) has
-        no synchronization requirement.
-
     Raises:
-        CalibrationError: If no points detected across all videos.
-        FileNotFoundError: If any video paths do not exist.
+        CalibrationError: If no points are detected in the video.
+        FileNotFoundError: If the video path does not exist.
         ValueError: If frame_step < 1.
     """
     import av
@@ -95,72 +95,68 @@ def extract_image_points(
     if frame_step < 1:
         raise ValueError(f"frame_step must be >= 1, got {frame_step}")
 
-    # Validate all paths upfront
-    missing = {cam_id: str(Path(p)) for cam_id, p in videos.items() if not Path(p).exists()}
-    if missing:
-        detail = "\n".join(f"  cam {cid}: {p}" for cid, p in missing.items())
-        raise FileNotFoundError(f"Video files not found:\n{detail}")
+    video_path = Path(video_path)
+    if not video_path.exists():
+        raise FileNotFoundError(f"Video file not found: {video_path}")
 
     all_rows: list[dict] = []
 
-    for cam_id, video_path in videos.items():
-        video_path = Path(video_path)
-        rotation_count = 0
+    rotation_count = 0
 
-        container = av.open(str(video_path))
-        video_stream = container.streams.video[0]
-        time_base = float(video_stream.time_base) if video_stream.time_base is not None else 0.0
+    container = av.open(str(video_path))
+    video_stream = container.streams.video[0]
+    time_base = float(video_stream.time_base) if video_stream.time_base is not None else 0.0
 
-        props = read_video_properties(video_path)
-        frame_count = props["frame_count"]
-        # Progress total reflects frames that will actually be processed
-        progress_total = (frame_count + frame_step - 1) // frame_step
+    props = read_video_properties(video_path)
+    frame_count = props["frame_count"]
+    # Progress total reflects frames that will actually be processed
+    progress_total = (frame_count + frame_step - 1) // frame_step
 
-        if progress is not None:
-            progress.on_video_start(cam_id, progress_total)
+    if progress is not None:
+        progress.on_video_start(cam_id, progress_total)
 
-        try:
-            progress_index = 0
-            for frame_index, frame in enumerate(container.decode(video_stream)):
-                if frame_index % frame_step != 0:
-                    continue
+    try:
+        progress_index = 0
+        for frame_index, frame in enumerate(container.decode(video_stream)):
+            if frame_index % frame_step != 0:
+                continue
 
-                bgr = frame.to_ndarray(format="bgr24")
-                frame_time = frame.pts * time_base if frame.pts is not None else 0.0
+            bgr = frame.to_ndarray(format="bgr24")
+            frame_time = frame.pts * time_base if frame.pts is not None else 0.0
 
-                point_packet = tracker.get_points(bgr, cam_id=cam_id, rotation_count=rotation_count)
+            point_packet = tracker.get_points(bgr, cam_id=cam_id, rotation_count=rotation_count)
 
-                n_points = len(point_packet.point_id)
-                if n_points > 0:
-                    n = n_points
-                    row = {
-                        "sync_index": [frame_index] * n,
-                        "cam_id": [cam_id] * n,
-                        "frame_time": [frame_time] * n,
-                        "point_id": point_packet.point_id.tolist(),
-                        "img_loc_x": point_packet.img_loc[:, 0].tolist(),
-                        "img_loc_y": point_packet.img_loc[:, 1].tolist(),
-                        "obj_loc_x": point_packet.obj_loc_list[0],
-                        "obj_loc_y": point_packet.obj_loc_list[1],
-                        "obj_loc_z": point_packet.obj_loc_list[2],
-                    }
-                    all_rows.append(row)
+            n_points = len(point_packet.point_id)
+            if n_points > 0:
+                n = n_points
+                row = {
+                    "sync_index": [frame_index] * n,
+                    "cam_id": [cam_id] * n,
+                    "frame_time": [frame_time] * n,
+                    "point_id": point_packet.point_id.tolist(),
+                    "img_loc_x": point_packet.img_loc[:, 0].tolist(),
+                    "img_loc_y": point_packet.img_loc[:, 1].tolist(),
+                    "obj_loc_x": point_packet.obj_loc_list[0],
+                    "obj_loc_y": point_packet.obj_loc_list[1],
+                    "obj_loc_z": point_packet.obj_loc_list[2],
+                }
+                all_rows.append(row)
 
-                progress_index += 1
-                if progress is not None:
-                    progress.on_frame(cam_id, progress_index, n_points)
-        finally:
-            container.close()
+            progress_index += 1
+            if progress is not None:
+                progress.on_frame(cam_id, progress_index, n_points)
+    finally:
+        container.close()
 
-        if progress is not None:
-            progress.on_video_complete(cam_id)
+    if progress is not None:
+        progress.on_video_complete(cam_id)
 
     if not all_rows:
         raise CalibrationError(
-            "No landmarks detected in any video. Check that:\n"
-            "  1. The calibration target is visible in the videos\n"
+            "No landmarks detected in the video. Check that:\n"
+            "  1. The calibration target is visible in the video\n"
             "  2. The correct tracker is being used\n"
-            "  3. Video files are not corrupted"
+            "  3. The video file is not corrupted"
         )
 
     flat_rows: dict[str, list] = {k: [] for k in all_rows[0].keys()}

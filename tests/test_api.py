@@ -68,22 +68,14 @@ def test_camera_array_from_image_sizes():
 
 
 def test_extract_image_points_missing_files():
-    """FileNotFoundError must be raised when video files do not exist."""
+    """FileNotFoundError must be raised when the video file does not exist."""
     charuco = Charuco.from_toml(PRERECORDED_SESSION / "charuco.toml")
     tracker = CharucoTracker(charuco)
 
-    fake_videos = {
-        0: "/nonexistent/cam_0.mp4",
-        3: "/nonexistent/cam_3.mp4",
-    }
-
     with pytest.raises(FileNotFoundError) as exc_info:
-        extract_image_points(fake_videos, tracker)
+        extract_image_points("/nonexistent/cam_0.mp4", 0, tracker)
 
-    error_message = str(exc_info.value)
-    # Both missing cam_ids should be mentioned
-    assert "0" in error_message
-    assert "3" in error_message
+    assert "/nonexistent/cam_0.mp4" in str(exc_info.value)
 
 
 def test_extract_image_points_frame_step_invalid():
@@ -92,13 +84,12 @@ def test_extract_image_points_frame_step_invalid():
     tracker = CharucoTracker(charuco)
 
     video_path = PRERECORDED_SESSION / "calibration" / "intrinsic" / "cam_0.mp4"
-    videos = {0: video_path}
 
     with pytest.raises(ValueError):
-        extract_image_points(videos, tracker, frame_step=0)
+        extract_image_points(video_path, 0, tracker, frame_step=0)
 
     with pytest.raises(ValueError):
-        extract_image_points(videos, tracker, frame_step=-1)
+        extract_image_points(video_path, 0, tracker, frame_step=-1)
 
 
 # ---------------------------------------------------------------------------
@@ -134,10 +125,9 @@ def test_extract_image_points_progress_callback():
 
     # Use a single camera video to keep the test fast
     video_path = PRERECORDED_SESSION / "calibration" / "intrinsic" / "cam_0.mp4"
-    videos = {0: video_path}
 
     spy = _SpyProgressCallback()
-    image_points = extract_image_points(videos, tracker, progress=spy)
+    image_points = extract_image_points(video_path, 0, tracker, progress=spy)
 
     # on_video_start called once per video
     assert len(spy.video_starts) == 1
@@ -169,10 +159,9 @@ def test_extract_image_points_frame_step():
     tracker = CharucoTracker(charuco)
 
     video_path = PRERECORDED_SESSION / "calibration" / "intrinsic" / "cam_0.mp4"
-    videos = {0: video_path}
 
-    df_step1 = extract_image_points(videos, tracker, frame_step=1).df
-    df_step5 = extract_image_points(videos, tracker, frame_step=5).df
+    df_step1 = extract_image_points(video_path, 0, tracker, frame_step=1).df
+    df_step5 = extract_image_points(video_path, 0, tracker, frame_step=5).df
 
     assert len(df_step5) < len(df_step1)
 
@@ -188,7 +177,7 @@ def test_calibrate_intrinsics_wrapper():
     tracker = CharucoTracker(charuco)
 
     video_path = PRERECORDED_SESSION / "calibration" / "intrinsic" / "cam_0.mp4"
-    image_points = extract_image_points({0: video_path}, tracker)
+    image_points = extract_image_points(video_path, 0, tracker)
 
     camera = CameraData(cam_id=0, size=(1280, 720))
     output = calibrate_intrinsics(image_points, camera)

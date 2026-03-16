@@ -62,7 +62,7 @@ def test_print_intrinsic_report_no_crash():
     tracker = CharucoTracker(charuco)
 
     video_path = PRERECORDED_SESSION / "calibration" / "intrinsic" / "cam_0.mp4"
-    image_points = extract_image_points({0: video_path}, tracker)
+    image_points = extract_image_points(video_path, 0, tracker)
 
     camera = CameraData(cam_id=0, size=(1280, 720))
     output = calibrate_intrinsics(image_points, camera)
@@ -136,7 +136,7 @@ def test_print_coverage_grid_no_crash():
     tracker = CharucoTracker(charuco)
 
     video_path = PRERECORDED_SESSION / "calibration" / "intrinsic" / "cam_0.mp4"
-    image_points = extract_image_points({0: video_path}, tracker)
+    image_points = extract_image_points(video_path, 0, tracker)
 
     camera = CameraData(cam_id=0, size=(1280, 720))
     output = calibrate_intrinsics(image_points, camera)

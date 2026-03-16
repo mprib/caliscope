@@ -1,7 +1,7 @@
 [project]
 name = "caliscope"
 version = "0.7.5"
-description = "GUI based multicamera calibration that integrates with 2D landmark tracking to triangulate 3D landmark positions"
+description = "Rapid and reliable multicamera calibration with GUI and scripting API"
 authors = [{name = "Mac Prible", email = "prible@gmail.com"}]
 license = { text = "BSD-2-Clause" }
 readme = "README.md"

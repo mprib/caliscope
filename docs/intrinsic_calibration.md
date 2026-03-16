@@ -76,3 +76,7 @@ If your calibration results show poor reprojection accuracy with a wide-angle le
 ### Adequate Lighting
 - Ensure the scene is well-lit to avoid noise and grain in the video, which can interfere with the calibration process
 - Avoid strong direct light sources that can cause glare or shadows on the calibration board
+
+## Programmatic Workflow
+
+Intrinsic calibration can be run from a Python script without the GUI. See the [Scripting API](scripting.md#step-3-intrinsic-calibration) page for a step-by-step walkthrough.

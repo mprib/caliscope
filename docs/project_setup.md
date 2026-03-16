@@ -124,7 +124,7 @@ workspace/
             └── world_points.csv
 ```
 
-The `capture_volume/` directory contains the complete calibrated camera system and can be used for 3D reconstruction of motion capture data.
+The `capture_volume/` directory contains the complete calibrated camera system and can be used for 3D reconstruction of motion capture data. This workspace structure works with both the GUI and scripting workflows — scripts can load calibration results with `CameraArray.from_toml()` and save with `CaptureVolume.save()`.
 
 ## Stage 3: Recording and Reconstruction
 

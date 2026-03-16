@@ -9,24 +9,11 @@ The pipeline uses the camera intrinsics and extrinsics established during calibr
 
 ## Available Trackers
 
-### Custom ONNX Trackers
+### ONNX Trackers
 
-Caliscope can load custom pose estimation models in ONNX format. This is the primary extensibility mechanism: you can use models trained on your specific subjects (particular species, body regions, behavioral features) without modifying Caliscope's source code. Models exported from SLEAP, DeepLabCut, RTMPose, or other frameworks are supported.
+Caliscope uses ONNX pose estimation models for 2D landmark tracking. Several RTMPose Halpe26 models (tiny through xlarge, 26 body landmarks) ship as built-in model cards and can be downloaded in-app on first use. You can also load custom models exported from SLEAP, DeepLabCut, RTMPose, or other frameworks — see [Custom ONNX Trackers](onnx_trackers.md) for setup instructions.
 
-After installation, ONNX models appear alongside the built-in trackers in the reconstruction tab's dropdown menu. See [Custom ONNX Trackers](onnx_trackers.md) for setup instructions.
-
-### Built-in MediaPipe Trackers
-
-Four MediaPipe-based trackers are included for convenience:
-
-| Tracker | Description | Landmarks |
-|---------|-------------|-----------|
-| **Pose** | Full body skeletal tracking | 33 keypoints |
-| **Hand** | Detailed hand tracking | 21 keypoints per hand |
-| **Simple Holistic** | Body + hands + face (filtered) | Reduced set for gross movement |
-| **Holistic** | Body + hands + face (full) | Several hundred keypoints |
-
-The **Holistic** tracker combines body, hand, and face tracking into a single output. The large number of face landmarks (several hundred) can become unwieldy for users primarily interested in skeletal movement. The **Simple Holistic** tracker filters these down to a smaller set focused on gross motor patterns.
+The reconstruction pipeline is a convenience tool for verifying calibration quality and quick landmark export. For production reconstruction workflows, tools like [anipose](https://anipose.readthedocs.io/) and [Pose2Sim](https://github.com/perfanalytics/pose2sim) are better suited. Caliscope's aniposelib-compatible camera export makes it straightforward to calibrate here and hand off to those tools.
 
 ## Workflow
 

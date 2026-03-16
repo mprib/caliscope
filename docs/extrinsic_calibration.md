@@ -71,14 +71,7 @@ Once the origin is set, Caliscope computes volumetric scale accuracy metrics:
 
 **Pooled RMSE (in mm)**: This is the root-mean-square error of pairwise distances between reconstructed board corners, compared to the known board geometry. It measures how accurately the 3D reconstruction preserves physical scale.
 
-Interpretation guidelines:
-- **Good**: < 2mm
-- **Acceptable**: 2-5mm
-- **Concerning**: > 5mm
-
-**Sparkline**: A small inline chart showing per-frame scale accuracy across the entire calibration sequence. This allows you to quickly identify frames with particularly high or low accuracy.
-
-**Bias interpretation**: The scale error can reveal systematic biases:
+**Bias**: The scale error can reveal systematic biases:
 - If errors are consistently positive (reconstructed distances larger than known distances), the entered board size may be slightly too small
 - If errors are consistently negative (reconstructed distances smaller than known distances), the entered board size may be too large
 
@@ -109,3 +102,7 @@ This helps catch measurement errors in the board dimensions you entered during s
 - Setting the board origin is for convenience and not a strict requirement
 - To use the board for origin setting, place it at the desired world origin position (e.g., touching the floor) in at least one frame
 - Ensure the board is fully visible in that frame for best results
+
+## Programmatic Workflow
+
+Extrinsic calibration can be run from a Python script without the GUI. See the [Scripting API](scripting.md#step-4-extract-time-aligned-points-for-extrinsic-calibration) page for a step-by-step walkthrough.

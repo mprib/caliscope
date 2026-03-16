@@ -58,5 +58,11 @@ The [Installation](installation.md) guide covers setup.
 [Project Setup](project_setup.md) explains the workspace directory structure and file naming conventions.
 A [sample project](sample_project.md) with downloadable data demonstrates the full pipeline.
 
+### Scripting workflow
+
+The standard install (`pip install caliscope`) includes intrinsic and extrinsic camera calibration as importable Python functions. Install with `pip install caliscope[gui]` to add the desktop interface and 3D visualization.
+
+The [Scripting API](scripting.md) page walks through the full calibration pipeline from a Python script.
+
 If you encounter a bug or have a feature request, please [open an issue](https://github.com/mprib/caliscope/issues).
 For questions, post in [Discussions](https://github.com/mprib/caliscope/discussions).

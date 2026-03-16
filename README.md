@@ -26,7 +26,7 @@ https://github.com/user-attachments/assets/b8bb78de-866e-4ba2-b5c7-674e3a33dd9e
 # Desktop app (GUI + 3D visualization)
 pip install caliscope[gui]
 
-# Headless (scripting, CI, servers — no PySide6/VTK)
+# Library only (scripting, CI, servers — no PySide6/VTK)
 pip install caliscope
 ```
 
@@ -53,6 +53,14 @@ Caliscope includes a basic reconstruction pipeline for verifying calibration qua
 You can load ONNX pose estimation models (RTMPose, SLEAP, DeepLabCut, or custom) and export 3D trajectories in CSV and TRC (OpenSim) formats.
 For more complete reconstruction workflows, tools like [anipose](https://anipose.readthedocs.io/) and [Pose2Sim](https://github.com/perfanalytics/pose2sim) will serve you better.
 The aniposelib-compatible export makes it straightforward to use Caliscope for calibration and hand off to these tools for downstream processing.
+
+## Scripting API
+
+The standard install (`pip install caliscope`) exposes intrinsic and extrinsic camera calibration as importable Python functions. Rich progress bars appear automatically; pass `progress=None` for silent operation.
+
+For the desktop app with 3D visualization: `pip install caliscope[gui]`
+
+See the [Scripting API docs](https://mprib.github.io/caliscope/scripting/) and `scripts/demo_api.py` for examples.
 
 ## Community & Support
 

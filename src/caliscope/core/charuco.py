@@ -39,7 +39,7 @@ class Charuco:
         square_size_override_cm=None,
         inverted=False,
         legacy_pattern=False,
-    ):  # after printing, measure actual and return to overide
+    ):  # after printing, measure actual and return to override
         """
         Create board based on shape and dimensions
         square_size_override_cm: correct for the actual printed size of the board

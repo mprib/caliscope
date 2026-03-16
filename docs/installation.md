@@ -91,13 +91,13 @@ For the **desktop app** (GUI with 3D visualization):
 uv pip install caliscope[gui]
 ```
 
-For **headless use** (scripting, CI pipelines, servers — no GUI dependencies):
+For **scripting and library use** (no GUI dependencies):
 
 ```bash
 uv pip install caliscope
 ```
 
-The headless install includes calibration, tracking, reconstruction, and ONNX inference — everything except the PySide6 desktop interface and 3D visualization.
+The standard install includes the calibration pipeline (intrinsic and extrinsic) and the scripting API (`caliscope.api`) — everything except the PySide6 desktop interface and 3D visualization.
 
 Installation may take a moment as some dependencies are large.
 
@@ -110,5 +110,3 @@ With the package installed and the virtual environment activated, the main GUI c
 ```bash
 caliscope
 ```
-
-*Note on First Launch*: The first time you launch after installation, you might experience a longer startup time. This is normal as the application performs initial setup tasks. Subsequent launches will be significantly faster.

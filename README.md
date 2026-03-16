@@ -1,5 +1,7 @@
 # NOTE: the docs below align with `main` and not necessarily PyPI
 
+I will be pushing a minor update to PyPI in the coming days [now March 16, 2026].
+
 <div align="center">
 
 # Caliscope

@@ -1,8 +1,14 @@
+import faulthandler
 import sys
 
+# Write faulthandler trace to a file that survives the segfault
+# (pipe buffers don't flush on SIGSEGV)
+_faulthandler_file = open("/tmp/faulthandler.log", "w")  # noqa: SIM115
+faulthandler.enable(file=_faulthandler_file, all_threads=True)
+
 # pyside6-essentials compatibility: qtpy needs PySide6.__version__ which essentials doesn't provide
-import PySide6
-from PySide6.QtCore import __version__ as _qt_version
+import PySide6  # noqa: E402
+from PySide6.QtCore import __version__ as _qt_version  # noqa: E402
 
 PySide6.__version__ = _qt_version
 

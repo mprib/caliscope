@@ -61,6 +61,13 @@ class ReconstructionWidget(QWidget):
         # Initial UI state
         self._update_ui_for_state(presenter.state)
 
+        # Initial visualization — separate from UI state because scene rebuilds
+        # should only happen when data changes, not on every state transition.
+        # _populate_initial_data auto-selects the first recording which triggers
+        # _on_recording_changed → _update_visualization(), but if no recordings
+        # exist we still want to show the camera frustums.
+        self._update_visualization()
+
     def _setup_ui(self) -> None:
         """Create UI elements with left panel controls and right panel visualization."""
         main_layout = QHBoxLayout(self)
@@ -181,6 +188,7 @@ class ReconstructionWidget(QWidget):
         self._process_btn.clicked.connect(self._on_process_clicked)
         self._open_output_btn.clicked.connect(self._on_open_output_clicked)
         self._presenter.model_download_needed.connect(self._show_model_download_dialog)
+        self._presenter.camera_array_changed.connect(self._update_visualization)
         self._models_folder_link.linkActivated.connect(self._on_open_models_folder)
 
     def _populate_initial_data(self) -> None:
@@ -223,8 +231,16 @@ class ReconstructionWidget(QWidget):
         state = self._presenter.state
         if state == ReconstructionState.RECONSTRUCTING:
             self._presenter.cancel_reconstruction()
+            self._resume_rendering()
         else:
-            # IDLE, COMPLETE, or ERROR - start/restart processing
+            # Suspend Qt3D rendering BEFORE starting the worker thread.
+            # The task starts immediately on submit(), but the state_changed
+            # signal uses QueuedConnection and won't arrive until the event
+            # loop processes it. Without eager suspension, the render thread
+            # and video decode threads overlap briefly, causing segfaults
+            # under Mesa llvmpipe (software OpenGL).
+            if self._viz_widget is not None:
+                self._viz_widget.suspend_vtk()
             self._presenter.start_reconstruction()
 
     def _on_open_output_clicked(self) -> None:
@@ -351,23 +367,26 @@ class ReconstructionWidget(QWidget):
         self._recording_list.setEnabled(inputs_enabled)
         self._tracker_combo.setEnabled(inputs_enabled)
 
-        # Update visualization
-        self._update_visualization()
-
     def _update_progress(self, percent: int, message: str) -> None:
         """Update progress bar and label."""
         self._progress_bar.setValue(percent)
         self._progress_label.setText(message)
 
     def _on_reconstruction_complete(self, output_path) -> None:
-        """Handle successful reconstruction - update visualization."""
+        """Handle successful reconstruction - resume rendering and update visualization."""
         logger.info(f"Reconstruction complete: {output_path}")
+        self._resume_rendering()
         self._update_visualization()
 
     def _on_reconstruction_failed(self, error: str) -> None:
-        """Handle reconstruction failure."""
+        """Handle reconstruction failure - resume rendering."""
         logger.error(f"Reconstruction failed: {error}")
-        # State change will update UI via _update_ui_for_state
+        self._resume_rendering()
+
+    def _resume_rendering(self) -> None:
+        """Resume Qt3D rendering after reconstruction finishes."""
+        if self._viz_widget is not None:
+            self._viz_widget.resume_vtk()
 
     def _update_visualization(self) -> None:
         """Schedule a visualization update on the next event loop cycle.

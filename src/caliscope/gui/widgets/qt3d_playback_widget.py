@@ -125,6 +125,16 @@ class Qt3DPlaybackWidget(QWidget):
         # that Qt3D's render thread is traversing -> segfault.
         self._owned_entities: list[Qt3DCore.QEntity] = []
 
+        # Retired scene containers that must never be GC'd.
+        # When _build_scene() replaces the scene, the old scene entity and its
+        # children lose their Python references. Shiboken6's GC then destroys
+        # the C++ wrappers, but Qt3D's render thread may still hold internal
+        # references to these entities (even disabled ones aren't removed from
+        # the render aspect immediately). This causes use-after-free segfaults
+        # when GC runs concurrently with the render thread.
+        # Keeping refs here prevents GC from touching them for the widget's lifetime.
+        self._retired_scenes: list[Qt3DCore.QEntity] = []
+
         # Debounce timers for slider-driven geometry rebuilds.
         # Without debouncing, dragging a slider fires valueChanged on every
         # pixel of movement, triggering ~10-20 full geometry rebuilds per drag.
@@ -206,15 +216,17 @@ class Qt3DPlaybackWidget(QWidget):
         scene graph, which causes Qt3D's render aspect to intermittently drop
         geometry when iterating large numbers of disabled siblings.
         """
-        # Retire old scene: disable for immediate visual removal.
-        # We intentionally do NOT detach or delete the old scene entity.
-        # Qt3D's aspect engine owns the entity subtree — calling setParent(None)
-        # or deleteLater() on entities the engine manages causes use-after-free
-        # in PySide6 (the C++ object is destroyed but Python holds a dangling ref).
-        # setEnabled(False) is a safe batched property change that hides the old
-        # scene from rendering.
+        # Retire old scene: disable for immediate visual removal, then keep
+        # a Python reference so shiboken6's GC can never destroy the C++ objects.
+        # Qt3D's render thread may still hold internal refs to entities in the
+        # old scene (even disabled ones aren't purged from the aspect engine
+        # immediately). If Python GC runs and shiboken destroys the C++ wrappers,
+        # the render thread hits use-after-free.
         if self._scene is not None:
             self._scene.setEnabled(False)
+            self._retired_scenes.append(self._scene)
+            # Move current entity refs to retired list so they stay alive
+            self._retired_scenes.extend(self._owned_entities)
 
         # Build new scene as child of root — Qt3D adds it to the render tree
         # automatically when we set its parent
@@ -227,9 +239,8 @@ class Qt3DPlaybackWidget(QWidget):
         self._camera_container = Qt3DCore.QEntity(self._scene)
         self._grid_container = Qt3DCore.QEntity(self._scene)
 
-        # Clear Python reference list — old scene is disabled, so old refs
-        # can be released safely (render thread won't access disabled subtrees).
-        self._owned_entities.clear()
+        # Start fresh entity list for the new scene.
+        self._owned_entities = []
 
         self._setup_camera()
         self._create_camera_geometry()
@@ -805,8 +816,19 @@ class Qt3DPlaybackWidget(QWidget):
         self.play_button.setChecked(False)
         self.play_button.setIcon(self._play_icon)
 
-        # Clear dynamic state references before slider updates to prevent
-        # _on_sync_index_changed from operating on stale/mismatched geometry
+        # Retire dynamic geometry refs to prevent shiboken6 GC from destroying
+        # the underlying C++ Qt3D entities. Even though these entities are
+        # parented to the scene (which is in _retired_scenes), shiboken6
+        # ignores C++ parent ownership and destroys objects when their Python
+        # wrappers are collected. This causes use-after-free in the render
+        # thread, which still traverses disabled scene entities internally.
+        if self._sphere_cloud is not None:
+            self._retired_scenes.append(self._sphere_cloud._parent_entity)
+        if self._wire_entity is not None:
+            self._retired_scenes.append(self._wire_entity)
+
+        # Clear active references so _on_sync_index_changed returns early
+        # during slider range updates below (stale geometry guard)
         self._sphere_cloud = None
         self._wire_entity = None
         self._wire_buffer = None
@@ -866,21 +888,27 @@ class Qt3DPlaybackWidget(QWidget):
         self._appearance_bar.setVisible(visible)
 
     def suspend_vtk(self) -> None:
-        """No-op. Qt3D's render loop is event-driven.
+        """Suspend Qt3D rendering by switching to OnDemand render policy.
 
-        Unlike VTK's polling interactor (which runs a ~10ms timer continuously),
-        Qt3D only renders when the scene is marked dirty. There is no idle timer
-        to suspend.
+        Stops the render thread's continuous loop. Critical during heavy
+        background processing (reconstruction) because Mesa llvmpipe's
+        software renderer can conflict with multi-threaded video decode
+        when both compete for CPU/memory resources.
         """
-        pass
+        settings = self._view.renderSettings()
+        if settings is not None:
+            settings.setRenderPolicy(Qt3DRender.QRenderSettings.RenderPolicy.OnDemand)
+            logger.info("Qt3D rendering suspended (OnDemand policy)")
 
     def resume_vtk(self) -> None:
-        """No-op. Qt3D's render loop is event-driven.
+        """Resume Qt3D rendering by switching back to Always render policy.
 
-        Unlike VTK's polling interactor, Qt3D requires no explicit resume —
-        the next scene change will trigger a render automatically.
+        Restores continuous rendering after background processing completes.
         """
-        pass
+        settings = self._view.renderSettings()
+        if settings is not None:
+            settings.setRenderPolicy(Qt3DRender.QRenderSettings.RenderPolicy.Always)
+            logger.info("Qt3D rendering resumed (Always policy)")
 
     def capture_screenshot(self) -> QImage | None:
         """Capture the Qt3D scene via QRenderCapture.

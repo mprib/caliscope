@@ -66,6 +66,7 @@ class ReconstructionPresenter(QObject):
     reconstruction_failed = Signal(str)  # error message
     progress_updated = Signal(int, str)  # percent (0-100), message
     model_download_needed = Signal(object)  # ModelCard when weights missing
+    camera_array_changed = Signal()  # camera positions changed, rebuild viz
 
     def __init__(
         self,
@@ -419,7 +420,8 @@ class ReconstructionPresenter(QObject):
         self._camera_array = camera_array
         # Only refresh if showing current calibration, not historical per-recording data
         if not self.is_showing_historical_calibration:
-            self._emit_state_changed()  # Triggers view rebuild with new camera positions
+            self._emit_state_changed()
+            self.camera_array_changed.emit()
 
     def _on_reconstruction_complete(self, result: object) -> None:
         """Handle successful reconstruction."""

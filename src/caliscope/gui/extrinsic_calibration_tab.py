@@ -65,18 +65,18 @@ class ExtrinsicCalibrationTab(QWidget):
             return
 
     # -------------------------------------------------------------------------
-    # VTK Lifecycle
+    # Rendering Lifecycle
     # -------------------------------------------------------------------------
 
-    def suspend_vtk(self) -> None:
-        """Pause VTK rendering when tab is not active."""
+    def suspend_rendering(self) -> None:
+        """Pause 3D rendering when tab is not active."""
         if self._view is not None:
-            self._view.suspend_vtk()
+            self._view.suspend_rendering()
 
-    def resume_vtk(self) -> None:
-        """Resume VTK rendering when tab becomes active."""
+    def resume_rendering(self) -> None:
+        """Resume 3D rendering when tab becomes active."""
         if self._view is not None:
-            self._view.resume_vtk()
+            self._view.resume_rendering()
 
     # -------------------------------------------------------------------------
     # Lifecycle

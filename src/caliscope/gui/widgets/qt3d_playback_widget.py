@@ -19,7 +19,6 @@ import numpy as np
 from PySide6.QtCore import QEvent, QObject, Qt, QTimer, Signal
 from PySide6.QtGui import QColor, QIcon, QImage, QMouseEvent, QVector3D, QWheelEvent
 from PySide6.QtWidgets import (
-    QCheckBox,
     QHBoxLayout,
     QLabel,
     QPushButton,
@@ -100,7 +99,6 @@ class Qt3DPlaybackWidget(QWidget):
         self.sync_index: int = self.view_model.min_index
 
         # UI state
-        self.show_camera_labels = True
         self.is_playing = False
         self.loop_enabled = True
         self.speed_multiplier = 1.0
@@ -117,23 +115,13 @@ class Qt3DPlaybackWidget(QWidget):
         self._camera_container: Qt3DCore.QEntity | None = None
         self._grid_container: Qt3DCore.QEntity | None = None
 
-        # Python reference lists for all Qt3D entities.
-        # PySide6's shiboken wrapper garbage-collects Python objects even when
-        # the underlying C++ QObject has a Qt parent. Without Python references,
-        # entities created in helper functions (build_origin_axes, build_floor_grid,
-        # create_double_sided_mesh) get collected, corrupting the scene graph
-        # that Qt3D's render thread is traversing -> segfault.
-        self._owned_entities: list[Qt3DCore.QEntity] = []
-
-        # Retired scene containers that must never be GC'd.
-        # When _build_scene() replaces the scene, the old scene entity and its
-        # children lose their Python references. Shiboken6's GC then destroys
-        # the C++ wrappers, but Qt3D's render thread may still hold internal
-        # references to these entities (even disabled ones aren't removed from
-        # the render aspect immediately). This causes use-after-free segfaults
-        # when GC runs concurrently with the render thread.
-        # Keeping refs here prevents GC from touching them for the widget's lifetime.
-        self._retired_scenes: list[Qt3DCore.QEntity] = []
+        # Prevent shiboken6 GC of Qt3D entities still referenced by the C++ scene graph.
+        # Shiboken destroys C++ objects when Python wrappers lose all references, even
+        # when the entity has a Qt parent. Qt3D's render thread holds internal refs to
+        # scene entities asynchronously — if shiboken destroys one mid-traversal, the
+        # result is use-after-free. Append every QEntity here at creation time. Never
+        # remove entries — the memory cost is negligible (kilobytes per scene swap).
+        self._retained_entities: list[Qt3DCore.QEntity] = []
 
         # Debounce timers for slider-driven geometry rebuilds.
         # Without debouncing, dragging a slider fires valueChanged on every
@@ -146,9 +134,6 @@ class Qt3DPlaybackWidget(QWidget):
         self._grid_rebuild_timer.setSingleShot(True)
         self._grid_rebuild_timer.setInterval(50)
         self._grid_rebuild_timer.timeout.connect(self._create_grid_geometry)
-
-        # Label anchor positions for future 2D overlay
-        self._label_anchors: list | None = None
 
         # Cache icons for play/pause toggle
         self._play_icon = _icon("play")
@@ -209,43 +194,21 @@ class Qt3DPlaybackWidget(QWidget):
         """Build a fresh scene container under the permanent root entity.
 
         If an old scene container exists, it is disabled immediately (safe for
-        the render thread — setEnabled is a batched property change).
-
-        Camera and grid containers are created once per scene and reused across
-        slider rebuilds. This prevents disabled container accumulation in the
-        scene graph, which causes Qt3D's render aspect to intermittently drop
-        geometry when iterating large numbers of disabled siblings.
+        the render thread — setEnabled is a batched property change). The old
+        scene is appended to _retained_entities so shiboken6 never destroys it.
         """
-        # Retire old scene: disable for immediate visual removal, then keep
-        # a Python reference so shiboken6's GC can never destroy the C++ objects.
-        # Qt3D's render thread may still hold internal refs to entities in the
-        # old scene (even disabled ones aren't purged from the aspect engine
-        # immediately). If Python GC runs and shiboken destroys the C++ wrappers,
-        # the render thread hits use-after-free.
         if self._scene is not None:
             self._scene.setEnabled(False)
-            self._retired_scenes.append(self._scene)
-            # Move current entity refs to retired list so they stay alive
-            self._retired_scenes.extend(self._owned_entities)
+            self._retained_entities.append(self._scene)
 
         # Build new scene as child of root — Qt3D adds it to the render tree
         # automatically when we set its parent
         self._scene = Qt3DCore.QEntity(self._root)
 
-        # Create persistent containers for camera and grid geometry.
-        # These are reused (children cleared) on slider rebuilds rather than
-        # being replaced. This keeps the scene graph flat and avoids the
-        # disabled-entity accumulation that causes intermittent render drops.
-        self._camera_container = Qt3DCore.QEntity(self._scene)
-        self._grid_container = Qt3DCore.QEntity(self._scene)
-
-        # Start fresh entity list for the new scene.
-        self._owned_entities = []
-
         self._setup_camera()
+        self._retained_entities.extend(build_origin_axes(self._scene))
         self._create_camera_geometry()
         self._create_grid_geometry()
-        self._owned_entities.extend(build_origin_axes(self._scene))
         self._create_dynamic_geometry()
         self._on_sync_index_changed(self.sync_index)
 
@@ -361,59 +324,18 @@ class Qt3DPlaybackWidget(QWidget):
     # Scene construction — static geometry (cameras, grid, axes)
     # -------------------------------------------------------------------------
 
-    @staticmethod
-    def _retire_container_children(container: Qt3DCore.QEntity) -> None:
-        """Disable all entity children of a container for reuse.
-
-        Instead of creating a new container each rebuild (which accumulates
-        disabled containers at the scene level), we reuse the same container
-        and disable its children. Disabled children within a container are
-        bounded per rebuild (~3-5 entities) and don't grow the scene graph's
-        top-level traversal.
-
-        We ONLY call setEnabled(False) — no component removal, no reparenting.
-        removeComponent() is a structural scene graph change that can race with
-        Qt3D's render thread traversal, causing segfaults.
-        """
-        for child in list(container.children()):
-            if isinstance(child, Qt3DCore.QEntity):
-                child.setEnabled(False)
-
-    def _log_scene_graph_stats(self, context: str) -> None:
-        """Log scene graph entity counts for debugging render issues."""
-        if self._scene is None:
-            return
-        scene_children = [c for c in self._scene.children() if isinstance(c, Qt3DCore.QEntity)]
-        enabled_count = sum(1 for c in scene_children if c.isEnabled())
-        cam_children = (
-            len([c for c in self._camera_container.children() if isinstance(c, Qt3DCore.QEntity)])
-            if self._camera_container
-            else 0
-        )
-        grid_children = (
-            len([c for c in self._grid_container.children() if isinstance(c, Qt3DCore.QEntity)])
-            if self._grid_container
-            else 0
-        )
-        logger.info(
-            "[%s] Scene entities: %d total (%d enabled), cam container children: %d, grid container children: %d",
-            context,
-            len(scene_children),
-            enabled_count,
-            cam_children,
-            grid_children,
-        )
-
     def _create_camera_geometry(self) -> None:
-        """Build camera frustum entities under a dedicated container.
+        """Build camera frustum entities under a fresh container.
 
-        The container is reused across rebuilds — old children are disabled
-        and new entities are added to the same container. This avoids
-        accumulating disabled containers at the scene level, which causes
-        Qt3D's render aspect to intermittently drop geometry.
+        A new container is created each rebuild. The old container is disabled
+        and retained for shiboken GC safety.
         """
-        assert self._camera_container is not None
-        self._retire_container_children(self._camera_container)
+        if self._camera_container is not None:
+            self._camera_container.setEnabled(False)
+
+        assert self._scene is not None
+        self._camera_container = Qt3DCore.QEntity(self._scene)
+        self._retained_entities.append(self._camera_container)
 
         camera_geom = self.view_model.get_camera_geometry(scale=self._camera_scale)
         logger.info(
@@ -431,7 +353,7 @@ class Qt3DPlaybackWidget(QWidget):
                 QColor(60, 180, 60),
                 self._camera_container,
             )
-            self._owned_entities.append(face_entity)
+            self._retained_entities.append(face_entity)
 
             # Bright edge wireframe
             edge_entity, _ = create_line_entity(
@@ -440,26 +362,24 @@ class Qt3DPlaybackWidget(QWidget):
                 QColor(120, 255, 120),
                 self._camera_container,
             )
-            self._owned_entities.append(edge_entity)
-
-            # Store label anchors for future 2D overlay
-            self._label_anchors = camera_geom["labels"]
-
-        self._log_scene_graph_stats("camera_rebuild")
+            self._retained_entities.append(edge_entity)
 
     def _create_grid_geometry(self) -> None:
-        """Build floor grid entities under a dedicated container.
+        """Build floor grid entities under a fresh container.
 
-        The container is reused across rebuilds — old children are disabled
-        and new entities are added to the same container.
+        A new container is created each rebuild. The old container is disabled
+        and retained for shiboken GC safety.
         """
-        assert self._grid_container is not None
-        self._retire_container_children(self._grid_container)
+        if self._grid_container is not None:
+            self._grid_container.setEnabled(False)
+
+        assert self._scene is not None
+        self._grid_container = Qt3DCore.QEntity(self._scene)
+        self._retained_entities.append(self._grid_container)
 
         grid_size = self._default_grid_size * self._grid_size_multiplier
         grid_entities = build_floor_grid(self._grid_container, size=grid_size)
-        self._owned_entities.extend(grid_entities)
-        self._log_scene_graph_stats("grid_rebuild")
+        self._retained_entities.extend(grid_entities)
 
     def _create_dynamic_geometry(self) -> None:
         """Create sphere cloud and wireframe line entity for per-frame updates."""
@@ -478,6 +398,7 @@ class Qt3DPlaybackWidget(QWidget):
             parent=self._scene,
             sphere_radius=_DEFAULT_SPHERE_RADIUS * self._sphere_size_multiplier,
         )
+        self._retained_entities.append(self._sphere_cloud._parent_entity)  # retain for shiboken GC safety
         self._sphere_cloud.update_positions(frame_geom.points)
 
         # Wireframe connecting the spheres
@@ -489,6 +410,7 @@ class Qt3DPlaybackWidget(QWidget):
                 QColor(140, 210, 255),
                 self._scene,
             )
+            self._retained_entities.append(self._wire_entity)  # retain for shiboken GC safety
             self._wire_indices = wire_indices
         else:
             self._wire_entity = None
@@ -565,12 +487,6 @@ class Qt3DPlaybackWidget(QWidget):
         layout.addWidget(self.speed_label)
 
         layout.addStretch()
-
-        # Camera labels toggle (wired to stub — overlay deferred)
-        self.labels_checkbox = QCheckBox("Camera Labels", self)
-        self.labels_checkbox.setChecked(True)
-        self.labels_checkbox.stateChanged.connect(self._on_labels_toggled)
-        layout.addWidget(self.labels_checkbox)
 
         # Frame slider
         self.slider = QSlider(Qt.Orientation.Horizontal, self)
@@ -773,10 +689,6 @@ class Qt3DPlaybackWidget(QWidget):
         if self.is_playing:
             self._start_playback()
 
-    def _on_labels_toggled(self, state: int) -> None:
-        # Stub — labels not yet implemented as 2D screen-space overlays
-        self.show_camera_labels = state == Qt.CheckState.Checked.value
-
     # -------------------------------------------------------------------------
     # Public API
     # -------------------------------------------------------------------------
@@ -816,19 +728,9 @@ class Qt3DPlaybackWidget(QWidget):
         self.play_button.setChecked(False)
         self.play_button.setIcon(self._play_icon)
 
-        # Retire dynamic geometry refs to prevent shiboken6 GC from destroying
-        # the underlying C++ Qt3D entities. Even though these entities are
-        # parented to the scene (which is in _retired_scenes), shiboken6
-        # ignores C++ parent ownership and destroys objects when their Python
-        # wrappers are collected. This causes use-after-free in the render
-        # thread, which still traverses disabled scene entities internally.
-        if self._sphere_cloud is not None:
-            self._retired_scenes.append(self._sphere_cloud._parent_entity)
-        if self._wire_entity is not None:
-            self._retired_scenes.append(self._wire_entity)
-
         # Clear active references so _on_sync_index_changed returns early
-        # during slider range updates below (stale geometry guard)
+        # during slider range updates below (stale geometry guard).
+        # Dynamic entities are already retained via _retained_entities at creation time.
         self._sphere_cloud = None
         self._wire_entity = None
         self._wire_buffer = None
@@ -848,10 +750,9 @@ class Qt3DPlaybackWidget(QWidget):
         self.slider.setValue(self.sync_index)
 
         # Rebuild scene content under the permanent root. _build_scene() retires
-        # the old _scene container (disable + deleteLater) and creates a new one.
-        # The root entity is never replaced — setRootEntity() is called exactly
-        # once in __init__. This avoids the use-after-free segfault that occurs
-        # when the render thread is mid-traversal during a root swap.
+        # the old _scene container (disable + append to _retained_entities) and
+        # creates a new one. The root entity is never replaced — setRootEntity()
+        # is called exactly once in __init__.
         self._build_scene()
 
         # Restore camera orientation if requested
@@ -887,7 +788,7 @@ class Qt3DPlaybackWidget(QWidget):
         """Show or hide the appearance control bar (camera size, grid size sliders)."""
         self._appearance_bar.setVisible(visible)
 
-    def suspend_vtk(self) -> None:
+    def suspend_rendering(self) -> None:
         """Suspend Qt3D rendering by switching to OnDemand render policy.
 
         Stops the render thread's continuous loop. Critical during heavy
@@ -900,7 +801,7 @@ class Qt3DPlaybackWidget(QWidget):
             settings.setRenderPolicy(Qt3DRender.QRenderSettings.RenderPolicy.OnDemand)
             logger.info("Qt3D rendering suspended (OnDemand policy)")
 
-    def resume_vtk(self) -> None:
+    def resume_rendering(self) -> None:
         """Resume Qt3D rendering by switching back to Always render policy.
 
         Restores continuous rendering after background processing completes.
@@ -941,16 +842,3 @@ class Qt3DPlaybackWidget(QWidget):
         if reply.isComplete():
             return reply.image()
         return None
-
-    # -------------------------------------------------------------------------
-    # Camera label overlay stub
-    # -------------------------------------------------------------------------
-
-    def _update_label_overlays(self) -> None:
-        """Update 2D screen-space camera labels.
-
-        TODO: Project 3D label anchor positions to 2D screen coordinates
-        and position QLabel widgets accordingly. Deferred — need to solve
-        world-to-screen projection via camera's viewProjectionMatrix.
-        """
-        pass

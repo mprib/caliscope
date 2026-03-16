@@ -307,23 +307,23 @@ class MainWindow(QMainWindow):
                 break
 
     def _on_tab_changed(self, new_index: int) -> None:
-        """Suspend/resume VTK rendering when switching tabs.
+        """Suspend/resume 3D rendering when switching tabs.
 
         QTabWidget doesn't fire hideEvent/showEvent on tab contents when switching
-        tabs - it only stops painting them. VTK's interactor keeps polling for events,
-        wasting CPU. We manually notify VTK widgets when their tab becomes inactive.
+        tabs - it only stops painting them. We manually notify 3D rendering widgets
+        when their tab becomes inactive to reduce CPU usage.
         """
-        # Suspend VTK on previous tab if it has VTK
+        # Suspend rendering on previous tab if it supports it
         prev_widget = self.central_tab.widget(self._previous_tab_index)
-        if hasattr(prev_widget, "suspend_vtk"):
-            logger.debug(f"Suspending VTK on tab {self._previous_tab_index}")
-            prev_widget.suspend_vtk()
+        if hasattr(prev_widget, "suspend_rendering"):
+            logger.debug(f"Suspending rendering on tab {self._previous_tab_index}")
+            prev_widget.suspend_rendering()
 
-        # Resume VTK on new tab if it has VTK
+        # Resume rendering on new tab if it supports it
         new_widget = self.central_tab.widget(new_index)
-        if hasattr(new_widget, "resume_vtk"):
-            logger.debug(f"Resuming VTK on tab {new_index}")
-            new_widget.resume_vtk()
+        if hasattr(new_widget, "resume_rendering"):
+            logger.debug(f"Resuming rendering on tab {new_index}")
+            new_widget.resume_rendering()
 
         self._previous_tab_index = new_index
 

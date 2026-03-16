@@ -231,7 +231,7 @@ class ReconstructionWidget(QWidget):
         state = self._presenter.state
         if state == ReconstructionState.RECONSTRUCTING:
             self._presenter.cancel_reconstruction()
-            self._resume_rendering()
+            self.resume_rendering()
         else:
             # Suspend Qt3D rendering BEFORE starting the worker thread.
             # The task starts immediately on submit(), but the state_changed
@@ -240,7 +240,7 @@ class ReconstructionWidget(QWidget):
             # and video decode threads overlap briefly, causing segfaults
             # under Mesa llvmpipe (software OpenGL).
             if self._viz_widget is not None:
-                self._viz_widget.suspend_vtk()
+                self._viz_widget.suspend_rendering()
             self._presenter.start_reconstruction()
 
     def _on_open_output_clicked(self) -> None:
@@ -375,18 +375,13 @@ class ReconstructionWidget(QWidget):
     def _on_reconstruction_complete(self, output_path) -> None:
         """Handle successful reconstruction - resume rendering and update visualization."""
         logger.info(f"Reconstruction complete: {output_path}")
-        self._resume_rendering()
+        self.resume_rendering()
         self._update_visualization()
 
     def _on_reconstruction_failed(self, error: str) -> None:
         """Handle reconstruction failure - resume rendering."""
         logger.error(f"Reconstruction failed: {error}")
-        self._resume_rendering()
-
-    def _resume_rendering(self) -> None:
-        """Resume Qt3D rendering after reconstruction finishes."""
-        if self._viz_widget is not None:
-            self._viz_widget.resume_vtk()
+        self.resume_rendering()
 
     def _update_visualization(self) -> None:
         """Schedule a visualization update on the next event loop cycle.
@@ -484,15 +479,15 @@ class ReconstructionWidget(QWidget):
             self._viz_widget.close()
             self._viz_widget = None
 
-    def suspend_vtk(self) -> None:
-        """Pause VTK rendering when widget is not active."""
+    def suspend_rendering(self) -> None:
+        """Pause 3D rendering when widget is not active."""
         if self._viz_widget is not None:
-            self._viz_widget.suspend_vtk()
+            self._viz_widget.suspend_rendering()
 
-    def resume_vtk(self) -> None:
-        """Resume VTK rendering when widget becomes active."""
+    def resume_rendering(self) -> None:
+        """Resume 3D rendering when widget becomes active."""
         if self._viz_widget is not None:
-            self._viz_widget.resume_vtk()
+            self._viz_widget.resume_rendering()
 
     def closeEvent(self, event) -> None:
         """Handle close event."""

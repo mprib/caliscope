@@ -330,13 +330,13 @@ class ExplorerTab(QWidget):
         self._presenter.cancel_pipeline()
         logger.info("ExplorerTab cleaned up")
 
-    def suspend_vtk(self) -> None:
-        """Pause VTK rendering when tab is not visible."""
-        self._storyboard.suspend_vtk()
+    def suspend_rendering(self) -> None:
+        """Pause 3D rendering when tab is not visible."""
+        self._storyboard.suspend_rendering()
 
-    def resume_vtk(self) -> None:
-        """Resume VTK rendering when tab becomes visible."""
-        self._storyboard.resume_vtk()
+    def resume_rendering(self) -> None:
+        """Resume 3D rendering when tab becomes visible."""
+        self._storyboard.resume_rendering()
 
     def closeEvent(self, event) -> None:
         """Defensive cleanup if explicit cleanup wasn't called."""

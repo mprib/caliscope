@@ -169,13 +169,13 @@ class ReconstructionWidget(QWidget):
 
     def _connect_signals(self) -> None:
         """Connect presenter signals and UI events."""
-        # Presenter → View
+        # Presenter -> View
         self._presenter.state_changed.connect(self._update_ui_for_state)
         self._presenter.progress_updated.connect(self._update_progress)
         self._presenter.reconstruction_complete.connect(self._on_reconstruction_complete)
         self._presenter.reconstruction_failed.connect(self._on_reconstruction_failed)
 
-        # View → Presenter (via adapters)
+        # View -> Presenter (via adapters)
         self._recording_list.currentTextChanged.connect(self._on_recording_changed)
         self._tracker_combo.currentIndexChanged.connect(self._on_tracker_changed)
         self._process_btn.clicked.connect(self._on_process_clicked)
@@ -407,9 +407,12 @@ class ReconstructionWidget(QWidget):
                     view_model,
                     camera_size_multiplier=self._presenter.get_camera_size_multiplier(),
                     grid_size_multiplier=self._presenter.get_grid_size_multiplier(),
+                    sphere_size_multiplier=self._presenter.get_sphere_size_multiplier(),
                 )
                 self._viz_widget.camera_size_multiplier_changed.connect(self._presenter.save_camera_size_multiplier)
                 self._viz_widget.grid_size_multiplier_changed.connect(self._presenter.save_grid_size_multiplier)
+                self._viz_widget.sphere_size_multiplier_changed.connect(self._presenter.save_sphere_size_multiplier)
+                self._viz_widget.show_appearance_controls(False)
                 self._viz_container.addWidget(self._viz_widget)
             else:
                 self._viz_widget.set_view_model(view_model)
@@ -418,7 +421,7 @@ class ReconstructionWidget(QWidget):
 
         except Exception as e:
             logger.error(f"Failed to create visualization: {e}")
-            # On error, just log — don't break the UI
+            # On error, just log -- don't break the UI
 
     def _show_model_download_dialog(self, card: object) -> None:
         """Show the model download dialog when weights are missing."""

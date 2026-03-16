@@ -102,3 +102,13 @@ class ProjectSettingsRepository:
         settings = self._cache.copy()
         settings["scene_grid_size_multiplier"] = multiplier
         self.save(settings)
+
+    def get_scene_sphere_size_multiplier(self) -> float:
+        """Get point sphere size multiplier for 3D visualization (default: 1.0)."""
+        return float(self._cache.get("scene_sphere_size_multiplier", 1.0))
+
+    def set_scene_sphere_size_multiplier(self, multiplier: float) -> None:
+        """Update point sphere size multiplier and persist immediately."""
+        settings = self._cache.copy()
+        settings["scene_sphere_size_multiplier"] = multiplier
+        self.save(settings)

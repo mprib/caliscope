@@ -45,6 +45,10 @@ from caliscope.gui.view_models.playback_view_model import PlaybackViewModel
 
 logger = logging.getLogger(__name__)
 
+# Default sphere radius in meters (12mm). Used as the 1.0x baseline
+# for the sphere size slider.
+_DEFAULT_SPHERE_RADIUS = 0.012
+
 
 def _icon(name: str) -> QIcon:
     """Load SVG icon from gui/icons directory."""
@@ -62,7 +66,7 @@ class Qt3DPlaybackWidget(QWidget):
     - Play/pause animation with configurable speed (0.1x to 3.0x)
     - Loop toggle for continuous playback
     - Frame slider for manual scrubbing
-    - Adjustable camera frustum size and floor grid size via sliders
+    - Adjustable camera frustum size, floor grid size, and sphere size via sliders
     - QRenderCapture-based screenshot support
 
     Note: Inherits from QWidget (not QMainWindow) so it can be embedded in layouts.
@@ -70,6 +74,7 @@ class Qt3DPlaybackWidget(QWidget):
 
     camera_size_multiplier_changed = Signal(float)
     grid_size_multiplier_changed = Signal(float)
+    sphere_size_multiplier_changed = Signal(float)
 
     def __init__(
         self,
@@ -78,6 +83,7 @@ class Qt3DPlaybackWidget(QWidget):
         camera_scale: float | None = None,
         camera_size_multiplier: float = 1.0,
         grid_size_multiplier: float = 1.0,
+        sphere_size_multiplier: float = 1.0,
     ):
         super().__init__(parent)
 
@@ -90,6 +96,7 @@ class Qt3DPlaybackWidget(QWidget):
         self._default_grid_size: float = 5.0  # Adaptive baseline (slider 1.0x)
         self._camera_scale_multiplier: float = camera_size_multiplier  # Current slider multiplier
         self._grid_size_multiplier: float = grid_size_multiplier  # Current slider multiplier
+        self._sphere_size_multiplier: float = sphere_size_multiplier  # Current slider multiplier
         self.sync_index: int = self.view_model.min_index
 
         # UI state
@@ -115,7 +122,7 @@ class Qt3DPlaybackWidget(QWidget):
         # the underlying C++ QObject has a Qt parent. Without Python references,
         # entities created in helper functions (build_origin_axes, build_floor_grid,
         # create_double_sided_mesh) get collected, corrupting the scene graph
-        # that Qt3D's render thread is traversing → segfault.
+        # that Qt3D's render thread is traversing -> segfault.
         self._owned_entities: list[Qt3DCore.QEntity] = []
 
         # Debounce timers for slider-driven geometry rebuilds.
@@ -290,7 +297,7 @@ class Qt3DPlaybackWidget(QWidget):
 
         # Adaptive camera frustum scale: make frustum depth ~5% of scene extent.
         # build_camera_geometry computes depth as focal_length * scale, and typical
-        # focal lengths are ~1000px, so scale ≈ scene_extent * 5e-5.
+        # focal lengths are ~1000px, so scale ~ scene_extent * 5e-5.
         self._default_camera_scale = scene_extent * 5e-5
         logger.info(
             f"Scene extent={scene_extent:.2f}m, "
@@ -410,7 +417,7 @@ class Qt3DPlaybackWidget(QWidget):
             face_entity = create_double_sided_mesh(
                 vertices,
                 camera_geom["triangles"].flatten().astype(np.uint32),
-                QColor(30, 120, 30),
+                QColor(60, 180, 60),
                 self._camera_container,
             )
             self._owned_entities.append(face_entity)
@@ -419,7 +426,7 @@ class Qt3DPlaybackWidget(QWidget):
             edge_entity, _ = create_line_entity(
                 vertices,
                 camera_geom["edges"].flatten().astype(np.uint32),
-                QColor(80, 255, 80),
+                QColor(120, 255, 120),
                 self._camera_container,
             )
             self._owned_entities.append(edge_entity)
@@ -456,8 +463,9 @@ class Qt3DPlaybackWidget(QWidget):
         assert self._scene is not None
         self._sphere_cloud = SphereCloud(
             n_points=self.view_model.n_points,
-            color=QColor(200, 200, 200),
+            color=QColor(240, 240, 240),
             parent=self._scene,
+            sphere_radius=_DEFAULT_SPHERE_RADIUS * self._sphere_size_multiplier,
         )
         self._sphere_cloud.update_positions(frame_geom.points)
 
@@ -467,7 +475,7 @@ class Qt3DPlaybackWidget(QWidget):
             self._wire_entity, self._wire_buffer = create_line_entity(
                 frame_geom.points,
                 wire_indices,
-                QColor(100, 180, 255),
+                QColor(140, 210, 255),
                 self._scene,
             )
             self._wire_indices = wire_indices
@@ -564,7 +572,7 @@ class Qt3DPlaybackWidget(QWidget):
         return bar
 
     def _create_appearance_controls(self) -> QWidget:
-        """Create scene appearance bar with camera-size and grid-size sliders.
+        """Create scene appearance bar with camera-size, grid-size, and sphere-size sliders.
 
         This is a separate widget from the playback bar so that
         show_playback_controls(False) can hide play/pause without
@@ -576,7 +584,7 @@ class Qt3DPlaybackWidget(QWidget):
 
         # Camera size slider — logarithmic mapping for intuitive control.
         # Slider position 50 = 1.0x (default), 0 = 0.1x, 100 = 10x.
-        layout.addWidget(QLabel("Cam Size:", self))
+        layout.addWidget(QLabel("Cam:", self))
         self._cam_size_slider = QSlider(Qt.Orientation.Horizontal, self)
         self._cam_size_slider.setMinimum(0)
         self._cam_size_slider.setMaximum(100)
@@ -593,7 +601,7 @@ class Qt3DPlaybackWidget(QWidget):
         layout.addSpacing(20)
 
         # Grid size slider — same logarithmic mapping
-        layout.addWidget(QLabel("Grid Size:", self))
+        layout.addWidget(QLabel("Grid:", self))
         self._grid_size_slider = QSlider(Qt.Orientation.Horizontal, self)
         self._grid_size_slider.setMinimum(0)
         self._grid_size_slider.setMaximum(100)
@@ -603,13 +611,48 @@ class Qt3DPlaybackWidget(QWidget):
         self._grid_size_slider.valueChanged.connect(self._on_grid_size_changed)
         self._grid_size_slider.sliderReleased.connect(self._on_grid_size_released)
         layout.addWidget(self._grid_size_slider)
-        self._grid_size_label = QLabel(f"{self._grid_size_multiplier:.1f}x", self)
-        self._grid_size_label.setFixedWidth(35)
+        grid_meters = self._default_grid_size * self._grid_size_multiplier
+        self._grid_size_label = QLabel(self._format_grid_label(self._grid_size_multiplier, grid_meters), self)
+        self._grid_size_label.setFixedWidth(90)
         layout.addWidget(self._grid_size_label)
+
+        layout.addSpacing(20)
+
+        # Sphere size slider — same logarithmic mapping
+        layout.addWidget(QLabel("Points:", self))
+        self._sphere_size_slider = QSlider(Qt.Orientation.Horizontal, self)
+        self._sphere_size_slider.setMinimum(0)
+        self._sphere_size_slider.setMaximum(100)
+        self._sphere_size_slider.setValue(self._multiplier_to_slider(self._sphere_size_multiplier))
+        self._sphere_size_slider.setFixedWidth(100)
+        self._sphere_size_slider.setToolTip("Point sphere size (1.0x = 12mm radius)")
+        self._sphere_size_slider.valueChanged.connect(self._on_sphere_size_changed)
+        self._sphere_size_slider.sliderReleased.connect(self._on_sphere_size_released)
+        layout.addWidget(self._sphere_size_slider)
+        sphere_mm = _DEFAULT_SPHERE_RADIUS * self._sphere_size_multiplier * 1000
+        self._sphere_size_label = QLabel(self._format_sphere_label(self._sphere_size_multiplier, sphere_mm), self)
+        self._sphere_size_label.setFixedWidth(90)
+        layout.addWidget(self._sphere_size_label)
 
         layout.addStretch()
 
         return bar
+
+    # -------------------------------------------------------------------------
+    # Label formatting helpers
+    # -------------------------------------------------------------------------
+
+    @staticmethod
+    def _format_grid_label(multiplier: float, meters: float) -> str:
+        """Format grid size label with computed meters (or cm if < 1m)."""
+        if meters < 1.0:
+            return f"{multiplier:.1f}x ({meters * 100:.0f} cm)"
+        return f"{multiplier:.1f}x ({meters:.1f} m)"
+
+    @staticmethod
+    def _format_sphere_label(multiplier: float, mm: float) -> str:
+        """Format sphere size label with computed millimeters."""
+        return f"{multiplier:.1f}x ({mm:.0f} mm)"
 
     # -------------------------------------------------------------------------
     # Slider value <-> multiplier conversion
@@ -655,8 +698,17 @@ class Qt3DPlaybackWidget(QWidget):
     def _on_grid_size_changed(self, value: int) -> None:
         """Update grid size state and schedule a debounced geometry rebuild."""
         self._grid_size_multiplier = self._slider_to_multiplier(value)
-        self._grid_size_label.setText(f"{self._grid_size_multiplier:.1f}x")
+        grid_meters = self._default_grid_size * self._grid_size_multiplier
+        self._grid_size_label.setText(self._format_grid_label(self._grid_size_multiplier, grid_meters))
         self._grid_rebuild_timer.start()  # Restart debounce timer
+
+    def _on_sphere_size_changed(self, value: int) -> None:
+        """Update sphere size immediately. setRadius() is a cheap batched property change."""
+        self._sphere_size_multiplier = self._slider_to_multiplier(value)
+        sphere_mm = _DEFAULT_SPHERE_RADIUS * self._sphere_size_multiplier * 1000
+        self._sphere_size_label.setText(self._format_sphere_label(self._sphere_size_multiplier, sphere_mm))
+        if self._sphere_cloud is not None:
+            self._sphere_cloud.set_radius(_DEFAULT_SPHERE_RADIUS * self._sphere_size_multiplier)
 
     def _on_cam_size_released(self) -> None:
         """Emit camera size multiplier when user releases the slider."""
@@ -665,6 +717,10 @@ class Qt3DPlaybackWidget(QWidget):
     def _on_grid_size_released(self) -> None:
         """Emit grid size multiplier when user releases the slider."""
         self.grid_size_multiplier_changed.emit(self._grid_size_multiplier)
+
+    def _on_sphere_size_released(self) -> None:
+        """Emit sphere size multiplier when user releases the slider."""
+        self.sphere_size_multiplier_changed.emit(self._sphere_size_multiplier)
 
     # -------------------------------------------------------------------------
     # Playback control callbacks

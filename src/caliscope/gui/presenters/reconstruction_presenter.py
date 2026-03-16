@@ -49,10 +49,10 @@ class ReconstructionPresenter(QObject):
     reconstruction tasks to TaskManager, and progress reporting.
 
     State is computed from reality:
-    - Task running → RECONSTRUCTING
-    - Task failed or error set → ERROR
-    - xyz file exists → COMPLETE
-    - Otherwise → IDLE
+    - Task running -> RECONSTRUCTING
+    - Task failed or error set -> ERROR
+    - xyz file exists -> COMPLETE
+    - Otherwise -> IDLE
 
     Signals:
         state_changed: Emitted when computed state changes
@@ -104,11 +104,11 @@ class ReconstructionPresenter(QObject):
         """Compute current state from internal reality - never stale.
 
         Priority order (task state takes precedence to avoid race conditions):
-        1. Task RUNNING → RECONSTRUCTING
-        2. Task FAILED or _last_error set → ERROR
-        3. Task CANCELLED → IDLE (cancellation returns to idle)
-        4. xyz output exists → COMPLETE
-        5. Otherwise → IDLE
+        1. Task RUNNING -> RECONSTRUCTING
+        2. Task FAILED or _last_error set -> ERROR
+        3. Task CANCELLED -> IDLE (cancellation returns to idle)
+        4. xyz output exists -> COMPLETE
+        5. Otherwise -> IDLE
         """
         if self._processing_task is not None:
             task_state = self._processing_task.state
@@ -382,6 +382,11 @@ class ReconstructionPresenter(QObject):
         if self._project_settings is not None:
             self._project_settings.set_scene_grid_size_multiplier(multiplier)
 
+    def save_sphere_size_multiplier(self, multiplier: float) -> None:
+        """Persist the point sphere size multiplier to project settings."""
+        if self._project_settings is not None:
+            self._project_settings.set_scene_sphere_size_multiplier(multiplier)
+
     def get_camera_size_multiplier(self) -> float:
         """Load camera frustum size multiplier from project settings (default: 1.0)."""
         if self._project_settings is not None:
@@ -392,6 +397,12 @@ class ReconstructionPresenter(QObject):
         """Load floor grid size multiplier from project settings (default: 1.0)."""
         if self._project_settings is not None:
             return self._project_settings.get_scene_grid_size_multiplier()
+        return 1.0
+
+    def get_sphere_size_multiplier(self) -> float:
+        """Load point sphere size multiplier from project settings (default: 1.0)."""
+        if self._project_settings is not None:
+            return self._project_settings.get_scene_sphere_size_multiplier()
         return 1.0
 
     def cleanup(self) -> None:

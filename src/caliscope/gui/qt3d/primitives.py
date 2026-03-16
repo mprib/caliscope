@@ -177,10 +177,11 @@ class SphereCloud:
         n_points: int,
         color: QColor,
         parent: Qt3DCore.QEntity,
-        sphere_radius: float = 0.02,
+        sphere_radius: float = 0.012,
     ):
         self._parent_entity = Qt3DCore.QEntity(parent)
         self._transforms: list[Qt3DCore.QTransform] = []
+        self._meshes: list[Qt3DExtras.QSphereMesh] = []
 
         for _ in range(n_points):
             entity = Qt3DCore.QEntity(self._parent_entity)
@@ -198,6 +199,7 @@ class SphereCloud:
             entity.addComponent(transform)
 
             self._transforms.append(transform)
+            self._meshes.append(mesh)
 
     def update_positions(self, positions: np.ndarray) -> None:
         """Update sphere positions. NaN positions hide the sphere off-screen."""
@@ -208,6 +210,11 @@ class SphereCloud:
             else:
                 transform.setTranslation(QVector3D(float(pos[0]), float(pos[1]), float(pos[2])))
 
+    def set_radius(self, radius: float) -> None:
+        """Update radius of all spheres. Batched property change — no rebuild needed."""
+        for mesh in self._meshes:
+            mesh.setRadius(radius)
+
     def set_enabled(self, enabled: bool) -> None:
         """Show or hide the entire point cloud."""
         self._parent_entity.setEnabled(enabled)
@@ -217,8 +224,8 @@ def build_floor_grid(
     parent: Qt3DCore.QEntity,
     size: float = 5.0,
     target_lines: int = 20,
-    color: QColor = QColor(80, 80, 80),
-    axis_color: QColor = QColor(120, 120, 120),
+    color: QColor = QColor(120, 120, 120),
+    axis_color: QColor = QColor(170, 170, 170),
 ) -> list[Qt3DCore.QEntity]:
     """Add a grid at z=0 for spatial reference.
 

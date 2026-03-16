@@ -341,7 +341,7 @@ class ExtrinsicCalibrationView(QWidget):
 
         # Expand button (20x20, icon-only, hidden until data available)
         self._sparkline_expand_btn = QToolButton()
-        self._sparkline_expand_btn.setText("⊕")
+        self._sparkline_expand_btn.setText("++")
         self._sparkline_expand_btn.setFixedSize(20, 20)
         self._sparkline_expand_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self._sparkline_expand_btn.setToolTip("Show detailed scale accuracy chart")
@@ -666,9 +666,11 @@ class ExtrinsicCalibrationView(QWidget):
             view_model,
             camera_size_multiplier=self._presenter.get_camera_size_multiplier(),
             grid_size_multiplier=self._presenter.get_grid_size_multiplier(),
+            sphere_size_multiplier=self._presenter.get_sphere_size_multiplier(),
         )
         self._viz_widget.camera_size_multiplier_changed.connect(self._presenter.save_camera_size_multiplier)
         self._viz_widget.grid_size_multiplier_changed.connect(self._presenter.save_grid_size_multiplier)
+        self._viz_widget.sphere_size_multiplier_changed.connect(self._presenter.save_sphere_size_multiplier)
         self._viz_widget.show_playback_controls(False)
         self._viz_layout.insertWidget(0, self._viz_widget)
         self._viz_layout.setStretchFactor(self._viz_widget, 1)

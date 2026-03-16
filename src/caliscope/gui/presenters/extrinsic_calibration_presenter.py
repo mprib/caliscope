@@ -53,15 +53,15 @@ class FilterPreviewData:
     """Data for filter UI showing translation between modes.
 
     Provides bidirectional preview:
-    - threshold_at_percentile: percentile-to-remove → pixel threshold
+    - threshold_at_percentile: percentile-to-remove -> pixel threshold
     - errors: raw error array for computing percentile at any threshold
     """
 
     total_observations: int
     mean_error: float
-    # Maps percentile-to-remove → pixel threshold
+    # Maps percentile-to-remove -> pixel threshold
     threshold_at_percentile: dict[int, float]
-    # Raw errors for computing reverse lookup (threshold → percentile)
+    # Raw errors for computing reverse lookup (threshold -> percentile)
     errors: tuple[float, ...]
 
     @classmethod
@@ -416,7 +416,7 @@ class ExtrinsicCalibrationPresenter(QObject):
         # The domain method validates the axis value
         axis_typed: Literal["x", "y", "z"] = axis  # type: ignore[assignment]
         new_bundle = self._bundle.rotate(axis_typed, degrees)
-        logger.info(f"Rotated coordinate frame {degrees}° around {axis}-axis")
+        logger.info(f"Rotated coordinate frame {degrees} around {axis}-axis")
         self._update_bundle(new_bundle)
 
     def align_to_origin(self, sync_index: int) -> None:
@@ -478,6 +478,11 @@ class ExtrinsicCalibrationPresenter(QObject):
         if self._project_settings is not None:
             self._project_settings.set_scene_grid_size_multiplier(multiplier)
 
+    def save_sphere_size_multiplier(self, multiplier: float) -> None:
+        """Persist the point sphere size multiplier to project settings."""
+        if self._project_settings is not None:
+            self._project_settings.set_scene_sphere_size_multiplier(multiplier)
+
     def get_camera_size_multiplier(self) -> float:
         """Load camera frustum size multiplier from project settings (default: 1.0)."""
         if self._project_settings is not None:
@@ -488,6 +493,12 @@ class ExtrinsicCalibrationPresenter(QObject):
         """Load floor grid size multiplier from project settings (default: 1.0)."""
         if self._project_settings is not None:
             return self._project_settings.get_scene_grid_size_multiplier()
+        return 1.0
+
+    def get_sphere_size_multiplier(self) -> float:
+        """Load point sphere size multiplier from project settings (default: 1.0)."""
+        if self._project_settings is not None:
+            return self._project_settings.get_scene_sphere_size_multiplier()
         return 1.0
 
     # -------------------------------------------------------------------------

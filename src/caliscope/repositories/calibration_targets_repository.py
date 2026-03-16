@@ -257,7 +257,7 @@ class CalibrationTargetsRepository:
 
         Defaults:
         - config.toml: charuco/charuco, same_as_intrinsic = true
-        - intrinsic_charuco.toml: Charuco(4, 5, 11, 8.5, square_size_overide_cm=5.4)
+        - intrinsic_charuco.toml: Charuco(4, 5, 11, 8.5, square_size_override_cm=5.4)
         - chessboard.toml: Chessboard(rows=6, columns=9)
         - aruco_target.toml: ArucoTarget.single_marker()
 
@@ -279,7 +279,7 @@ class CalibrationTargetsRepository:
         # Intrinsic charuco
         if not self.intrinsic_charuco_exists():
             logger.info("Creating default intrinsic charuco board")
-            default_charuco = Charuco(4, 5, 11, 8.5, square_size_overide_cm=5.4)
+            default_charuco = Charuco(4, 5, 11, 8.5, square_size_override_cm=5.4)
             self.save_intrinsic_charuco(default_charuco)
 
         # Chessboard

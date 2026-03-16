@@ -23,7 +23,7 @@ def test_intrinsic_calibrator(tmp_path: Path):
 
     recording_directory = Path(__root__, "tests", "sessions", "post_monocal", "calibration", "extrinsic")
 
-    charuco = Charuco(4, 5, 11, 8.5, aruco_scale=0.75, square_size_overide_cm=5.25, inverted=True)
+    charuco = Charuco(4, 5, 11, 8.5, aruco_scale=0.75, square_size_override_cm=5.25, inverted=True)
 
     charuco_tracker = CharucoTracker(charuco)
 
@@ -97,7 +97,7 @@ def test_autopopulate_data(tmp_path: Path):
 
     recording_directory = Path(__root__, "tests", "sessions", "post_monocal", "calibration", "extrinsic")
 
-    charuco = Charuco(4, 5, 11, 8.5, aruco_scale=0.75, square_size_overide_cm=5.25, inverted=True)
+    charuco = Charuco(4, 5, 11, 8.5, aruco_scale=0.75, square_size_override_cm=5.25, inverted=True)
 
     charuco_tracker = CharucoTracker(charuco)
 

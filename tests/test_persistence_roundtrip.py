@@ -72,7 +72,7 @@ def create_test_charuco() -> Charuco:
         dictionary="DICT_4X4_50",
         units="inch",
         aruco_scale=0.75,
-        square_size_overide_cm=5.4,
+        square_size_override_cm=5.4,
         inverted=False,
         legacy_pattern=False,
     )
@@ -183,7 +183,7 @@ def test_charuco_roundtrip(tmp_path: Path):
     assert loaded.dictionary == original.dictionary
     assert loaded.units == original.units
     assert loaded.aruco_scale == original.aruco_scale
-    assert loaded.square_size_overide_cm == original.square_size_overide_cm
+    assert loaded.square_size_override_cm == original.square_size_override_cm
     assert loaded.inverted == original.inverted
     assert loaded.legacy_pattern == original.legacy_pattern
 

@@ -5,6 +5,6 @@ board_width = 41.5
 dictionary = "DICT_4X4_50"
 units = "cm"
 aruco_scale = 0.75
-square_size_overide_cm = 5.4
+square_size_override_cm = 5.4
 inverted = false
 legacy_pattern = false

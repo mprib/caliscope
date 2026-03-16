@@ -1,6 +1,9 @@
 # %%
+from __future__ import annotations
+
 import logging
 from collections import OrderedDict
+from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, Literal
@@ -16,12 +19,13 @@ CAMERA_PARAM_COUNT = 6
 
 @dataclass
 class CameraData:
-    """Holds the complete intrinsic and extrinsic calibration state for a single camera.
+    """Single camera with calibration parameters.
 
-    This class serves as the abstraction layer for the camera's lens model.
-    It provides a unified interface (`undistort_points`) that allows the rest of
-    the application to work with universal, normalized coordinates, regardless of
-    whether the source camera is standard or fisheye.
+    Calibration-relevant fields:
+        cam_id, size, matrix, distortions, rotation, translation, fisheye
+
+    Workspace fields (ignore in scripting context):
+        rotation_count, exposure, grid_count, ignore
     """
 
     cam_id: int
@@ -289,6 +293,38 @@ class CameraArray:
         The value is re-calculated on each access to ensure it is always fresh.
         """
         return {value: key for key, value in self.posed_cam_id_to_index.items()}
+
+    def __getitem__(self, cam_id: int) -> CameraData:
+        return self.cameras[cam_id]
+
+    def __setitem__(self, cam_id: int, camera: CameraData) -> None:
+        self.cameras[cam_id] = camera
+
+    @classmethod
+    def from_video_metadata(cls, videos: Mapping[int, Path | str]) -> CameraArray:
+        """Create uncalibrated CameraArray from video file metadata.
+
+        Reads resolution from each video via PyAV. No frames are decoded.
+        """
+        from caliscope.recording.video_utils import read_video_properties
+
+        cameras = {}
+        for cam_id, video_path in videos.items():
+            props = read_video_properties(Path(video_path))
+            cameras[cam_id] = CameraData(cam_id=cam_id, size=props["size"])
+        return cls(cameras)
+
+    @classmethod
+    def from_image_sizes(cls, sizes: dict[int, tuple[int, int]]) -> CameraArray:
+        """Create uncalibrated CameraArray from known image sizes.
+
+        Args:
+            sizes: Mapping of cam_id to (width, height).
+        """
+        cameras = {}
+        for cam_id, size in sizes.items():
+            cameras[cam_id] = CameraData(cam_id=cam_id, size=size)
+        return cls(cameras)
 
     def get_extrinsic_params(self) -> NDArray | None:
         """

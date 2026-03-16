@@ -327,6 +327,16 @@ class ImagePoints:
 
         self._df = _validate_dataframe(df, IMAGE_POINT_COLUMNS, "ImagePoints")
 
+        # Warn about duplicate keys that could cause incorrect triangulation
+        key_cols = ["sync_index", "cam_id", "point_id"]
+        dupes = self._df.duplicated(subset=key_cols)
+        if dupes.any():
+            n = int(dupes.sum())
+            logger.warning(
+                f"ImagePoints contains {n} duplicate ({', '.join(key_cols)}) rows. "
+                f"Duplicates may cause incorrect triangulation results."
+            )
+
     @classmethod
     def from_csv(cls, path: str | Path) -> ImagePoints:
         df = pd.read_csv(path)
@@ -469,6 +479,16 @@ class WorldPoints:
         # Validate schema
         validated = _validate_dataframe(self._df.copy(), WORLD_POINT_COLUMNS, "WorldPoints")
         object.__setattr__(self, "_df", validated)
+
+        # Warn about duplicate keys that could cause incorrect results
+        key_cols = ["sync_index", "point_id"]
+        dupes = self._df.duplicated(subset=key_cols)
+        if dupes.any():
+            n = int(dupes.sum())
+            logger.warning(
+                f"WorldPoints contains {n} duplicate ({', '.join(key_cols)}) rows. "
+                f"Duplicates may cause incorrect results."
+            )
 
         # calculate start and stop index
         min_index = int(self._df["sync_index"].min())

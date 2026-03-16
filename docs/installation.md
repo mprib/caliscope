@@ -48,12 +48,6 @@ We strongly advise installing Caliscope within a virtual environment to avoid co
 === "macOS"
 
     ```bash
-    # Note that there are some environment variables that must be set on macOS
-    # to ensure everything works:
-    export MKL_NUM_THREADS=1
-    export NUMEXPR_NUM_THREADS=1
-    export OMP_NUM_THREADS=1
-
     # Navigate to the directory that will hold your project
     cd path/to/your/project
 

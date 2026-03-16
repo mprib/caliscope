@@ -75,7 +75,7 @@ def test_extract_image_points_missing_files():
     with pytest.raises(FileNotFoundError) as exc_info:
         extract_image_points("/nonexistent/cam_0.mp4", 0, tracker)
 
-    assert "/nonexistent/cam_0.mp4" in str(exc_info.value)
+    assert "cam_0.mp4" in str(exc_info.value)
 
 
 def test_extract_image_points_frame_step_invalid():

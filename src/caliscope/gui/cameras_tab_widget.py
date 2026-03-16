@@ -107,14 +107,16 @@ class CamerasTabWidget(QWidget):
         left_layout.addWidget(self._pattern_info)
 
         # Frame skip control (global for all cameras)
-        frame_skip_label = QLabel("Frames to skip:")
+        frame_skip_label = QLabel("Process every")
         frame_skip_label.setStyleSheet("color: #aaa; font-size: 11px;")
         left_layout.addWidget(frame_skip_label)
 
         self._frame_skip_spin = QSpinBox()
         self._frame_skip_spin.setValue(self.coordinator.intrinsic_frame_skip)
         self._frame_skip_spin.setToolTip(
-            "Skip N frames between each sample during calibration.\n"
+            "Process every Nth frame during calibration.\n\n"
+            "1 = every frame (slow, most data)\n"
+            "5 = every 5th frame (good balance)\n"
             "Higher values speed up processing but use fewer frames."
         )
         setup_spinbox_sizing(self._frame_skip_spin, min_value=1, max_value=30)

@@ -20,7 +20,7 @@ from caliscope.recording.synchronized_timestamps import SynchronizedTimestamps
 SESSION_4CAM = Path("tests/sessions/4_cam_recording")
 EXTRINSIC_DIR = SESSION_4CAM / "calibration" / "extrinsic"
 RECORDING_DIR_1 = SESSION_4CAM / "recordings" / "recording_1"
-SESSION_2CAM = Path("tests/sessions/mediapipe_calibration_2_cam")
+SESSION_2CAM = Path("tests/sessions/charuco_calibration_2_cam")
 EXTRINSIC_2CAM = SESSION_2CAM / "calibration" / "extrinsic"
 
 

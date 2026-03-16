@@ -29,7 +29,7 @@ from PySide6.QtWidgets import (
 if TYPE_CHECKING:
     from pyvistaqt import QtInteractor
 
-from caliscope import ICONS_DIR
+from caliscope.gui import ICONS_DIR
 from caliscope.gui.view_models.playback_view_model import PlaybackViewModel
 
 logger = logging.getLogger(__name__)
@@ -365,7 +365,7 @@ class PlaybackVizWidget(QWidget):
 
         self.plotter.add_mesh(
             self._point_cloud_mesh,
-            name="mediapipe_points",
+            name="landmark_points",
             render_points_as_spheres=True,
             point_size=10,
             scalars="colors",

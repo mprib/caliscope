@@ -3,8 +3,41 @@ import logging.handlers
 import os
 import sys
 
-from PySide6 import QtCore
 from caliscope import LOG_FILE_PATH, LOG_DIR
+
+
+# Qt integration is optional -- only available when PySide6 is installed.
+# Declare at module level so the type is visible regardless of import success.
+qt_handler_instance: logging.Handler | None = None
+
+try:
+    from PySide6 import QtCore
+
+    class LogEmitter(QtCore.QObject):
+        """A simple QObject that holds the signal for the QtHandler."""
+
+        message_written = QtCore.Signal(str)
+
+    class QtHandler(logging.Handler):
+        """A logging handler that emits log records via a Qt signal.
+
+        Uses a LogEmitter instance (composition) to avoid method name clashes
+        between logging.Handler.emit() and QObject signal emission.
+        """
+
+        def __init__(self):
+            super().__init__()
+            self.emitter = LogEmitter()
+
+        def emit(self, record):
+            message = self.format(record)
+            if message:
+                self.emitter.message_written.emit(message + "\n")
+
+    qt_handler_instance = QtHandler()
+
+except ImportError:
+    pass
 
 
 class StderrLogger:
@@ -31,41 +64,6 @@ def handle_exception(exc_type, exc_value, exc_traceback):
         sys.__excepthook__(exc_type, exc_value, exc_traceback)
         return
     logging.critical("Unhandled exception", exc_info=(exc_type, exc_value, exc_traceback))
-
-
-# Step 1: Create a dedicated QObject for emitting signals.
-class LogEmitter(QtCore.QObject):
-    """
-    A simple QObject that holds the signal for the QtHandler.
-    """
-
-    message_written = QtCore.Signal(str)
-
-
-# Step 2: QtHandler inherits ONLY from logging.Handler
-class QtHandler(logging.Handler):
-    """
-    A logging handler that emits log records via a Qt signal.
-    It USES a LogEmitter instance (composition) to avoid method name clashes.
-    """
-
-    def __init__(self):
-        super().__init__()
-        # need in instance of qt emitter to wire up to GUI
-        self.emitter = LogEmitter()
-
-    def emit(self, record):
-        """
-        This is the standard logging method. It now safely calls the
-        signal on the separate emitter object.
-        """
-        message = self.format(record)
-        if message:
-            self.emitter.message_written.emit(message + "\n")
-
-
-# Global instance of the QtHandler so it can be accessed from the LogWidget
-qt_handler_instance = QtHandler()
 
 
 def setup_logging():
@@ -99,9 +97,9 @@ def setup_logging():
     console_handler.setLevel(logging.INFO)
     root_logger.addHandler(console_handler)
 
-    # 3. Qt Handler
+    # 3. Qt Handler (only when PySide6 available)
     # Don't step through if you are just debugging
-    if os.getenv("DEBUG") != "1":
+    if qt_handler_instance is not None and os.getenv("DEBUG") != "1":
         qt_handler_instance.setLevel(logging.INFO)
         qt_format = "%(name)s: %(message)s"
         qt_formatter = logging.Formatter(qt_format)

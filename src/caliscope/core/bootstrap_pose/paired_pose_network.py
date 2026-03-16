@@ -2,13 +2,17 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Dict, Tuple
 from itertools import permutations
 
+import cv2
 import numpy as np
+import rtoml
 
 from caliscope.cameras.camera_array import CameraArray, CameraData
 from caliscope.core.bootstrap_pose.stereopairs import StereoPair
+from caliscope.core.toml_helpers import _list_to_array
 
 logger = logging.getLogger(__name__)
 
@@ -205,36 +209,112 @@ class PairedPoseNetwork:
             logger.warning(f"Cameras not in the main group remain unposed: {unposed_cam_ids}")
 
     @classmethod
-    def from_legacy_dict(cls, data: Dict[str, Dict]) -> PairedPoseNetwork:
-        """Alternative constructor for backward compatibility with legacy dictionary format."""
-        pairs = {}
-        for key, params in data.items():
-            # key is 'stereo_1_2'
-            _, cam_id_a_str, cam_id_b_str = key.split("_")
-            cam_id_a, cam_id_b = int(cam_id_a_str), int(cam_id_b_str)
+    def from_toml(cls, path: Path) -> PairedPoseNetwork:
+        """Load PairedPoseNetwork from TOML file.
 
-            pair = StereoPair(
-                primary_cam_id=cam_id_a,
-                secondary_cam_id=cam_id_b,
-                error_score=float(params["RMSE"]),
-                rotation=np.array(params["rotation"], dtype=np.float64),
-                translation=np.array(params["translation"], dtype=np.float64),
-            )
-            pairs[pair.pair] = pair
+        The file stores only directly calibrated stereo pairs (primary_cam_id <
+        secondary_cam_id) with Rodrigues rotation vectors. On load:
+        1. Converts Rodrigues vectors back to 3x3 rotation matrices
+        2. Reconstructs full graph via from_raw_estimates()
 
-        return cls.from_raw_estimates(pairs)
+        Raises:
+            PersistenceError: If file doesn't exist or format is invalid
+        """
+        from caliscope.persistence import PersistenceError
 
-    def to_dict(self) -> Dict[str, Dict]:
-        """Serialize to legacy dictionary format."""
-        return {
-            f"stereo_{a}_{b}": {
-                "rotation": pair.rotation.tolist(),
-                "translation": pair.translation.tolist(),
-                "RMSE": pair.error_score,
-            }
-            for (a, b), pair in self._pairs.items()
-            if a < b  # Only store forward pairs to avoid duplication
-        }
+        if not path.exists():
+            raise PersistenceError(f"Stereo pairs file not found: {path}")
+
+        try:
+            data = rtoml.load(path)
+            if not data:
+                return cls({})
+
+            raw_pairs = {}
+            for key, pair_data in data.items():
+                try:
+                    _, cam_id_a_str, cam_id_b_str = key.split("_")
+                    cam_id_a, cam_id_b = int(cam_id_a_str), int(cam_id_b_str)
+                except (ValueError, AttributeError):
+                    logger.warning(f"Skipping invalid stereo pair key: {key}")
+                    continue
+
+                rotation_rodrigues = _list_to_array(pair_data.get("rotation"))
+                if rotation_rodrigues is None:
+                    logger.warning(f"Missing rotation for pair {key}, skipping")
+                    continue
+                if rotation_rodrigues.shape != (3,):
+                    logger.warning(f"Invalid rotation shape for pair {key}: {rotation_rodrigues.shape}, expected (3,)")
+                    continue
+
+                rotation_matrix = cv2.Rodrigues(rotation_rodrigues)[0]
+
+                translation = _list_to_array(pair_data.get("translation"))
+                if translation is None:
+                    logger.warning(f"Missing translation for pair {key}, skipping")
+                    continue
+                if translation.shape not in [(3, 1), (3,)]:
+                    logger.warning(
+                        f"Invalid translation shape for pair {key}: {translation.shape}, expected (3,1) or (3,)"
+                    )
+                    continue
+
+                if translation.shape == (3,):
+                    translation = translation.reshape(3, 1)
+
+                pair = StereoPair(
+                    primary_cam_id=cam_id_a,
+                    secondary_cam_id=cam_id_b,
+                    error_score=float(pair_data.get("RMSE", 0.0)),
+                    rotation=rotation_matrix,
+                    translation=translation,
+                )
+                raw_pairs[pair.pair] = pair
+
+            return cls.from_raw_estimates(raw_pairs)
+
+        except PersistenceError:
+            raise
+        except Exception as e:
+            raise PersistenceError(f"Failed to load stereo pairs from {path}: {e}") from e
+
+    def to_toml(self, path: Path) -> None:
+        """Save PairedPoseNetwork to TOML file.
+
+        Only stores forward pairs (primary < secondary) to avoid duplication.
+        Converts 3x3 rotation matrices to 3x1 Rodrigues vectors.
+
+        Raises:
+            PersistenceError: If write fails
+        """
+        from caliscope.persistence import PersistenceError, _safe_write_toml
+
+        try:
+            stereo_data = {}
+            for (a, b), pair in self._pairs.items():
+                if a >= b:
+                    continue
+
+                rotation_rodrigues = None
+                if pair.rotation is not None:
+                    rodrigues, _ = cv2.Rodrigues(pair.rotation)
+                    rotation_rodrigues = rodrigues.flatten().tolist()
+
+                translation_list = None
+                if pair.translation is not None:
+                    translation_list = pair.translation.flatten().tolist()
+
+                pair_dict = {
+                    "RMSE": pair.error_score,
+                    "rotation": rotation_rodrigues,
+                    "translation": translation_list,
+                }
+                pair_dict = {k: v for k, v in pair_dict.items() if v is not None}
+                stereo_data[f"stereo_{a}_{b}"] = pair_dict
+
+            _safe_write_toml(stereo_data, path)
+        except Exception as e:
+            raise PersistenceError(f"Failed to save stereo pairs to {path}: {e}") from e
 
     def _find_largest_connected_component(self, cam_ids: list[int]) -> set[int]:
         """Finds the largest connected subgraph of cameras."""

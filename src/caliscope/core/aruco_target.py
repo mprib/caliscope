@@ -1,6 +1,8 @@
 from dataclasses import dataclass
+from pathlib import Path
 import cv2
 import numpy as np
+import rtoml
 from numpy.typing import NDArray
 
 
@@ -50,6 +52,75 @@ class ArucoTarget:
     def marker_ids(self) -> list[int]:
         """All marker IDs this target tracks, sorted."""
         return sorted(self.corners.keys())
+
+    @classmethod
+    def from_toml(cls, path: Path) -> "ArucoTarget":
+        """Load ArucoTarget from TOML file.
+
+        TOML format:
+            dictionary = 0
+            marker_size_m = 0.05
+            [corners.0]
+            positions = [[-0.025, -0.025, 0.0], [0.025, -0.025, 0.0], ...]
+
+        Raises:
+            PersistenceError: If file doesn't exist or format is invalid
+        """
+        from caliscope.persistence import PersistenceError
+
+        if not path.exists():
+            raise PersistenceError(f"ArucoTarget file not found: {path}")
+
+        try:
+            data = rtoml.load(path)
+
+            dictionary = data["dictionary"]
+            marker_size_m = data["marker_size_m"]
+
+            corners: dict[int, NDArray[np.float64]] = {}
+            for marker_id_str, corner_data in data.get("corners", {}).items():
+                marker_id = int(marker_id_str)
+                positions = np.array(corner_data["positions"], dtype=np.float64)
+                if positions.shape != (4, 3):
+                    raise ValueError(f"Marker {marker_id} has invalid shape: {positions.shape}")
+                corners[marker_id] = positions
+
+            return cls(
+                dictionary=dictionary,
+                corners=corners,
+                marker_size_m=marker_size_m,
+            )
+        except PersistenceError:
+            raise
+        except Exception as e:
+            raise PersistenceError(f"Failed to load ArucoTarget from {path}: {e}") from e
+
+    def to_toml(self, path: Path) -> None:
+        """Save ArucoTarget to TOML file.
+
+        Raises:
+            PersistenceError: If write fails
+        """
+        from caliscope.persistence import PersistenceError, _safe_write_toml
+
+        try:
+            path.parent.mkdir(parents=True, exist_ok=True)
+
+            corners_data = {}
+            for marker_id, positions in self.corners.items():
+                corners_data[str(marker_id)] = {"positions": positions.tolist()}
+
+            data = {
+                "dictionary": self.dictionary,
+                "marker_size_m": self.marker_size_m,
+                "corners": corners_data,
+            }
+
+            _safe_write_toml(data, path)
+        except PersistenceError:
+            raise
+        except Exception as e:
+            raise PersistenceError(f"Failed to save ArucoTarget to {path}: {e}") from e
 
     def get_corner_positions(self, marker_id: int) -> NDArray[np.float64]:
         """Get (4, 3) corner positions for a marker.

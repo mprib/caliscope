@@ -1,5 +1,7 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, asdict
+from pathlib import Path
 import numpy as np
+import rtoml
 
 
 @dataclass(frozen=True, slots=True)
@@ -37,6 +39,41 @@ class Chessboard:
         object_points = np.zeros((self.rows * self.columns, 3), dtype=np.float32)
         object_points[:, :2] = np.mgrid[0 : self.columns, 0 : self.rows].T.reshape(-1, 2)
         return object_points
+
+    @classmethod
+    def from_toml(cls, path: Path) -> "Chessboard":
+        """Load Chessboard from TOML file.
+
+        Strips legacy 'square_size_cm' field if present.
+
+        Raises:
+            PersistenceError: If file doesn't exist or contains invalid parameters
+        """
+        from caliscope.persistence import PersistenceError
+
+        if not path.exists():
+            raise PersistenceError(f"Chessboard file not found: {path}")
+
+        try:
+            data = rtoml.load(path)
+            data.pop("square_size_cm", None)  # Strip legacy field
+            return cls(**data)
+        except Exception as e:
+            raise PersistenceError(f"Failed to load Chessboard from {path}: {e}") from e
+
+    def to_toml(self, path: Path) -> None:
+        """Save Chessboard to TOML file.
+
+        Raises:
+            PersistenceError: If write fails
+        """
+        from caliscope.persistence import PersistenceError, _safe_write_toml
+
+        try:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            _safe_write_toml(asdict(self), path)
+        except Exception as e:
+            raise PersistenceError(f"Failed to save Chessboard to {path}: {e}") from e
 
     def get_connected_points(self) -> set[tuple[int, int]]:
         """Point ID pairs that form the grid pattern (adjacent corners only).

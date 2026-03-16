@@ -7,10 +7,7 @@ from time import time
 import numpy as np
 from numpy.typing import NDArray
 import pandas as pd
-import pandera.pandas as pa
-from numba import jit
-from numba.typed import Dict, List
-from pandera.typing import Series
+from collections import defaultdict
 from scipy.signal import butter, filtfilt
 from caliscope.cameras.camera_array import CameraArray
 from dataclasses import dataclass
@@ -19,108 +16,207 @@ logger = logging.getLogger(__name__)
 
 
 #####################################################################################
-# The following code is adapted from the `Anipose` project,
-# in particular the `triangulate_simple` function of `aniposelib`
-# Original author:  Lili Karashchuk
-# Project: https://github.com/lambdaloop/aniposelib/
-# Original Source Code : https://github.com/lambdaloop/aniposelib/blob/d03b485c4e178d7cff076e9fe1ac36837db49158/aniposelib/cameras.py#L21
-# This code is licensed under the BSD 2-Clause License
+# DLT triangulation via SVD.
+# Original implementation drew from Anipose (BSD-2-Clause), created by
+# Lili Karashchuk (https://github.com/lambdaloop/aniposelib/).
+# Rewritten as batched numpy SVD (grouped by camera set) to drop the numba
+# dependency while matching JIT performance on calibration-scale data.
+#
 # BSD 2-Clause License
-
-# Copyright (c) 2019, Lili Karashchuk
-# All rights reserved.
-
-# Redistribution and use in source and binary forms, with or without
-# modification, are permitted provided that the following conditions are met:
-
-# 1. Redistributions of source code must retain the above copyright notice, this
-# list of conditions and the following disclaimer.
-
-# 2. Redistributions in binary form must reproduce the above copyright notice,
-# this list of conditions and the following disclaimer in the documentation
-# and/or other materials provided with the distribution.
-
-# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
-# AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-# IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
-# DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
-# FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
-# DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
-# SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
-# CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
-# OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
-# OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+# Copyright (c) 2019, Lili Karashchuk. All rights reserved.
+# See original license text in git history or at the Anipose repository.
+#####################################################################################
 
 
-@jit(nopython=True, cache=True)
 def triangulate_sync_index(
-    projection_matrices: Dict, current_camera_indices: np.ndarray, current_point_id: np.ndarray, current_img: np.ndarray
-):
-    """A more optimized Numba function to triangulate points for a single sync_index."""
-    # Numba typed containers are JIT-compiled; static type checkers can't introspect them
-    point_indices_xyz = List()  # type: ignore[reportCallIssue]
-    obj_xyz = List()  # type: ignore[reportCallIssue]
+    projection_matrices: dict[int, np.ndarray],
+    camera_ids: np.ndarray,
+    point_ids: np.ndarray,
+    img_xy: np.ndarray,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Triangulate 2D observations to 3D points for a single sync index.
 
-    # Exit early if there's not enough data to form a pair
-    if len(current_point_id) < 2:
-        return point_indices_xyz, obj_xyz
+    Groups observations by the exact set of observing cameras, then runs one
+    batched np.linalg.svd call per camera-set group.
 
-    # Sort by point_id to group all observations of the same point together
-    sort_indices = np.argsort(current_point_id)
-    sorted_points = current_point_id[sort_indices]
-    sorted_cams = current_camera_indices[sort_indices]
-    sorted_img = current_img[sort_indices]
+    Used by SyncPacketTriangulator for real-time triangulation of individual
+    sync packets. For bulk triangulation of entire datasets, use
+    triangulate_image_points() instead.
+    """
+    if len(point_ids) < 2:
+        return np.array([], dtype=np.int64), np.zeros((0, 3))
 
-    group_start = 0
-    # Iterate through the sorted arrays to find groups of points
-    for i in range(1, len(sorted_points)):
-        # A new group starts when the point_id changes
-        if sorted_points[i] != sorted_points[group_start]:
-            # Process the previous group if it has enough views
-            if i - group_start > 1:
-                point = sorted_points[group_start]
-                points_xy = sorted_img[group_start:i]
-                camera_ids = sorted_cams[group_start:i]
-                num_cams = len(camera_ids)
+    # Group observations by point_id
+    sort_idx = np.argsort(point_ids)
+    sorted_pids = point_ids[sort_idx]
+    sorted_cams = camera_ids[sort_idx]
+    sorted_xy = img_xy[sort_idx]
 
-                A = np.zeros((num_cams * 2, 4))
-                for j in range(num_cams):
-                    x, y = points_xy[j]
-                    P = projection_matrices[camera_ids[j]]
-                    A[(j * 2) : (j * 2 + 1)] = x * P[2] - P[0]
-                    A[(j * 2 + 1) : (j * 2 + 2)] = y * P[2] - P[1]
+    # Find group boundaries (where point_id changes)
+    breaks = np.where(np.diff(sorted_pids) != 0)[0] + 1
+    groups_pids = np.split(sorted_pids, breaks)
+    groups_cams = np.split(sorted_cams, breaks)
+    groups_xy = np.split(sorted_xy, breaks)
 
-                u, s, vh = np.linalg.svd(A, full_matrices=True)
-                point_xyzw = vh[-1]
-                point_xyz = point_xyzw[:3] / point_xyzw[3]
-                point_indices_xyz.append(point)
-                obj_xyz.append(point_xyz)
+    # Filter to groups with 2+ observations (need at least 2 views to triangulate)
+    valid = [(p[0], c, xy) for p, c, xy in zip(groups_pids, groups_cams, groups_xy) if len(c) > 1]
 
-            # Start the new group
-            group_start = i
+    if not valid:
+        return np.array([], dtype=np.int64), np.zeros((0, 3))
 
-    # Process the final group after the loop finishes
-    if len(sorted_points) - group_start > 1:
-        point = sorted_points[group_start]
-        # Slicing to the end is implicit
-        points_xy = sorted_img[group_start:]
-        camera_ids = sorted_cams[group_start:]
-        # ... (SVD logic repeated for the last group - could be refactored)
-        num_cams = len(camera_ids)
-        A = np.zeros((num_cams * 2, 4))
-        for j in range(num_cams):
-            x, y = points_xy[j]
-            P = projection_matrices[camera_ids[j]]
-            A[(j * 2) : (j * 2 + 1)] = x * P[2] - P[0]
-            A[(j * 2 + 1) : (j * 2 + 2)] = y * P[2] - P[1]
+    # Group by exact camera set: points seen by the same cameras share
+    # identical A-matrix structure (same projection matrix rows).
+    # CRITICAL: sort xy to match the sorted camera order so that
+    # xy[j] corresponds to cam_key[j]'s projection matrix.
+    by_cam_set: dict[tuple[int, ...], list[tuple[int, np.ndarray]]] = defaultdict(list)
+    for pid, cams, xy in valid:
+        sort_order = np.argsort(cams)
+        cam_key = tuple(cams[sort_order])
+        by_cam_set[cam_key].append((pid, xy[sort_order]))
 
-        u, s, vh = np.linalg.svd(A, full_matrices=True)
-        point_xyzw = vh[-1]
-        point_xyz = point_xyzw[:3] / point_xyzw[3]
-        point_indices_xyz.append(point)
-        obj_xyz.append(point_xyz)
+    result_pids: list[np.ndarray] = []
+    result_xyz: list[np.ndarray] = []
 
-    return point_indices_xyz, obj_xyz
+    for cam_key, entries in by_cam_set.items():
+        n_cams = len(cam_key)
+        n_points = len(entries)
+
+        P_row0 = np.empty((n_cams, 4))
+        P_row1 = np.empty((n_cams, 4))
+        P_row2 = np.empty((n_cams, 4))
+        for j, cam_id in enumerate(cam_key):
+            P = projection_matrices[cam_id]
+            P_row0[j] = P[0]
+            P_row1[j] = P[1]
+            P_row2[j] = P[2]
+
+        batch_pids = np.array([e[0] for e in entries], dtype=np.int64)
+        batch_xy = np.array([e[1] for e in entries])  # (n_points, n_cams, 2)
+
+        x = batch_xy[:, :, 0]  # (n_points, n_cams)
+        y = batch_xy[:, :, 1]
+
+        even_rows = x[:, :, None] * P_row2[None, :, :] - P_row0[None, :, :]
+        odd_rows = y[:, :, None] * P_row2[None, :, :] - P_row1[None, :, :]
+
+        A_batch = np.empty((n_points, 2 * n_cams, 4))
+        A_batch[:, 0::2, :] = even_rows
+        A_batch[:, 1::2, :] = odd_rows
+
+        _, _, vh = np.linalg.svd(A_batch, full_matrices=False)
+        xyzw = vh[:, -1, :]
+        xyz = xyzw[:, :3] / xyzw[:, 3:4]
+
+        result_pids.append(batch_pids)
+        result_xyz.append(xyz)
+
+    return np.concatenate(result_pids), np.vstack(result_xyz)
+
+
+def triangulate_image_points(
+    projection_matrices: dict[int, np.ndarray],
+    sync_indices: np.ndarray,
+    camera_ids: np.ndarray,
+    point_ids: np.ndarray,
+    img_xy: np.ndarray,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Triangulate all 2D observations across all sync indices in bulk.
+
+    Instead of looping over sync indices, this function:
+      1. Treats (sync_index, point_id) as a composite key for each unique 3D point
+      2. Groups ALL observations by the exact set of observing cameras
+      3. Runs one batched np.linalg.svd call per camera-set group
+
+    For a dataset of thousands of frames, this typically collapses to 5-15 SVD
+    calls total (one per unique combination of cameras that co-observe points).
+    """
+    n_obs = len(point_ids)
+    if n_obs < 2:
+        return (
+            np.array([], dtype=np.int64),
+            np.array([], dtype=np.int64),
+            np.zeros((0, 3)),
+        )
+
+    # Sort by (sync_index, point_id) to find unique 3D points
+    sort_idx = np.lexsort((point_ids, sync_indices))
+    s_sync = sync_indices[sort_idx]
+    s_pid = point_ids[sort_idx]
+    s_cam = camera_ids[sort_idx]
+    s_xy = img_xy[sort_idx]
+
+    # Find where (sync_index, point_id) changes
+    diff_sync = np.diff(s_sync) != 0
+    diff_pid = np.diff(s_pid) != 0
+    breaks = np.where(diff_sync | diff_pid)[0] + 1
+
+    grp_sync = np.split(s_sync, breaks)
+    grp_pid = np.split(s_pid, breaks)
+    grp_cam = np.split(s_cam, breaks)
+    grp_xy = np.split(s_xy, breaks)
+
+    # Group by exact camera set
+    by_cam_set: dict[tuple[int, ...], list[tuple[int, int, np.ndarray]]] = defaultdict(list)
+
+    for gs, gp, gc, gxy in zip(grp_sync, grp_pid, grp_cam, grp_xy):
+        if len(gc) < 2:
+            continue
+        # CRITICAL: sort xy to match the sorted camera order
+        sort_order = np.argsort(gc)
+        cam_key = tuple(gc[sort_order])
+        by_cam_set[cam_key].append((gs[0], gp[0], gxy[sort_order]))
+
+    if not by_cam_set:
+        return (
+            np.array([], dtype=np.int64),
+            np.array([], dtype=np.int64),
+            np.zeros((0, 3)),
+        )
+
+    result_sync: list[np.ndarray] = []
+    result_pid: list[np.ndarray] = []
+    result_xyz: list[np.ndarray] = []
+
+    for cam_key, entries in by_cam_set.items():
+        n_cams = len(cam_key)
+        n_points = len(entries)
+
+        P_row0 = np.empty((n_cams, 4))
+        P_row1 = np.empty((n_cams, 4))
+        P_row2 = np.empty((n_cams, 4))
+        for j, cam_id in enumerate(cam_key):
+            P = projection_matrices[cam_id]
+            P_row0[j] = P[0]
+            P_row1[j] = P[1]
+            P_row2[j] = P[2]
+
+        batch_sync = np.array([e[0] for e in entries], dtype=np.int64)
+        batch_pid = np.array([e[1] for e in entries], dtype=np.int64)
+        batch_xy = np.array([e[2] for e in entries])  # (n_points, n_cams, 2)
+
+        x = batch_xy[:, :, 0]
+        y = batch_xy[:, :, 1]
+
+        even_rows = x[:, :, None] * P_row2[None, :, :] - P_row0[None, :, :]
+        odd_rows = y[:, :, None] * P_row2[None, :, :] - P_row1[None, :, :]
+
+        A_batch = np.empty((n_points, 2 * n_cams, 4))
+        A_batch[:, 0::2, :] = even_rows
+        A_batch[:, 1::2, :] = odd_rows
+
+        _, _, vh = np.linalg.svd(A_batch, full_matrices=False)
+        xyzw = vh[:, -1, :]
+        xyz = xyzw[:, :3] / xyzw[:, 3:4]
+
+        result_sync.append(batch_sync)
+        result_pid.append(batch_pid)
+        result_xyz.append(xyz)
+
+    return (
+        np.concatenate(result_sync),
+        np.concatenate(result_pid),
+        np.vstack(result_xyz),
+    )
 
 
 ############################################################################################
@@ -145,36 +241,72 @@ def _undistort_batch(xy_df: pd.DataFrame, camera_array: CameraArray) -> pd.DataF
     return xy_undistorted_df
 
 
-class ImagePointSchema(pa.DataFrameModel):
-    """Pandera schema for validating 2D (x,y) point data."""
+# Column name constants (serve as both validation spec and column name registry).
+# Call sites that only need column names use .keys().
+IMAGE_POINT_COLUMNS: dict[str, dict] = {
+    "sync_index": {"dtype": "int", "nullable": False},
+    "cam_id": {"dtype": "int", "nullable": False},
+    "point_id": {"dtype": "int", "nullable": False},
+    "img_loc_x": {"dtype": "float", "nullable": False},
+    "img_loc_y": {"dtype": "float", "nullable": False},
+    "obj_loc_x": {"dtype": "float", "nullable": True},
+    "obj_loc_y": {"dtype": "float", "nullable": True},
+    "obj_loc_z": {"dtype": "float", "nullable": True},
+}
 
-    sync_index: Series[int] = pa.Field(coerce=True)
-    cam_id: Series[int] = pa.Field(coerce=True)
-    point_id: Series[int] = pa.Field(coerce=True)
-    img_loc_x: Series[float] = pa.Field(coerce=True)
-    img_loc_y: Series[float] = pa.Field(coerce=True)
-    obj_loc_x: Series[float] = pa.Field(coerce=True, nullable=True)
-    obj_loc_y: Series[float] = pa.Field(coerce=True, nullable=True)
-    obj_loc_z: Series[float] = pa.Field(coerce=True, nullable=True)
-
-    class Config(pa.DataFrameModel.Config):
-        strict = False
-        coerce = True
+WORLD_POINT_COLUMNS: dict[str, dict] = {
+    "sync_index": {"dtype": "int", "nullable": False},
+    "point_id": {"dtype": "int", "nullable": False},
+    "x_coord": {"dtype": "float", "nullable": False},
+    "y_coord": {"dtype": "float", "nullable": False},
+    "z_coord": {"dtype": "float", "nullable": False},
+    "frame_time": {"dtype": "float", "nullable": True},
+}
 
 
-class WorldPointSchema(pa.DataFrameModel):
-    """Pandera schema for validating 3D (x,y,z) point data."""
+def _validate_dataframe(
+    df: pd.DataFrame,
+    schema: dict[str, dict],
+    schema_name: str,
+) -> pd.DataFrame:
+    """Validate and coerce a DataFrame against a column schema.
 
-    sync_index: Series[int] = pa.Field(coerce=True)
-    point_id: Series[int] = pa.Field(coerce=True)
-    x_coord: Series[float] = pa.Field(coerce=True)
-    y_coord: Series[float] = pa.Field(coerce=True)
-    z_coord: Series[float] = pa.Field(coerce=True)
-    frame_time: Series[float] = pa.Field(coerce=True, nullable=True)
+    Checks that all required columns are present, coerces types, and verifies
+    non-nullable columns contain no NaN/None values. Extra columns are allowed
+    (strict=False equivalent).
 
-    class Config(pa.DataFrameModel.Config):
-        strict = False
-        coerce = True
+    Returns the coerced DataFrame. Raises ValueError on validation failure.
+    """
+    # 1. Check column presence
+    missing = [col for col in schema if col not in df.columns]
+    if missing:
+        raise ValueError(
+            f"{schema_name} validation failed: column(s) {missing} not in dataframe. Columns found: {list(df.columns)}"
+        )
+
+    # 2. Coerce types
+    for col, spec in schema.items():
+        if spec["dtype"] == "int":
+            df[col] = pd.to_numeric(df[col], errors="coerce").astype("Int64")
+        elif spec["dtype"] == "float":
+            df[col] = pd.to_numeric(df[col], errors="coerce")
+
+    # 3. Check nullability
+    for col, spec in schema.items():
+        if not spec["nullable"] and df[col].isna().any():
+            n_null = df[col].isna().sum()
+            raise ValueError(
+                f"{schema_name} validation failed: non-nullable column '{col}' contains {n_null} null value(s)"
+            )
+
+    # 4. Downcast non-nullable Int64 → int64 for numpy compatibility.
+    # Int64 (nullable extension type) produces object arrays from .to_numpy().
+    # After confirming no nulls, downcast to standard int64 for clean numpy interop.
+    for col, spec in schema.items():
+        if spec["dtype"] == "int" and not spec["nullable"]:
+            df[col] = df[col].astype("int64")
+
+    return df
 
 
 class ImagePoints:
@@ -193,13 +325,40 @@ class ImagePoints:
             if col not in df.columns:
                 df[col] = np.nan
 
-        self._df = ImagePointSchema.validate(df)
+        self._df = _validate_dataframe(df, IMAGE_POINT_COLUMNS, "ImagePoints")
+
+        # Warn about duplicate keys that could cause incorrect triangulation
+        key_cols = ["sync_index", "cam_id", "point_id"]
+        dupes = self._df.duplicated(subset=key_cols)
+        if dupes.any():
+            n = int(dupes.sum())
+            logger.warning(
+                f"ImagePoints contains {n} duplicate ({', '.join(key_cols)}) rows. "
+                f"Duplicates may cause incorrect triangulation results."
+            )
 
     @classmethod
     def from_csv(cls, path: str | Path) -> ImagePoints:
         df = pd.read_csv(path)
         # Constructor handles adding missing optional columns
         return cls(df)
+
+    def to_csv(self, path: str | Path) -> None:
+        """Save image points to CSV file.
+
+        Uses atomic write (temp file + fsync + rename) to prevent data loss.
+
+        Raises:
+            PersistenceError: If write fails
+        """
+        from caliscope.persistence import _safe_write_csv, CSV_FLOAT_PRECISION, PersistenceError
+
+        path = Path(path)
+        try:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            _safe_write_csv(self._df, path, index=False, float_format=CSV_FLOAT_PRECISION)
+        except Exception as e:
+            raise PersistenceError(f"Failed to save image points to {path}: {e}") from e
 
     def fill_gaps(self, max_gap_size: int = 3) -> ImagePoints:
         xy_filled = pd.DataFrame()
@@ -230,13 +389,10 @@ class ImagePoints:
         return ImagePoints(xy_filled.dropna(subset=["img_loc_x"]))
 
     def triangulate(self, camera_array: CameraArray) -> WorldPoints:
-        """
-        Triangulates 2D points to create 3D points using the provided CameraArray.
-        The input 2D points are undistorted as part of this process.
-        """
+        """Triangulates 2D points to create 3D points using the provided CameraArray."""
         xy_df = self.df
         if xy_df.empty:
-            return WorldPoints(pd.DataFrame(columns=list(WorldPointSchema.to_schema().columns.keys())))
+            return WorldPoints(pd.DataFrame(columns=list(WORLD_POINT_COLUMNS.keys())))
 
         # Only process cameras that are both in data AND posed
         cam_ids_in_data = xy_df["cam_id"].unique()
@@ -245,71 +401,69 @@ class ImagePoints:
 
         if not valid_cam_ids:
             logger.warning("No cameras in data have extrinsics for triangulation")
-            return WorldPoints(pd.DataFrame(columns=list(WorldPointSchema.to_schema().columns.keys())))
+            return WorldPoints(pd.DataFrame(columns=list(WORLD_POINT_COLUMNS.keys())))
 
-        # Assemble numba compatible dictionary for projection matrices
-        # This already filters to posed cameras
         normalized_projection_matrices = camera_array.normalized_projection_matrices
 
         # Undistort all image points before triangulation
         undistorted_xy = _undistort_batch(xy_df, camera_array)
 
-        # Compute mean frame_time per sync_index to carry through triangulation
+        # Filter to valid cameras
+        mask = undistorted_xy["cam_id"].isin(valid_cam_ids)
+        valid_data = undistorted_xy[mask]
+
+        if valid_data.empty:
+            return WorldPoints(pd.DataFrame(columns=list(WORLD_POINT_COLUMNS.keys())))
+
+        # Compute mean frame_time per sync_index
         frame_times = xy_df.groupby("sync_index")["frame_time"].mean()
 
-        xyz_data = {
-            "sync_index": [],
-            "point_id": [],
-            "x_coord": [],
-            "y_coord": [],
-            "z_coord": [],
-            "frame_time": [],
-        }
-
-        # sync_index_max = xy_df["sync_index"].max()
+        logger.info("Beginning bulk triangulation across all sync indices...")
         start = time()
-        last_log_update = int(start)
 
-        logger.info("About to begin triangulation...due to jit, first round of calculations may take a moment.")
+        # Extract arrays for bulk triangulation
+        sync_arr = valid_data["sync_index"].to_numpy()
+        cam_arr = valid_data["cam_id"].to_numpy()
+        pid_arr = valid_data["point_id"].to_numpy()
+        xy_arr = np.column_stack(
+            [
+                valid_data["img_loc_undistort_x"].to_numpy(),
+                valid_data["img_loc_undistort_y"].to_numpy(),
+            ]
+        )
 
-        # Only iterate over sync indices that have data from valid cam_ids
-        valid_sync_indices = undistorted_xy[undistorted_xy["cam_id"].isin(valid_cam_ids)]["sync_index"].unique()
+        # One call triangulates everything
+        out_sync, out_pid, out_xyz = triangulate_image_points(
+            normalized_projection_matrices,
+            sync_arr,
+            cam_arr,
+            pid_arr,
+            xy_arr,
+        )
 
-        sync_index_counter = 0
-        total_sync_indices = len(valid_sync_indices)
+        elapsed = time() - start
+        logger.info(
+            f"Triangulation complete: {len(out_pid)} points from "
+            f"{len(np.unique(out_sync))} sync indices in {elapsed:.2f}s"
+        )
 
-        for index in valid_sync_indices:
-            sync_index_counter += 1  # used for tracking progress
-            active_index = undistorted_xy["sync_index"] == index
-            # Filter to valid cam_ids for this sync index
-            index_data = undistorted_xy[active_index & undistorted_xy["cam_id"].isin(valid_cam_ids)]
+        if len(out_pid) == 0:
+            return WorldPoints(pd.DataFrame(columns=list(WORLD_POINT_COLUMNS.keys())))
 
-            if index_data.empty:
-                continue
+        # Build DataFrame directly from arrays
+        out_frame_times = frame_times.reindex(out_sync).to_numpy()
 
-            cam_id = index_data["cam_id"].to_numpy()
-            point_ids = index_data["point_id"].to_numpy()
-            img_loc_x = index_data["img_loc_undistort_x"].to_numpy()
-            img_loc_y = index_data["img_loc_undistort_y"].to_numpy()
-            raw_xy = np.vstack([img_loc_x, img_loc_y]).T
+        xyz_df = pd.DataFrame(
+            {
+                "sync_index": out_sync,
+                "point_id": out_pid,
+                "x_coord": out_xyz[:, 0],
+                "y_coord": out_xyz[:, 1],
+                "z_coord": out_xyz[:, 2],
+                "frame_time": out_frame_times,
+            }
+        )
 
-            point_id_xyz, points_xyz = triangulate_sync_index(normalized_projection_matrices, cam_id, point_ids, raw_xy)
-
-            if len(point_id_xyz) > 0:
-                xyz_data["sync_index"].extend([index] * len(point_id_xyz))
-                xyz_data["point_id"].extend(point_id_xyz)
-                points_xyz_arr = np.array(points_xyz)
-                xyz_data["x_coord"].extend(points_xyz_arr[:, 0].tolist())
-                xyz_data["y_coord"].extend(points_xyz_arr[:, 1].tolist())
-                xyz_data["z_coord"].extend(points_xyz_arr[:, 2].tolist())
-                xyz_data["frame_time"].extend([frame_times[index]] * len(point_id_xyz))
-
-            if int(time()) - last_log_update >= 1:
-                percent_complete = int(100 * (sync_index_counter / total_sync_indices))
-                logger.info(f"Triangulation of (x,y) point estimates is {percent_complete}% complete")
-                last_log_update = int(time())
-
-        xyz_df = pd.DataFrame(xyz_data)
         return WorldPoints(xyz_df)
 
 
@@ -323,7 +477,18 @@ class WorldPoints:
 
     def __post_init__(self):
         # Validate schema
-        object.__setattr__(self, "_df", WorldPointSchema.validate(self._df))
+        validated = _validate_dataframe(self._df.copy(), WORLD_POINT_COLUMNS, "WorldPoints")
+        object.__setattr__(self, "_df", validated)
+
+        # Warn about duplicate keys that could cause incorrect results
+        key_cols = ["sync_index", "point_id"]
+        dupes = self._df.duplicated(subset=key_cols)
+        if dupes.any():
+            n = int(dupes.sum())
+            logger.warning(
+                f"WorldPoints contains {n} duplicate ({', '.join(key_cols)}) rows. "
+                f"Duplicates may cause incorrect results."
+            )
 
         # calculate start and stop index
         min_index = int(self._df["sync_index"].min())
@@ -394,4 +559,21 @@ class WorldPoints:
         Optional: frame_time (nullable)
         """
         df = pd.read_csv(path)
-        return cls(df)  # Constructor handles validation via WorldPointSchema
+        return cls(df)  # Constructor handles validation on construction
+
+    def to_csv(self, path: str | Path) -> None:
+        """Save world points to CSV file.
+
+        Uses atomic write (temp file + fsync + rename) to prevent data loss.
+
+        Raises:
+            PersistenceError: If write fails
+        """
+        from caliscope.persistence import _safe_write_csv, CSV_FLOAT_PRECISION, PersistenceError
+
+        path = Path(path)
+        try:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            _safe_write_csv(self._df, path, index=False, float_format=CSV_FLOAT_PRECISION)
+        except Exception as e:
+            raise PersistenceError(f"Failed to save world points to {path}: {e}") from e

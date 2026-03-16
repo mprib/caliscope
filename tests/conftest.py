@@ -8,7 +8,6 @@ from caliscope.cameras.camera_array import CameraArray
 from caliscope.core.point_data import ImagePoints
 from caliscope.helper import copy_contents_to_clean_dest
 from caliscope.logger import setup_logging
-from caliscope import persistence
 
 
 # Subsampling stride for fast tests. See specs/test-data-reduction.md for analysis.
@@ -46,7 +45,7 @@ def _load_calibration_data(
     copy_contents_to_clean_dest(original_session_path, tmp_path)
 
     xy_data_path = tmp_path / "calibration" / "extrinsic" / "CHARUCO" / "xy_CHARUCO.csv"
-    camera_array = persistence.load_camera_array(tmp_path / "camera_array.toml")
+    camera_array = CameraArray.from_toml(tmp_path / "camera_array.toml")
     image_points = ImagePoints.from_csv(xy_data_path)
 
     is_subsampled = False

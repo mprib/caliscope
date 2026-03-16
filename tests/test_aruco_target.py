@@ -14,7 +14,7 @@ import numpy as np
 import pytest
 
 from caliscope.core.aruco_target import ArucoTarget
-from caliscope.persistence import PersistenceError, load_aruco_target, save_aruco_target
+from caliscope.persistence import PersistenceError
 from caliscope.trackers.aruco_tracker import ArucoTracker
 
 
@@ -82,8 +82,8 @@ def test_save_load_roundtrip(tmp_path: Path):
     original = ArucoTarget.single_marker(marker_id=7, marker_size_m=0.08)
     file_path = tmp_path / "aruco_target.toml"
 
-    save_aruco_target(original, file_path)
-    loaded = load_aruco_target(file_path)
+    original.to_toml(file_path)
+    loaded = ArucoTarget.from_toml(file_path)
 
     assert loaded.dictionary == original.dictionary
     assert loaded.marker_size_m == original.marker_size_m
@@ -94,17 +94,17 @@ def test_save_load_roundtrip(tmp_path: Path):
 def test_load_nonexistent_file(tmp_path: Path):
     """Load from nonexistent path raises PersistenceError."""
     with pytest.raises(PersistenceError, match="not found"):
-        load_aruco_target(tmp_path / "nonexistent.toml")
+        ArucoTarget.from_toml(tmp_path / "nonexistent.toml")
 
 
 def test_save_creates_parent_directory(tmp_path: Path):
     """Save should create parent directories if they don't exist."""
     original = ArucoTarget.single_marker()
     file_path = tmp_path / "nested" / "path" / "aruco_target.toml"
-    save_aruco_target(original, file_path)
+    original.to_toml(file_path)
 
     assert file_path.exists()
-    loaded = load_aruco_target(file_path)
+    loaded = ArucoTarget.from_toml(file_path)
     assert loaded.marker_ids == original.marker_ids
 
 
@@ -254,8 +254,8 @@ if __name__ == "__main__":
 
     # Test persistence round-trip
     toml_path = debug_dir / "aruco_target.toml"
-    save_aruco_target(target, toml_path)
-    loaded = load_aruco_target(toml_path)
+    target.to_toml(toml_path)
+    loaded = ArucoTarget.from_toml(toml_path)
     print(f"\nPersistence round-trip OK: {loaded.marker_ids}, size={loaded.marker_size_m}m")
 
     # Test tracker with target

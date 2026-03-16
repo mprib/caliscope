@@ -6,7 +6,6 @@ import rtoml
 import pytest
 
 from caliscope.cameras.camera_array import CameraArray, CameraData
-from caliscope.persistence import save_camera_array_aniposelib
 
 
 def create_test_camera(cam_id: int, with_extrinsics: bool = True) -> CameraData:
@@ -52,7 +51,7 @@ def test_aniposelib_export_format(tmp_path: Path) -> None:
 
     # Export to aniposelib format
     output_path = tmp_path / "camera_array_aniposelib.toml"
-    save_camera_array_aniposelib(camera_array, output_path)
+    camera_array.to_aniposelib_toml(output_path)
 
     # Read back and verify structure
     data = rtoml.load(output_path)
@@ -108,7 +107,7 @@ def test_aniposelib_only_exports_posed_cameras(tmp_path: Path) -> None:
 
     # Export to aniposelib format
     output_path = tmp_path / "camera_array_aniposelib.toml"
-    save_camera_array_aniposelib(camera_array, output_path)
+    camera_array.to_aniposelib_toml(output_path)
 
     # Read back and verify only posed cameras are present
     data = rtoml.load(output_path)
@@ -125,7 +124,7 @@ def test_aniposelib_rotation_is_rodrigues(tmp_path: Path) -> None:
     camera_array = CameraArray(cameras)
 
     output_path = tmp_path / "camera_array_aniposelib.toml"
-    save_camera_array_aniposelib(camera_array, output_path)
+    camera_array.to_aniposelib_toml(output_path)
 
     data = rtoml.load(output_path)
     rotation = data["cam_0"]["rotation"]
@@ -142,7 +141,7 @@ def test_aniposelib_matrix_values(tmp_path: Path) -> None:
     camera_array = CameraArray(cameras)
 
     output_path = tmp_path / "camera_array_aniposelib.toml"
-    save_camera_array_aniposelib(camera_array, output_path)
+    camera_array.to_aniposelib_toml(output_path)
 
     data = rtoml.load(output_path)
     matrix = np.array(data["cam_0"]["matrix"])
@@ -168,7 +167,7 @@ if __name__ == "__main__":
 
     # Export to aniposelib format
     output_path = debug_dir / "camera_array_aniposelib.toml"
-    save_camera_array_aniposelib(camera_array, output_path)
+    camera_array.to_aniposelib_toml(output_path)
 
     print(f"Aniposelib TOML exported to: {output_path}")
     print("\nFile contents:")

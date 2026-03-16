@@ -7,45 +7,6 @@ import pytest
 from caliscope.trackers import tracker_registry
 
 
-class TestBuiltinTrackers:
-    """Tests for built-in tracker registration."""
-
-    def test_builtins_registered_at_import(self):
-        """Built-in trackers should be registered on module import."""
-        available = tracker_registry.available_names()
-        assert "HAND" in available
-        assert "POSE" in available
-        assert "SIMPLE_HOLISTIC" in available
-        assert "HOLISTIC" in available
-
-    def test_create_hand_tracker(self):
-        """Can create Hand tracker instance."""
-        tracker = tracker_registry.create("HAND")
-        assert tracker.name == "HAND"
-
-    def test_create_pose_tracker(self):
-        """Can create Pose tracker instance."""
-        tracker = tracker_registry.create("POSE")
-        assert tracker.name == "POSE"
-
-    def test_display_names(self):
-        """Display names are human-readable."""
-        assert tracker_registry.display_name_for("HAND") == "Hand"
-        assert tracker_registry.display_name_for("POSE") == "Pose"
-        assert tracker_registry.display_name_for("SIMPLE_HOLISTIC") == "Simple Holistic"
-        assert tracker_registry.display_name_for("HOLISTIC") == "Holistic"
-
-    def test_is_registered(self):
-        """is_registered() checks for key presence."""
-        assert tracker_registry.is_registered("HAND")
-        assert not tracker_registry.is_registered("NONEXISTENT")
-
-    def test_create_unknown_tracker_raises(self):
-        """Creating unknown tracker raises KeyError."""
-        with pytest.raises(KeyError, match="Unknown tracker"):
-            tracker_registry.create("NONEXISTENT")
-
-
 class TestOnnxScanning:
     """Tests for ONNX model scanning."""
 
@@ -60,24 +21,47 @@ class TestOnnxScanning:
         tracker_registry.scan_onnx_models(Path("/tmp"))
 
 
-class TestRegistryClear:
-    """Tests for clear() testing utility."""
+class TestRegistryCore:
+    """Tests for core registry operations."""
+
+    def test_is_registered_false_for_unknown(self):
+        """is_registered() returns False for unknown keys."""
+        assert not tracker_registry.is_registered("NONEXISTENT")
+
+    def test_create_unknown_tracker_raises(self):
+        """Creating unknown tracker raises KeyError."""
+        with pytest.raises(KeyError, match="Unknown tracker"):
+            tracker_registry.create("NONEXISTENT")
+
+    def test_available_names_returns_list(self):
+        """available_names() returns a list (possibly empty)."""
+        result = tracker_registry.available_names()
+        assert isinstance(result, list)
 
     def test_clear_removes_all(self):
         """clear() removes all registrations."""
         tracker_registry.clear()
         assert tracker_registry.available_names() == []
 
-        # Re-register builtins for other tests
-        tracker_registry._register_builtins()
+    def test_register_and_retrieve(self):
+        """Can register a tracker and retrieve it."""
+        from caliscope.core.charuco import Charuco
+        from caliscope.trackers.charuco_tracker import CharucoTracker
 
-    def test_clear_and_reregister(self):
-        """Can clear and re-register."""
-        initial = set(tracker_registry.available_names())
+        charuco_toml = Path(__file__).parent / "sessions" / "post_optimization" / "charuco.toml"
+        charuco = Charuco.from_toml(charuco_toml)
+
         tracker_registry.clear()
-        tracker_registry._register_builtins()
-        after = set(tracker_registry.available_names())
-        assert initial == after
+        tracker_registry.register("CHARUCO_TEST", lambda: CharucoTracker(charuco), display_name="Charuco Test")
+
+        assert tracker_registry.is_registered("CHARUCO_TEST")
+        assert "CHARUCO_TEST" in tracker_registry.available_names()
+        assert tracker_registry.display_name_for("CHARUCO_TEST") == "Charuco Test"
+
+        tracker = tracker_registry.create("CHARUCO_TEST")
+        assert tracker.name == "CHARUCO"
+
+        tracker_registry.clear()
 
 
 if __name__ == "__main__":

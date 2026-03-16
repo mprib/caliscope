@@ -65,8 +65,39 @@ class FrameSource:
             ValueError: If the video stream lacks required metadata.
             FileNotFoundError: If the video file doesn't exist.
         """
+        video_path = video_directory / f"cam_{cam_id}.mp4"
+        self._open(video_path=video_path, cam_id=cam_id)
+
+    @classmethod
+    def from_path(cls, video_path: Path, cam_id: int | None = None) -> Self:
+        """Construct a FrameSource from an explicit video file path.
+
+        Bypasses the video_directory / cam_N.mp4 naming convention used by
+        __init__. All other initialization (keyframe scan, metadata validation)
+        runs identically.
+
+        Args:
+            video_path: Absolute path to the video file.
+            cam_id: Optional camera identifier for diagnostic logging.
+                Defaults to 0 if not provided (no semantic meaning here).
+
+        Raises:
+            FileNotFoundError: If video_path does not exist.
+            ValueError: If the video stream lacks required metadata.
+        """
+        resolved_cam_id = cam_id if cam_id is not None else 0
+        instance = cls.__new__(cls)
+        instance._open(video_path=video_path, cam_id=resolved_cam_id)
+        return instance
+
+    def _open(self, video_path: Path, cam_id: int) -> None:
+        """Shared initialization body for __init__ and from_path.
+
+        Sets all instance attributes. Must be called exactly once per instance
+        (no re-entrancy guard — callers are __init__ and from_path).
+        """
         self.cam_id = cam_id
-        self.video_path = video_directory / f"cam_{cam_id}.mp4"
+        self.video_path = video_path
 
         if not self.video_path.exists():
             raise FileNotFoundError(f"Video file not found: {self.video_path}")
@@ -106,8 +137,8 @@ class FrameSource:
             f"found {len(self._keyframe_pts)} keyframes"
         )
 
-        # Mark as successfully initialized - must be last line of __init__
-        # If init fails, _closed won't exist and __del__ won't warn
+        # Mark as successfully initialized - must be last line of _open
+        # If _open fails, _closed won't exist and __del__ won't warn
         self._closed = False
 
     @property

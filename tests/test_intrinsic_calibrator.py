@@ -10,7 +10,7 @@ from caliscope.core.charuco import Charuco
 from caliscope.core.intrinsic_calibrator import IntrinsicCalibrator
 from caliscope.cameras.camera_array import CameraData
 from caliscope.helper import copy_contents_to_clean_dest
-from caliscope.recording import create_streamer
+from caliscope.recording.frame_packet_streamer import create_streamer
 from caliscope.trackers.charuco_tracker import CharucoTracker
 
 logger = logging.getLogger(__name__)
@@ -23,7 +23,7 @@ def test_intrinsic_calibrator(tmp_path: Path):
 
     recording_directory = Path(__root__, "tests", "sessions", "post_monocal", "calibration", "extrinsic")
 
-    charuco = Charuco(4, 5, 11, 8.5, aruco_scale=0.75, square_size_overide_cm=5.25, inverted=True)
+    charuco = Charuco(4, 5, 11, 8.5, aruco_scale=0.75, square_size_override_cm=5.25, inverted=True)
 
     charuco_tracker = CharucoTracker(charuco)
 
@@ -97,7 +97,7 @@ def test_autopopulate_data(tmp_path: Path):
 
     recording_directory = Path(__root__, "tests", "sessions", "post_monocal", "calibration", "extrinsic")
 
-    charuco = Charuco(4, 5, 11, 8.5, aruco_scale=0.75, square_size_overide_cm=5.25, inverted=True)
+    charuco = Charuco(4, 5, 11, 8.5, aruco_scale=0.75, square_size_override_cm=5.25, inverted=True)
 
     charuco_tracker = CharucoTracker(charuco)
 

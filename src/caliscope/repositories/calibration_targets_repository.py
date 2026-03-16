@@ -14,7 +14,7 @@ from typing import Literal
 
 import rtoml
 
-from caliscope import persistence
+from caliscope.persistence import PersistenceError
 from caliscope.core.aruco_target import ArucoTarget
 from caliscope.core.charuco import Charuco
 from caliscope.core.chessboard import Chessboard
@@ -114,8 +114,8 @@ class CalibrationTargetsRepository:
         """
         path = self._dir / "intrinsic_charuco.toml"
         try:
-            return persistence.load_charuco(path)
-        except persistence.PersistenceError as e:
+            return Charuco.from_toml(path)
+        except PersistenceError as e:
             raise ValueError(f"Failed to load intrinsic charuco: {e}") from e
 
     def save_intrinsic_charuco(self, charuco: Charuco) -> None:
@@ -128,8 +128,8 @@ class CalibrationTargetsRepository:
         """
         self._dir.mkdir(parents=True, exist_ok=True)
         try:
-            persistence.save_charuco(charuco, self._dir / "intrinsic_charuco.toml")
-        except persistence.PersistenceError as e:
+            charuco.to_toml(self._dir / "intrinsic_charuco.toml")
+        except PersistenceError as e:
             raise ValueError(f"Failed to save intrinsic charuco: {e}") from e
 
     def intrinsic_charuco_exists(self) -> bool:
@@ -151,8 +151,8 @@ class CalibrationTargetsRepository:
         else:
             path = self._dir / "extrinsic_charuco.toml"
             try:
-                return persistence.load_charuco(path)
-            except persistence.PersistenceError as e:
+                return Charuco.from_toml(path)
+            except PersistenceError as e:
                 raise ValueError(f"Failed to load extrinsic charuco: {e}") from e
 
     def save_extrinsic_charuco(self, charuco: Charuco) -> None:
@@ -163,8 +163,8 @@ class CalibrationTargetsRepository:
         """
         self._dir.mkdir(parents=True, exist_ok=True)
         try:
-            persistence.save_charuco(charuco, self._dir / "extrinsic_charuco.toml")
-        except persistence.PersistenceError as e:
+            charuco.to_toml(self._dir / "extrinsic_charuco.toml")
+        except PersistenceError as e:
             raise ValueError(f"Failed to save extrinsic charuco: {e}") from e
 
     def set_extrinsic_charuco_same_as_intrinsic(self, same: bool) -> None:
@@ -181,7 +181,7 @@ class CalibrationTargetsRepository:
         if not same and routing.extrinsic_charuco_same_as_intrinsic:
             # Toggling OFF: copy intrinsic -> extrinsic as starting point
             intrinsic = self.load_intrinsic_charuco()
-            persistence.save_charuco(intrinsic, self._dir / "extrinsic_charuco.toml")
+            intrinsic.to_toml(self._dir / "extrinsic_charuco.toml")
         new_routing = TargetRouting(
             intrinsic_target_type=routing.intrinsic_target_type,
             extrinsic_target_type=routing.extrinsic_target_type,
@@ -195,16 +195,16 @@ class CalibrationTargetsRepository:
         """Load chessboard config. Raises ValueError if file doesn't exist."""
         path = self._dir / "chessboard.toml"
         try:
-            return persistence.load_chessboard(path)
-        except persistence.PersistenceError as e:
+            return Chessboard.from_toml(path)
+        except PersistenceError as e:
             raise ValueError(f"Failed to load chessboard: {e}") from e
 
     def save_chessboard(self, chessboard: Chessboard) -> None:
         """Save chessboard config to chessboard.toml."""
         self._dir.mkdir(parents=True, exist_ok=True)
         try:
-            persistence.save_chessboard(chessboard, self._dir / "chessboard.toml")
-        except persistence.PersistenceError as e:
+            chessboard.to_toml(self._dir / "chessboard.toml")
+        except PersistenceError as e:
             raise ValueError(f"Failed to save chessboard: {e}") from e
 
     def chessboard_exists(self) -> bool:
@@ -217,16 +217,16 @@ class CalibrationTargetsRepository:
         """Load ArUco target config. Raises ValueError if file doesn't exist."""
         path = self._dir / "aruco_target.toml"
         try:
-            return persistence.load_aruco_target(path)
-        except persistence.PersistenceError as e:
+            return ArucoTarget.from_toml(path)
+        except PersistenceError as e:
             raise ValueError(f"Failed to load aruco target: {e}") from e
 
     def save_aruco_target(self, target: ArucoTarget) -> None:
         """Save ArUco target config to aruco_target.toml."""
         self._dir.mkdir(parents=True, exist_ok=True)
         try:
-            persistence.save_aruco_target(target, self._dir / "aruco_target.toml")
-        except persistence.PersistenceError as e:
+            target.to_toml(self._dir / "aruco_target.toml")
+        except PersistenceError as e:
             raise ValueError(f"Failed to save aruco target: {e}") from e
 
     def aruco_target_exists(self) -> bool:
@@ -257,7 +257,7 @@ class CalibrationTargetsRepository:
 
         Defaults:
         - config.toml: charuco/charuco, same_as_intrinsic = true
-        - intrinsic_charuco.toml: Charuco(4, 5, 11, 8.5, square_size_overide_cm=5.4)
+        - intrinsic_charuco.toml: Charuco(4, 5, 11, 8.5, square_size_override_cm=5.4)
         - chessboard.toml: Chessboard(rows=6, columns=9)
         - aruco_target.toml: ArucoTarget.single_marker()
 
@@ -279,7 +279,7 @@ class CalibrationTargetsRepository:
         # Intrinsic charuco
         if not self.intrinsic_charuco_exists():
             logger.info("Creating default intrinsic charuco board")
-            default_charuco = Charuco(4, 5, 11, 8.5, square_size_overide_cm=5.4)
+            default_charuco = Charuco(4, 5, 11, 8.5, square_size_override_cm=5.4)
             self.save_intrinsic_charuco(default_charuco)
 
         # Chessboard

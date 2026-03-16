@@ -8,7 +8,8 @@ from pathlib import Path
 
 import pytest
 
-from caliscope import persistence
+from caliscope.cameras.camera_array import CameraArray
+from caliscope.core.charuco import Charuco
 from caliscope.core.process_synchronized_recording import (
     FrameData,
     get_initial_thumbnails,
@@ -26,14 +27,14 @@ RECORDING_DIR = TEST_SESSION / "calibration" / "extrinsic"
 @pytest.fixture
 def cameras():
     """Load camera array from test session."""
-    camera_array = persistence.load_camera_array(TEST_SESSION / "camera_array.toml")
+    camera_array = CameraArray.from_toml(TEST_SESSION / "camera_array.toml")
     return camera_array.cameras
 
 
 @pytest.fixture
 def tracker():
     """Create charuco tracker from test session config."""
-    charuco = persistence.load_charuco(TEST_SESSION / "charuco.toml")
+    charuco = Charuco.from_toml(TEST_SESSION / "charuco.toml")
     return CharucoTracker(charuco)
 
 
@@ -215,9 +216,9 @@ if __name__ == "__main__":
     debug_dir.mkdir(parents=True, exist_ok=True)
 
     # Load fixtures manually
-    camera_array = persistence.load_camera_array(TEST_SESSION / "camera_array.toml")
+    camera_array = CameraArray.from_toml(TEST_SESSION / "camera_array.toml")
     cams = camera_array.cameras
-    charuco = persistence.load_charuco(TEST_SESSION / "charuco.toml")
+    charuco = Charuco.from_toml(TEST_SESSION / "charuco.toml")
     trk = CharucoTracker(charuco)
     synced = SynchronizedTimestamps.from_csv(RECORDING_DIR)
 

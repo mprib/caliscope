@@ -28,10 +28,10 @@ https://github.com/user-attachments/assets/b8bb78de-866e-4ba2-b5c7-674e3a33dd9e
 
 ```bash
 # Desktop app (GUI + 3D visualization)
-pip install caliscope[gui]
+uv pip install caliscope[gui]
 
-# Library only (scripting, CI, servers — no PySide6/VTK)
-pip install caliscope
+# Library only (scripting, CI, servers — no GUI dependencies)
+uv pip install caliscope
 ```
 
 Full installation instructions are in the [docs](https://mprib.github.io/caliscope/installation/).
@@ -60,9 +60,9 @@ The aniposelib-compatible export makes it straightforward to use Caliscope for c
 
 ## Scripting API
 
-The standard install (`pip install caliscope`) exposes intrinsic and extrinsic camera calibration as importable Python functions. Rich progress bars appear automatically; pass `progress=None` for silent operation.
+The standard install (`uv pip install caliscope`) exposes intrinsic and extrinsic camera calibration as importable Python functions. Rich progress bars appear automatically; pass `progress=None` for silent operation.
 
-For the desktop app with 3D visualization: `pip install caliscope[gui]`
+For the desktop app with 3D visualization: `uv pip install caliscope[gui]`
 
 See the [Scripting API docs](https://mprib.github.io/caliscope/scripting/) and `scripts/demo_api.py` for examples.
 

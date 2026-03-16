@@ -20,6 +20,8 @@ dependencies = [
     # Security floor constraints for transitive dependencies (dependabot alerts)
     "urllib3>=2.6.3",    # CVE fixes: decompression bomb, streaming API
     "fonttools>=4.60.2", # CVE fix: arbitrary file write, XML injection
+    "protobuf>=5.29.6",  # CVE fix: JSON recursion depth bypass
+    "pillow>=12.1.1",    # CVE fix: out-of-bounds write loading PSD images
 ]
 
 [project.urls]
@@ -136,4 +138,5 @@ dev = [
     # Security floor constraints for transitive dependencies (dependabot alerts)
     "filelock>=3.20.3",   # CVE fix: TOCTOU symlink vulnerability
     "virtualenv>=20.36.1", # CVE fix: TOCTOU directory creation
+    "tornado>=6.5.5",     # CVE fixes: multipart DoS, cookie validation
 ]

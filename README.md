@@ -1,3 +1,5 @@
+# NOTE: the docs below align with `main` and not necessarily PyPI
+
 <div align="center">
 
 # Caliscope

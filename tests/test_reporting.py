@@ -10,9 +10,10 @@ from pathlib import Path
 from caliscope import __root__
 from caliscope.reporting import (
     _quality_badge,
+    print_camera_pair_coverage,
+    print_coverage_grid,
     print_extrinsic_report,
     print_intrinsic_report,
-    print_coverage_grid,
 )
 
 logger = logging.getLogger(__name__)
@@ -158,6 +159,30 @@ def test_print_coverage_grid_no_crash():
 
 
 # ---------------------------------------------------------------------------
+# print_camera_pair_coverage — smoke test
+# ---------------------------------------------------------------------------
+
+
+def test_print_camera_pair_coverage_no_crash():
+    """print_camera_pair_coverage must not raise when given real multicam ImagePoints."""
+    from rich.console import Console
+
+    from caliscope.core.point_data import ImagePoints
+
+    image_points_path = POST_OPTIMIZATION_SESSION / "calibration" / "extrinsic" / "CHARUCO" / "xy_CHARUCO.csv"
+    image_points = ImagePoints.from_csv(image_points_path)
+
+    sink = StringIO()
+    console = Console(file=sink, highlight=False)
+
+    # Should not raise
+    print_camera_pair_coverage(image_points, console=console)
+
+    printed = sink.getvalue()
+    assert "Camera Pair Coverage" in printed
+
+
+# ---------------------------------------------------------------------------
 # Debug harness
 # ---------------------------------------------------------------------------
 
@@ -184,5 +209,8 @@ if __name__ == "__main__":
 
     logger.info("test_print_coverage_grid_no_crash")
     test_print_coverage_grid_no_crash()
+
+    logger.info("test_print_camera_pair_coverage_no_crash")
+    test_print_camera_pair_coverage_no_crash()
 
     logger.info("All reporting tests passed.")

@@ -114,6 +114,9 @@ class _SpyProgressCallback:
     def on_video_complete(self, cam_id: int) -> None:
         self.video_completes.append(cam_id)
 
+    def on_info(self, message: str) -> None:
+        pass
+
 
 def test_extract_image_points_progress_callback():
     """The progress callback must be called once per video and once per frame.

@@ -46,6 +46,10 @@ class ProgressCallback(Protocol):
         """Called when extraction finishes for a camera's video."""
         ...
 
+    def on_info(self, message: str) -> None:
+        """Called to emit a non-progress informational message."""
+        ...
+
 
 # --- Progress ---
 
@@ -72,6 +76,7 @@ class RichProgressBar:
             console=self._console,
         )
         self._tasks: dict[int, TaskID] = {}
+        self._total_landmarks: dict[int, int] = {}
         self._started = False
         self._lock = threading.Lock()
 
@@ -90,16 +95,32 @@ class RichProgressBar:
             self._progress.start()
             self._started = True
 
+    def on_info(self, message: str) -> None:
+        with self._lock:
+            self._ensure_started()
+            self._progress.console.print(f"  [dim]{message}[/dim]")
+
     def on_video_start(self, cam_id: int, total_frames: int) -> None:
         with self._lock:
             self._ensure_started()
+            self._total_landmarks[cam_id] = 0
             task_id = self._progress.add_task(f"  cam {cam_id}", total=total_frames)
             self._tasks[cam_id] = task_id
 
     def on_frame(self, cam_id: int, frame_index: int, n_points: int) -> None:
         with self._lock:
             if cam_id in self._tasks:
-                self._progress.update(self._tasks[cam_id], completed=frame_index + 1)
+                self._total_landmarks[cam_id] += n_points
+
+                total_pts = self._total_landmarks[cam_id]
+                pts_str = f"{total_pts / 1000:.1f}k" if total_pts >= 1000 else str(total_pts)
+                suffix = f"  {pts_str} pts"
+
+                self._progress.update(
+                    self._tasks[cam_id],
+                    completed=frame_index + 1,
+                    description=f"  cam {cam_id}{suffix}",
+                )
 
     def on_video_complete(self, cam_id: int) -> None:
         with self._lock:
@@ -130,38 +151,6 @@ def _quality_badge(value: float, thresholds: list[tuple[float, str, str]]) -> st
     # Fallback to last entry
     _, label, color = thresholds[-1]
     return f"[{color}]{label}[/{color}]"
-
-
-def _sparkline(values: list[float], width: int = 60) -> str:
-    """Render a sparkline from a sequence of values.
-
-    Uses 8 Unicode block characters for vertical resolution.
-    Values are scaled relative to the maximum in the sequence.
-    """
-    if not values:
-        return ""
-
-    BLOCKS = " ▁▂▃▄▅▆▇█"
-
-    max_val = max(values)
-    if max_val == 0:
-        return "▁" * min(len(values), width)
-
-    # Truncate if needed
-    truncated = len(values) > width
-    display_values = values[:width]
-
-    chars = []
-    for v in display_values:
-        # Scale to 1-8 range (0 maps to lowest visible block)
-        idx = int(round(v / max_val * 8))
-        idx = max(1, min(8, idx))  # clamp to 1..8 (always show at least ▁)
-        chars.append(BLOCKS[idx])
-
-    result = "".join(chars)
-    if truncated:
-        result += "…"
-    return result
 
 
 # --- Intrinsic Report ---
@@ -250,22 +239,11 @@ def print_intrinsic_report(output: IntrinsicCalibrationOutput, *, console: Conso
 
 # --- Extrinsic Report ---
 
-# Scale thresholds in mm (VolumetricScaleReport properties are already in mm)
-_SCALE_THRESHOLDS: list[tuple[float, str, str]] = [
-    (3.0, "EXCELLENT", "green"),  # < 3mm
-    (5.0, "GOOD", "yellow"),  # 3-5mm
-    (float("inf"), "POOR", "red"),  # > 5mm
-]
-
-_UNMATCHED_THRESHOLDS: list[tuple[float, str, str]] = [
-    (0.05, "", "green"),  # < 5%
-    (0.15, "", "yellow"),  # 5-15%
-    (float("inf"), "", "red"),  # > 15%
-]
-
 
 def print_extrinsic_report(capture_volume: CaptureVolume, *, console: Console | None = None) -> None:
     """Print extrinsic calibration quality report to terminal."""
+    import numpy as np
+
     c = console or Console()
     report = capture_volume.reprojection_report
     opt = capture_volume.optimization_status
@@ -289,20 +267,18 @@ def print_extrinsic_report(capture_volume: CaptureVolume, *, console: Console | 
     # Reprojection error
     c.print()
     c.print("  [bold]Reprojection Error[/bold]")
-    rmse_badge = _quality_badge(report.overall_rmse, _RMSE_THRESHOLDS)
-    c.print(f"    Overall RMSE:    {report.overall_rmse:.3f} px     {rmse_badge}")
+    c.print(f"    Overall RMSE:    {report.overall_rmse:.3f} px")
+
+    # Percentiles from raw euclidean errors
+    errors = report.raw_errors["euclidean_error"].to_numpy()
+    p50, p95, p975, p99 = np.percentile(errors, [50, 95, 97.5, 99])
+    c.print(f"    Percentiles:     p50: {p50:.3f}  p95: {p95:.3f}  p97.5: {p975:.3f}  p99: {p99:.3f}")
 
     unmatched_pct = report.unmatched_rate * 100
-    unmatched_color = "red"
-    for threshold, _, color in _UNMATCHED_THRESHOLDS:
-        if report.unmatched_rate < threshold:
-            unmatched_color = color
-            break
-
     c.print(
         f"    Observations:    {report.n_observations_matched:,} matched / "
         f"{report.n_observations_total:,} total "
-        f"([{unmatched_color}]{unmatched_pct:.1f}% unmatched[/{unmatched_color}])"
+        f"({unmatched_pct:.1f}% unmatched)"
     )
     c.print(f"    3D Points:       {report.n_points:,}")
 
@@ -316,13 +292,7 @@ def print_extrinsic_report(capture_volume: CaptureVolume, *, console: Console | 
 
     for cam_id, cam_rmse in sorted(report.by_camera.items()):
         cam_obs = int((report.raw_errors["cam_id"] == cam_id).sum())
-        rmse_str = f"[red]{cam_rmse:.3f}[/red]"
-        for threshold, _, color in _RMSE_THRESHOLDS:
-            if cam_rmse < threshold:
-                rmse_str = f"[{color}]{cam_rmse:.3f}[/{color}]"
-                break
-
-        table.add_row(f"cam {cam_id}", f"{cam_obs:,}", rmse_str)
+        table.add_row(f"cam {cam_id}", f"{cam_obs:,}", f"{cam_rmse:.3f}")
 
     c.print(table)
 
@@ -338,8 +308,7 @@ def print_extrinsic_report(capture_volume: CaptureVolume, *, console: Console | 
         worst_mm = scale_report.max_rmse_mm
         bias_mm = scale_report.mean_signed_error_mm
 
-        scale_badge = _quality_badge(pooled_rmse_mm, _SCALE_THRESHOLDS)
-        c.print(f"    Pooled RMSE:     {pooled_rmse_mm:.2f} mm      {scale_badge}")
+        c.print(f"    Pooled RMSE:     {pooled_rmse_mm:.2f} mm")
         c.print(f"    Median:          {median_mm:.2f} mm")
         c.print(f"    Worst frame:     {worst_mm:.2f} mm")
 
@@ -347,16 +316,89 @@ def print_extrinsic_report(capture_volume: CaptureVolume, *, console: Console | 
         c.print(f"    Bias:            {bias_sign}{bias_mm:.2f} mm")
         c.print(f"    Frames sampled:  {scale_report.n_frames_sampled}")
 
-        # Sparkline of per-frame RMSE (distance_rmse_mm is already in mm)
-        frame_rmses = [fe.distance_rmse_mm for fe in scale_report.frame_errors]
-        max_rmse = max(frame_rmses)
-        spark = _sparkline(frame_rmses)
-        c.print(f"    Sparkline:       {spark}  (max: {max_rmse:.2f} mm)")
+    c.print()
+
+
+# --- Camera Pair Coverage Grid ---
+
+
+def print_camera_pair_coverage(
+    image_points: ImagePoints,
+    *,
+    console: Console | None = None,
+) -> None:
+    """Print lower-triangle camera-pair grid showing shared time-aligned observations.
+
+    Delegates computation to analyze_multi_camera_coverage() from the domain
+    layer. This function is pure presentation -- no coverage math here.
+    """
+    from caliscope.core.coverage_analysis import (
+        analyze_multi_camera_coverage,
+        detect_structural_warnings,
+        MARGINAL_OBSERVATION_THRESHOLD,
+        WarningSeverity,
+    )
+
+    c = console or Console()
+
+    report = analyze_multi_camera_coverage(image_points)
+    matrix = report.pairwise_observations
+
+    # Sorted cam_ids from the data (same order analyze_multi_camera_coverage uses internally)
+    df = image_points.df
+    cam_ids = sorted(df["cam_id"].unique().tolist()) if len(df) > 0 else []
+    n = len(cam_ids)
+
+    c.print()
+    c.print("  [bold]Camera Pair Coverage (shared time-aligned observations)[/bold]")
+    c.print()
+
+    if n == 0:
+        c.print("  [dim]No camera data.[/dim]")
+        c.print()
+        return
+
+    # Column header width
+    col_width = 7
+
+    # Header row: "        cam 0   cam 1   cam 2   ..."  (skip last cam_id)
+    header_indent = " " * (col_width + 2)
+    header_parts = [f"{'cam ' + str(cam_ids[j]):>{col_width}}" for j in range(n - 1)]
+    c.print(header_indent + "".join(header_parts))
+
+    # Lower triangle rows: row i shows columns 0 .. i-1
+    for i in range(1, n):
+        row_label = f"  cam {cam_ids[i]}"
+        row_label_padded = f"{row_label:<{col_width + 2}}"
+        cells: list[str] = []
+        for j in range(i):
+            count = int(matrix[i, j])
+            cell_str = f"{count:>{col_width}}"
+            if count < MARGINAL_OBSERVATION_THRESHOLD:
+                cells.append(f"[red]{cell_str}[/red]")
+            else:
+                cells.append(cell_str)
+        c.print(row_label_padded + "".join(cells))
+
+    c.print()
+
+    # Structural warnings
+    warnings = detect_structural_warnings(report, n_cameras=n)
+    if not warnings:
+        c.print("  All camera pairs have shared observations.")
+    else:
+        for warning in warnings:
+            if warning.severity == WarningSeverity.CRITICAL:
+                c.print(f"  [red]CRITICAL:[/red] {warning.message}")
+            elif warning.severity == WarningSeverity.WARNING:
+                c.print(f"  [yellow]WARNING:[/yellow] {warning.message}")
+            else:
+                c.print(f"  [dim]{warning.message}[/dim]")
 
     c.print()
 
 
-# --- Coverage Grid ---
+# --- Coverage Grid (intrinsic, per-camera) ---
 
 
 def print_coverage_grid(

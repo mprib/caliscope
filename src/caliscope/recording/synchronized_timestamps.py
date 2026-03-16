@@ -241,9 +241,8 @@ class SynchronizedTimestamps:
             fps_summary = ", ".join(f"cam_{c}: {f:.2f} fps" for c, (_, f) in sorted(props_by_cam.items()))
             logger.warning(
                 f"Frame rates differ across cameras ({fps_summary}). "
-                f"Inferring timestamps anyway -- cameras with higher FPS will have "
-                f"more unmatched frames. For best results, provide a timestamps.csv "
-                f"with per-frame timing."
+                f"Inferred timestamps may not reflect actual recording timing. "
+                f"For best results, provide a timestamps.csv with per-frame timing."
             )
 
         # Warn on frame count differences (inference assumes aligned start)
@@ -255,8 +254,8 @@ class SynchronizedTimestamps:
             summary = ", ".join(f"cam_{c}: {fc} frames" for c, fc in sorted(counts.items()))
             logger.warning(
                 f"Frame counts differ across cameras ({summary}). "
-                f"Inferring timestamps anyway -- shorter cameras will have "
-                f"unmatched frames at the end. For best results, provide a "
+                f"Cameras with fewer frames will have periodic unmatched sync indices "
+                f"spread throughout the recording. For best results, provide a "
                 f"timestamps.csv with per-frame timing."
             )
 

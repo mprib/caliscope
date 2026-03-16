@@ -25,7 +25,7 @@ from caliscope.api import (
     extract_image_points_multicam,
 )
 from caliscope.reporting import (
-    RichProgressBar,
+    print_camera_pair_coverage,
     print_extrinsic_report,
     print_intrinsic_report,
 )
@@ -71,13 +71,11 @@ console.print()
 console.rule("[bold]Step 3: Intrinsic Calibration[/bold]")
 for cam_id in CAM_IDS:
     console.print(f"\n[bold cyan]Extracting intrinsic points for cam {cam_id}...[/bold cyan]")
-    progress = RichProgressBar(console=console)
     points = extract_image_points(
         intrinsic_videos[cam_id],
         cam_id,
         tracker,
         frame_step=10,
-        progress=progress,
     )
     console.print(f"  Detected {len(points.df)} observations across {points.df['sync_index'].nunique()} frames")
 
@@ -87,16 +85,16 @@ for cam_id in CAM_IDS:
     print_intrinsic_report(output, console=console)
 
 # --- 4. Extrinsic calibration ---
-console.rule("[bold]Step 4: Extrinsic Calibration — Extract Points[/bold]")
+console.rule("[bold]Step 4: Extract Time-Aligned Points[/bold]")
 extrinsic_videos = {cam_id: EXTRINSIC_DIR / f"cam_{cam_id}.mp4" for cam_id in CAM_IDS}
 
-progress = RichProgressBar(console=console)
-ext_points = extract_image_points_multicam(extrinsic_videos, tracker, frame_step=10, progress=progress)
+ext_points = extract_image_points_multicam(extrinsic_videos, tracker, frame_step=10)
 console.print(
     f"\n  Total: {len(ext_points.df)} observations, "
     f"{ext_points.df['sync_index'].nunique()} frames, "
     f"{ext_points.df['cam_id'].nunique()} cameras"
 )
+print_camera_pair_coverage(ext_points, console=console)
 
 # --- 5. Bootstrap + optimize ---
 console.rule("[bold]Step 5: Bootstrap & Optimize[/bold]")

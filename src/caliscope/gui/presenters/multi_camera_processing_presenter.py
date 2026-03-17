@@ -90,7 +90,7 @@ class MultiCameraProcessingPresenter(QObject):
 
     # Thumbnail throttle interval (seconds)
     THUMBNAIL_INTERVAL = 0.1  # ~10 FPS
-    COVERAGE_INTERVAL = 5.0  # seconds between coverage heatmap updates
+    COVERAGE_INTERVAL = 0.5  # seconds between coverage heatmap updates
 
     def __init__(
         self,

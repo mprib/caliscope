@@ -128,6 +128,7 @@ dev = [
     "mkdocs-git-revision-date-localized-plugin>=1.2.0",
     "ruff>=0.6.5",
     "basedpyright>=1.18.0",
+    "matplotlib>=3.7.0",
     "onnx>=1.14.0",
     "openpyxl",
     "pywinctl",

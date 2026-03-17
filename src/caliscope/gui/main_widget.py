@@ -402,13 +402,17 @@ class MainWindow(QMainWindow):
 
 
 def launch_main():
+    from caliscope.gui.gc_confinement import disable, enable
+
     # import qdarktheme
 
     app = QApplication(sys.argv)
+    gc_timer = enable()  # after QApplication, before any Qt3D widgets
     # qdarktheme.setup_theme("auto")
     window = MainWindow()
     window.show()
     app.exec()
+    disable(gc_timer)  # after event loop exits, restore automatic GC
 
 
 if __name__ == "__main__":

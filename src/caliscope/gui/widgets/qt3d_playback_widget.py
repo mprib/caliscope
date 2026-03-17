@@ -186,6 +186,14 @@ class Qt3DPlaybackWidget(QWidget):
         self._build_scene()
         self._view.setRootEntity(self._root)
 
+        # Default to OnDemand rendering — only re-render when the scene graph
+        # changes. Under Mesa llvmpipe (software rendering), Always policy burns
+        # CPU continuously even for a static scene. Switch to Always only during
+        # active playback animation.
+        settings = self._view.renderSettings()
+        if settings is not None:
+            settings.setRenderPolicy(Qt3DRender.QRenderSettings.RenderPolicy.OnDemand)
+
     # -------------------------------------------------------------------------
     # Scene lifecycle
     # -------------------------------------------------------------------------
@@ -225,10 +233,36 @@ class Qt3DPlaybackWidget(QWidget):
     # Camera setup
     # -------------------------------------------------------------------------
 
+    def _aspect_ratio(self) -> float:
+        """Compute aspect ratio from Qt3DWindow dimensions.
+
+        Falls back to 16:9 if the window has no valid size yet (e.g., during
+        initial construction before the first resize event).
+        """
+        w = self._view.width()
+        h = self._view.height()
+        if w > 0 and h > 0:
+            return float(w) / float(h)
+        return 16.0 / 9.0
+
+    def _update_projection_aspect(self) -> None:
+        """Update the projection matrix aspect ratio from current window size.
+
+        Reads the current FOV, near, and far values from the lens so that
+        adaptive clipping planes set by _set_adaptive_camera are preserved.
+        """
+        lens = self._view.camera().lens()
+        lens.setPerspectiveProjection(
+            lens.fieldOfView(),
+            self._aspect_ratio(),
+            lens.nearPlane(),
+            lens.farPlane(),
+        )
+
     def _setup_camera(self) -> None:
         """Configure perspective camera and terrain controller."""
         camera = self._view.camera()
-        camera.lens().setPerspectiveProjection(45.0, 16.0 / 9.0, 0.01, 100.0)
+        camera.lens().setPerspectiveProjection(45.0, self._aspect_ratio(), 0.01, 100.0)
         self._cam_controller = TerrainCameraController(camera)
         self._set_adaptive_camera()
 
@@ -266,7 +300,7 @@ class Qt3DPlaybackWidget(QWidget):
         # close geometry visible.
         far = max(view_distance * 5.0, 100.0)
         near = far * 0.0001
-        self._view.camera().lens().setPerspectiveProjection(45.0, 16.0 / 9.0, near, far)
+        self._view.camera().lens().setPerspectiveProjection(45.0, self._aspect_ratio(), near, far)
         logger.info(f"Clipping planes: near={near:.6f}, far={far:.1f}")
 
         # Adaptive camera frustum scale: make frustum depth ~5% of scene extent.
@@ -318,6 +352,9 @@ class Qt3DPlaybackWidget(QWidget):
                 # Consume double-clicks to prevent Qt3D from attempting
                 # object picking, which can crash without a pick handler.
                 return True
+            elif event_type == QEvent.Type.Resize:
+                self._update_projection_aspect()
+                return False  # Let Qt3DWindow process its own resize too
         return super().eventFilter(obj, event)
 
     # -------------------------------------------------------------------------
@@ -655,12 +692,20 @@ class Qt3DPlaybackWidget(QWidget):
 
     def _toggle_playback(self, checked: bool) -> None:
         self.is_playing = checked
+        settings = self._view.renderSettings()
         if checked:
             self.play_button.setIcon(self._pause_icon)
+            # Switch to continuous rendering during playback so per-frame
+            # geometry updates are visible immediately.
+            if settings is not None:
+                settings.setRenderPolicy(Qt3DRender.QRenderSettings.RenderPolicy.Always)
             self._start_playback()
         else:
             self.play_button.setIcon(self._play_icon)
             self.playback_timer.stop()
+            # Return to on-demand rendering to save CPU when idle.
+            if settings is not None:
+                settings.setRenderPolicy(Qt3DRender.QRenderSettings.RenderPolicy.OnDemand)
 
     def _start_playback(self) -> None:
         if self.view_model.frame_rate <= 0:
@@ -802,14 +847,17 @@ class Qt3DPlaybackWidget(QWidget):
             logger.info("Qt3D rendering suspended (OnDemand policy)")
 
     def resume_rendering(self) -> None:
-        """Resume Qt3D rendering by switching back to Always render policy.
+        """Resume Qt3D rendering by switching back to OnDemand render policy.
 
-        Restores continuous rendering after background processing completes.
+        Restores on-demand rendering after background processing completes
+        or when the tab becomes active. OnDemand re-renders only when the
+        scene graph changes, avoiding continuous CPU usage under software
+        rendering. Active playback switches to Always independently.
         """
         settings = self._view.renderSettings()
         if settings is not None:
-            settings.setRenderPolicy(Qt3DRender.QRenderSettings.RenderPolicy.Always)
-            logger.info("Qt3D rendering resumed (Always policy)")
+            settings.setRenderPolicy(Qt3DRender.QRenderSettings.RenderPolicy.OnDemand)
+            logger.info("Qt3D rendering resumed (OnDemand policy)")
 
     def capture_screenshot(self) -> QImage | None:
         """Capture the Qt3D scene via QRenderCapture.

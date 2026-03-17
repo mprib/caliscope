@@ -75,6 +75,8 @@ def test_sync_stream_manager(tmp_path: Path):
     logger.info(f"Mean x difference is {mean_x_diff} pixels")
     logger.info(f"Mean y difference is {mean_y_diff} pixels")
 
+    sync_stream_manager.cleanup()
+
 
 if __name__ == "__main__":
     import caliscope.logger

@@ -112,6 +112,10 @@ def test_triangulator(tmp_path: Path):
     assert mean_error_mm < 1.5  # Assert mean error is less than 1.5mm
     assert max_error_mm < 15  # Assert no single point deviates by more than 1.5cm
 
+    # Cleanup: close streamers to release FrameSource resources
+    for streamer in streamers.values():
+        streamer.close()
+
 
 if __name__ == "__main__":
     import caliscope.logger

@@ -27,6 +27,7 @@ from caliscope.core.bootstrap_pose.build_paired_pose_network import (
 from caliscope.core.coverage_analysis import compute_coverage_matrix
 from caliscope.core.point_data import ImagePoints
 from caliscope.core.capture_volume import CaptureVolume
+from caliscope.repositories.project_settings_repository import ProjectSettingsRepository
 from caliscope.task_manager.cancellation import CancellationToken
 from caliscope.task_manager.task_handle import TaskHandle
 from caliscope.task_manager.task_manager import TaskManager
@@ -52,15 +53,15 @@ class FilterPreviewData:
     """Data for filter UI showing translation between modes.
 
     Provides bidirectional preview:
-    - threshold_at_percentile: percentile-to-remove → pixel threshold
+    - threshold_at_percentile: percentile-to-remove -> pixel threshold
     - errors: raw error array for computing percentile at any threshold
     """
 
     total_observations: int
     mean_error: float
-    # Maps percentile-to-remove → pixel threshold
+    # Maps percentile-to-remove -> pixel threshold
     threshold_at_percentile: dict[int, float]
-    # Raw errors for computing reverse lookup (threshold → percentile)
+    # Raw errors for computing reverse lookup (threshold -> percentile)
     errors: tuple[float, ...]
 
     @classmethod
@@ -147,6 +148,7 @@ class ExtrinsicCalibrationPresenter(QObject):
         camera_array: CameraArray,
         image_points_path: Path,
         existing_capture_volume: CaptureVolume | None = None,
+        project_settings: ProjectSettingsRepository | None = None,
         parent: QObject | None = None,
     ) -> None:
         """Initialize the presenter.
@@ -157,6 +159,7 @@ class ExtrinsicCalibrationPresenter(QObject):
             image_points_path: Path to image_points.csv from Phase 3
             existing_capture_volume: Pre-loaded CaptureVolume for restoring calibrated state.
                 If provided, presenter starts in CALIBRATED state with visualization ready.
+            project_settings: Repository for persisting 3D view appearance settings.
             parent: Optional Qt parent
         """
         super().__init__(parent)
@@ -164,6 +167,7 @@ class ExtrinsicCalibrationPresenter(QObject):
         self._task_manager = task_manager
         self._camera_array = camera_array
         self._image_points_path = image_points_path
+        self._project_settings = project_settings
 
         # Processing state (managed internally)
         self._capture_volume: CaptureVolume | None = existing_capture_volume
@@ -459,6 +463,43 @@ class ExtrinsicCalibrationPresenter(QObject):
         self._current_sync_index = index
         # Note: No view_model_updated emission here - frame changes are
         # handled directly by the view calling widget.set_sync_index()
+
+    # -------------------------------------------------------------------------
+    # Scene Appearance Settings
+    # -------------------------------------------------------------------------
+
+    def save_camera_size_multiplier(self, multiplier: float) -> None:
+        """Persist the camera frustum size multiplier to project settings."""
+        if self._project_settings is not None:
+            self._project_settings.set_scene_camera_size_multiplier(multiplier)
+
+    def save_grid_size_multiplier(self, multiplier: float) -> None:
+        """Persist the floor grid size multiplier to project settings."""
+        if self._project_settings is not None:
+            self._project_settings.set_scene_grid_size_multiplier(multiplier)
+
+    def save_sphere_size_multiplier(self, multiplier: float) -> None:
+        """Persist the point sphere size multiplier to project settings."""
+        if self._project_settings is not None:
+            self._project_settings.set_scene_sphere_size_multiplier(multiplier)
+
+    def get_camera_size_multiplier(self) -> float:
+        """Load camera frustum size multiplier from project settings (default: 1.0)."""
+        if self._project_settings is not None:
+            return self._project_settings.get_scene_camera_size_multiplier()
+        return 1.0
+
+    def get_grid_size_multiplier(self) -> float:
+        """Load floor grid size multiplier from project settings (default: 1.0)."""
+        if self._project_settings is not None:
+            return self._project_settings.get_scene_grid_size_multiplier()
+        return 1.0
+
+    def get_sphere_size_multiplier(self) -> float:
+        """Load point sphere size multiplier from project settings (default: 1.0)."""
+        if self._project_settings is not None:
+            return self._project_settings.get_scene_sphere_size_multiplier()
+        return 1.0
 
     # -------------------------------------------------------------------------
     # Cancellation

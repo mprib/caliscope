@@ -14,7 +14,7 @@ from PySide6.QtWidgets import (
 )
 
 from caliscope.gui.view_models.playback_view_model import PlaybackViewModel
-from caliscope.gui.widgets.playback_viz_widget import PlaybackVizWidget
+from caliscope.gui.widgets.qt3d_playback_widget import Qt3DPlaybackWidget
 
 if TYPE_CHECKING:
     from caliscope.synthetic.explorer.presenter import PipelineResult
@@ -44,7 +44,7 @@ class StoryboardView(QWidget):
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
 
-        self._panels: dict[str, PlaybackVizWidget] = {}
+        self._panels: dict[str, Qt3DPlaybackWidget] = {}
         self._view_models: dict[str, PlaybackViewModel | None] = {
             "ground_truth": None,
             "bootstrapped": None,
@@ -177,7 +177,7 @@ class StoryboardView(QWidget):
             placeholder.hide()
 
         # Create new panel
-        panel = PlaybackVizWidget(
+        panel = Qt3DPlaybackWidget(
             view_model,
             camera_scale=SYNTHETIC_CAMERA_SCALE,
         )
@@ -227,53 +227,41 @@ class StoryboardView(QWidget):
 
         for i in range(grid_layout.count()):
             item = grid_layout.itemAt(i)
-            if item and item.widget():
+            if item is not None:
                 widget = item.widget()
-                if widget.property("key") == key:
+                if widget is not None and widget.property("key") == key:
                     return widget
         return None
 
-    def _connect_camera_sync(self, panel: PlaybackVizWidget) -> None:
-        """Connect VTK observer for camera synchronization."""
-        if hasattr(panel, "plotter") and panel.plotter is not None:
-            if hasattr(panel.plotter, "iren") and panel.plotter.iren is not None:
-                vtk_iren = panel.plotter.iren.interactor
-                if vtk_iren is not None:
-                    vtk_iren.AddObserver(
-                        "EndInteractionEvent",
-                        lambda obj, event, p=panel: self._sync_camera_from(p),
-                    )
+    def _connect_camera_sync(self, panel: Qt3DPlaybackWidget) -> None:
+        """Connect camera synchronization between panels.
 
-    def _sync_camera_from(self, source: PlaybackVizWidget) -> None:
-        """Copy camera state from source to all other panels."""
-        if self._sync_in_progress:
-            return
+        TODO: Implement Qt3D camera sync. Needs event filter on each panel's
+        Qt3DWindow to detect orbit/pan/zoom end, then copy TerrainCameraController
+        state to other panels.
+        """
+        pass
 
-        self._sync_in_progress = True
-        try:
-            cam = source.plotter.camera
-            for panel in self._panels.values():
-                if panel is not source:
-                    panel.plotter.camera.position = cam.position
-                    panel.plotter.camera.focal_point = cam.focal_point
-                    panel.plotter.camera.up = cam.up
-                    panel.plotter.render()
-        finally:
-            self._sync_in_progress = False
+    def _sync_camera_from(self, source: Qt3DPlaybackWidget) -> None:
+        """Copy camera state from source to all other panels.
 
-    def suspend_vtk(self) -> None:
-        """Pause VTK interactors to reduce CPU when widget is not visible."""
+        TODO: Implement Qt3D camera sync via TerrainCameraController state.
+        """
+        pass
+
+    def suspend_rendering(self) -> None:
+        """Pause Qt3D rendering to reduce CPU when widget is not visible."""
         for panel in self._panels.values():
-            panel.suspend_vtk()
+            panel.suspend_rendering()
 
-    def resume_vtk(self) -> None:
-        """Resume VTK interactors when widget becomes visible."""
+    def resume_rendering(self) -> None:
+        """Resume Qt3D rendering when widget becomes visible."""
         for panel in self._panels.values():
-            panel.resume_vtk()
+            panel.resume_rendering()
 
     def cleanup(self) -> None:
         """Explicit cleanup - MUST be called before destruction."""
-        self.suspend_vtk()
+        self.suspend_rendering()
 
         for key in list(self._panels.keys()):
             panel = self._panels.pop(key)

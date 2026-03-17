@@ -1,6 +1,10 @@
 """Top-level package for Caliscope."""
 
+import os
 from pathlib import Path
+
+os.environ.setdefault("QT_API", "pyside6")
+
 
 from platformdirs import user_data_dir
 

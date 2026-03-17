@@ -8,6 +8,8 @@ This is a state machine presenter following the IntrinsicCalibrationPresenter
 pattern. States are computed from reality (task state + file existence).
 """
 
+from __future__ import annotations
+
 import logging
 from enum import Enum, auto
 from pathlib import Path
@@ -17,6 +19,7 @@ from PySide6.QtCore import QObject, Qt, Signal
 from caliscope.cameras.camera_array import CameraArray
 from caliscope.gui.geometry.wireframe import WireframeSegment, wireframe_segments_from_view
 from caliscope.reconstruction.reconstructor import Reconstructor
+from caliscope.repositories.project_settings_repository import ProjectSettingsRepository
 from caliscope.task_manager.task_handle import TaskHandle
 from caliscope.task_manager.task_manager import TaskManager
 from caliscope.task_manager.task_state import TaskState
@@ -45,10 +48,10 @@ class ReconstructionPresenter(QObject):
     reconstruction tasks to TaskManager, and progress reporting.
 
     State is computed from reality:
-    - Task running → RECONSTRUCTING
-    - Task failed or error set → ERROR
-    - xyz file exists → COMPLETE
-    - Otherwise → IDLE
+    - Task running -> RECONSTRUCTING
+    - Task failed or error set -> ERROR
+    - xyz file exists -> COMPLETE
+    - Otherwise -> IDLE
 
     Signals:
         state_changed: Emitted when computed state changes
@@ -62,12 +65,14 @@ class ReconstructionPresenter(QObject):
     reconstruction_failed = Signal(str)  # error message
     progress_updated = Signal(int, str)  # percent (0-100), message
     model_download_needed = Signal(object)  # ModelCard when weights missing
+    camera_array_changed = Signal()  # camera positions changed, rebuild viz
 
     def __init__(
         self,
         workspace_dir: Path,
         camera_array: CameraArray,
         task_manager: TaskManager,
+        project_settings: ProjectSettingsRepository | None = None,
         parent: QObject | None = None,
     ) -> None:
         """Initialize the presenter.
@@ -76,6 +81,7 @@ class ReconstructionPresenter(QObject):
             workspace_dir: Root workspace directory
             camera_array: Calibrated camera array for triangulation
             task_manager: TaskManager for background processing
+            project_settings: Repository for persisting 3D view appearance settings.
             parent: Optional Qt parent
         """
         super().__init__(parent)
@@ -83,6 +89,7 @@ class ReconstructionPresenter(QObject):
         self._workspace_dir = workspace_dir
         self._camera_array = camera_array
         self._task_manager = task_manager
+        self._project_settings = project_settings
 
         # Selection state
         self._selected_recording: str | None = None
@@ -97,11 +104,11 @@ class ReconstructionPresenter(QObject):
         """Compute current state from internal reality - never stale.
 
         Priority order (task state takes precedence to avoid race conditions):
-        1. Task RUNNING → RECONSTRUCTING
-        2. Task FAILED or _last_error set → ERROR
-        3. Task CANCELLED → IDLE (cancellation returns to idle)
-        4. xyz output exists → COMPLETE
-        5. Otherwise → IDLE
+        1. Task RUNNING -> RECONSTRUCTING
+        2. Task FAILED or _last_error set -> ERROR
+        3. Task CANCELLED -> IDLE (cancellation returns to idle)
+        4. xyz output exists -> COMPLETE
+        5. Otherwise -> IDLE
         """
         if self._processing_task is not None:
             task_state = self._processing_task.state
@@ -361,6 +368,43 @@ class ReconstructionPresenter(QObject):
             logger.info("Cancelling reconstruction")
             self._processing_task.cancel()
 
+    # -------------------------------------------------------------------------
+    # Scene Appearance Settings
+    # -------------------------------------------------------------------------
+
+    def save_camera_size_multiplier(self, multiplier: float) -> None:
+        """Persist the camera frustum size multiplier to project settings."""
+        if self._project_settings is not None:
+            self._project_settings.set_scene_camera_size_multiplier(multiplier)
+
+    def save_grid_size_multiplier(self, multiplier: float) -> None:
+        """Persist the floor grid size multiplier to project settings."""
+        if self._project_settings is not None:
+            self._project_settings.set_scene_grid_size_multiplier(multiplier)
+
+    def save_sphere_size_multiplier(self, multiplier: float) -> None:
+        """Persist the point sphere size multiplier to project settings."""
+        if self._project_settings is not None:
+            self._project_settings.set_scene_sphere_size_multiplier(multiplier)
+
+    def get_camera_size_multiplier(self) -> float:
+        """Load camera frustum size multiplier from project settings (default: 1.0)."""
+        if self._project_settings is not None:
+            return self._project_settings.get_scene_camera_size_multiplier()
+        return 1.0
+
+    def get_grid_size_multiplier(self) -> float:
+        """Load floor grid size multiplier from project settings (default: 1.0)."""
+        if self._project_settings is not None:
+            return self._project_settings.get_scene_grid_size_multiplier()
+        return 1.0
+
+    def get_sphere_size_multiplier(self) -> float:
+        """Load point sphere size multiplier from project settings (default: 1.0)."""
+        if self._project_settings is not None:
+            return self._project_settings.get_scene_sphere_size_multiplier()
+        return 1.0
+
     def cleanup(self) -> None:
         """Clean up resources. Call before discarding presenter."""
         self.cancel_reconstruction()
@@ -375,7 +419,8 @@ class ReconstructionPresenter(QObject):
         self._camera_array = camera_array
         # Only refresh if showing current calibration, not historical per-recording data
         if not self.is_showing_historical_calibration:
-            self._emit_state_changed()  # Triggers view rebuild with new camera positions
+            self._emit_state_changed()
+            self.camera_array_changed.emit()
 
     def _on_reconstruction_complete(self, result: object) -> None:
         """Handle successful reconstruction."""

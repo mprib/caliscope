@@ -82,3 +82,33 @@ class ProjectSettingsRepository:
     def get_creation_date(self) -> Any:
         """Get project creation date if available."""
         return self._cache.get("creation_date")
+
+    def get_scene_camera_size_multiplier(self) -> float:
+        """Get camera frustum size multiplier for 3D visualization (default: 1.0)."""
+        return float(self._cache.get("scene_camera_size_multiplier", 1.0))
+
+    def set_scene_camera_size_multiplier(self, multiplier: float) -> None:
+        """Update camera frustum size multiplier and persist immediately."""
+        settings = self._cache.copy()
+        settings["scene_camera_size_multiplier"] = multiplier
+        self.save(settings)
+
+    def get_scene_grid_size_multiplier(self) -> float:
+        """Get floor grid size multiplier for 3D visualization (default: 1.0)."""
+        return float(self._cache.get("scene_grid_size_multiplier", 1.0))
+
+    def set_scene_grid_size_multiplier(self, multiplier: float) -> None:
+        """Update floor grid size multiplier and persist immediately."""
+        settings = self._cache.copy()
+        settings["scene_grid_size_multiplier"] = multiplier
+        self.save(settings)
+
+    def get_scene_sphere_size_multiplier(self) -> float:
+        """Get point sphere size multiplier for 3D visualization (default: 1.0)."""
+        return float(self._cache.get("scene_sphere_size_multiplier", 1.0))
+
+    def set_scene_sphere_size_multiplier(self, multiplier: float) -> None:
+        """Update point sphere size multiplier and persist immediately."""
+        settings = self._cache.copy()
+        settings["scene_sphere_size_multiplier"] = multiplier
+        self.save(settings)

@@ -1,10 +1,16 @@
 from __future__ import annotations
 
+import faulthandler
 import os
 import sys
 from pathlib import Path
 
-from caliscope import MODELS_DIR
+# Write faulthandler trace to a file that survives the segfault
+# (pipe buffers don't flush on SIGSEGV)
+_faulthandler_file = open("/tmp/faulthandler.log", "w")  # noqa: SIM115
+faulthandler.enable(file=_faulthandler_file, all_threads=True)
+
+from caliscope import MODELS_DIR  # noqa: E402
 
 
 def _seed_default_model_cards(models_dir: "Path") -> None:

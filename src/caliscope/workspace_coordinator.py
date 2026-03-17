@@ -518,6 +518,7 @@ class WorkspaceCoordinator(QObject):
             workspace_dir=self.workspace,
             camera_array=self.camera_array,
             task_manager=self.task_manager,
+            project_settings=self.settings_repository,
         )
 
     def create_multi_camera_presenter(self) -> MultiCameraProcessingPresenter:
@@ -568,6 +569,7 @@ class WorkspaceCoordinator(QObject):
             camera_array=self.camera_array,
             image_points_path=image_points_path,
             existing_capture_volume=existing_capture_volume,
+            project_settings=self.settings_repository,
         )
 
         # Wire signal directly - no passthrough needed

@@ -1,7 +1,7 @@
 """Widget for reconstruction workflow (post-processing).
 
 Provides UI for selecting recordings, choosing trackers, and running
-reconstruction to generate 3D trajectories. Visualization via PyVista
+reconstruction to generate 3D trajectories. Visualization via Qt3D
 shows triangulated points when reconstruction completes.
 
 This is a thin MVP widget following the state-driven UI pattern.
@@ -9,7 +9,7 @@ This is a thin MVP widget following the state-driven UI pattern.
 
 import logging
 
-from PySide6.QtCore import Qt, QUrl
+from PySide6.QtCore import Qt, QTimer, QUrl
 from PySide6.QtGui import QDesktopServices
 from PySide6.QtWidgets import (
     QComboBox,
@@ -29,7 +29,7 @@ from caliscope.gui.presenters.reconstruction_presenter import (
     ReconstructionState,
 )
 from caliscope.gui.view_models.playback_view_model import PlaybackViewModel
-from caliscope.gui.widgets.playback_viz_widget import PlaybackVizWidget
+from caliscope.gui.widgets.qt3d_playback_widget import Qt3DPlaybackWidget
 from caliscope import MODELS_DIR
 from caliscope.gui.theme import Colors
 from caliscope.trackers import tracker_registry
@@ -51,7 +51,8 @@ class ReconstructionWidget(QWidget):
     ):
         super().__init__(parent)
         self._presenter = presenter
-        self._pyvista_widget: PlaybackVizWidget | None = None
+        self._viz_widget: Qt3DPlaybackWidget | None = None
+        self._viz_pending = False  # Debounce flag for _update_visualization
 
         self._setup_ui()
         self._connect_signals()
@@ -59,6 +60,13 @@ class ReconstructionWidget(QWidget):
 
         # Initial UI state
         self._update_ui_for_state(presenter.state)
+
+        # Initial visualization — separate from UI state because scene rebuilds
+        # should only happen when data changes, not on every state transition.
+        # _populate_initial_data auto-selects the first recording which triggers
+        # _on_recording_changed → _update_visualization(), but if no recordings
+        # exist we still want to show the camera frustums.
+        self._update_visualization()
 
     def _setup_ui(self) -> None:
         """Create UI elements with left panel controls and right panel visualization."""
@@ -156,9 +164,9 @@ class ReconstructionWidget(QWidget):
         right_layout = QVBoxLayout(right_panel)
         right_layout.setContentsMargins(0, 0, 0, 0)
 
-        # Container for PyVista widget (progressive enhancement: always show cameras)
-        self._pyvista_container = QVBoxLayout()
-        right_layout.addLayout(self._pyvista_container)
+        # Container for 3D visualization widget (progressive enhancement: always show cameras)
+        self._viz_container = QVBoxLayout()
+        right_layout.addLayout(self._viz_container)
 
         splitter.addWidget(right_panel)
 
@@ -168,18 +176,19 @@ class ReconstructionWidget(QWidget):
 
     def _connect_signals(self) -> None:
         """Connect presenter signals and UI events."""
-        # Presenter → View
+        # Presenter -> View
         self._presenter.state_changed.connect(self._update_ui_for_state)
         self._presenter.progress_updated.connect(self._update_progress)
         self._presenter.reconstruction_complete.connect(self._on_reconstruction_complete)
         self._presenter.reconstruction_failed.connect(self._on_reconstruction_failed)
 
-        # View → Presenter (via adapters)
+        # View -> Presenter (via adapters)
         self._recording_list.currentTextChanged.connect(self._on_recording_changed)
         self._tracker_combo.currentIndexChanged.connect(self._on_tracker_changed)
         self._process_btn.clicked.connect(self._on_process_clicked)
         self._open_output_btn.clicked.connect(self._on_open_output_clicked)
         self._presenter.model_download_needed.connect(self._show_model_download_dialog)
+        self._presenter.camera_array_changed.connect(self._update_visualization)
         self._models_folder_link.linkActivated.connect(self._on_open_models_folder)
 
     def _populate_initial_data(self) -> None:
@@ -222,8 +231,16 @@ class ReconstructionWidget(QWidget):
         state = self._presenter.state
         if state == ReconstructionState.RECONSTRUCTING:
             self._presenter.cancel_reconstruction()
+            self.resume_rendering()
         else:
-            # IDLE, COMPLETE, or ERROR - start/restart processing
+            # Suspend Qt3D rendering BEFORE starting the worker thread.
+            # The task starts immediately on submit(), but the state_changed
+            # signal uses QueuedConnection and won't arrive until the event
+            # loop processes it. Without eager suspension, the render thread
+            # and video decode threads overlap briefly, causing segfaults
+            # under Mesa llvmpipe (software OpenGL).
+            if self._viz_widget is not None:
+                self._viz_widget.suspend_rendering()
             self._presenter.start_reconstruction()
 
     def _on_open_output_clicked(self) -> None:
@@ -350,29 +367,37 @@ class ReconstructionWidget(QWidget):
         self._recording_list.setEnabled(inputs_enabled)
         self._tracker_combo.setEnabled(inputs_enabled)
 
-        # Update visualization
-        self._update_visualization()
-
     def _update_progress(self, percent: int, message: str) -> None:
         """Update progress bar and label."""
         self._progress_bar.setValue(percent)
         self._progress_label.setText(message)
 
     def _on_reconstruction_complete(self, output_path) -> None:
-        """Handle successful reconstruction - update visualization."""
+        """Handle successful reconstruction - resume rendering and update visualization."""
         logger.info(f"Reconstruction complete: {output_path}")
+        self.resume_rendering()
         self._update_visualization()
 
     def _on_reconstruction_failed(self, error: str) -> None:
-        """Handle reconstruction failure."""
+        """Handle reconstruction failure - resume rendering."""
         logger.error(f"Reconstruction failed: {error}")
-        # State change will update UI via _update_ui_for_state
+        self.resume_rendering()
 
     def _update_visualization(self) -> None:
-        """Update PyVista widget based on current state.
+        """Schedule a visualization update on the next event loop cycle.
 
-        Progressive enhancement: always show cameras, add points when available.
+        Multiple callers (recording change, tracker change, state change) may
+        trigger this in quick succession during init. Debouncing via
+        QTimer.singleShot(0) coalesces them into a single scene rebuild,
+        avoiding redundant Qt3D scene graph construction.
         """
+        if not self._viz_pending:
+            self._viz_pending = True
+            QTimer.singleShot(0, self._do_update_visualization)
+
+    def _do_update_visualization(self) -> None:
+        """Actually rebuild the visualization. Called from debounce timer."""
+        self._viz_pending = False
         camera_array = self._presenter.camera_array
         output_path = self._presenter.xyz_output_path
 
@@ -391,17 +416,26 @@ class ReconstructionWidget(QWidget):
                 view_model = PlaybackViewModel.from_camera_array_only(camera_array)
 
             # Create or update widget
-            if self._pyvista_widget is None:
-                self._pyvista_widget = PlaybackVizWidget(view_model)
-                self._pyvista_container.addWidget(self._pyvista_widget)
+            if self._viz_widget is None:
+                self._viz_widget = Qt3DPlaybackWidget(
+                    view_model,
+                    camera_size_multiplier=self._presenter.get_camera_size_multiplier(),
+                    grid_size_multiplier=self._presenter.get_grid_size_multiplier(),
+                    sphere_size_multiplier=self._presenter.get_sphere_size_multiplier(),
+                )
+                self._viz_widget.camera_size_multiplier_changed.connect(self._presenter.save_camera_size_multiplier)
+                self._viz_widget.grid_size_multiplier_changed.connect(self._presenter.save_grid_size_multiplier)
+                self._viz_widget.sphere_size_multiplier_changed.connect(self._presenter.save_sphere_size_multiplier)
+                self._viz_widget.show_appearance_controls(False)
+                self._viz_container.addWidget(self._viz_widget)
             else:
-                self._pyvista_widget.set_view_model(view_model)
+                self._viz_widget.set_view_model(view_model)
 
-            self._pyvista_widget.show()
+            self._viz_widget.show()
 
         except Exception as e:
             logger.error(f"Failed to create visualization: {e}")
-            # On error, just log — don't break the UI
+            # On error, just log -- don't break the UI
 
     def _show_model_download_dialog(self, card: object) -> None:
         """Show the model download dialog when weights are missing."""
@@ -441,19 +475,19 @@ class ReconstructionWidget(QWidget):
 
     def cleanup(self) -> None:
         """Explicit cleanup - call before destruction."""
-        if self._pyvista_widget is not None:
-            self._pyvista_widget.close()
-            self._pyvista_widget = None
+        if self._viz_widget is not None:
+            self._viz_widget.close()
+            self._viz_widget = None
 
-    def suspend_vtk(self) -> None:
-        """Pause VTK rendering when widget is not active."""
-        if self._pyvista_widget is not None:
-            self._pyvista_widget.suspend_vtk()
+    def suspend_rendering(self) -> None:
+        """Pause 3D rendering when widget is not active."""
+        if self._viz_widget is not None:
+            self._viz_widget.suspend_rendering()
 
-    def resume_vtk(self) -> None:
-        """Resume VTK rendering when widget becomes active."""
-        if self._pyvista_widget is not None:
-            self._pyvista_widget.resume_vtk()
+    def resume_rendering(self) -> None:
+        """Resume 3D rendering when widget becomes active."""
+        if self._viz_widget is not None:
+            self._viz_widget.resume_rendering()
 
     def closeEvent(self, event) -> None:
         """Handle close event."""

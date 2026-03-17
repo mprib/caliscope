@@ -64,7 +64,7 @@ class TaskManager(QObject):
         worker: WorkerFn,
         name: str,
         task_id: str | None = None,
-        auto_start: bool = True,
+        auto_start: bool = False,
     ) -> TaskHandle:
         """Submit a task for background execution.
 

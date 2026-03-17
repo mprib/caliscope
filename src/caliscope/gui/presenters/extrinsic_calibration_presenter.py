@@ -257,6 +257,7 @@ class ExtrinsicCalibrationPresenter(QObject):
         self._task_handle = self._task_manager.submit(
             worker,
             name="Extrinsic calibration",
+            auto_start=False,
         )
         # Use QueuedConnection because TaskHandle signals are emitted from worker threads.
         # Without explicit QueuedConnection, Qt uses DirectConnection (sender/receiver both
@@ -277,6 +278,7 @@ class ExtrinsicCalibrationPresenter(QObject):
             self.progress_updated,
             Qt.ConnectionType.QueuedConnection,
         )
+        self._task_manager.start_task(self._task_handle.task_id)
 
         self._emit_state_changed()
 
@@ -734,7 +736,7 @@ class ExtrinsicCalibrationPresenter(QObject):
             logger.info(f"Post-filter optimization RMSE: {optimized.reprojection_report.overall_rmse:.3f}px")
             return optimized
 
-        self._task_handle = self._task_manager.submit(worker, name="Optimize capture volume")
+        self._task_handle = self._task_manager.submit(worker, name="Optimize capture volume", auto_start=False)
         # Use QueuedConnection - TaskHandle signals emitted from worker threads
         self._task_handle.completed.connect(
             self._on_capture_volume_optimized,
@@ -752,6 +754,7 @@ class ExtrinsicCalibrationPresenter(QObject):
             self.progress_updated,
             Qt.ConnectionType.QueuedConnection,
         )
+        self._task_manager.start_task(self._task_handle.task_id)
         self._emit_state_changed()
 
     def _update_capture_volume(self, capture_volume: CaptureVolume) -> None:

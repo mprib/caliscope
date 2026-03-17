@@ -234,7 +234,7 @@ class ModelDownloadDialog(QDialog):
                 cancellation_check=lambda: token.is_cancelled,
             )
 
-        self._task_handle = self._task_manager.submit(worker, name=f"download_{card.name}")
+        self._task_handle = self._task_manager.submit(worker, name=f"download_{card.name}", auto_start=False)
 
         # Connect signals with QueuedConnection (signals come from worker thread)
         self._task_handle.completed.connect(
@@ -253,6 +253,7 @@ class ModelDownloadDialog(QDialog):
             self._on_progress,
             Qt.ConnectionType.QueuedConnection,
         )
+        self._task_manager.start_task(self._task_handle.task_id)
 
     def _cancel_download(self) -> None:
         """Cancel the running download task."""

@@ -240,8 +240,9 @@ class WorkspaceCoordinator(QObject):
             else:
                 logger.info("Skipping capture volume load (not calibrated)")
 
-        handle = self.task_manager.submit(worker, name="load_workspace")
+        handle = self.task_manager.submit(worker, name="load_workspace", auto_start=False)
         handle.completed.connect(lambda _: self.status_changed.emit())
+        self.task_manager.start_task(handle.task_id)
         return handle
 
     def all_instrinsic_mp4s_available(self) -> bool:
@@ -722,8 +723,9 @@ class WorkspaceCoordinator(QObject):
                 # Log prominently - user's changes may be lost on restart
                 logger.error(f"Failed to persist CaptureVolume: {e}")
 
-        handle = self.task_manager.submit(worker, name="save_capture_volume")
+        handle = self.task_manager.submit(worker, name="save_capture_volume", auto_start=False)
         handle.completed.connect(lambda _: self.status_changed.emit())  # Post-save
+        self.task_manager.start_task(handle.task_id)
 
     def rotate_capture_volume(self, axis: Literal["x", "y", "z"], angle_degrees: float) -> None:
         """Rotate the capture volume and persist.
@@ -783,7 +785,8 @@ class WorkspaceCoordinator(QObject):
             self.reconstructor.create_xyz()
             handle.report_progress(100, "Complete")
 
-        handle = self.task_manager.submit(worker, name="process_recordings")
+        handle = self.task_manager.submit(worker, name="process_recordings", auto_start=False)
+        self.task_manager.start_task(handle.task_id)
         return handle
 
     def cleanup(self) -> None:

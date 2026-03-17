@@ -312,6 +312,7 @@ class MultiCameraProcessingPresenter(QObject):
         self._task_handle = self._task_manager.submit(
             worker,
             name="Multi-camera processing",
+            auto_start=False,
         )
         # Use QueuedConnection - TaskHandle signals emitted from worker threads
         self._task_handle.completed.connect(
@@ -326,6 +327,7 @@ class MultiCameraProcessingPresenter(QObject):
             self._on_processing_cancelled,
             Qt.ConnectionType.QueuedConnection,
         )
+        self._task_manager.start_task(self._task_handle.task_id)
 
         self._emit_state_changed()
 

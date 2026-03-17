@@ -4,7 +4,6 @@ Uses mock workers to test lifecycle without real operations.
 Requires Qt (PySide6) but no xvfb - uses QCoreApplication only.
 """
 
-import threading
 import time
 
 import pytest
@@ -49,22 +48,20 @@ def test_submit_returns_handle(qapp):
     assert handle.name == "test_task"
     assert handle.task_id is not None
 
+    manager.start_task(handle.task_id)
     manager.shutdown(timeout_ms=1000)
 
 
 def test_worker_result_emitted_via_completed_signal(qapp):
     manager = TaskManager()
     received = {}
-    start_event = threading.Event()
 
     def worker(token, handle):
-        start_event.wait()  # Wait until signal is connected
         return "result_value"
 
     handle = manager.submit(worker, "test_task")
     handle.completed.connect(lambda r: received.update({"result": r}))
-    qapp.processEvents()  # Ensure connection is processed
-    start_event.set()  # Now let worker proceed
+    manager.start_task(handle.task_id)
 
     _wait_for_condition(lambda: "result" in received, timeout=2.0, qapp=qapp)
 
@@ -77,16 +74,13 @@ def test_worker_result_emitted_via_completed_signal(qapp):
 def test_worker_exception_emitted_via_failed_signal(qapp):
     manager = TaskManager()
     received = {}
-    start_event = threading.Event()
 
     def worker(token, handle):
-        start_event.wait()  # Wait until signal is connected
         raise ValueError("test error")
 
     handle = manager.submit(worker, "failing_task")
     handle.failed.connect(lambda t, m: received.update({"type": t, "msg": m}))
-    qapp.processEvents()  # Ensure connection is processed
-    start_event.set()  # Now let worker proceed
+    manager.start_task(handle.task_id)
 
     _wait_for_condition(lambda: "type" in received, timeout=2.0, qapp=qapp)
 
@@ -100,17 +94,14 @@ def test_worker_exception_emitted_via_failed_signal(qapp):
 def test_cancel_emits_cancelled_signal(qapp):
     manager = TaskManager()
     received = {"cancelled": False}
-    start_event = threading.Event()
 
     def worker(token, handle):
-        start_event.wait()  # Wait until signal is connected
         while not token.is_cancelled:
             token.sleep_unless_cancelled(0.1)
 
     handle = manager.submit(worker, "cancellable_task")
     handle.cancelled.connect(lambda: received.update({"cancelled": True}))
-    qapp.processEvents()  # Ensure connection is processed
-    start_event.set()  # Now let worker proceed
+    manager.start_task(handle.task_id)
 
     time.sleep(0.05)  # Let worker start its loop
     manager.cancel(handle.task_id)
@@ -125,18 +116,15 @@ def test_cancel_emits_cancelled_signal(qapp):
 def test_progress_updates_emitted(qapp):
     manager = TaskManager()
     progress_reports = []
-    start_event = threading.Event()
 
     def worker(token, handle):
-        start_event.wait()  # Wait until signal is connected
         for i in range(3):
             handle.report_progress(i * 33, f"Step {i}")
             time.sleep(0.01)
 
     handle = manager.submit(worker, "progress_task")
     handle.progress_updated.connect(lambda p, m: progress_reports.append((p, m)))
-    qapp.processEvents()  # Ensure connection is processed
-    start_event.set()  # Now let worker proceed
+    manager.start_task(handle.task_id)
 
     _wait_for_condition(lambda: len(progress_reports) >= 3, timeout=2.0, qapp=qapp)
 
@@ -151,7 +139,6 @@ def test_shutdown_cancels_and_waits(qapp):
     completed = {"done": False}
 
     def worker(token, handle):
-        # Simulates a task that respects cancellation
         for _ in range(10):
             if token.is_cancelled:
                 return "cancelled"
@@ -159,8 +146,12 @@ def test_shutdown_cancels_and_waits(qapp):
         completed["done"] = True
         return "finished"
 
-    # Submit multiple tasks
-    handles = [manager.submit(worker, f"task_{i}") for i in range(3)]
+    # Submit and start multiple tasks
+    handles = []
+    for i in range(3):
+        handle = manager.submit(worker, f"task_{i}")
+        manager.start_task(handle.task_id)
+        handles.append(handle)
 
     time.sleep(0.05)  # Let workers start
     manager.shutdown(timeout_ms=5000)

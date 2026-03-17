@@ -60,7 +60,7 @@ A [sample project](sample_project.md) with downloadable data demonstrates the fu
 
 ### Scripting workflow
 
-The standard install (`pip install caliscope`) includes intrinsic and extrinsic camera calibration as importable Python functions. Install with `pip install caliscope[gui]` to add the desktop interface and 3D visualization.
+The standard install (`uv pip install caliscope`) includes intrinsic and extrinsic camera calibration as importable Python functions. Install with `uv pip install caliscope[gui]` to add the desktop interface and 3D visualization.
 
 The [Scripting API](scripting.md) page walks through the full calibration pipeline from a Python script.
 

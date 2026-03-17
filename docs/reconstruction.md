@@ -28,14 +28,14 @@ The reconstruction pipeline is a convenience tool for verifying calibration qual
 
 ## Output Files
 
-After processing, output is saved to a subfolder named after the tracker within the recording directory (e.g., `recordings/walking/POSE/`).
+After processing, output is saved to a subfolder named after the tracker within the recording directory (e.g., `recordings/walking/ONNX_rtmpose_t_halpe26/`).
 
 | File | Format | Description |
 |------|--------|-------------|
-| `xy_{TRACKER}.csv` | Long CSV | 2D tracked points per camera (sync_index, cam_id, point_id, img_loc_x, img_loc_y, frame_time) |
-| `xyz_{TRACKER}.csv` | Long CSV | Triangulated 3D points (sync_index, point_id, x_coord, y_coord, z_coord, frame_time) |
-| `xyz_{TRACKER}_labelled.csv` | Wide CSV | Named columns (e.g., nose_x, nose_y, nose_z, left_shoulder_x, ...) |
-| `xyz_{TRACKER}.trc` | TRC | OpenSim-compatible format for biomechanical modeling |
+| `xy_{tracker}.csv` | Long CSV | 2D tracked points per camera (sync_index, cam_id, frame_index, frame_time, point_id, img_loc_x, img_loc_y, obj_loc_x, obj_loc_y) |
+| `xyz_{tracker}.csv` | Long CSV | Triangulated 3D points (sync_index, point_id, x_coord, y_coord, z_coord, frame_time) |
+| `xyz_{tracker}_labelled.csv` | Wide CSV | Named columns (e.g., nose_x, nose_y, nose_z, left_shoulder_x, ...) |
+| `xyz_{tracker}.trc` | TRC | OpenSim-compatible format for biomechanical modeling |
 | `camera_array.toml` | TOML | Snapshot of the camera calibration used for this reconstruction |
 
 ### Coordinate Units

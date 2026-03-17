@@ -1,15 +1,9 @@
 # Sample Project
 
-A sample dataset demonstrating the full calibration and reconstruction workflow is available for [download](https://1drv.ms/f/c/a30b139c66ff49c7/EqIVjIRLQ9hEh7hLE7UysAcBvxa1Oqy8JlM8Cu1gg0mXKw?e=3PAYXa).
+A sample dataset demonstrating the calibration workflow is available for [download](https://github.com/mprib/caliscope/releases/download/v0.8.0/lab_test_data.zip).
 
-The sample project is a 3-camera setup with ArUco marker extrinsic calibration and software synchronization. It contains raw input data only: intrinsic calibration videos, extrinsic calibration videos with timestamps, and one walking recording. You configure calibration targets and run the pipeline yourself following the documentation.
+The sample project is a 5-camera setup with charuco extrinsic calibration and hardware-synchronized timestamps. It contains raw input data only: intrinsic calibration videos, extrinsic calibration videos with timestamps, and one walking recording. You configure calibration targets and run the pipeline yourself following the documentation.
 
-This project illustrates the workflow with a minimal setup. Several improvements would increase the quality of the final results:
+The intrinsic calibration videos use a chessboard rather than a charuco board. This produces a slightly worse intrinsic calibration (~1 px reprojection error). A charuco board will give better results. The extrinsic calibration uses a charuco board.
 
-- more cameras
-- higher resolution and frame rate
-- better lighting
-- larger calibration board
-- hardware synchronization rather than software frame alignment
-
-For a scripting-based alternative to the GUI walkthrough, see `scripts/demo_api.py` which exercises the same calibration pipeline programmatically.
+For a scripting-based alternative to the GUI walkthrough, see `scripts/demo_api.py` which runs the same calibration pipeline programmatically.

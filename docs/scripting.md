@@ -5,8 +5,8 @@ Caliscope's calibration pipeline is available as Python functions. You can run i
 The standard install includes the API:
 
 ```bash
-pip install caliscope        # library only
-pip install caliscope[gui]   # adds desktop app and 3D visualization
+uv pip install caliscope        # library only
+uv pip install caliscope[gui]   # adds desktop app and 3D visualization
 ```
 
 Everything below uses the `caliscope.api` module. A complete working script is in `scripts/demo_api.py`.

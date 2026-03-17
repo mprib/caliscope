@@ -47,7 +47,7 @@ Caliscope uses scipy's optimization routines to solve this large-scale problem, 
 
 These three files together form a complete snapshot of the calibrated capture volume.
 
-An aniposelib-compatible version of the camera parameters is also written as `camera_array_aniposelib.toml` in the same directory. Tools that consume the aniposelib calibration format, such as [Pose2Sim](https://github.com/perfanalytics/pose2sim), can use this file directly.
+An aniposelib-compatible version of the camera parameters is also written as `camera_array_aniposelib.toml` in the workspace root directory. Tools that consume the aniposelib calibration format, such as [Pose2Sim](https://github.com/perfanalytics/pose2sim), can use this file directly.
 
 ### 5. Filter and Re-optimize
 

@@ -151,18 +151,18 @@ workspace/
         ├── cam_1.mp4
         ├── cam_2.mp4
         ├── timestamps.csv                  # If provided
-        └── POSE/                           # Output subdirectory (tracker name)
-            ├── camera_array.toml           # Snapshot of calibration used
-            ├── xy_POSE.csv                 # 2D tracked points per camera
-            ├── xyz_POSE.csv                # Triangulated 3D points
-            ├── xyz_POSE_labelled.csv       # Wide-format 3D data with named columns
-            └── xyz_POSE.trc                # OpenSim format for biomechanical analysis
+        └── ONNX_rtmpose_t_halpe26/          # Output subdirectory (tracker name)
+            ├── camera_array.toml            # Snapshot of calibration used
+            ├── xy_ONNX_rtmpose_t_halpe26.csv
+            ├── xyz_ONNX_rtmpose_t_halpe26.csv
+            ├── xyz_ONNX_rtmpose_t_halpe26_labelled.csv
+            └── xyz_ONNX_rtmpose_t_halpe26.trc
 ```
 
 ## Output Files
 
 ### xy_[tracker].csv
-2D landmark coordinates detected in each camera's view. Contains columns: `sync_index`, `cam_id`, `point_id`, `img_loc_x`, `img_loc_y`.
+2D landmark coordinates detected in each camera's view. Contains columns: `sync_index`, `cam_id`, `frame_index`, `frame_time`, `point_id`, `img_loc_x`, `img_loc_y`, `obj_loc_x`, `obj_loc_y`.
 
 ### xyz_[tracker].csv
 Triangulated 3D coordinates in long format. Contains columns: `sync_index`, `point_id`, `x_coord`, `y_coord`, `z_coord`, plus metadata fields. Each row represents one landmark point at one time frame.

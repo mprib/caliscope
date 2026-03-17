@@ -114,17 +114,15 @@ left_knee = 13
 right_knee = 14
 left_ankle = 15
 right_ankle = 16
-left_big_toe = 17
-left_small_toe = 18
-left_heel = 19
-right_big_toe = 20
-right_small_toe = 21
-right_heel = 22
-head = 23
-neck = 24
-hip = 25
-left_foot_center = 26
-right_foot_center = 27
+head = 17
+neck = 18
+hip = 19
+left_big_toe = 20
+right_big_toe = 21
+left_small_toe = 22
+right_small_toe = 23
+left_heel = 24
+right_heel = 25
 
 # Wireframe segments for 3D visualization (optional)
 # Each segment connects two points with a colored line
@@ -132,49 +130,53 @@ right_foot_center = 27
 color = "y"  # Matplotlib color string (single char or full name)
 points = ["left_shoulder", "right_shoulder"]
 
-[segments.right_upper_arm]
+[segments.left_arm]
+color = "g"
+points = ["left_shoulder", "left_elbow"]
+
+[segments.left_forearm]
+color = "g"
+points = ["left_elbow", "left_wrist"]
+
+[segments.right_arm]
 color = "r"
 points = ["right_shoulder", "right_elbow"]
 
-[segments.right_lower_arm]
+[segments.right_forearm]
 color = "r"
 points = ["right_elbow", "right_wrist"]
 
-[segments.left_upper_arm]
-color = "b"
-points = ["left_shoulder", "left_elbow"]
+[segments.pelvis]
+color = "y"
+points = ["left_hip", "right_hip"]
 
-[segments.left_lower_arm]
-color = "b"
-points = ["left_elbow", "left_wrist"]
+[segments.left_flank]
+color = "y"
+points = ["left_hip", "left_shoulder"]
 
-[segments.torso]
+[segments.right_flank]
+color = "y"
+points = ["right_hip", "right_shoulder"]
+
+[segments.left_thigh]
 color = "g"
-points = ["neck", "hip"]
+points = ["left_hip", "left_knee"]
 
-[segments.right_hip]
-color = "r"
-points = ["hip", "right_hip"]
+[segments.left_shank]
+color = "g"
+points = ["left_knee", "left_ankle"]
 
-[segments.left_hip]
-color = "b"
-points = ["hip", "left_hip"]
-
-[segments.right_upper_leg]
+[segments.right_thigh]
 color = "r"
 points = ["right_hip", "right_knee"]
 
-[segments.right_lower_leg]
+[segments.right_shank]
 color = "r"
 points = ["right_knee", "right_ankle"]
 
-[segments.left_upper_leg]
-color = "b"
-points = ["left_hip", "left_knee"]
-
-[segments.left_lower_leg]
-color = "b"
-points = ["left_knee", "left_ankle"]
+[segments.neck_segment]
+color = "y"
+points = ["neck", "head"]
 ```
 
 ### Required Fields

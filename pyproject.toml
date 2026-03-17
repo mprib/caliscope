@@ -1,6 +1,6 @@
 [project]
 name = "caliscope"
-version = "0.7.5"
+version = "0.8.0"
 description = "Rapid and reliable multicamera calibration with GUI and scripting API"
 authors = [{name = "Mac Prible", email = "prible@gmail.com"}]
 license = { text = "BSD-2-Clause" }
@@ -42,7 +42,11 @@ build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.sdist]
 exclude = [
-  "**/*.mp4",       # Or just nuke all video files by extension
+  "**/*.mp4",
+  "tests/**",
+  "docs/**",
+  "scripts/**",
+  "paper/**",
 ]
 
 [tool.hatch.build.targets.wheel]

@@ -299,7 +299,7 @@ def extract_image_points_multicam(
 
                 rows: list[dict] = []
                 for processed_count, (sync_index, frame_index) in enumerate(work_list):
-                    frame = frame_source.get_frame(frame_index)
+                    frame = frame_source.read_frame_at(frame_index)
                     if frame is None:
                         if progress is not None:
                             progress.on_frame(cam_id, processed_count, 0)

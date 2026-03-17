@@ -61,6 +61,8 @@ def test_xy_charuco_creation(tmp_path: Path):
 
     assert point_data_path.exists()
 
+    sync_stream_manager.cleanup()
+
 
 def _run_bundle_optimization_test(data: CalibrationTestData):
     """Shared test implementation for bundle optimization.

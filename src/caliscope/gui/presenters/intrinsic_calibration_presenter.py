@@ -348,7 +348,7 @@ class IntrinsicCalibrationPresenter(QObject):
                     logger.info(f"Collection cancelled at frame {frame_idx}")
                     break
 
-                frame = frame_source.get_frame(frame_idx)
+                frame = frame_source.read_frame_at(frame_idx)
                 if frame is None:
                     continue
 

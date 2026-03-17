@@ -50,6 +50,8 @@ def test_synchronizer(tmp_path: Path):
         # Check that the max frame_time of the current group is less than the min frame_time of the next group
         assert group["max"].iloc[i] < group["min"].iloc[i + 1]
 
+    stream_manager.cleanup()
+
 
 if __name__ == "__main__":
     import caliscope.logger

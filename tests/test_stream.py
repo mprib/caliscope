@@ -65,6 +65,8 @@ def test_streamer():
             logger.info(f"After attempting to jump to target frame {target_frame}")
             streamer.unpause()
 
+    streamer.close()
+
 
 if __name__ == "__main__":
     test_streamer()

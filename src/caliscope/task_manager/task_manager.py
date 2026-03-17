@@ -64,6 +64,7 @@ class TaskManager(QObject):
         worker: WorkerFn,
         name: str,
         task_id: str | None = None,
+        auto_start: bool = True,
     ) -> TaskHandle:
         """Submit a task for background execution.
 
@@ -71,6 +72,7 @@ class TaskManager(QObject):
             worker: Callable with signature (token, handle) -> Any
             name: Human-readable name for logging
             task_id: Optional identifier; auto-generated if not provided
+            auto_start: If False, defer thread.start() until start_task() is called
 
         Returns:
             TaskHandle for monitoring/controlling the task
@@ -86,10 +88,21 @@ class TaskManager(QObject):
         thread.finished.connect(lambda: self._cleanup_task(task_id))
 
         self._tasks[task_id] = (handle, thread)
-        logger.info(f"Starting task '{name}' (id={task_id})")
-        thread.start()
+
+        if auto_start:
+            logger.info(f"Starting task '{name}' (id={task_id})")
+            thread.start()
 
         return handle
+
+    def start_task(self, task_id: str) -> bool:
+        """Start a previously submitted task. Returns True if found and started."""
+        if task_id in self._tasks:
+            _, thread = self._tasks[task_id]
+            if not thread.isRunning():
+                thread.start()
+                return True
+        return False
 
     def cancel(self, task_id: str) -> bool:
         """Cancel a specific task. Returns True if found."""

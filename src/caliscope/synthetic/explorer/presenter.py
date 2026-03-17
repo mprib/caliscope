@@ -240,9 +240,11 @@ class ExplorerPresenter(QObject):
         self._pipeline_task = self._task_manager.submit(
             pipeline_worker,
             name="Synthetic Pipeline",
+            auto_start=False,
         )
         self._pipeline_task.completed.connect(self._on_pipeline_complete)
         self._pipeline_task.failed.connect(self._on_pipeline_failed)
+        self._task_manager.start_task(self._pipeline_task.task_id)
 
         self.pipeline_started.emit()
 

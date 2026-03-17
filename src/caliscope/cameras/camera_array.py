@@ -529,6 +529,7 @@ class CameraArray:
                     "distortions": distortions_flat,
                     "rotation": rotation_rodrigues,
                     "translation": translation_flat,
+                    "fisheye": camera.fisheye,
                 }
                 data[f"cam_{cam_id}"] = camera_dict
 

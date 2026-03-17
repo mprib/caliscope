@@ -152,7 +152,9 @@ class IntrinsicCalibrationPresenter(QObject):
         self._stream_handle = self._task_manager.submit(
             self._streamer.play_worker,
             name=f"Streamer cam_id {self._cam_id}",
+            auto_start=False,
         )
+        self._task_manager.start_task(self._stream_handle.task_id)
         self._streamer.pause()  # Immediately pause for scrubbing mode
 
         # Position tracking (must be set before _load_initial_frame)
@@ -462,6 +464,7 @@ class IntrinsicCalibrationPresenter(QObject):
         self._calibration_task = self._task_manager.submit(
             calibration_worker,
             name=f"Intrinsic calibration cam_id {self._cam_id}",
+            auto_start=False,
         )
         # Use QueuedConnection - TaskHandle signals emitted from worker threads
         self._calibration_task.completed.connect(
@@ -472,6 +475,7 @@ class IntrinsicCalibrationPresenter(QObject):
             self._on_calibration_failed,
             Qt.ConnectionType.QueuedConnection,
         )
+        self._task_manager.start_task(self._calibration_task.task_id)
 
         self._emit_state_changed()
 

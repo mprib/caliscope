@@ -88,7 +88,9 @@ def test_aniposelib_export_format(tmp_path: Path) -> None:
         assert "grid_count" not in section
         assert "ignore" not in section
         assert "rotation_count" not in section
-        assert "fisheye" not in section
+
+        # fisheye flag is included (expected by Pose2Sim)
+        assert section["fisheye"] is False
 
     # Verify metadata
     assert data["metadata"]["adjusted"] is False

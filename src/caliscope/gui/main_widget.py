@@ -17,7 +17,8 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from caliscope import APP_SETTINGS_PATH, LOG_DIR, __root__
+from caliscope import APP_SETTINGS_PATH, LOG_DIR
+from caliscope.gui import ICONS_DIR
 from caliscope.workspace_coordinator import WorkspaceCoordinator
 from caliscope.task_manager import TaskHandle
 from caliscope.gui.cameras_tab_widget import CamerasTabWidget
@@ -37,9 +38,9 @@ class MainWindow(QMainWindow):
         self.app_settings = rtoml.load(APP_SETTINGS_PATH)
 
         self.setWindowTitle("Caliscope")
-        self.setWindowIcon(QIcon(str(Path(__root__, "caliscope/gui/icons/box3d-center.svg"))))
+        self.setWindowIcon(QIcon(str(ICONS_DIR / "box3d-center.svg")))
         self.setMinimumSize(500, 500)
-        self.central_tab = QWidget(self)
+        self.central_tab = QTabWidget(self)
         self.setCentralWidget(self.central_tab)
 
         self.build_menus()
@@ -57,12 +58,15 @@ class MainWindow(QMainWindow):
         logger.info("Application exit initiated")
 
         # Clean up tabs that have presenter resources
-        if hasattr(self, "cameras_tab_widget") and hasattr(self.cameras_tab_widget, "cleanup"):
-            self.cameras_tab_widget.cleanup()
-        if hasattr(self, "multi_camera_tab") and hasattr(self.multi_camera_tab, "cleanup"):
-            self.multi_camera_tab.cleanup()
-        if hasattr(self, "reconstruction_tab") and hasattr(self.reconstruction_tab, "cleanup"):
-            self.reconstruction_tab.cleanup()
+        cameras = getattr(self, "cameras_tab_widget", None)
+        if isinstance(cameras, CamerasTabWidget):
+            cameras.cleanup()
+        multi = getattr(self, "multi_camera_tab", None)
+        if isinstance(multi, MultiCameraProcessingTab):
+            multi.cleanup()
+        recon = getattr(self, "reconstruction_tab", None)
+        if isinstance(recon, ReconstructionTab):
+            recon.cleanup()
 
         # Coordinator cleanup (TaskManager shutdown)
         if hasattr(self, "coordinator"):
@@ -73,7 +77,9 @@ class MainWindow(QMainWindow):
 
     def connect_menu_actions(self):
         self.open_project_action.triggered.connect(self.create_new_project_folder)
-        self.exit_pyxy3d_action.triggered.connect(QApplication.instance().quit)
+        app = QApplication.instance()
+        assert app is not None
+        self.exit_pyxy3d_action.triggered.connect(app.quit)
         self.open_log_directory_action.triggered.connect(self.open_log_dir)
 
     def build_menus(self):
@@ -313,15 +319,17 @@ class MainWindow(QMainWindow):
         tabs - it only stops painting them. We manually notify 3D rendering widgets
         when their tab becomes inactive to reduce CPU usage.
         """
+        _3d_tab_types = (ExtrinsicCalibrationTab, ReconstructionTab)
+
         # Suspend rendering on previous tab if it supports it
         prev_widget = self.central_tab.widget(self._previous_tab_index)
-        if hasattr(prev_widget, "suspend_rendering"):
+        if isinstance(prev_widget, _3d_tab_types):
             logger.debug(f"Suspending rendering on tab {self._previous_tab_index}")
             prev_widget.suspend_rendering()
 
         # Resume rendering on new tab if it supports it
         new_widget = self.central_tab.widget(new_index)
-        if hasattr(new_widget, "resume_rendering"):
+        if isinstance(new_widget, _3d_tab_types):
             logger.debug(f"Resuming rendering on tab {new_index}")
             new_widget.resume_rendering()
 
@@ -338,7 +346,8 @@ class MainWindow(QMainWindow):
             if widget_to_remove is not None:
                 # Explicit cleanup for widgets that need it
                 # (closeEvent not triggered by removeTab + deleteLater)
-                if hasattr(widget_to_remove, "cleanup"):
+                _cleanable = (CamerasTabWidget, MultiCameraProcessingTab, ExtrinsicCalibrationTab, ReconstructionTab)
+                if isinstance(widget_to_remove, _cleanable):
                     widget_to_remove.cleanup()
                 widget_to_remove.deleteLater()
 
@@ -357,6 +366,7 @@ class MainWindow(QMainWindow):
 
     def open_recent_project(self):
         action = self.sender()
+        assert isinstance(action, QAction)
         project_path = action.text()
         logger.info(f"Opening recent session stored at {project_path}")
         self.launch_workspace(project_path)

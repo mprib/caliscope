@@ -335,7 +335,7 @@ class ReconstructionPresenter(QObject):
 
             return reconstructor
 
-        self._processing_task = self._task_manager.submit(worker, name="reconstruction")
+        self._processing_task = self._task_manager.submit(worker, name="reconstruction", auto_start=False)
 
         # Connect signals - use QueuedConnection since TaskHandle signals
         # are emitted from worker threads
@@ -359,6 +359,7 @@ class ReconstructionPresenter(QObject):
             self._on_progress,
             Qt.ConnectionType.QueuedConnection,
         )
+        self._task_manager.start_task(self._processing_task.task_id)
 
         self._emit_state_changed()
 

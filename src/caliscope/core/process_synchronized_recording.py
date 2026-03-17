@@ -5,7 +5,7 @@ Uses batch synchronization from SynchronizedTimestamps -- no real-time streaming
 """
 
 import logging
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import Future, ThreadPoolExecutor
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable
@@ -41,6 +41,7 @@ def process_synchronized_recording(
     synced_timestamps: SynchronizedTimestamps,
     *,
     subsample: int = 1,
+    parallel: bool = True,
     on_progress: Callable[[int, int], None] | None = None,
     on_frame_data: Callable[[int, dict[int, FrameData]], None] | None = None,
     token: CancellationToken | None = None,
@@ -56,6 +57,9 @@ def process_synchronized_recording(
         tracker: Tracker for 2D point extraction (handles per-cam_id state internally)
         synced_timestamps: Pre-constructed timestamp alignment object
         subsample: Process every Nth sync index (1 = all, 10 = every 10th)
+        parallel: Process cameras concurrently (True) or serially (False).
+            Uses ThreadPoolExecutor when True and multiple cameras present.
+            Set to False as fallback if threading issues are discovered.
         on_progress: Called with (current, total) during processing
         on_frame_data: Called with (sync_index, {cam_id: FrameData}) for live display
         token: Cancellation token for graceful shutdown
@@ -75,43 +79,79 @@ def process_synchronized_recording(
     point_rows: list[dict] = []
 
     try:
-        for i, sync_index in enumerate(all_sync_indices):
-            if token is not None and token.is_cancelled:
-                logger.info("Processing cancelled")
-                break
+        use_pool = parallel and len(frame_sources) > 1
 
-            frame_data: dict[int, FrameData] = {}
+        if use_pool:
+            camera_pool = ThreadPoolExecutor(max_workers=len(frame_sources))
+        else:
+            camera_pool = None
 
-            for cam_id in synced_timestamps.cam_ids:
-                frame_index = synced_timestamps.frame_for(sync_index, cam_id)
+        try:
+            for i, sync_index in enumerate(all_sync_indices):
+                if token is not None and token.is_cancelled:
+                    logger.info("Processing cancelled")
+                    break
 
-                if frame_index is None:
-                    logger.debug(f"Dropped frame: sync={sync_index}, cam_id={cam_id}")
-                    continue
+                frame_data: dict[int, FrameData] = {}
 
-                if cam_id not in frame_sources:
-                    logger.warning(f"cam_id {cam_id} not in cameras dict, skipping")
-                    continue
+                if use_pool and camera_pool is not None:
+                    # --- Parallel path ---
+                    futures: dict[int, Future[tuple[int, FrameData | None, list[dict]]]] = {}
+                    for cam_id in synced_timestamps.cam_ids:
+                        frame_index = synced_timestamps.frame_for(sync_index, cam_id)
+                        if frame_index is None:
+                            continue
+                        if cam_id not in frame_sources:
+                            continue
+                        camera = cameras[cam_id]
+                        frame_time = synced_timestamps.time_for(cam_id, frame_index)
+                        futures[cam_id] = camera_pool.submit(
+                            _process_one_camera,
+                            cam_id,
+                            sync_index,
+                            frame_index,
+                            frame_sources[cam_id],
+                            camera,
+                            tracker,
+                            frame_time,
+                        )
 
-                camera = cameras[cam_id]
-                frame = frame_sources[cam_id].get_frame(frame_index)
+                    for cam_id, future in futures.items():
+                        _, fd, rows = future.result()
+                        if fd is not None:
+                            frame_data[cam_id] = fd
+                        point_rows.extend(rows)
+                else:
+                    # --- Serial path (original logic) ---
+                    for cam_id in synced_timestamps.cam_ids:
+                        frame_index = synced_timestamps.frame_for(sync_index, cam_id)
+                        if frame_index is None:
+                            continue
+                        if cam_id not in frame_sources:
+                            continue
+                        camera = cameras[cam_id]
+                        frame = frame_sources[cam_id].read_frame_at(frame_index)
+                        if frame is None:
+                            logger.warning(
+                                f"Failed to read frame: sync={sync_index}, cam_id={cam_id}, frame_index={frame_index}"
+                            )
+                            continue
+                        points = tracker.get_points(frame, cam_id, camera.rotation_count)
+                        frame_data[cam_id] = FrameData(frame, points, frame_index)
+                        frame_time = synced_timestamps.time_for(cam_id, frame_index)
+                        _accumulate_points(point_rows, sync_index, cam_id, frame_index, frame_time, points)
 
-                if frame is None:
-                    logger.warning(
-                        f"Failed to read frame: sync={sync_index}, cam_id={cam_id}, frame_index={frame_index}"
-                    )
-                    continue
-
-                points = tracker.get_points(frame, cam_id, camera.rotation_count)
-                frame_data[cam_id] = FrameData(frame, points, frame_index)
-
-                frame_time = synced_timestamps.time_for(cam_id, frame_index)
-                _accumulate_points(point_rows, sync_index, cam_id, frame_index, frame_time, points)
-
-            if on_frame_data is not None:
-                on_frame_data(sync_index, frame_data)
-            if on_progress is not None:
-                on_progress(i + 1, total)
+                # Threading contract: callbacks are always invoked from this
+                # thread (the worker thread that owns the sync-index loop),
+                # never from pool threads. Presenters rely on this guarantee
+                # for unsynchronized accumulator state.
+                if on_frame_data is not None:
+                    on_frame_data(sync_index, frame_data)
+                if on_progress is not None:
+                    on_progress(i + 1, total)
+        finally:
+            if camera_pool is not None:
+                camera_pool.shutdown(wait=False)
 
     finally:
         for source in frame_sources.values():
@@ -222,6 +262,51 @@ def _accumulate_points(
                 "obj_loc_z": obj_loc_z[i],
             }
         )
+
+
+def _process_one_camera(
+    cam_id: int,
+    sync_index: int,
+    frame_index: int,
+    frame_source: FrameSource,
+    camera: CameraData,
+    tracker: Tracker,
+    frame_time: float,
+) -> tuple[int, FrameData | None, list[dict]]:
+    """Process a single camera for one sync index.
+
+    Thread safety: This function is safe to call concurrently for different
+    cam_ids because:
+    - Each FrameSource instance is dedicated to one camera (no sharing).
+    - Tracker.get_points() is thread-safe:
+      - OnnxTracker._prev_bboxes: keyed by cam_id, each thread accesses
+        only its own key. Dict internal structure is GIL-protected.
+        INVARIANT: thread safety depends on each thread accessing a
+        distinct cam_id. Two threads must never process the same cam_id
+        concurrently.
+      - OnnxTracker.session.run(): onnxruntime InferenceSession.run() is
+        thread-safe (C++ session uses read-only model weights, per-call
+        buffer allocation). Verified for CPU execution provider.
+      - CharucoTracker/ArUcoTracker/ChessboardTracker: stateless OpenCV
+        calls on caller-provided buffers.
+    - point_rows is built locally and returned, not shared.
+
+    Returns:
+        (cam_id, frame_data_or_none, point_rows)
+    """
+    frame = frame_source.read_frame_at(frame_index)
+
+    if frame is None:
+        logger.warning(f"Failed to read frame: sync={sync_index}, cam_id={cam_id}, frame_index={frame_index}")
+        return cam_id, None, []
+
+    points = tracker.get_points(frame, cam_id, camera.rotation_count)
+    fd = FrameData(frame, points, frame_index)
+
+    local_rows: list[dict] = []
+    _accumulate_points(local_rows, sync_index, cam_id, frame_index, frame_time, points)
+
+    return cam_id, fd, local_rows
 
 
 def _build_image_points(point_rows: list[dict]) -> ImagePoints:

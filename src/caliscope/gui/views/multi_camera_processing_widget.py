@@ -288,6 +288,10 @@ class MultiCameraProcessingWidget(QWidget):
         self._presenter.thumbnail_updated.connect(self._on_thumbnail_updated)
         self._presenter.processing_complete.connect(self._on_processing_complete)
         self._presenter.processing_failed.connect(self._on_processing_failed)
+        self._presenter.coverage_updated.connect(
+            self._on_coverage_updated,
+            Qt.ConnectionType.QueuedConnection,
+        )
 
     def _update_ui_for_state(self, state: "MultiCameraProcessingState") -> None:
         """Update UI elements based on presenter state."""
@@ -325,9 +329,9 @@ class MultiCameraProcessingWidget(QWidget):
             self._progress_label.setText("Starting...")
             self._set_rotation_enabled(False)
             self._subsample_spin.setEnabled(False)
-            # Keep showing placeholder during processing
-            self._coverage_placeholder.show()
-            self._coverage_content.hide()
+            # Show coverage content for live heatmap updates
+            self._coverage_placeholder.hide()
+            self._coverage_content.show()
 
         elif state == MultiCameraProcessingState.COMPLETE:
             self._action_btn.setText("Reset")
@@ -349,10 +353,16 @@ class MultiCameraProcessingWidget(QWidget):
     # Slots for Presenter Signals
     # -------------------------------------------------------------------------
 
-    def _on_progress_updated(self, current: int, total: int, percent: int) -> None:
+    def _on_progress_updated(self, current: int, total: int, percent: int, eta_str: str) -> None:
         """Handle progress update from presenter."""
         self._progress_bar.setValue(percent)
-        self._progress_label.setText(f"Processing: {current}/{total} frames ({percent}%)")
+        self._progress_label.setText(f"Processing: {current}/{total} frames ({percent}%){eta_str}")
+
+    def _on_coverage_updated(self, data: tuple) -> None:
+        """Update the coverage heatmap during processing."""
+        matrix, cam_ids = data
+        labels = [f"C{cid}" for cid in cam_ids]
+        self._coverage_heatmap.set_data(matrix, killed_linkages=set(), labels=labels)
 
     def _on_thumbnail_updated(self, cam_id: int, frame: NDArray, points: "PointPacket | None") -> None:
         """Handle thumbnail update from presenter.

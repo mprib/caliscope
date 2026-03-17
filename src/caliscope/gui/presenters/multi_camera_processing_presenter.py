@@ -77,8 +77,9 @@ class MultiCameraProcessingPresenter(QObject):
     state_changed = Signal(MultiCameraProcessingState)
 
     # Progress signals
-    progress_updated = Signal(int, int, int)  # (current, total, percent)
+    progress_updated = Signal(int, int, int, str)  # (current, total, percent, eta_string)
     thumbnail_updated = Signal(int, object, object)  # (cam_id, NDArray frame, PointPacket | None)
+    coverage_updated = Signal(object)  # (NDArray[np.int64] matrix, list[int] cam_ids)
 
     # Completion signals
     processing_complete = Signal(object, object, object)  # (ImagePoints, ExtrinsicCoverageReport, Tracker)
@@ -89,6 +90,7 @@ class MultiCameraProcessingPresenter(QObject):
 
     # Thumbnail throttle interval (seconds)
     THUMBNAIL_INTERVAL = 0.1  # ~10 FPS
+    COVERAGE_INTERVAL = 5.0  # seconds between coverage heatmap updates
 
     def __init__(
         self,
@@ -120,6 +122,17 @@ class MultiCameraProcessingPresenter(QObject):
         # Thumbnail state
         self._thumbnails: dict[int, NDArray[np.uint8]] = {}
         self._last_thumbnail_time: float = 0.0
+
+        # ETA and coverage state
+        self._processing_start_time: float = 0.0
+        self._last_coverage_time: float = 0.0
+        self._sync_frames_done: int = 0
+        self._frames_total: int = 0
+
+        # Incremental coverage matrix — updated per sync index, never rebuilt
+        self._coverage_matrix: np.ndarray | None = None
+        self._coverage_cam_ids: list[int] = []
+        self._coverage_cam_id_to_index: dict[int, int] = {}
 
     # -------------------------------------------------------------------------
     # Public Properties
@@ -297,6 +310,18 @@ class MultiCameraProcessingPresenter(QObject):
         # Clear previous results only after successful timestamp construction
         self._reset_results()
 
+        self._processing_start_time = time.time()
+        self._last_coverage_time = 0.0
+        self._sync_frames_done = 0
+        self._frames_total = 0
+
+        # Initialize incremental coverage matrix
+        cam_ids = sorted(cameras.keys())
+        self._coverage_cam_ids = cam_ids
+        self._coverage_cam_id_to_index = {cid: idx for idx, cid in enumerate(cam_ids)}
+        n = len(cam_ids)
+        self._coverage_matrix = np.zeros((n, n), dtype=np.int64)
+
         def worker(token: CancellationToken, handle: TaskHandle) -> ImagePoints:
             return process_synchronized_recording(
                 recording_dir=recording_dir,
@@ -383,23 +408,71 @@ class MultiCameraProcessingPresenter(QObject):
     # -------------------------------------------------------------------------
 
     def _on_progress(self, current: int, total: int) -> None:
-        """Progress callback from process_synchronized_recording."""
+        """Progress callback from process_synchronized_recording.
+
+        Called from worker thread. Thread-safe because progress_updated
+        is a Qt signal (cross-thread emission handled by Qt event loop).
+        """
+        self._frames_total = total
         percent = int(100 * current / total) if total > 0 else 0
-        self.progress_updated.emit(current, total, percent)
+
+        # ETA computation (wait 3 seconds for rate to stabilize)
+        elapsed = time.time() - self._processing_start_time
+        eta_str = ""
+        if elapsed > 3.0 and current > 0:
+            rate = current / elapsed
+            remaining = max(0.0, (total - current) / rate)
+            minutes, seconds = divmod(int(remaining), 60)
+            eta_str = f" — ~{minutes}:{seconds:02d} remaining"
+
+        self.progress_updated.emit(current, total, percent, eta_str)
 
     def _on_frame_data(self, sync_index: int, frame_data: dict[int, FrameData]) -> None:
         """Frame data callback from process_synchronized_recording.
 
-        Throttled to ~10 FPS to avoid overwhelming the UI.
+        Called from worker thread. Accumulator state is not protected by
+        locks because this callback is guaranteed single-threaded by the
+        processing function's contract (callbacks are invoked from the
+        main worker thread, never from pool threads).
+
+        Throttled thumbnail emission at ~10 FPS.
+        Incremental coverage matrix update on every call.
+        Coverage signal emission throttled to COVERAGE_INTERVAL.
         """
         now = time.time()
+        self._sync_frames_done += 1
+
+        # --- Incremental coverage matrix update (cheap, every call) ---
+        if self._coverage_matrix is not None:
+            # Collect which cameras saw each point_id at this sync_index
+            point_cameras: dict[int, list[int]] = {}
+            for cam_id, data in frame_data.items():
+                if data.points is not None and len(data.points.point_id) > 0:
+                    for pid in data.points.point_id:
+                        point_cameras.setdefault(int(pid), []).append(cam_id)
+
+            # Increment pairwise counts
+            for pid, cam_list in point_cameras.items():
+                cam_list_sorted = sorted(cam_list)
+                for i, cam_id_i in enumerate(cam_list_sorted):
+                    for cam_id_j in cam_list_sorted[i:]:
+                        if cam_id_i in self._coverage_cam_id_to_index and cam_id_j in self._coverage_cam_id_to_index:
+                            idx_i = self._coverage_cam_id_to_index[cam_id_i]
+                            idx_j = self._coverage_cam_id_to_index[cam_id_j]
+                            self._coverage_matrix[idx_i, idx_j] += 1
+                            if idx_i != idx_j:
+                                self._coverage_matrix[idx_j, idx_i] += 1
+
+        # --- Emit coverage snapshot (throttled) ---
+        if now - self._last_coverage_time >= self.COVERAGE_INTERVAL:
+            self._last_coverage_time = now
+            if self._coverage_matrix is not None:
+                self.coverage_updated.emit((self._coverage_matrix.copy(), list(self._coverage_cam_ids)))
+
+        # --- Thumbnails (throttled, ~10 FPS) ---
         if now - self._last_thumbnail_time < self.THUMBNAIL_INTERVAL:
             return
-
         self._last_thumbnail_time = now
-
-        # Update thumbnails for all cameras in this sync packet
-        # Points passed to View for overlay rendering (MVP: View renders)
         for cam_id, data in frame_data.items():
             self._thumbnails[cam_id] = data.frame
             self.thumbnail_updated.emit(cam_id, data.frame, data.points)
@@ -438,6 +511,11 @@ class MultiCameraProcessingPresenter(QObject):
         self._result = None
         self._coverage_report = None
         self._task_handle = None
+        self._sync_frames_done = 0
+        self._frames_total = 0
+        self._coverage_matrix = None
+        self._coverage_cam_ids = []
+        self._coverage_cam_id_to_index = {}
 
     def _emit_state_changed(self) -> None:
         """Emit state_changed signal with current computed state."""

@@ -137,6 +137,10 @@ class FrameSource:
             f"found {len(self._keyframe_pts)} keyframes"
         )
 
+        # Sequential read state for read_frame_at()
+        self._sequential_position: int = -1  # frame index of last decoded frame
+        self._sequential_iterator: Iterator[VideoFrame] | None = None
+
         # Mark as successfully initialized - must be last line of _open
         # If _open fails, _closed won't exist and __del__ won't warn
         self._closed = False
@@ -247,6 +251,104 @@ class FrameSource:
 
             return None
 
+    def read_frame_at(self, frame_index: int) -> np.ndarray | None:
+        """Read frame at index, optimizing for sequential access patterns.
+
+        Maintains internal position tracking. When the requested frame is
+        at or just ahead of the current position, decodes forward
+        sequentially (O(1) per frame). When it is far ahead or behind,
+        falls back to seek-based access.
+
+        Not protected by self._lock — designed for single-owner access
+        in the parallel processing pipeline (one FrameSource per camera
+        per thread).
+
+        Args:
+            frame_index: Target frame index.
+
+        Returns:
+            BGR numpy array, or None if out of bounds or decode fails.
+        """
+        if frame_index < 0 or frame_index > self.last_frame_index:
+            return None
+
+        if self._container is None:
+            return None
+
+        # Compute average GOP and decode-forward threshold
+        if self._keyframe_indices:
+            avg_gop = max(1, self._actual_last_frame_index // max(1, len(self._keyframe_indices)))
+        else:
+            avg_gop = 30  # default assumption
+        threshold = avg_gop // 2
+
+        gap = frame_index - self._sequential_position
+
+        # Fast path: next frame in sequence
+        if gap == 1 and self._sequential_iterator is not None:
+            try:
+                frame = next(self._sequential_iterator)
+                if frame.pts is not None:
+                    decoded_idx = round(frame.pts * self._time_base * self.fps)
+                    if decoded_idx == frame_index:
+                        self._sequential_position = frame_index
+                        return frame.to_ndarray(format="bgr24")
+                    else:
+                        logger.warning(
+                            f"PTS mismatch on fast path: expected {frame_index}, got {decoded_idx}. "
+                            "Falling back to seek."
+                        )
+                        # Fall through to seek path
+            except StopIteration:
+                pass  # Fall through to seek path
+
+        # Small-gap path: decode forward through the gap
+        elif 1 < gap <= threshold and self._sequential_iterator is not None:
+            try:
+                result_frame: VideoFrame | None = None
+                frames_decoded = 0
+                # We need to advance (gap) frames from current position
+                for frame in self._sequential_iterator:
+                    if frame.pts is None:
+                        continue
+                    decoded_idx = round(frame.pts * self._time_base * self.fps)
+                    frames_decoded += 1
+                    if decoded_idx == frame_index:
+                        result_frame = frame
+                        break
+                    elif decoded_idx > frame_index:
+                        # Overshot — PTS mismatch, fall through to seek
+                        logger.warning(
+                            f"Overshot target {frame_index} (got {decoded_idx}) on small-gap path. "
+                            "Falling back to seek."
+                        )
+                        result_frame = None
+                        break
+                    # else: decoded_idx < frame_index, keep advancing
+
+                if result_frame is not None:
+                    self._sequential_position = frame_index
+                    return result_frame.to_ndarray(format="bgr24")
+                # Fall through to seek path if we didn't find the target
+            except StopIteration:
+                pass  # Fall through to seek path
+
+        # Seek path: large jump, backward, cold start, or fallback from above paths
+        target_pts = int(frame_index / self.fps / self._time_base)
+        self._container.seek(target_pts, stream=self._video_stream)
+
+        new_iterator = self._container.decode(self._video_stream)
+        for frame in new_iterator:
+            if frame.pts is None:
+                continue
+            decoded_idx = round(frame.pts * self._time_base * self.fps)
+            if decoded_idx >= frame_index:
+                self._sequential_position = decoded_idx
+                self._sequential_iterator = new_iterator
+                return frame.to_ndarray(format="bgr24")
+
+        return None
+
     def get_nearest_keyframe(self, frame_index: int) -> tuple[np.ndarray | None, int]:
         """Seek to nearest keyframe at or before target.
 
@@ -322,6 +424,8 @@ class FrameSource:
             if self._container is not None:
                 self._container.close()
                 self._container = None  # type: ignore[assignment]
+            self._sequential_position = -1
+            self._sequential_iterator = None
 
     def __enter__(self) -> Self:
         """Context manager entry."""

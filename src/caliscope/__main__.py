@@ -3,11 +3,14 @@ from __future__ import annotations
 import faulthandler
 import os
 import sys
+import tempfile
 from pathlib import Path
 
 # Write faulthandler trace to a file that survives the segfault
 # (pipe buffers don't flush on SIGSEGV)
-_faulthandler_file = open("/tmp/faulthandler.log", "w")  # noqa: SIM115
+_faulthandler_file = open(  # noqa: SIM115
+    os.path.join(tempfile.gettempdir(), "caliscope_faulthandler.log"), "w"
+)
 faulthandler.enable(file=_faulthandler_file, all_threads=True)
 
 from caliscope import MODELS_DIR  # noqa: E402
@@ -58,7 +61,8 @@ def CLI_parser():
         sys.exit(1)
 
     # pyside6-essentials compatibility: qtpy needs PySide6.__version__ which essentials doesn't provide
-    from PySide6.QtCore import __version__ as _qt_version
+    # PySide6.QtCore.__version__ exists at runtime (C++ binding) but PySide6's type stubs omit it.
+    from PySide6.QtCore import __version__ as _qt_version  # type: ignore[attr-defined]
 
     PySide6.__version__ = _qt_version
 

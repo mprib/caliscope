@@ -113,7 +113,7 @@ wheels = [
 
 [[package]]
 name = "caliscope"
-version = "0.8.1"
+version = "0.8.2"
 source = { editable = "." }
 dependencies = [
     { name = "av" },
@@ -130,6 +130,7 @@ dependencies = [
     { name = "rtoml" },
     { name = "scipy", version = "1.15.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
     { name = "scipy", version = "1.16.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
+    { name = "typing-extensions" },
     { name = "urllib3" },
 ]
 
@@ -178,6 +179,7 @@ requires-dist = [
     { name = "rich", specifier = ">=13.0.0" },
     { name = "rtoml", specifier = ">=0.9.0" },
     { name = "scipy", specifier = ">=1.10.1" },
+    { name = "typing-extensions", specifier = ">=4.0.0" },
     { name = "urllib3", specifier = ">=2.6.3" },
 ]
 provides-extras = ["gui"]

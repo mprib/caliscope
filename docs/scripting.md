@@ -140,20 +140,3 @@ This writes three files to the directory: `camera_array.toml`, `image_points.csv
 volume = CaptureVolume.load("capture_volume")
 cameras = CameraArray.from_toml("capture_volume/camera_array.toml")
 ```
-
-## Progress reporting
-
-All extraction functions show Rich progress bars by default. Three ways to control this:
-
-```python
-# Default: Rich progress bar (auto-created, auto-cleaned-up)
-points = extract_image_points(video, cam_id, tracker)
-
-# Silent: no output
-points = extract_image_points(video, cam_id, tracker, progress=None)
-
-# Custom: implement the ProgressCallback protocol
-points = extract_image_points(video, cam_id, tracker, progress=my_callback)
-```
-
-The `ProgressCallback` protocol requires four methods: `on_video_start`, `on_frame`, `on_video_complete`, and `on_info`. See `caliscope.reporting.RichProgressBar` for the reference implementation.

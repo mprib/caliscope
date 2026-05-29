@@ -2,6 +2,9 @@
 
 We recommend installing Caliscope using `uv`, a fast Python package manager that handles virtual environments and dependency resolution.
 
+!!! note
+    This documentation tracks the development version on `main`. The latest PyPI release may differ slightly, including which install extras are available. If a command here does not work against your installed version, check that you are on the current release.
+
 ## 1. Check for `uv`
 
 First, check if you already have `uv` installed by running the following command in your terminal:
@@ -79,7 +82,7 @@ We strongly advise installing Caliscope within a virtual environment to avoid co
 
 With your virtual environment activated, you can now install Caliscope using `uv`.
 
-For the **desktop app** (GUI with 3D visualization):
+For the **desktop app** (GUI with 3D visualization and neural pose tracking):
 
 ```bash
 uv pip install caliscope[gui]
@@ -91,7 +94,7 @@ For **scripting and library use** (no GUI dependencies):
 uv pip install caliscope
 ```
 
-The standard install includes the calibration pipeline (intrinsic and extrinsic) and the scripting API (`caliscope.api`) — everything except the PySide6 desktop interface and 3D visualization.
+The standard install includes the calibration pipeline (intrinsic and extrinsic) and the scripting API (`caliscope.api`). The `[gui]` extra adds the PySide6 desktop interface, 3D visualization, and neural pose tracking.
 
 Installation may take a moment as some dependencies are large.
 

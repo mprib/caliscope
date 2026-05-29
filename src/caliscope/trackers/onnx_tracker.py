@@ -11,7 +11,6 @@ import logging
 
 import cv2
 import numpy as np
-import onnxruntime as ort  # type: ignore[reportMissingImports]  # no type stubs
 
 from caliscope.packets import PointPacket
 from caliscope.tracker import Tracker, WireFrameView
@@ -43,6 +42,19 @@ class OnnxTracker(Tracker):
         # Check ONNX file exists
         if not card.onnx_exists:
             raise FileNotFoundError(f"ONNX model not found: {card.model_path}")
+
+        # Lazy import: onnxruntime is only required when constructing a tracker,
+        # not for importing this module. This keeps the module import-safe on a
+        # lean install (caliscope without the [tracking] extra).
+        try:
+            import onnxruntime as ort  # type: ignore[reportMissingImports]  # no type stubs
+        except ModuleNotFoundError as e:
+            raise ModuleNotFoundError(
+                "Neural pose tracking requires onnxruntime, which is not installed.\n"
+                "Install the tracking extra:\n"
+                "    pip install caliscope[tracking]\n"
+                "(GUI users: pip install caliscope[gui] includes tracking.)"
+            ) from e
 
         # Create onnxruntime session (CPU only)
         logger.info(f"Loading ONNX model: {card.model_path}")

@@ -135,8 +135,4 @@ dev = [
     "onnx>=1.14.0",
     "pandas-stubs>=2.3.3.251219",
     "psutil>=6.0.0",  # Resource monitoring for diagnostics
-    # Security floor constraints for transitive dependencies (dependabot alerts)
-    "filelock>=3.20.3",    # CVE fix: TOCTOU symlink vulnerability
-    "virtualenv>=20.36.1", # CVE fix: TOCTOU directory creation
-    "tornado>=6.5.5",      # CVE fixes: multipart DoS, cookie validation
 ]

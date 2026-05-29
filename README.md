@@ -26,15 +26,18 @@ We recommend [uv](https://docs.astral.sh/uv/) for installation.
 Full instructions (including uv setup and virtual environments) are in the [docs](https://mprib.github.io/caliscope/installation/).
 
 ```bash
-# Calibration library
+# Calibration library (intrinsic/extrinsic calibration + triangulation)
 uv pip install caliscope
 
-# Desktop app with 3D visualization
+# Add neural pose tracking (ONNX models)
+uv pip install caliscope[tracking]
+
+# Desktop app with 3D visualization (includes tracking)
 uv pip install caliscope[gui]
 ```
 
 The base install includes the full calibration pipeline as importable Python functions.
-Add `[gui]` for the interactive desktop application.
+Add `[tracking]` for ONNX-based neural pose tracking, or `[gui]` for the interactive desktop application (which includes tracking).
 
 ```bash
 # Launch the app (with the virtual environment activated)

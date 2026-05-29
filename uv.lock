@@ -100,7 +100,6 @@ dependencies = [
     { name = "numpy", version = "1.26.4", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
     { name = "numpy", version = "2.3.5", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11' and python_full_version < '3.13'" },
     { name = "numpy", version = "2.4.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.13'" },
-    { name = "onnxruntime" },
     { name = "opencv-python", version = "4.11.0.86", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
     { name = "opencv-python", version = "4.13.0.92", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
     { name = "pandas" },
@@ -114,8 +113,12 @@ dependencies = [
 
 [package.optional-dependencies]
 gui = [
+    { name = "onnxruntime" },
     { name = "pyside6-addons" },
     { name = "pyside6-essentials" },
+]
+tracking = [
+    { name = "onnxruntime" },
 ]
 
 [package.dev-dependencies]
@@ -142,8 +145,9 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "av", specifier = ">=16.1.0" },
+    { name = "caliscope", extras = ["tracking"], marker = "extra == 'gui'" },
     { name = "numpy", specifier = ">=1.24.0" },
-    { name = "onnxruntime", specifier = ">=1.16.0" },
+    { name = "onnxruntime", marker = "extra == 'tracking'", specifier = ">=1.16.0" },
     { name = "opencv-python", specifier = ">=4.8.0.74" },
     { name = "pandas", specifier = ">=1.5.0" },
     { name = "platformdirs", specifier = ">=4.3.8" },
@@ -154,7 +158,7 @@ requires-dist = [
     { name = "scipy", specifier = ">=1.10.1" },
     { name = "typing-extensions", specifier = ">=4.0.0" },
 ]
-provides-extras = ["gui"]
+provides-extras = ["tracking", "gui"]
 
 [package.metadata.requires-dev]
 dev = [

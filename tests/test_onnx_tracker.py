@@ -15,6 +15,9 @@ Expected frame coordinates for a 640x480 input (see generate_simcc_3pt.py):
 from pathlib import Path
 
 import numpy as np
+import pytest
+
+pytest.importorskip("onnxruntime", reason="requires caliscope[tracking]")
 
 from caliscope.trackers.model_card import ModelCard
 from caliscope.trackers.onnx_tracker import OnnxTracker

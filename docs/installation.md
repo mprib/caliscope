@@ -82,7 +82,7 @@ We strongly advise installing Caliscope within a virtual environment to avoid co
 
 With your virtual environment activated, you can now install Caliscope using `uv`.
 
-For the **desktop app** (GUI with 3D visualization, includes neural pose tracking):
+For the **desktop app** (GUI with 3D visualization and neural pose tracking):
 
 ```bash
 uv pip install caliscope[gui]
@@ -94,13 +94,7 @@ For **scripting and library use** (no GUI dependencies):
 uv pip install caliscope
 ```
 
-For **scripting with neural pose tracking** (adds ONNX inference via onnxruntime):
-
-```bash
-uv pip install caliscope[tracking]
-```
-
-The standard install includes the calibration pipeline (intrinsic and extrinsic) and the scripting API (`caliscope.api`). It does not include the ONNX neural pose trackers or the PySide6 desktop interface and 3D visualization. Add the `[tracking]` or `[gui]` extra for those.
+The standard install includes the calibration pipeline (intrinsic and extrinsic) and the scripting API (`caliscope.api`). The `[gui]` extra adds the PySide6 desktop interface, 3D visualization, and neural pose tracking.
 
 Installation may take a moment as some dependencies are large.
 

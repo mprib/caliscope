@@ -29,15 +29,12 @@ Full instructions (including uv setup and virtual environments) are in the [docs
 # Calibration library (intrinsic/extrinsic calibration + triangulation)
 uv pip install caliscope
 
-# Add neural pose tracking (ONNX models)
-uv pip install caliscope[tracking]
-
-# Desktop app with 3D visualization (includes tracking)
+# Desktop app with 3D visualization and pose tracking
 uv pip install caliscope[gui]
 ```
 
 The base install includes the full calibration pipeline as importable Python functions.
-Add `[tracking]` for ONNX-based neural pose tracking, or `[gui]` for the interactive desktop application (which includes tracking).
+Add `[gui]` for the interactive desktop application, which also includes neural pose tracking.
 
 ```bash
 # Launch the app (with the virtual environment activated)

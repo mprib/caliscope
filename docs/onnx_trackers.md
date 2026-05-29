@@ -6,7 +6,7 @@ After installation, ONNX models appear alongside the built-in trackers in the re
 
 ## Requirements
 
-ONNX model inference requires the `tracking` extra, which installs onnxruntime: `uv pip install caliscope[tracking]`. The desktop app (`uv pip install caliscope[gui]`) includes it automatically. On first launch, Caliscope seeds your models directory with model cards for the RTMPose Halpe26 family (tiny through xlarge). The ONNX weight files are not shipped with the package; they can be downloaded in-app or placed manually.
+ONNX model inference is included in the desktop app installation (`uv pip install caliscope[gui]`). On first launch, Caliscope seeds your models directory with model cards for the RTMPose Halpe26 family (tiny through xlarge). The ONNX weight files are not shipped with the package; they can be downloaded in-app or placed manually.
 
 ## Built-in Models
 

@@ -16,6 +16,7 @@ import logging
 import os
 import subprocess
 import sys
+from collections.abc import Callable
 from pathlib import Path
 
 from PySide6.QtCore import QByteArray, Qt, Signal
@@ -28,6 +29,7 @@ from PySide6.QtWidgets import (
     QGroupBox,
     QHBoxLayout,
     QLabel,
+    QMessageBox,
     QPushButton,
     QScrollArea,
     QStackedWidget,
@@ -37,6 +39,7 @@ from PySide6.QtWidgets import (
 
 import cv2
 
+from caliscope.core.charuco import Charuco, DictionaryCapacityError
 from caliscope.core.workflow_status import StepStatus, WorkflowStatus
 from caliscope.gui.utils.aruco_preview import render_aruco_pixmap
 from caliscope.gui.utils.chessboard_preview import render_chessboard_pixmap
@@ -506,7 +509,15 @@ class ProjectSetupView(QWidget):
         if self._intrinsic_charuco_panel is None:
             return
         charuco = self._intrinsic_charuco_panel.get_charuco()
-        self._coordinator.update_intrinsic_charuco(charuco)
+        try:
+            self._coordinator.update_intrinsic_charuco(charuco)
+        except DictionaryCapacityError as e:
+            self._revert_charuco_overflow(
+                e,
+                self._intrinsic_charuco_panel,
+                self._coordinator.targets_repository.load_intrinsic_charuco,
+                self._intrinsic_charuco_preview,
+            )
 
     def _on_intrinsic_chessboard_changed(self) -> None:
         """Handle intrinsic chessboard config panel change."""
@@ -605,7 +616,15 @@ class ProjectSetupView(QWidget):
         if self._extrinsic_charuco_panel is None:
             return
         charuco = self._extrinsic_charuco_panel.get_charuco()
-        self._coordinator.update_extrinsic_charuco(charuco)
+        try:
+            self._coordinator.update_extrinsic_charuco(charuco)
+        except DictionaryCapacityError as e:
+            self._revert_charuco_overflow(
+                e,
+                self._extrinsic_charuco_panel,
+                self._coordinator.targets_repository.load_extrinsic_charuco,
+                self._extrinsic_charuco_preview,
+            )
 
     def _on_extrinsic_target_changed(self) -> None:
         """Refresh extrinsic preview."""
@@ -627,11 +646,55 @@ class ProjectSetupView(QWidget):
     # Preview Updates
     # -------------------------------------------------------------------------
 
+    def _render_charuco_or_warn(self, load_charuco: Callable[[], Charuco], preview_label: QLabel) -> None:
+        """Load a charuco and render it into preview_label, or show a one-line warning.
+
+        A board that needs more markers than its dictionary family can hold can't
+        be rendered at any resolution (DictionaryCapacityError). Rather than let
+        that crash the preview refresh or project open, surface it as a short
+        message in the preview box itself. Routes both the edit-driven refresh and
+        the project-open path through one catch site.
+        """
+        try:
+            charuco = load_charuco()
+            pixmap = render_charuco_pixmap(charuco, 200)
+            preview_label.setPixmap(pixmap)
+        except DictionaryCapacityError as e:
+            logger.warning(f"Cannot render charuco preview: {e}")
+            preview_label.setText(f"Cannot render board:\n{e}")
+
+    def _revert_charuco_overflow(
+        self,
+        error: DictionaryCapacityError,
+        panel: CharucoConfigPanel,
+        load_charuco: Callable[[], Charuco],
+        preview_label: QLabel,
+    ) -> None:
+        """Bounce a charuco panel back to the last valid board after an overflow.
+
+        A board needing more markers than its dictionary family can hold raises
+        DictionaryCapacityError on save, so nothing was persisted. Warn the user,
+        snap the panel's controls back to the last valid board (set_values blocks
+        signals, so this won't re-fire the change handler), and re-render that
+        board so the thumbnail keeps showing a real board rather than the rejected
+        one.
+        """
+        logger.warning(f"Rejected charuco edit: {error}")
+        QMessageBox.warning(
+            self,
+            "Board too dense for its dictionary",
+            f"{error}\n\nReverting to the last valid board. Reduce the rows or columns.",
+        )
+        last_valid = load_charuco()
+        panel.set_values(last_valid)
+        preview_label.setPixmap(render_charuco_pixmap(last_valid, 200))
+
     def _update_intrinsic_charuco_preview(self) -> None:
         """Update intrinsic charuco preview."""
-        charuco = self._coordinator.targets_repository.load_intrinsic_charuco()
-        pixmap = render_charuco_pixmap(charuco, 200)
-        self._intrinsic_charuco_preview.setPixmap(pixmap)
+        self._render_charuco_or_warn(
+            self._coordinator.targets_repository.load_intrinsic_charuco,
+            self._intrinsic_charuco_preview,
+        )
 
     def _update_intrinsic_chessboard_preview(self) -> None:
         """Update intrinsic chessboard preview."""
@@ -641,9 +704,10 @@ class ProjectSetupView(QWidget):
 
     def _update_extrinsic_charuco_preview(self) -> None:
         """Update extrinsic charuco preview."""
-        charuco = self._coordinator.targets_repository.load_extrinsic_charuco()
-        pixmap = render_charuco_pixmap(charuco, 200)
-        self._extrinsic_charuco_preview.setPixmap(pixmap)
+        self._render_charuco_or_warn(
+            self._coordinator.targets_repository.load_extrinsic_charuco,
+            self._extrinsic_charuco_preview,
+        )
 
     def _update_extrinsic_aruco_preview(self) -> None:
         """Update extrinsic ArUco preview."""

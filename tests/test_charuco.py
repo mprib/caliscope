@@ -5,9 +5,11 @@ Focus: the two dense-board preview crashes fixed for issue #978.
   2. The dictionary pool must auto-fit the board so marker ids never overflow.
 
 The pure-domain tests need no Qt. The single rendering test constructs a
-QApplication (GUI tests run under xvfb on Linux).
+QApplication and converts to a QPixmap, which is screen-backed; see the
+offscreen platform note below.
 """
 
+import os
 from pathlib import Path
 
 import pytest
@@ -18,6 +20,12 @@ from caliscope.core.charuco import (
     fit_dictionary_pool,
 )
 from caliscope.repositories.calibration_targets_repository import CalibrationTargetsRepository
+
+# A QPixmap needs a platform plugin that can back it. Headless CI runners
+# (notably macOS/Windows, which have no window server) return a null pixmap
+# under the native plugin. The offscreen plugin has a raster backend that works
+# headlessly everywhere, so force it before any QApplication is created.
+os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 
 # Reporter board from issue #978: dense 28x17 ChArUco, DICT_4X4_250, 8.5x7 in.

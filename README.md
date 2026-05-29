@@ -12,8 +12,8 @@
 ![pytest](https://github.com/mprib/caliscope/actions/workflows/pytest.yml/badge.svg)
 </div>
 
-Caliscope is a permissively licensed multicamera calibration tool.
-It estimates camera intrinsic and extrinsic parameters from synchronized video so that downstream tools can triangulate 3D positions accurately.
+Caliscope calibrates multicamera systems for 3D motion capture.
+It estimates the intrinsic and extrinsic parameters of every camera, so downstream tools can triangulate 3D positions accurately.
 Bundle adjustment across 3+ cameras needs a good starting estimate to converge reliably. Caliscope produces that estimate and solves for a quality calibration.
 
 ## Demo
@@ -34,7 +34,7 @@ uv pip install caliscope[gui]
 ```
 
 The base install includes the full calibration pipeline as importable Python functions.
-Add `[gui]` for the interactive desktop application, which also includes neural pose tracking.
+Add `[gui]` for the interactive desktop application, which also includes ONNX pose tracking.
 
 ```bash
 # Launch the app (with the virtual environment activated)

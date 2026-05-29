@@ -1,8 +1,9 @@
 # Caliscope
 
-Caliscope is a permissively licensed multicamera calibration tool.
-It produces the intrinsic and extrinsic camera parameters that downstream tools need for 3D reconstruction.
+Caliscope calibrates multicamera systems for 3D motion capture.
+It estimates the intrinsic and extrinsic parameters of every camera, so downstream tools can triangulate 3D positions accurately.
 The objective of this project is to **Do One Thing Well**, and that one thing is estimating camera parameters.
+Caliscope is permissively licensed (BSD-2-Clause), so you're free to use, modify, and build on it.
 
 If you sense that there *must* be a good way to calibrate your setup but existing tools don't quite cut it, please [open a discussion](https://github.com/mprib/caliscope/discussions).
 I (mprib) am interested in exploring whether Caliscope can be upgraded to accommodate your use case.
@@ -60,7 +61,7 @@ A [sample project](sample_project.md) with downloadable data demonstrates the fu
 
 ### Scripting workflow
 
-The standard install (`uv pip install caliscope`) includes intrinsic and extrinsic camera calibration as importable Python functions. Install with `uv pip install caliscope[gui]` to add the desktop interface, 3D visualization, and neural pose tracking.
+The standard install (`uv pip install caliscope`) includes intrinsic and extrinsic camera calibration as importable Python functions. Install with `uv pip install caliscope[gui]` to add the desktop interface, 3D visualization, and ONNX pose tracking.
 
 The [Scripting API](scripting.md) page walks through the full calibration pipeline from a Python script.
 

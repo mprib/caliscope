@@ -88,7 +88,13 @@ def process_synchronized_recording(
         camera = cameras[cam_id]
         q = cam_queues[cam_id]
 
-        source = FrameSource(recording_dir, cam_id, decode_threads=decode_threads, wanted_indices=set(frame_to_sync))
+        source = FrameSource(
+            recording_dir,
+            cam_id,
+            decode_threads=decode_threads,
+            wanted_indices=set(frame_to_sync),
+            pixel_format=tracker.pixel_format,
+        )
         try:
             while True:
                 if token is not None and token.is_cancelled:

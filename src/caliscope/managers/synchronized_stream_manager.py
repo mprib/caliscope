@@ -3,6 +3,7 @@ import statistics
 from pathlib import Path
 
 from caliscope.cameras.camera_array import CameraData
+from caliscope.packets import PixelFormat
 from caliscope.cameras.synchronizer import Synchronizer
 from caliscope.tracker import Tracker
 from caliscope.recording import read_video_properties
@@ -71,6 +72,7 @@ class SynchronizedStreamManager:
                 tracker=self.tracker,
                 fps_target=fps_target,
                 end_behavior="stop",  # Stop at end for batch processing
+                pixel_format=self.tracker.pixel_format if self.tracker is not None else PixelFormat.BGR,
             )
             self.streamers[camera.cam_id] = streamer
 

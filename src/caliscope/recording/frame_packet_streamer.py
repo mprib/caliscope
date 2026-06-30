@@ -20,7 +20,7 @@ from typing import Literal
 
 import numpy as np
 
-from caliscope.packets import TrackedFrame
+from caliscope.packets import PixelFormat, TrackedFrame
 from caliscope.recording.frame_source import FrameSource
 from caliscope.recording.frame_timestamps import FrameTimestamps
 from caliscope.task_manager.cancellation import CancellationToken
@@ -305,10 +305,12 @@ class FramePacketStreamer:
                     sleep(self._wait_to_next_frame())
 
                 raw = self._frame_source.next_frame()
+                current_pixel_format = PixelFormat.BGR
                 if raw is not None:
                     self._frame_index = raw.frame_index
                     self._frame_time = raw.frame_time
                     current_frame = raw.frame
+                    current_pixel_format = raw.pixel_format
                 else:
                     current_frame = None
 
@@ -343,6 +345,7 @@ class FramePacketStreamer:
                     frame=current_frame,
                     points=point_data,
                     draw_instructions=draw_instructions,
+                    pixel_format=current_pixel_format,
                 )
 
                 logger.debug(f"Broadcasting frame {self._frame_index} at cam_id {self.cam_id}")
@@ -378,6 +381,7 @@ def create_streamer(
     tracker: Tracker | None = None,
     fps_target: float | None = None,
     end_behavior: Literal["stop", "pause"] = "stop",
+    pixel_format: PixelFormat = PixelFormat.BGR,
 ) -> FramePacketStreamer:
     """Factory function to create a FramePacketStreamer.
 
@@ -390,11 +394,12 @@ def create_streamer(
         tracker: Optional tracker for landmark detection.
         fps_target: Target FPS. None = unlimited.
         end_behavior: What to do at last frame. "stop" or "pause".
+        pixel_format: Pixel format for frame decoding. Explicit opt-in; default is BGR.
 
     Returns:
         Configured FramePacketStreamer ready to start().
     """
-    frame_source = FrameSource(video_directory, cam_id)
+    frame_source = FrameSource(video_directory, cam_id, pixel_format=pixel_format)
 
     timing_csv = video_directory / "timestamps.csv"
     if timing_csv.exists():

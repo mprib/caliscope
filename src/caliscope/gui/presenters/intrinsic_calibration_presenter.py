@@ -143,6 +143,7 @@ class IntrinsicCalibrationPresenter(QObject):
             rotation_count=self._camera.rotation_count,
             tracker=self._tracker,
             end_behavior="pause",  # Pause at end for interactive scrubbing
+            pixel_format=self._tracker.pixel_format,
         )
         self._frame_queue: Queue[TrackedFrame] = Queue()
         self._streamer.subscribe(self._frame_queue)
@@ -301,7 +302,12 @@ class IntrinsicCalibrationPresenter(QObject):
         """
         frame_skip = max(1, self._frame_skip)
         wanted = set(range(0, self._streamer.last_frame_index + 1, frame_skip))
-        frame_source = FrameSource(self._video_path.parent, self._cam_id, wanted_indices=wanted)
+        frame_source = FrameSource(
+            self._video_path.parent,
+            self._cam_id,
+            wanted_indices=wanted,
+            pixel_format=self._tracker.pixel_format,
+        )
 
         logger.info(
             f"Collection batch: {len(wanted)} frames (skip={frame_skip}, total available={frame_source.frame_count})"
@@ -327,6 +333,7 @@ class IntrinsicCalibrationPresenter(QObject):
                     frame_time=raw.frame_time,
                     frame=raw.frame,
                     points=points,
+                    pixel_format=raw.pixel_format,
                 )
                 self._display_queue.put(tracked_frame)
                 self._current_frame_index = raw.frame_index

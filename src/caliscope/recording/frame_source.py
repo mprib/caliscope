@@ -16,10 +16,11 @@ from pathlib import Path
 from threading import Lock
 from typing import Iterator, Self
 
+import numpy as np
 import av
 from av.video.frame import VideoFrame
 
-from caliscope.packets import FramePacket
+from caliscope.packets import FramePacket, PixelFormat
 
 logger = logging.getLogger(__name__)
 
@@ -43,6 +44,7 @@ class FrameSource:
         cam_id: int,
         decode_threads: int = 0,
         wanted_indices: Set[int] | None = None,
+        pixel_format: PixelFormat = PixelFormat.BGR,
     ) -> None:
         """Open cam_<cam_id>.mp4 in video_directory for forward-only reading.
 
@@ -61,6 +63,7 @@ class FrameSource:
             cam_id=cam_id,
             decode_threads=decode_threads,
             wanted_indices=wanted_indices,
+            pixel_format=pixel_format,
         )
 
     @classmethod
@@ -70,6 +73,7 @@ class FrameSource:
         cam_id: int,
         decode_threads: int = 0,
         wanted_indices: Set[int] | None = None,
+        pixel_format: PixelFormat = PixelFormat.BGR,
     ) -> Self:
         """Construct from an explicit video file path instead of the cam_N.mp4 convention."""
         instance = cls.__new__(cls)
@@ -78,6 +82,7 @@ class FrameSource:
             cam_id=cam_id,
             decode_threads=decode_threads,
             wanted_indices=wanted_indices,
+            pixel_format=pixel_format,
         )
         return instance
 
@@ -87,12 +92,14 @@ class FrameSource:
         cam_id: int,
         decode_threads: int,
         wanted_indices: Set[int] | None,
+        pixel_format: PixelFormat = PixelFormat.BGR,
     ) -> None:
         """Shared initialization. Call exactly once."""
         self.cam_id = cam_id
         self.video_path = video_path
         self._wanted: Set[int] | None = wanted_indices
         self._last_wanted: int | None = max(wanted_indices) if wanted_indices else None
+        self._pixel_format = pixel_format
 
         if not self.video_path.exists():
             raise FileNotFoundError(f"Video file not found: {self.video_path}")
@@ -161,11 +168,26 @@ class FrameSource:
                         continue
 
                     frame_time = frame.pts * self._time_base if frame.pts is not None else 0.0
+
+                    if self._pixel_format == PixelFormat.GRAY:
+                        assert frame.format.name in ("yuv420p", "yuvj420p"), (
+                            f"Expected yuv420p/yuvj420p for Y-plane extraction, got {frame.format.name}"
+                        )
+                        y_plane = frame.planes[0]
+                        h = frame.height
+                        w = frame.width
+                        frame_array = np.ascontiguousarray(
+                            np.frombuffer(y_plane, dtype=np.uint8).reshape(h, y_plane.line_size)[:, :w]
+                        )
+                    else:
+                        frame_array = frame.to_ndarray(format="bgr24")
+
                     return FramePacket(
                         cam_id=self.cam_id,
                         frame_index=i,
                         frame_time=frame_time,
-                        frame=frame.to_ndarray(format="bgr24"),
+                        frame=frame_array,
+                        pixel_format=self._pixel_format,
                     )
 
             except StopIteration:

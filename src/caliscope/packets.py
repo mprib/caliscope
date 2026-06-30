@@ -1,9 +1,15 @@
 from dataclasses import dataclass
+from enum import StrEnum
 from typing import Any, Callable, cast
 
 import cv2
 import numpy as np
 from numpy.typing import NDArray
+
+
+class PixelFormat(StrEnum):
+    GRAY = "gray"
+    BGR = "bgr"
 
 
 @dataclass(frozen=True, slots=True)
@@ -50,6 +56,7 @@ class FramePacket:
     frame_index: int
     frame_time: float
     frame: NDArray[Any]
+    pixel_format: PixelFormat = PixelFormat.BGR
 
 
 @dataclass(frozen=True, slots=True)
@@ -62,6 +69,7 @@ class TrackedFrame:
     frame: NDArray[Any] | None  # None for end-of-stream markers
     points: PointPacket | None = None
     draw_instructions: Callable | None = None
+    pixel_format: PixelFormat = PixelFormat.BGR
 
     def to_tidy_table(self, sync_index) -> dict | None:
         """
@@ -97,13 +105,15 @@ class TrackedFrame:
 
         if self.points is not None and self.draw_instructions is not None:
             drawn_frame = self.frame.copy()
+            if self.pixel_format == PixelFormat.GRAY:
+                drawn_frame = cv2.cvtColor(drawn_frame, cv2.COLOR_GRAY2BGR)
+
             ids = self.points.point_id
             locs = self.points.img_loc
             for _id, coord in zip(ids, locs):
                 x = round(coord[0])
                 y = round(coord[1])
 
-                # draw instructions are a method of Tracker object
                 params = self.draw_instructions(_id)
                 cv2.circle(
                     drawn_frame,

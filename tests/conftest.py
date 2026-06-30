@@ -89,3 +89,13 @@ def larger_calibration_session_reduced(tmp_path: Path) -> CalibrationTestData:
 def setup_app_logging():
     """Configure the application's logging for the entire test session."""
     setup_logging()
+
+
+@pytest.fixture
+def test_video_path() -> Path:
+    """Path to a test video file for FrameSource tests."""
+    sessions = Path(__file__).parent / "sessions"
+    for session_dir in sorted(sessions.iterdir()):
+        for mp4 in session_dir.rglob("cam_*.mp4"):
+            return mp4
+    pytest.skip("No test video found in tests/sessions/")

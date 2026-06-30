@@ -44,7 +44,10 @@ def apply_rotation(frame, rotation_count: int):
 
 
 def cv2_to_qlabel(frame):
-    image = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+    if frame.ndim == 2:
+        image = cv2.cvtColor(frame, cv2.COLOR_GRAY2RGB)
+    else:
+        image = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
 
     qt_frame = QImage(
         image.data,

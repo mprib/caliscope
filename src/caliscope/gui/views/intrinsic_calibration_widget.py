@@ -39,7 +39,7 @@ from caliscope.gui.presenters.intrinsic_calibration_presenter import (
     IntrinsicCalibrationState,
 )
 from caliscope.gui.theme import Styles
-from caliscope.packets import PointPacket, TrackedFrame
+from caliscope.packets import PixelFormat, PointPacket, TrackedFrame
 
 logger = logging.getLogger(__name__)
 
@@ -486,6 +486,8 @@ class FrameRenderThread(QThread):
 
         # Start with raw frame (View owns all rendering)
         frame = tracked_frame.frame.copy()
+        if tracked_frame.pixel_format == PixelFormat.GRAY:
+            frame = cv2.cvtColor(frame, cv2.COLOR_GRAY2BGR)
 
         # Layer 1: Accumulated points (behind current)
         if self._overlay_settings.show_accumulated:

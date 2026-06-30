@@ -116,8 +116,9 @@ def extract_image_points(
         FileNotFoundError: If the video path does not exist.
         ValueError: If frame_step < 1.
     """
-    import av
     import pandas as pd
+
+    from caliscope.recording.frame_source import FrameSource
     from caliscope.recording.video_utils import read_video_properties
 
     if frame_step < 1:
@@ -129,17 +130,13 @@ def extract_image_points(
 
     with _auto_progress(progress) as progress:
         all_rows: list[dict] = []
-
         rotation_count = 0
-
-        container = av.open(str(video_path))
-        video_stream = container.streams.video[0]
-        time_base = float(video_stream.time_base) if video_stream.time_base is not None else 0.0
 
         props = read_video_properties(video_path)
         frame_count = props["frame_count"]
-        # Progress total reflects frames that will actually be processed
-        progress_total = (frame_count + frame_step - 1) // frame_step
+
+        wanted = set(range(0, frame_count, frame_step)) if frame_step > 1 else None
+        progress_total = (frame_count + frame_step - 1) // frame_step if frame_step > 1 else frame_count
 
         if frame_step > 1 and progress is not None:
             progress.on_info(f"Extracting every {frame_step}th frame ({progress_total} of {frame_count})")
@@ -147,24 +144,24 @@ def extract_image_points(
         if progress is not None:
             progress.on_video_start(cam_id, progress_total)
 
+        frame_source = FrameSource.from_path(
+            video_path,
+            cam_id=cam_id,
+            wanted_indices=wanted,
+            pixel_format=tracker.pixel_format,
+        )
         try:
             progress_index = 0
-            for frame_index, frame in enumerate(container.decode(video_stream)):
-                if frame_index % frame_step != 0:
-                    continue
-
-                bgr = frame.to_ndarray(format="bgr24")
-                frame_time = frame.pts * time_base if frame.pts is not None else 0.0
-
-                point_packet = tracker.get_points(bgr, cam_id=cam_id, rotation_count=rotation_count)
+            while (raw := frame_source.next_frame()) is not None:
+                point_packet = tracker.get_points(raw.frame, cam_id=cam_id, rotation_count=rotation_count)
 
                 n_points = len(point_packet.point_id)
                 if n_points > 0:
                     n = n_points
                     row = {
-                        "sync_index": [frame_index] * n,
+                        "sync_index": [raw.frame_index] * n,
                         "cam_id": [cam_id] * n,
-                        "frame_time": [frame_time] * n,
+                        "frame_time": [raw.frame_time] * n,
                         "point_id": point_packet.point_id.tolist(),
                         "img_loc_x": point_packet.img_loc[:, 0].tolist(),
                         "img_loc_y": point_packet.img_loc[:, 1].tolist(),
@@ -178,7 +175,7 @@ def extract_image_points(
                 if progress is not None:
                     progress.on_frame(cam_id, progress_index, n_points)
         finally:
-            container.close()
+            frame_source.close()
 
         if progress is not None:
             progress.on_video_complete(cam_id)
@@ -300,7 +297,11 @@ def extract_image_points_multicam(
             sync_for: dict[int, int] = {frame_index: sync_index for sync_index, frame_index in work_list}
 
             frame_source = FrameSource.from_path(
-                video_path, cam_id=cam_id, decode_threads=decode_threads, wanted_indices=set(sync_for)
+                video_path,
+                cam_id=cam_id,
+                decode_threads=decode_threads,
+                wanted_indices=set(sync_for),
+                pixel_format=tracker.pixel_format,
             )
             try:
                 if progress is not None:

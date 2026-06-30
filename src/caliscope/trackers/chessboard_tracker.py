@@ -12,7 +12,7 @@ import cv2
 import numpy as np
 
 from caliscope.core.chessboard import Chessboard
-from caliscope.packets import PointPacket
+from caliscope.packets import PixelFormat, PointPacket
 from caliscope.tracker import Tracker
 
 logger = logging.getLogger(__name__)
@@ -54,28 +54,12 @@ class ChessboardTracker(Tracker):
         """Return tracker name for file naming."""
         return "CHESSBOARD"
 
-    def get_points(self, frame: np.ndarray, cam_id: int = 0, rotation_count: int = 0) -> PointPacket:
-        """
-        Detect chessboard corners in frame.
+    @property
+    def pixel_format(self) -> PixelFormat:
+        return PixelFormat.GRAY
 
-        Detection is all-or-nothing: either all (rows * columns) corners
-        are found, or an empty PointPacket is returned.
-
-        Args:
-            frame: BGR image from video capture
-            cam_id: Camera cam_id identifier (unused, for ABC compliance)
-            rotation_count: Image rotation in 90-degree increments (unused)
-
-        Returns:
-            PointPacket with:
-            - point_id: 0 to (rows*columns - 1) in row-major order
-            - img_loc: Sub-pixel refined corner positions
-            - obj_loc: 3D positions from chessboard.get_object_points()
-
-            Empty PointPacket if detection fails.
-        """
-        # Convert to grayscale
-        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+    def _detect(self, frame: np.ndarray, cam_id: int = 0, rotation_count: int = 0) -> PointPacket:
+        gray = frame
 
         # Attempt corner detection
         found, corners = cv2.findChessboardCorners(gray, self._pattern_size, flags=self._flags)

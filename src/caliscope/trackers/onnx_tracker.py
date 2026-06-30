@@ -296,7 +296,7 @@ class OnnxTracker(Tracker):
 
         return keypoints, confidence
 
-    def get_points(self, frame: np.ndarray, cam_id: int = 0, rotation_count: int = 0) -> PointPacket:
+    def _detect(self, frame: np.ndarray, cam_id: int = 0, rotation_count: int = 0) -> PointPacket:
         """Detect pose keypoints in frame using three-tier search.
 
         Tier 1: Crop to previous detection (fast, common case)

@@ -7,7 +7,7 @@ import logging
 import cv2
 import numpy as np
 
-from caliscope.packets import PointPacket
+from caliscope.packets import PixelFormat, PointPacket
 from caliscope.tracker import Tracker
 
 logger = logging.getLogger(__name__)
@@ -43,14 +43,12 @@ class CharucoTracker(Tracker):
     def name(self):
         return "CHARUCO"
 
-    def get_points(self, frame: np.ndarray, cam_id: int = 0, rotation_count: int = 0) -> PointPacket:
-        """Detect charuco corners, trying the last-known orientation first.
+    @property
+    def pixel_format(self) -> PixelFormat:
+        return PixelFormat.GRAY
 
-        Uses a mirror hint per camera to avoid the ~107ms penalty of attempting
-        detection in the wrong orientation. Falls back to the other orientation
-        only if the hinted one fails.
-        """
-        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+    def _detect(self, frame: np.ndarray, cam_id: int = 0, rotation_count: int = 0) -> PointPacket:
+        gray = frame
         if self.charuco.inverted:
             gray = cv2.bitwise_not(gray)
 

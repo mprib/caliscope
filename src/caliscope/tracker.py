@@ -1,11 +1,15 @@
 from __future__ import annotations
 
+import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 
+import cv2
 import numpy as np
 
-from caliscope.packets import PointPacket
+from caliscope.packets import PixelFormat, PointPacket
+
+logger = logging.getLogger(__name__)
 
 
 class Tracker(ABC):
@@ -17,22 +21,33 @@ class Tracker(ABC):
         """
         return "Name Me"
 
-    @abstractmethod
+    @property
+    def pixel_format(self) -> PixelFormat:
+        return PixelFormat.BGR
+
     def get_points(self, frame: np.ndarray, cam_id: int = 0, rotation_count: int = 0) -> PointPacket:
-        """
-        frame: np.ndarray from reading an OpenCV capture object
+        """Enforce pixel format contract, then delegate to _detect."""
+        frame = self._ensure_format(frame)
+        return self._detect(frame, cam_id, rotation_count)
 
-        cam_id: integer value used to track which camera the frame originates from
-                Default 0 for trackers that don't need camera identification
+    def _ensure_format(self, frame: np.ndarray) -> np.ndarray:
+        if self.pixel_format == PixelFormat.GRAY and frame.ndim == 3:
+            logger.warning(
+                "%s received BGR frame, expected grayscale — converting. "
+                "Pass pixel_format=tracker.pixel_format to FrameSource for zero-cost Y-plane extraction.",
+                type(self).__name__,
+            )
+            return cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+        if self.pixel_format == PixelFormat.BGR and frame.ndim == 2:
+            logger.warning(
+                "%s received grayscale frame, expected BGR — converting.",
+                type(self).__name__,
+            )
+            return cv2.cvtColor(frame, cv2.COLOR_GRAY2BGR)
+        return frame
 
-        rotation count: used to indicate the orientation of the image (e.g. rotateed 90 degrees left or right)
-                        Some tracking algorithms expect images to be "upright", so this can be used to align the image
-                        Default 0 for trackers that are rotation invariant (e.g. ArUco)
-
-                        The function `apply_rotation` from `caliscope.trackers.helper` can correctly orient the image
-                        The function `unrotate_points` from the same module can convert any tracked points back into
-                        the original orientation
-        """
+    @abstractmethod
+    def _detect(self, frame: np.ndarray, cam_id: int = 0, rotation_count: int = 0) -> PointPacket:
         pass
 
     @abstractmethod

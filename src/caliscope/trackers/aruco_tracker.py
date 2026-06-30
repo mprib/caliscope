@@ -16,7 +16,7 @@ import cv2
 import numpy as np
 
 from caliscope.core.aruco_target import ArucoTarget
-from caliscope.packets import PointPacket
+from caliscope.packets import PixelFormat, PointPacket
 from caliscope.tracker import Tracker
 
 logger = logging.getLogger(__name__)
@@ -73,6 +73,10 @@ class ArucoTracker(Tracker):
     def name(self) -> str:
         """Return tracker name for file naming."""
         return "ARUCO"
+
+    @property
+    def pixel_format(self) -> PixelFormat:
+        return PixelFormat.GRAY
 
     def _detect_markers(self, gray_frame):
         """
@@ -133,20 +137,8 @@ class ArucoTracker(Tracker):
 
         return filtered_point_ids, filtered_img_loc, obj_loc
 
-    def get_points(self, frame: np.ndarray, cam_id: int = 0, rotation_count: int = 0) -> PointPacket:
-        """
-        Detect ArUco markers in frame and return corner points.
-
-        Process:
-        Invert if configured (for legacy test data)
-        Detect markers with cv2.aruco.ArucoDetector
-        If no markers found and mirror_search=True, try mirrored image
-        Flatten corners and generate point IDs
-        Return PointPacket with img_loc only (obj_loc=None)
-        """
-
-        # Convert to grayscale
-        gray_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+    def _detect(self, frame: np.ndarray, cam_id: int = 0, rotation_count: int = 0) -> PointPacket:
+        gray_frame = frame
 
         # Invert if needed (for legacy test data)
         if self.inverted:

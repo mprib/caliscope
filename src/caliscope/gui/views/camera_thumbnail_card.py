@@ -181,6 +181,8 @@ class CameraThumbnailCard(QFrame):
         radius = max(3, int(min(h, w) * self.LANDMARK_SCALE))
 
         result = frame.copy()
+        if result.ndim == 2:
+            result = cv2.cvtColor(result, cv2.COLOR_GRAY2BGR)
         for x, y in points.img_loc:
             cv2.circle(result, (int(x), int(y)), radius, self.LANDMARK_COLOR, -1)
 

@@ -162,7 +162,7 @@ class TestProcessSynchronizedRecording:
             for cam_id, frame_data in data.items():
                 assert isinstance(cam_id, int)
                 assert frame_data.frame is not None
-                assert frame_data.frame.ndim == 3  # BGR image
+                assert frame_data.frame.ndim in (2, 3)  # grayscale or BGR depending on tracker
 
 
 class TestCancellation:

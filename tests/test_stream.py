@@ -52,19 +52,6 @@ def test_streamer():
             assert test_index == streamer.frame_index
             streamer.unpause()
 
-        if streamer.frame_index == 15:
-            logger.info("Testing ability to jump forward")
-            target_frame = 20
-            streamer.pause()
-            sleep(1)  # need to make sure fps_target wait plays out
-            streamer.seek_to(target_frame)
-            sleep(1)  # need to make sure fps_target wait plays out
-            # frame_index should match the jump target (the frame we just displayed)
-            assert streamer.frame_index == 20
-
-            logger.info(f"After attempting to jump to target frame {target_frame}")
-            streamer.unpause()
-
     streamer.close()
 
 

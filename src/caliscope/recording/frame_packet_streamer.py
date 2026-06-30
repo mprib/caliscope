@@ -1,22 +1,11 @@
 """Streamer for FramePackets from recorded video.
 
 FramePacketStreamer wraps a FrameSource and FrameTimestamps, adding threading,
-pub/sub broadcasting, and optional tracking. It's the streaming layer on top
-of the raw video I/O.
+pub/sub broadcasting, and optional tracking. Forward-only: no seeking.
 
-Seeking and Pause Handling (lessons learned):
----------------------------------------------
-1. **Seek failure must not kill the streamer**: When get_frame() returns None
-   (e.g., PyAV can't decode near EOF), we must set skip_read=True to stay at
-   the current position. Otherwise, the next read_frame() call has undefined
-   behavior after a seek and will likely return None, causing premature exit.
-
-2. **Condition variable for responsive pause loop**: The pause loop uses
-   _seek_condition.wait() instead of plain sleep. This allows seek_to() calls
-   to wake the loop immediately via notify(), making scrubbing responsive.
-   Without this, there's up to 0.1s latency on each seek while paused.
-
-3. **last_frame_index uses minimum of timestamps and source**: FrameTimestamps
+Notes:
+------
+1. **last_frame_index uses minimum of timestamps and source**: FrameTimestamps
    may have entries for frames that aren't actually accessible in the video
    file. We use min(timestamps, source) to ensure we don't try to seek beyond
    what's actually readable.
@@ -47,7 +36,7 @@ class FramePacketStreamer:
     Wraps FrameSource (video I/O) and FrameTimestamps (timing), adding:
     - Pub/sub broadcasting to multiple queues
     - Thread-safe subscriber management
-    - Playback control (pause/unpause, seeking)
+    - Playback control (pause/unpause)
     - Optional tracker integration
 
     Thread Safety:
@@ -100,11 +89,6 @@ class FramePacketStreamer:
         self._pause_event = Event()
         self._pause_event.clear()
 
-        # Seek request: (frame_index, exact) - latest wins
-        self._pending_seek: tuple[int, bool] | None = None
-        self._seek_lock = Lock()
-        self._seek_condition = Condition(self._seek_lock)
-
         # Current position
         self._frame_index = frame_timestamps.start_frame_index
         self._frame_time = 0.0
@@ -156,58 +140,6 @@ class FramePacketStreamer:
     def frame_time(self) -> float:
         """Current frame timestamp."""
         return self._frame_time
-
-    def peek_frame(self, frame_index: int) -> np.ndarray | None:
-        """Read a single frame without affecting playback state.
-
-        Thread-safe via the underlying FrameSource lock. Does not affect
-        the streamer's current position or pause state.
-
-        Args:
-            frame_index: Target frame index to retrieve.
-
-        Returns:
-            Frame as BGR numpy array, or None if out of bounds or read fails.
-        """
-        return self._frame_source.get_frame(frame_index)
-
-    def peek_tracked_frame(self, frame_index: int) -> FramePacket | None:
-        """Read a single frame with tracking applied, without affecting playback state.
-
-        Thread-safe: acquires tracker lock to read current tracker reference.
-        Does not affect the streamer's current position or pause state.
-
-        Args:
-            frame_index: Target frame index to retrieve.
-
-        Returns:
-            Complete FramePacket with tracking (if tracker set), or None if read fails.
-        """
-        frame = self._frame_source.get_frame(frame_index)
-        if frame is None:
-            return None
-
-        frame_time = self._frame_timestamps.get_time(frame_index)
-
-        # Thread-safe tracker read
-        with self._tracker_lock:
-            tracker = self._tracker
-
-        if tracker is not None:
-            point_data = tracker.get_points(frame, self.cam_id, self._rotation_count)
-            draw_instructions = tracker.scatter_draw_instructions
-        else:
-            point_data = None
-            draw_instructions = None
-
-        return FramePacket(
-            cam_id=self.cam_id,
-            frame_index=frame_index,
-            frame_time=frame_time,
-            frame=frame,
-            points=point_data,
-            draw_instructions=draw_instructions,
-        )
 
     def update_tracker(self, tracker: Tracker | None) -> None:
         """Swap the tracker reference. Thread-safe.
@@ -294,34 +226,6 @@ class FramePacketStreamer:
         logger.info(f"Unpausing streamer at cam_id {self.cam_id}")
         self._pause_event.clear()
 
-    def seek_to(self, frame_index: int, precise: bool = True) -> None:
-        """Request a seek to the specified frame.
-
-        Args:
-            frame_index: Target frame to seek to.
-            precise: If True, decode to exact frame (slower). If False, seek to
-                nearest keyframe only (faster for scrubbing).
-
-        Note: If multiple seek requests arrive before processing, only the
-        latest is honored (previous pending seeks are dropped).
-        """
-        with self._seek_condition:
-            logger.info(f"Setting pending seek to frame {frame_index} (precise={precise})")
-            self._pending_seek = (frame_index, precise)
-            self._seek_condition.notify()
-
-    def _has_pending_seek(self) -> bool:
-        """Check for pending seek request."""
-        with self._seek_lock:
-            return self._pending_seek is not None
-
-    def _take_pending_seek(self) -> tuple[int, bool] | None:
-        """Take and clear the pending seek request."""
-        with self._seek_lock:
-            seek = self._pending_seek
-            self._pending_seek = None
-            return seek
-
     # -------------------------------------------------------------------------
     # FPS Timing
     # -------------------------------------------------------------------------
@@ -386,21 +290,13 @@ class FramePacketStreamer:
         try:
             self._frame_index = self.start_frame_index
 
-            # Seek to start frame if not starting at 0
-            if self.start_frame_index > 0:
-                self._frame_source.get_frame(self.start_frame_index)
-
             logger.info(f"Beginning playback for cam_id {self.cam_id}")
 
-            # Track current frame data
             current_frame: np.ndarray | None = None
-            skip_read = False
 
             while not token.is_cancelled:
-                # Update frame time from timestamps
                 self._frame_time = self._frame_timestamps.get_time(self._frame_index)
 
-                # Wait for subscribers (Condition-based, not spinlock)
                 if not self._wait_for_subscribers(token):
                     break
 
@@ -408,26 +304,26 @@ class FramePacketStreamer:
                 if self._milestones is not None:
                     sleep(self._wait_to_next_frame())
 
-                # Read next frame unless we have it from a seek
-                if skip_read:
-                    skip_read = False
+                result = self._frame_source.next_frame()
+                if result is not None:
+                    self._frame_index, self._frame_time, current_frame = result
                 else:
-                    current_frame = self._frame_source.read_frame()
+                    current_frame = None
 
                 # Handle EOF
                 if current_frame is None:
                     logger.info(f"EOF reached at cam_id {self.cam_id}")
-                    eof_packet = FramePacket(
-                        cam_id=self.cam_id,
-                        frame_index=-1,
-                        frame_time=-1,
-                        frame=None,
-                        points=None,
+                    self._broadcast(
+                        FramePacket(
+                            cam_id=self.cam_id,
+                            frame_index=-1,
+                            frame_time=-1,
+                            frame=None,
+                            points=None,
+                        )
                     )
-                    self._broadcast(eof_packet)
                     break
 
-                # Track points if tracker attached
                 with self._tracker_lock:
                     tracker = self._tracker
 
@@ -438,7 +334,6 @@ class FramePacketStreamer:
                     point_data = None
                     draw_instructions = None
 
-                # Create and broadcast packet
                 frame_packet = FramePacket(
                     cam_id=self.cam_id,
                     frame_index=self._frame_index,
@@ -451,60 +346,24 @@ class FramePacketStreamer:
                 logger.debug(f"Broadcasting frame {self._frame_index} at cam_id {self.cam_id}")
                 self._broadcast(frame_packet)
 
-                # Handle last frame
                 if self._frame_index == self.last_frame_index:
                     if self._end_behavior == "stop":
                         logger.info(f"Reached last frame at cam_id {self.cam_id}")
-                        eof_packet = FramePacket(
-                            cam_id=self.cam_id,
-                            frame_index=-1,
-                            frame_time=-1,
-                            frame=None,
-                            points=None,
+                        self._broadcast(
+                            FramePacket(
+                                cam_id=self.cam_id,
+                                frame_index=-1,
+                                frame_time=-1,
+                                frame=None,
+                                points=None,
+                            )
                         )
-                        self._broadcast(eof_packet)
                         break
                     else:
-                        # Auto-pause at end for interactive mode
                         self._pause_event.set()
 
-                # Handle pause (check for seeks while paused)
                 while self._pause_event.is_set() and not token.is_cancelled:
-                    if self._has_pending_seek():
-                        break
-                    # Wait on condition variable - wakes immediately when seek_to() calls notify()
-                    with self._seek_condition:
-                        self._seek_condition.wait(timeout=0.1)
-
-                # Process pending seek
-                pending = self._take_pending_seek()
-                if pending is not None:
-                    target_index, precise = pending
-                    logger.info(f"Processing seek to frame {target_index} (precise={precise}) at cam_id {self.cam_id}")
-
-                    if precise:
-                        frame = self._frame_source.get_frame(target_index)
-                        if frame is not None:
-                            current_frame = frame
-                            self._frame_index = target_index
-                            skip_read = True
-                        else:
-                            # Seek failed - stay at current position, don't call read_frame()
-                            logger.warning(f"Seek to frame {target_index} failed at cam_id {self.cam_id}")
-                            skip_read = True
-                    else:
-                        frame, actual_index = self._frame_source.get_nearest_keyframe(target_index)
-                        if frame is not None:
-                            current_frame = frame
-                            self._frame_index = actual_index
-                            skip_read = True
-                        else:
-                            # Fast seek failed - stay at current position
-                            logger.warning(f"Fast seek to frame {target_index} failed at cam_id {self.cam_id}")
-                            skip_read = True
-                else:
-                    # Increment for next iteration (only if not seeking)
-                    self._frame_index += 1
+                    sleep(0.1)
 
         finally:
             logger.info(f"Streamer worker exiting for cam_id {self.cam_id}")

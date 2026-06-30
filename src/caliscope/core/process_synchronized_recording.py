@@ -5,9 +5,11 @@ Uses batch synchronization from SynchronizedTimestamps -- no real-time streaming
 """
 
 import logging
-from concurrent.futures import Future, ThreadPoolExecutor
+import os
 from dataclasses import dataclass
 from pathlib import Path
+from queue import Queue
+from threading import Thread
 from typing import Callable
 
 import numpy as np
@@ -48,114 +50,121 @@ def process_synchronized_recording(
 ) -> ImagePoints:
     """Process synchronized video recordings to extract 2D landmarks.
 
-    Uses SynchronizedTimestamps for frame alignment, then processes each
-    sync index by seeking directly to aligned frames.
-
-    Args:
-        recording_dir: Directory containing cam_N.mp4 files
-        cameras: Camera data by cam_id (provides rotation_count for frame orientation)
-        tracker: Tracker for 2D point extraction (handles per-cam_id state internally)
-        synced_timestamps: Pre-constructed timestamp alignment object
-        subsample: Process every Nth sync index (1 = all, 10 = every 10th)
-        parallel: Process cameras concurrently (True) or serially (False).
-            Uses ThreadPoolExecutor when True and multiple cameras present.
-            Set to False as fallback if threading issues are discovered.
-        on_progress: Called with (current, total) during processing
-        on_frame_data: Called with (sync_index, {cam_id: FrameData}) for live display
-        token: Cancellation token for graceful shutdown
-
-    Returns:
-        ImagePoints containing all tracked 2D observations
+    Each camera decodes forward in its own thread, yielding only the frames
+    aligned by SynchronizedTimestamps. A single consumer thread walks sync
+    indices in order and assembles cross-camera packets for the live display
+    callback. Bounded queues provide backpressure so memory stays flat.
     """
     all_sync_indices = synced_timestamps.sync_indices[::subsample]
     total = len(all_sync_indices)
+    cam_ids = [c for c in synced_timestamps.cam_ids if (recording_dir / f"cam_{c}.mp4").exists()]
 
     logger.info(
         f"Processing {total} sync indices "
         f"(subsample={subsample}, total available={len(synced_timestamps.sync_indices)})"
     )
 
-    frame_sources = _create_frame_sources(recording_dir, cameras)
+    # Build per-camera work: sync_index -> frame_index mapping and wanted set.
+    cam_work: dict[int, dict[int, int]] = {}  # cam_id -> {frame_index: sync_index}
+    for cam_id in cam_ids:
+        frame_to_sync: dict[int, int] = {}
+        for sync_index in all_sync_indices:
+            frame_index = synced_timestamps.frame_for(sync_index, cam_id)
+            if frame_index is not None:
+                frame_to_sync[frame_index] = sync_index
+        cam_work[cam_id] = frame_to_sync
+
+    decode_threads = max(1, (os.cpu_count() or 4) // max(1, len(cam_ids)))
+    QUEUE_DEPTH = 8
+
+    # Per-camera bounded queue: producer thread decodes + tracks, pushes results.
+    cam_queues: dict[int, Queue[tuple[int, FrameData] | None]] = {
+        cam_id: Queue(maxsize=QUEUE_DEPTH) for cam_id in cam_ids
+    }
+
+    def _camera_worker(cam_id: int) -> None:
+        """Decode forward, track, push (sync_index, FrameData) into the queue."""
+        frame_to_sync = cam_work[cam_id]
+        camera = cameras[cam_id]
+        q = cam_queues[cam_id]
+
+        source = FrameSource(recording_dir, cam_id, decode_threads=decode_threads, wanted_indices=set(frame_to_sync))
+        try:
+            while True:
+                if token is not None and token.is_cancelled:
+                    break
+                result = source.next_frame()
+                if result is None:
+                    break
+                frame_index, frame_time, bgr = result
+                sync_index = frame_to_sync[frame_index]
+                points = tracker.get_points(bgr, cam_id, camera.rotation_count)
+                q.put((sync_index, FrameData(bgr, points, frame_index)))
+        finally:
+            source.close()
+            q.put(None)  # sentinel
+
+    # Start per-camera decode threads.
+    threads: list[Thread] = []
+    for cam_id in cam_ids:
+        t = Thread(target=_camera_worker, args=(cam_id,), daemon=True)
+        t.start()
+        threads.append(t)
+
+    # Consumer: walk sync indices in order, pull each camera's matching result.
+    # Each camera's queue delivers results in sync-index order (frame indices
+    # increase monotonically with sync index, and next_frame is forward-only).
     point_rows: list[dict] = []
+    cam_buffers: dict[int, tuple[int, FrameData] | None] = {cam_id: None for cam_id in cam_ids}
+    cam_done: set[int] = set()
+
+    def _pull(cam_id: int) -> tuple[int, FrameData] | None:
+        """Get the next result for a camera, buffering one-ahead."""
+        if cam_buffers[cam_id] is not None:
+            return cam_buffers[cam_id]
+        item = cam_queues[cam_id].get()
+        if item is None:
+            cam_done.add(cam_id)
+            return None
+        cam_buffers[cam_id] = item
+        return item
 
     try:
-        use_pool = parallel and len(frame_sources) > 1
+        for i, sync_index in enumerate(all_sync_indices):
+            if token is not None and token.is_cancelled:
+                logger.info("Processing cancelled")
+                break
 
-        if use_pool:
-            camera_pool = ThreadPoolExecutor(max_workers=len(frame_sources))
-        else:
-            camera_pool = None
+            frame_data: dict[int, FrameData] = {}
 
-        try:
-            for i, sync_index in enumerate(all_sync_indices):
-                if token is not None and token.is_cancelled:
-                    logger.info("Processing cancelled")
-                    break
+            for cam_id in cam_ids:
+                if cam_id in cam_done:
+                    continue
+                item = _pull(cam_id)
+                if item is None:
+                    continue
+                item_sync, fd = item
+                if item_sync == sync_index:
+                    frame_data[cam_id] = fd
+                    frame_time = synced_timestamps.time_for(cam_id, fd.frame_index)
+                    _accumulate_points(point_rows, sync_index, cam_id, fd.frame_index, frame_time, fd.points)
+                    cam_buffers[cam_id] = None  # consumed
 
-                frame_data: dict[int, FrameData] = {}
-
-                if use_pool and camera_pool is not None:
-                    # --- Parallel path ---
-                    futures: dict[int, Future[tuple[int, FrameData | None, list[dict]]]] = {}
-                    for cam_id in synced_timestamps.cam_ids:
-                        frame_index = synced_timestamps.frame_for(sync_index, cam_id)
-                        if frame_index is None:
-                            continue
-                        if cam_id not in frame_sources:
-                            continue
-                        camera = cameras[cam_id]
-                        frame_time = synced_timestamps.time_for(cam_id, frame_index)
-                        futures[cam_id] = camera_pool.submit(
-                            _process_one_camera,
-                            cam_id,
-                            sync_index,
-                            frame_index,
-                            frame_sources[cam_id],
-                            camera,
-                            tracker,
-                            frame_time,
-                        )
-
-                    for cam_id, future in futures.items():
-                        _, fd, rows = future.result()
-                        if fd is not None:
-                            frame_data[cam_id] = fd
-                        point_rows.extend(rows)
-                else:
-                    # --- Serial path (original logic) ---
-                    for cam_id in synced_timestamps.cam_ids:
-                        frame_index = synced_timestamps.frame_for(sync_index, cam_id)
-                        if frame_index is None:
-                            continue
-                        if cam_id not in frame_sources:
-                            continue
-                        camera = cameras[cam_id]
-                        frame = frame_sources[cam_id].read_frame_at(frame_index)
-                        if frame is None:
-                            logger.warning(
-                                f"Failed to read frame: sync={sync_index}, cam_id={cam_id}, frame_index={frame_index}"
-                            )
-                            continue
-                        points = tracker.get_points(frame, cam_id, camera.rotation_count)
-                        frame_data[cam_id] = FrameData(frame, points, frame_index)
-                        frame_time = synced_timestamps.time_for(cam_id, frame_index)
-                        _accumulate_points(point_rows, sync_index, cam_id, frame_index, frame_time, points)
-
-                # Threading contract: callbacks are always invoked from this
-                # thread (the worker thread that owns the sync-index loop),
-                # never from pool threads. Presenters rely on this guarantee
-                # for unsynchronized accumulator state.
-                if on_frame_data is not None:
-                    on_frame_data(sync_index, frame_data)
-                if on_progress is not None:
-                    on_progress(i + 1, total)
-        finally:
-            if camera_pool is not None:
-                camera_pool.shutdown(wait=False)
+            if on_frame_data is not None:
+                on_frame_data(sync_index, frame_data)
+            if on_progress is not None:
+                on_progress(i + 1, total)
 
     finally:
-        for source in frame_sources.values():
-            source.close()
+        # Drain queues so producer threads aren't blocked on put().
+        for cam_id in cam_ids:
+            if cam_id not in cam_done:
+                while True:
+                    item = cam_queues[cam_id].get()
+                    if item is None:
+                        break
+        for t in threads:
+            t.join(timeout=5.0)
 
     return _build_image_points(point_rows)
 
@@ -167,15 +176,7 @@ def get_initial_thumbnails(
     """Extract first frame from each camera for thumbnail display.
 
     Opens each video briefly with PyAV to decode the first frame,
-    then closes immediately. No keyframe scanning or frame index
-    construction -- much faster than FrameSource for this use case.
-
-    Args:
-        recording_dir: Directory containing cam_N.mp4 files
-        cameras: Camera data by cam_id
-
-    Returns:
-        Mapping of cam_id -> first frame (BGR image)
+    then closes immediately. Much faster than FrameSource for this use case.
     """
     import av
 
@@ -192,7 +193,6 @@ def get_initial_thumbnails(
             try:
                 stream = container.streams.video[0]
                 for frame in container.decode(stream):
-                    # bgr24 always produces uint8; PyAV stubs don't narrow the type
                     arr: NDArray[np.uint8] = frame.to_ndarray(format="bgr24")  # type: ignore[assignment]
                     thumbnails[cam_id] = arr
                     break
@@ -202,31 +202,6 @@ def get_initial_thumbnails(
             logger.warning(f"Error reading first frame for cam_id {cam_id}: {e}")
 
     return thumbnails
-
-
-def _create_frame_sources(recording_dir: Path, cameras: dict[int, CameraData]) -> dict[int, FrameSource]:
-    """Create FrameSource for each camera cam_id.
-
-    Each FrameSource runs a keyframe scan on init (I/O-bound), so cameras
-    are initialized in parallel threads.
-    """
-
-    def _init_one(cam_id: int) -> tuple[int, FrameSource | None]:
-        try:
-            return cam_id, FrameSource(recording_dir, cam_id)
-        except FileNotFoundError:
-            logger.warning(f"Video file not found for cam_id {cam_id}, skipping")
-            return cam_id, None
-        except ValueError as e:
-            logger.warning(f"Error opening video for cam_id {cam_id}: {e}")
-            return cam_id, None
-
-    cam_ids = list(cameras.keys())
-
-    with ThreadPoolExecutor(max_workers=len(cam_ids)) as pool:
-        results = pool.map(_init_one, cam_ids)
-
-    return {cam_id: source for cam_id, source in results if source is not None}
 
 
 def _accumulate_points(
@@ -262,51 +237,6 @@ def _accumulate_points(
                 "obj_loc_z": obj_loc_z[i],
             }
         )
-
-
-def _process_one_camera(
-    cam_id: int,
-    sync_index: int,
-    frame_index: int,
-    frame_source: FrameSource,
-    camera: CameraData,
-    tracker: Tracker,
-    frame_time: float,
-) -> tuple[int, FrameData | None, list[dict]]:
-    """Process a single camera for one sync index.
-
-    Thread safety: This function is safe to call concurrently for different
-    cam_ids because:
-    - Each FrameSource instance is dedicated to one camera (no sharing).
-    - Tracker.get_points() is thread-safe:
-      - OnnxTracker._prev_bboxes: keyed by cam_id, each thread accesses
-        only its own key. Dict internal structure is GIL-protected.
-        INVARIANT: thread safety depends on each thread accessing a
-        distinct cam_id. Two threads must never process the same cam_id
-        concurrently.
-      - OnnxTracker.session.run(): onnxruntime InferenceSession.run() is
-        thread-safe (C++ session uses read-only model weights, per-call
-        buffer allocation). Verified for CPU execution provider.
-      - CharucoTracker/ArUcoTracker/ChessboardTracker: stateless OpenCV
-        calls on caller-provided buffers.
-    - point_rows is built locally and returned, not shared.
-
-    Returns:
-        (cam_id, frame_data_or_none, point_rows)
-    """
-    frame = frame_source.read_frame_at(frame_index)
-
-    if frame is None:
-        logger.warning(f"Failed to read frame: sync={sync_index}, cam_id={cam_id}, frame_index={frame_index}")
-        return cam_id, None, []
-
-    points = tracker.get_points(frame, cam_id, camera.rotation_count)
-    fd = FrameData(frame, points, frame_index)
-
-    local_rows: list[dict] = []
-    _accumulate_points(local_rows, sync_index, cam_id, frame_index, frame_time, points)
-
-    return cam_id, fd, local_rows
 
 
 def _build_image_points(point_rows: list[dict]) -> ImagePoints:

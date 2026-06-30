@@ -247,6 +247,7 @@ def extract_image_points_multicam(
         ValueError: If frame_step < 1.
     """
     import concurrent.futures
+    import os
     import pandas as pd
     from concurrent.futures import ThreadPoolExecutor
 
@@ -264,6 +265,10 @@ def extract_image_points_multicam(
     if missing:
         detail = "\n".join(f"  cam {cid}: {p}" for cid, p in missing.items())
         raise FileNotFoundError(f"Video files not found:\n{detail}")
+
+    # Cameras decode concurrently; split the core budget so their multi-threaded
+    # decoders share cores instead of oversubscribing and thrashing.
+    decode_threads = max(1, (os.cpu_count() or 4) // len(video_paths))
 
     with _auto_progress(progress) as progress:
         # Build sync mapping
@@ -292,40 +297,41 @@ def extract_image_points_multicam(
             return work
 
         def _process_camera(cam_id: int, work_list: list[tuple[int, int]], video_path: Path) -> list[dict]:
-            frame_source = FrameSource.from_path(video_path, cam_id=cam_id)
+            sync_for: dict[int, int] = {frame_index: sync_index for sync_index, frame_index in work_list}
+
+            frame_source = FrameSource.from_path(
+                video_path, cam_id=cam_id, decode_threads=decode_threads, wanted_indices=set(sync_for)
+            )
             try:
                 if progress is not None:
                     progress.on_video_start(cam_id, len(work_list))
 
                 rows: list[dict] = []
-                for processed_count, (sync_index, frame_index) in enumerate(work_list):
-                    frame = frame_source.read_frame_at(frame_index)
-                    if frame is None:
-                        if progress is not None:
-                            progress.on_frame(cam_id, processed_count, 0)
-                        continue
-
-                    frame_time = synced.time_for(cam_id, frame_index)
-                    point_packet = tracker.get_points(frame, cam_id=cam_id, rotation_count=0)
-
+                processed = 0
+                while (result := frame_source.next_frame()) is not None:
+                    frame_index, _frame_time, bgr = result
+                    point_packet = tracker.get_points(bgr, cam_id=cam_id, rotation_count=0)
                     n_points = len(point_packet.point_id)
+                    sync_index = sync_for[frame_index]
+                    frame_time = synced.time_for(cam_id, frame_index)
                     if n_points > 0:
-                        row: dict = {
-                            "sync_index": [sync_index] * n_points,
-                            "cam_id": [cam_id] * n_points,
-                            "frame_index": [frame_index] * n_points,
-                            "frame_time": [frame_time] * n_points,
-                            "point_id": point_packet.point_id.tolist(),
-                            "img_loc_x": point_packet.img_loc[:, 0].tolist(),
-                            "img_loc_y": point_packet.img_loc[:, 1].tolist(),
-                            "obj_loc_x": point_packet.obj_loc_list[0],
-                            "obj_loc_y": point_packet.obj_loc_list[1],
-                            "obj_loc_z": point_packet.obj_loc_list[2],
-                        }
-                        rows.append(row)
-
+                        rows.append(
+                            {
+                                "sync_index": [sync_index] * n_points,
+                                "cam_id": [cam_id] * n_points,
+                                "frame_index": [frame_index] * n_points,
+                                "frame_time": [frame_time] * n_points,
+                                "point_id": point_packet.point_id.tolist(),
+                                "img_loc_x": point_packet.img_loc[:, 0].tolist(),
+                                "img_loc_y": point_packet.img_loc[:, 1].tolist(),
+                                "obj_loc_x": point_packet.obj_loc_list[0],
+                                "obj_loc_y": point_packet.obj_loc_list[1],
+                                "obj_loc_z": point_packet.obj_loc_list[2],
+                            }
+                        )
+                    processed += 1
                     if progress is not None:
-                        progress.on_frame(cam_id, processed_count, n_points)
+                        progress.on_frame(cam_id, processed, n_points)
 
                 if progress is not None:
                     progress.on_video_complete(cam_id)

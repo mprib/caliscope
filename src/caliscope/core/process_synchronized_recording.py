@@ -93,13 +93,12 @@ def process_synchronized_recording(
             while True:
                 if token is not None and token.is_cancelled:
                     break
-                result = source.next_frame()
-                if result is None:
+                raw = source.next_frame()
+                if raw is None:
                     break
-                frame_index, frame_time, bgr = result
-                sync_index = frame_to_sync[frame_index]
-                points = tracker.get_points(bgr, cam_id, camera.rotation_count)
-                q.put((sync_index, FrameData(bgr, points, frame_index)))
+                sync_index = frame_to_sync[raw.frame_index]
+                points = tracker.get_points(raw.frame, cam_id, camera.rotation_count)
+                q.put((sync_index, FrameData(raw.frame, points, raw.frame_index)))
         finally:
             source.close()
             q.put(None)  # sentinel

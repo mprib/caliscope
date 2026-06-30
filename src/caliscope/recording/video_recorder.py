@@ -100,17 +100,17 @@ class VideoRecorder:
 
             self.sync_index = sync_packet.sync_index
 
-            for cam_id, frame_packet in sync_packet.frame_packets.items():
-                if frame_packet is not None:
-                    logger.debug("Processiong frame packet...")
+            for cam_id, tracked_frame in sync_packet.tracked_frames.items():
+                if tracked_frame is not None:
+                    logger.debug("Processing tracked frame...")
                     # read in the data for this frame for this cam_id
                     if show_points:
-                        frame = frame_packet.frame_with_points
+                        frame = tracked_frame.frame_with_points
                     else:
-                        frame = frame_packet.frame
+                        frame = tracked_frame.frame
 
-                    frame_index = frame_packet.frame_index
-                    frame_time = frame_packet.frame_time
+                    frame_index = tracked_frame.frame_index
+                    frame_time = tracked_frame.frame_time
 
                     if include_video and frame is not None:
                         # store the frame
@@ -126,7 +126,7 @@ class VideoRecorder:
                         self.frame_history["frame_index"].append(frame_index)
                         self.frame_history["frame_time"].append(frame_time)
 
-                    new_tidy_table = frame_packet.to_tidy_table(self.sync_index)
+                    new_tidy_table = tracked_frame.to_tidy_table(self.sync_index)
                     if new_tidy_table is not None:  # i.e. it has data
                         for key, value in self.point_data_history.copy().items():
                             logger.debug("Extending tidy table of point history")

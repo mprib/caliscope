@@ -53,23 +53,21 @@ class TestFrameSourceProperties:
 class TestSequentialReading:
     """Test read_frame() sequential access."""
 
-    def test_next_frame_returns_tuple(self, frame_source: FrameSource) -> None:
-        """next_frame() returns (frame_index, frame_time, bgr)."""
+    def test_next_frame_returns_frame_packet(self, frame_source: FrameSource) -> None:
+        """next_frame() returns a FramePacket."""
         result = frame_source.next_frame()
         assert result is not None
-        frame_index, frame_time, bgr = result
-        assert frame_index == 0
-        assert isinstance(frame_time, float)
-        assert isinstance(bgr, np.ndarray)
-        assert bgr.ndim == 3
-        assert bgr.shape[2] == 3
+        assert result.frame_index == 0
+        assert isinstance(result.frame_time, float)
+        assert isinstance(result.frame, np.ndarray)
+        assert result.frame.ndim == 3
+        assert result.frame.shape[2] == 3
 
     def test_next_frame_matches_video_size(self, frame_source: FrameSource) -> None:
         """Frame dimensions match video size."""
         result = frame_source.next_frame()
         assert result is not None
-        _, _, bgr = result
-        height, width, _ = bgr.shape
+        height, width, _ = result.frame.shape
         expected_width, expected_height = frame_source.size
         assert width == expected_width
         assert height == expected_height
@@ -89,7 +87,7 @@ class TestSequentialReading:
         r2 = frame_source.next_frame()
         assert r1 is not None
         assert r2 is not None
-        diff = np.abs(r1[2].astype(np.int16) - r2[2].astype(np.int16))
+        diff = np.abs(r1.frame.astype(np.int16) - r2.frame.astype(np.int16))
         assert np.max(diff) > 0, "Sequential frames should differ"
 
 
@@ -167,10 +165,5 @@ if __name__ == "__main__":
         print(f"Start index: {source.start_frame_index}")
         print(f"Last index: {source.last_frame_index}")
 
-        frame = source.read_frame()
-        print(f"First frame shape: {frame.shape if frame is not None else None}")
-
-    with FrameSource(TEST_VIDEO_DIR, TEST_CAM_ID) as source:
-        wanted = [0, 5, 10]
-        got = {i: bgr for i, _t, bgr in source.iter_frames(wanted)}
-        print(f"iter_frames({wanted}) returned indices {sorted(got)}")
+        result = source.next_frame()
+        print(f"First frame shape: {result.frame.shape if result is not None else None}")

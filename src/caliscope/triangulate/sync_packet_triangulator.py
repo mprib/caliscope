@@ -76,10 +76,10 @@ class SyncPacketTriangulator:
                 logger.info("End processing of incoming sync packets...end signaled with `None` packet")
             else:
                 logger.debug(
-                    f"Sync Packet {sync_packet.sync_index} acquired with {sync_packet.frame_packet_count} frames"
+                    f"Sync Packet {sync_packet.sync_index} acquired with {sync_packet.tracked_frame_count} frames"
                 )
                 # only attempt to process if data exists
-                if sync_packet.frame_packet_count >= 2:
+                if sync_packet.tracked_frame_count >= 2:
                     cameras, point_ids, imgs_xy = sync_packet.triangulation_inputs
                     cameras = np.array(cameras)
                     point_ids = np.array(point_ids)

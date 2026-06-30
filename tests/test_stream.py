@@ -37,9 +37,9 @@ def test_streamer():
     streamer.unpause()
 
     while True:
-        frame_packet = frame_q.get()
+        tracked_frame = frame_q.get()
 
-        if frame_packet.frame is None:
+        if tracked_frame.frame is None:
             break
 
         if streamer.frame_index == 10:

@@ -113,7 +113,7 @@ class SynchronizedStreamManager:
         Cleanup order matters for the pipeline:
         1. Recorder (downstream subscriber) - stop consuming sync packets
         2. Synchronizer (middle) - stop producing sync packets
-        3. Streamers (upstream) - stop producing frame packets
+        3. Streamers (upstream) - stop producing tracked frames
         """
         logger.info("SynchronizedStreamManager cleanup initiated")
 

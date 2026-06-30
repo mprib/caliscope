@@ -1,8 +1,8 @@
 """Forward-only frame access for recorded video files.
 
 FrameSource wraps PyAV for sequential video decoding. One forward pass, no
-seeking, no random access. next_frame() returns the next frame as a tuple of
-(frame_index, frame_time, bgr). When wanted_indices is set at construction,
+seeking, no random access. next_frame() returns the next frame as a FramePacket.
+When wanted_indices is set at construction,
 unwanted frames are decoded but not converted to BGR — next_frame silently
 advances past them.
 
@@ -17,8 +17,9 @@ from threading import Lock
 from typing import Iterator, Self
 
 import av
-import numpy as np
 from av.video.frame import VideoFrame
+
+from caliscope.packets import FramePacket
 
 logger = logging.getLogger(__name__)
 
@@ -26,8 +27,8 @@ logger = logging.getLogger(__name__)
 class FrameSource:
     """Forward-only frame access for recorded video files.
 
-    next_frame() advances the stream and returns (frame_index, frame_time, bgr)
-    or None at EOF. When wanted_indices is provided at construction, frames not
+    next_frame() advances the stream and returns a FramePacket or None at EOF.
+    When wanted_indices is provided at construction, frames not
     in that set are decoded (unavoidable with video codecs) but skipped without
     the costly BGR conversion — next_frame silently advances to the next wanted
     frame.
@@ -130,8 +131,8 @@ class FrameSource:
     def last_frame_index(self) -> int:
         return self.frame_count - 1
 
-    def next_frame(self) -> tuple[int, float, np.ndarray] | None:
-        """Return the next (wanted) frame as (frame_index, frame_time, bgr), or None at EOF.
+    def next_frame(self) -> FramePacket | None:
+        """Return the next (wanted) frame as a FramePacket, or None at EOF.
 
         When wanted_indices was set at construction, silently advances past
         unwanted frames (decoding them but skipping BGR conversion). When no
@@ -160,7 +161,12 @@ class FrameSource:
                         continue
 
                     frame_time = frame.pts * self._time_base if frame.pts is not None else 0.0
-                    return i, frame_time, frame.to_ndarray(format="bgr24")
+                    return FramePacket(
+                        cam_id=self.cam_id,
+                        frame_index=i,
+                        frame_time=frame_time,
+                        frame=frame.to_ndarray(format="bgr24"),
+                    )
 
             except StopIteration:
                 return None

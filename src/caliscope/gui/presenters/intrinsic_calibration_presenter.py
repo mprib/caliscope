@@ -1,7 +1,7 @@
 """Presenter for intrinsic camera calibration workflow.
 
 Coordinates the collection of calibration board corner observations and calibration
-via the domain's pure functions. Emits raw FramePackets for the View to
+via the domain's pure functions. Emits raw TrackedFrames for the View to
 handle display transforms (undistortion, rotation, padding).
 
 This is a "scratchpad" presenter - accumulated data and calibration results
@@ -24,7 +24,7 @@ from caliscope.core.calibrate_intrinsics import (
 )
 from caliscope.core.frame_selector import IntrinsicCoverageReport, select_calibration_frames
 from caliscope.core.point_data import ImagePoints
-from caliscope.packets import FramePacket, PointPacket
+from caliscope.packets import PointPacket, TrackedFrame
 from caliscope.recording.frame_packet_streamer import create_streamer
 from caliscope.recording.frame_source import FrameSource
 from caliscope.task_manager.cancellation import CancellationToken
@@ -70,7 +70,7 @@ class IntrinsicCalibrationPresenter(QObject):
             Qt.AutoConnection queues to main thread).
 
     Queue:
-        display_queue: View's processing thread reads FramePackets from here.
+        display_queue: View's processing thread reads TrackedFrames from here.
             Keeps heavy frame data off the GUI thread until processed into QPixmap.
     """
 
@@ -129,7 +129,7 @@ class IntrinsicCalibrationPresenter(QObject):
             self._collected_points = list(restored_points)
 
         # Display queue for View consumption
-        self._display_queue: Queue[FramePacket | None] = Queue()
+        self._display_queue: Queue[TrackedFrame | None] = Queue()
 
         # Collection state
         self._is_collecting = False
@@ -144,7 +144,7 @@ class IntrinsicCalibrationPresenter(QObject):
             tracker=self._tracker,
             end_behavior="pause",  # Pause at end for interactive scrubbing
         )
-        self._frame_queue: Queue[FramePacket] = Queue()
+        self._frame_queue: Queue[TrackedFrame] = Queue()
         self._streamer.subscribe(self._frame_queue)
 
         # Start streamer worker (will read first frame, then we pause)
@@ -157,7 +157,7 @@ class IntrinsicCalibrationPresenter(QObject):
         self._streamer.pause()
 
         self._current_frame_index: int = self._streamer.start_frame_index
-        self._first_frame_packet: FramePacket | None = None
+        self._first_tracked_frame: TrackedFrame | None = None
 
         # Consumer thread caches first frame and forwards to display
         self._stop_event = Event()
@@ -179,7 +179,7 @@ class IntrinsicCalibrationPresenter(QObject):
         return IntrinsicCalibrationState.READY
 
     @property
-    def display_queue(self) -> Queue[FramePacket | None]:
+    def display_queue(self) -> Queue[TrackedFrame | None]:
         """Queue for View's processing thread to consume frames from.
 
         None sentinel signals end of current sequence (e.g., after stop).
@@ -244,8 +244,8 @@ class IntrinsicCalibrationPresenter(QObject):
 
     def _show_first_frame(self) -> None:
         """Put the cached first frame on the display queue."""
-        if self._first_frame_packet is not None:
-            self._display_queue.put(self._first_frame_packet)
+        if self._first_tracked_frame is not None:
+            self._display_queue.put(self._first_tracked_frame)
 
     def start_calibration(self) -> None:
         """Start collecting calibration frames via forward decode."""
@@ -308,30 +308,29 @@ class IntrinsicCalibrationPresenter(QObject):
         )
 
         try:
-            while (result := frame_source.next_frame()) is not None:
-                frame_idx, _frame_time, frame = result
+            while (raw := frame_source.next_frame()) is not None:
                 if self._stop_collection.is_set():
-                    logger.info(f"Collection cancelled at frame {frame_idx}")
+                    logger.info(f"Collection cancelled at frame {raw.frame_index}")
                     break
 
                 # Track the frame
-                points = self._tracker.get_points(frame, self._cam_id, self._camera.rotation_count)
+                points = self._tracker.get_points(raw.frame, self._cam_id, self._camera.rotation_count)
 
                 # Accumulate if board detected
                 if points is not None and len(points.point_id) > 0:
-                    self._collected_points.append((frame_idx, points))
+                    self._collected_points.append((raw.frame_index, points))
 
                 # Emit for display
-                packet = FramePacket(
+                tracked_frame = TrackedFrame(
                     cam_id=self._cam_id,
-                    frame_index=frame_idx,
-                    frame_time=0.0,
-                    frame=frame,
+                    frame_index=raw.frame_index,
+                    frame_time=raw.frame_time,
+                    frame=raw.frame,
                     points=points,
                 )
-                self._display_queue.put(packet)
-                self._current_frame_index = frame_idx
-                self.frame_position_changed.emit(frame_idx)
+                self._display_queue.put(tracked_frame)
+                self._current_frame_index = raw.frame_index
+                self.frame_position_changed.emit(raw.frame_index)
 
         finally:
             frame_source.close()
@@ -350,19 +349,19 @@ class IntrinsicCalibrationPresenter(QObject):
                 break
 
             try:
-                packet: FramePacket = self._frame_queue.get(timeout=0.1)
+                tracked_frame: TrackedFrame = self._frame_queue.get(timeout=0.1)
             except Empty:
                 continue
 
-            if packet.frame_index == -1:
+            if tracked_frame.frame_index == -1:
                 continue
 
-            if self._first_frame_packet is None:
-                self._first_frame_packet = packet
+            if self._first_tracked_frame is None:
+                self._first_tracked_frame = tracked_frame
 
-            self._display_queue.put(packet)
-            self._current_frame_index = packet.frame_index
-            self.frame_position_changed.emit(packet.frame_index)
+            self._display_queue.put(tracked_frame)
+            self._current_frame_index = tracked_frame.frame_index
+            self.frame_position_changed.emit(tracked_frame.frame_index)
 
         logger.debug(f"Consumer thread exiting for cam_id {self._cam_id}")
 

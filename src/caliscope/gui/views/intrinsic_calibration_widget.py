@@ -39,7 +39,7 @@ from caliscope.gui.presenters.intrinsic_calibration_presenter import (
     IntrinsicCalibrationState,
 )
 from caliscope.gui.theme import Styles
-from caliscope.packets import FramePacket, PointPacket
+from caliscope.packets import PointPacket, TrackedFrame
 
 logger = logging.getLogger(__name__)
 
@@ -355,7 +355,7 @@ class FrameRenderThread(QThread):
 
     def __init__(
         self,
-        display_queue: Queue[FramePacket | None],
+        display_queue: Queue[TrackedFrame | None],
         camera: CameraData,
         presenter: IntrinsicCalibrationPresenter,
         pixmap_edge_length: int = 500,
@@ -371,8 +371,8 @@ class FrameRenderThread(QThread):
         self._keep_running = Event()
         self._overlay_settings = OverlaySettings()
 
-        # Cache last packet for re-rendering when overlay settings change
-        self._last_packet: FramePacket | None = None
+        # Cache last tracked frame for re-rendering when overlay settings change
+        self._last_tracked_frame: TrackedFrame | None = None
 
         # Compute overlay sizes based on image dimensions
         width = camera.size[0]
@@ -412,13 +412,13 @@ class FrameRenderThread(QThread):
         self._keep_running.clear()
 
     def rerender_cached(self) -> None:
-        """Re-render the last packet with current overlay settings.
+        """Re-render the last tracked frame with current overlay settings.
 
         Call this when overlay visibility changes instead of requesting
         a new frame from the presenter.
         """
-        if self._last_packet is not None:
-            self._render_packet(self._last_packet)
+        if self._last_tracked_frame is not None:
+            self._render_tracked_frame(self._last_tracked_frame)
 
     def _draw_current_points(self, frame: NDArray[Any], points: PointPacket) -> NDArray[Any]:
         """Draw current frame's detected points as red circles."""
@@ -479,13 +479,13 @@ class FrameRenderThread(QThread):
 
         return frame
 
-    def _render_packet(self, packet: FramePacket) -> None:
-        """Render a packet with current overlay settings and emit pixmap."""
-        if packet.frame is None:
+    def _render_tracked_frame(self, tracked_frame: TrackedFrame) -> None:
+        """Render a tracked frame with current overlay settings and emit pixmap."""
+        if tracked_frame.frame is None:
             return
 
         # Start with raw frame (View owns all rendering)
-        frame = packet.frame.copy()
+        frame = tracked_frame.frame.copy()
 
         # Layer 1: Accumulated points (behind current)
         if self._overlay_settings.show_accumulated:
@@ -496,8 +496,8 @@ class FrameRenderThread(QThread):
             frame = self._draw_selected_grids(frame)
 
         # Layer 3: Current frame points (on top)
-        if self._overlay_settings.show_current_points and packet.points is not None:
-            frame = self._draw_current_points(frame, packet.points)
+        if self._overlay_settings.show_current_points and tracked_frame.points is not None:
+            frame = self._draw_current_points(frame, tracked_frame.points)
 
         # Undistortion
         if self._undistort_enabled and self._visualizer is not None:
@@ -523,21 +523,18 @@ class FrameRenderThread(QThread):
 
         while self._keep_running.is_set():
             try:
-                packet = self._display_queue.get(timeout=0.1)
+                tracked_frame = self._display_queue.get(timeout=0.1)
             except Empty:
                 continue
 
-            # None sentinel - Presenter signals end of sequence
-            if packet is None:
+            if tracked_frame is None:
                 continue
 
-            # Skip packets with no frame (e.g., end-of-stream markers)
-            if packet.frame is None:
+            if tracked_frame.frame is None:
                 continue
 
-            # Cache for re-rendering on overlay toggle
-            self._last_packet = packet
-            self._render_packet(packet)
+            self._last_tracked_frame = tracked_frame
+            self._render_tracked_frame(tracked_frame)
 
         logger.debug(f"Frame render thread exiting for cam {self._camera.cam_id}")
 

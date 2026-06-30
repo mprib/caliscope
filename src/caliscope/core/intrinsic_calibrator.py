@@ -7,7 +7,7 @@ import cv2
 import numpy as np
 
 from caliscope.cameras.camera_array import CameraData
-from caliscope.packets import FramePacket
+from caliscope.packets import TrackedFrame
 from caliscope.recording.frame_packet_streamer import FramePacketStreamer
 
 logger = logging.getLogger(__name__)
@@ -24,8 +24,8 @@ class IntrinsicCalibrator:
         self.streamer = streamer
         self.initialize_point_history()
 
-        self.frame_packet_q = Queue()
-        self.streamer.subscribe(self.frame_packet_q)
+        self.tracked_frame_q = Queue()
+        self.streamer.subscribe(self.tracked_frame_q)
 
         # The following group of parameters relate to the autopopulation of the calibrator
         self.grid_history_q = Queue()  # for passing ids, img_loc used in calibration
@@ -44,11 +44,11 @@ class IntrinsicCalibrator:
 
         def harvest_worker():
             while True:
-                frame_packet = self.frame_packet_q.get()
+                tracked_frame = self.tracked_frame_q.get()
                 if self.stop_event.is_set():
                     break
 
-                self.add_frame_packet(frame_packet)
+                self.add_tracked_frame(tracked_frame)
 
             logger.info(f"Harvest frames successfully ended in calibrator for cam {self.streamer.cam_id}")
 
@@ -58,8 +58,8 @@ class IntrinsicCalibrator:
     def stop(self):
         logger.info("Beginning to stop intrinsic calibrator")
         self.stop_event.set()
-        self.streamer.unsubscribe(self.frame_packet_q)
-        self.frame_packet_q.put(-1)
+        self.streamer.unsubscribe(self.tracked_frame_q)
+        self.tracked_frame_q.put(-1)
 
     @property
     def grid_count(self):
@@ -83,28 +83,28 @@ class IntrinsicCalibrator:
         self.all_img_loc = {}
         self.all_obj_loc = {}
 
-    def add_frame_packet(self, frame_packet: FramePacket):
+    def add_tracked_frame(self, tracked_frame: TrackedFrame):
         """
-        Point data from frame packet is stored, indexed by the frame index
+        Point data from tracked frame is stored, indexed by the frame index
         """
-        index = frame_packet.frame_index
+        index = tracked_frame.frame_index
 
-        if index != -1 and frame_packet.points is not None:
-            self.all_ids[index] = frame_packet.points.point_id
-            self.all_img_loc[index] = frame_packet.points.img_loc
-            self.all_obj_loc[index] = frame_packet.points.obj_loc
+        if index != -1 and tracked_frame.points is not None:
+            self.all_ids[index] = tracked_frame.points.point_id
+            self.all_img_loc[index] = tracked_frame.points.img_loc
+            self.all_obj_loc[index] = tracked_frame.points.obj_loc
 
             self.active_frame_index = index
 
             # when auto store data is set, the stream should be pushing out all
             # frames consecutively from the beginning
             if self.auto_store_data.is_set():
-                point_id = frame_packet.points.point_id
+                point_id = tracked_frame.points.point_id
 
                 if point_id.size == 0:
                     corner_count = 0
                 else:
-                    corner_count = frame_packet.points.point_id.shape[0]
+                    corner_count = tracked_frame.points.point_id.shape[0]
                 logger.debug(f"Corner count is {corner_count} and frame wait is {self.auto_pop_frame_wait}")
                 if self.auto_pop_frame_wait == 0 and corner_count >= self.threshold_corner_count:
                     # add frame to calibration data and reset the wait time
@@ -166,9 +166,9 @@ class IntrinsicCalibrator:
 
     def initiate_auto_pop(self, wait_between, threshold_corner_count, target_grid_count):
         """
-        This will enable actions within self.add_frame_packet
+        This will enable actions within self.add_tracked_frame
 
-        Now when frame_packets are read in from the stream, the
+        Now when tracked_frames are read in from the stream, the
 
         """
         logger.info(f"Initiating autopopulation of corner data in cam {self.camera.cam_id}")
@@ -184,7 +184,7 @@ class IntrinsicCalibrator:
         The data that will ultimately go into the calibration is determined by the calibration
         frame indices. This is where the calibration data is populated based on which frames
         have been flagged (either by the user via self.add_calibration_frame_index or by autopopulated
-        within self.add_frame_packet when autopop is enabled.)
+        within self.add_tracked_frame when autopop is enabled.)
         """
         self.calibration_point_ids = []
         self.calibration_img_loc = []

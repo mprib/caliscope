@@ -308,18 +308,17 @@ def extract_image_points_multicam(
 
                 rows: list[dict] = []
                 processed = 0
-                while (result := frame_source.next_frame()) is not None:
-                    frame_index, _frame_time, bgr = result
-                    point_packet = tracker.get_points(bgr, cam_id=cam_id, rotation_count=0)
+                while (raw := frame_source.next_frame()) is not None:
+                    point_packet = tracker.get_points(raw.frame, cam_id=cam_id, rotation_count=0)
                     n_points = len(point_packet.point_id)
-                    sync_index = sync_for[frame_index]
-                    frame_time = synced.time_for(cam_id, frame_index)
+                    sync_index = sync_for[raw.frame_index]
+                    frame_time = synced.time_for(cam_id, raw.frame_index)
                     if n_points > 0:
                         rows.append(
                             {
                                 "sync_index": [sync_index] * n_points,
                                 "cam_id": [cam_id] * n_points,
-                                "frame_index": [frame_index] * n_points,
+                                "frame_index": [raw.frame_index] * n_points,
                                 "frame_time": [frame_time] * n_points,
                                 "point_id": point_packet.point_id.tolist(),
                                 "img_loc_x": point_packet.img_loc[:, 0].tolist(),

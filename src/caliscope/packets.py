@@ -44,10 +44,17 @@ class PointPacket:
 
 @dataclass(frozen=True, slots=True)
 class FramePacket:
-    """
-    Holds the data for a single frame from a camera, including the frame itself,
-    the frame time and the points if they were generated
-    """
+    """Raw decode output from a single camera frame."""
+
+    cam_id: int
+    frame_index: int
+    frame_time: float
+    frame: NDArray[Any]
+
+
+@dataclass(frozen=True, slots=True)
+class TrackedFrame:
+    """A decoded frame enriched with tracking results."""
 
     cam_id: int
     frame_index: int
@@ -114,11 +121,11 @@ class FramePacket:
 @dataclass(frozen=True, slots=True)
 class SyncPacket:
     """
-    SyncPacket holds syncronized frame packets.
+    SyncPacket holds synchronized tracked frames.
     """
 
     sync_index: int
-    frame_packets: dict[int, FramePacket | None]  # cam_id: frame_packet
+    tracked_frames: dict[int, TrackedFrame | None]
 
     @property
     def triangulation_inputs(self):
@@ -133,11 +140,11 @@ class SyncPacket:
         point_ids = []
         img_xy = []
 
-        for cam_id, packet in self.frame_packets.items():
-            if packet is not None and packet.points is not None:
-                cameras.extend([cam_id] * len(packet.points.point_id))
-                point_ids.extend(packet.points.point_id.tolist())
-                img_xy.extend(packet.points.img_loc.tolist())
+        for cam_id, tracked_frame in self.tracked_frames.items():
+            if tracked_frame is not None and tracked_frame.points is not None:
+                cameras.extend([cam_id] * len(tracked_frame.points.point_id))
+                point_ids.extend(tracked_frame.points.point_id.tolist())
+                img_xy.extend(tracked_frame.points.img_loc.tolist())
 
         return cameras, point_ids, img_xy
 
@@ -147,18 +154,18 @@ class SyncPacket:
         convencience method to ease tracking of dropped frame rate within the synchronizer
         """
         temp_dict = {}
-        for cam_id, packet in self.frame_packets.items():
-            if packet is None:
+        for cam_id, tracked_frame in self.tracked_frames.items():
+            if tracked_frame is None:
                 temp_dict[cam_id] = 1
             else:
                 temp_dict[cam_id] = 0
         return temp_dict
 
     @property
-    def frame_packet_count(self):
+    def tracked_frame_count(self):
         count = 0
-        for cam_id, packet in self.frame_packets.items():
-            if packet is not None:
+        for cam_id, tracked_frame in self.tracked_frames.items():
+            if tracked_frame is not None:
                 count += 1
         return count
 

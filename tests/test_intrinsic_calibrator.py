@@ -51,12 +51,12 @@ def test_intrinsic_calibrator(tmp_path: Path):
 
     collected = 0
     while collected < len(test_frames):
-        packet = frame_q.get(timeout=5.0)
-        if packet.frame is None:
+        tracked_frame = frame_q.get(timeout=5.0)
+        if tracked_frame.frame is None:
             break
-        if packet.frame_index in test_frames:
-            intrinsic_calibrator.add_frame_packet(packet)
-            intrinsic_calibrator.add_calibration_frame_index(packet.frame_index)
+        if tracked_frame.frame_index in test_frames:
+            intrinsic_calibrator.add_tracked_frame(tracked_frame)
+            intrinsic_calibrator.add_calibration_frame_index(tracked_frame.frame_index)
             collected += 1
 
     streamer.stop()

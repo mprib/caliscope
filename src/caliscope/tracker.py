@@ -50,7 +50,7 @@ class Tracker(ABC):
 
         As an example, the dictionary could have the form: {"radius": 5, "color": (220, 0, 0), "thickness": 3}
         The parameters `radius`, `color`, and `thickness` are used downstream in a call to `cv2.circle`
-        to place the tracked point on the frame. See `FramePacket` below.
+        to place the tracked point on the frame. See `TrackedFrame` in packets.py.
         """
         pass
 

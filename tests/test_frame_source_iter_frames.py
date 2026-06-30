@@ -51,7 +51,7 @@ def test_next_frame_decode_count_matches_metadata():
     try:
         indices = []
         while (result := fs.next_frame()) is not None:
-            indices.append(result[0])
+            indices.append(result.frame_index)
     finally:
         fs.close()
     assert indices == list(range(N_FRAMES))
@@ -70,7 +70,7 @@ def test_next_frame_with_wanted_selects_true_frame():
     try:
         got: dict[int, np.ndarray] = {}
         while (result := fs.next_frame()) is not None:
-            got[result[0]] = result[2]
+            got[result.frame_index] = result.frame
     finally:
         fs.close()
 

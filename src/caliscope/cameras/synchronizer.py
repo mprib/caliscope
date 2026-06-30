@@ -26,16 +26,16 @@ class Synchronizer:
 
         self.synched_frames_subscribers = []  # queues that will receive actual frame data
 
-        self.all_frame_packets = {}
+        self.all_tracked_frames = {}
         self.stop_event = Event()
         self.frames_complete = False  # only relevant for video playback, but provides a way to wrap up the thread
 
         self.cam_ids = []
-        self.frame_packet_queues = {}
+        self.tracked_frame_queues = {}
         for cam_id, stream in self.streams.items():
             self.cam_ids.append(cam_id)
             q = Queue(-1)
-            self.frame_packet_queues[cam_id] = q
+            self.tracked_frame_queues[cam_id] = q
 
         self.subscribed_to_streams = False  # not subscribed yet
         self.subscribe_to_streams()
@@ -72,13 +72,13 @@ class Synchronizer:
     def subscribe_to_streams(self):
         for cam_id, stream in self.streams.items():
             logger.info(f"Subscribing synchronizer to stream from cam_id {cam_id}")
-            stream.subscribe(self.frame_packet_queues[cam_id])
+            stream.subscribe(self.tracked_frame_queues[cam_id])
         self.subscribed_to_streams = True
 
     def unsubscribe_from_streams(self):
         for cam_id, stream in self.streams.items():
             logger.info(f"unsubscribe synchronizer from cam_id {cam_id}")
-            stream.unsubscribe(self.frame_packet_queues[cam_id])
+            stream.unsubscribe(self.tracked_frame_queues[cam_id])
         self.subscribed_to_streams = False
 
     def stop(self):
@@ -119,7 +119,7 @@ class Synchronizer:
         logger.info("About to submit Threadpool of frame Harvesters")
         self.threads = []
         for cam_id, stream in self.streams.items():
-            t = Thread(target=self.harvest_frame_packets, args=(stream,), daemon=True)
+            t = Thread(target=self.harvest_tracked_frames, args=(stream,), daemon=True)
             t.start()
             self.threads.append(t)
         logger.info("Frame harvesters just submitted")
@@ -136,8 +136,8 @@ class Synchronizer:
         logger.info("Releasing record queue")
         self.synched_frames_subscribers.remove(q)
 
-    def harvest_frame_packets(self, stream):
-        """Harvest frame packets from a stream and store them.
+    def harvest_tracked_frames(self, stream):
+        """Harvest tracked frames from a stream and store them.
 
         Uses timeout on queue.get() to periodically check stop_event,
         allowing clean shutdown when stop() is called.
@@ -149,18 +149,18 @@ class Synchronizer:
         while not self.stop_event.is_set():
             try:
                 # Use timeout to periodically check stop_event
-                frame_packet = self.frame_packet_queues[cam_id].get(timeout=0.5)
+                tracked_frame = self.tracked_frame_queues[cam_id].get(timeout=0.5)
             except Empty:
                 # No frame available, loop back to check stop_event
                 continue
 
             frame_index = self.cam_id_frame_count[cam_id]
 
-            self.all_frame_packets[f"{cam_id}_{frame_index}"] = frame_packet
+            self.all_tracked_frames[f"{cam_id}_{frame_index}"] = tracked_frame
             self.cam_id_frame_count[cam_id] += 1
 
             logger.debug(
-                f"Frame data harvested from reel {frame_packet.cam_id} with index {frame_index} and frame time of {frame_packet.frame_time}"  # noqa E501
+                f"Frame data harvested from reel {tracked_frame.cam_id} with index {frame_index} and frame time of {tracked_frame.frame_time}"  # noqa E501
             )
 
         logger.info(f"Frame harvester for cam_id {cam_id} completed")
@@ -175,7 +175,7 @@ class Synchronizer:
             frame_data_key = f"{c}_{next_index}"
 
             # problem with outpacing the threads reading data in, so wait if need be
-            while frame_data_key not in self.all_frame_packets.keys():
+            while frame_data_key not in self.all_tracked_frames.keys():
                 logger.debug(f"Waiting in a loop for frame data to populate with key: {frame_data_key}")
                 if self.subscribed_to_streams:
                     time.sleep(0.1)
@@ -185,7 +185,7 @@ class Synchronizer:
                         logger.info("Synchronizer not subscribed to any streams and busy waiting...")
                     time.sleep(1)
 
-            next_frame_time = self.all_frame_packets[frame_data_key].frame_time
+            next_frame_time = self.all_tracked_frames[frame_data_key].frame_time
 
             if next_frame_time == -1:
                 logger.info(f"End of frames at cam_id {c} detected; ending synchronization")
@@ -204,7 +204,7 @@ class Synchronizer:
         for c in self.cam_ids:
             current_index = self.cam_id_current_frame[c]
             frame_data_key = f"{c}_{current_index}"
-            current_frame_time = self.all_frame_packets[frame_data_key].frame_time
+            current_frame_time = self.all_tracked_frames[frame_data_key].frame_time
             if c != cam_id:
                 times_of_current_frames.append(current_frame_time)
 
@@ -236,7 +236,7 @@ class Synchronizer:
 
         logger.info("About to start synchronizing frames...")
         while not self.stop_event.is_set():
-            current_frame_packets = {}
+            current_tracked_frames = {}
 
             layer_frame_times = []
 
@@ -254,25 +254,25 @@ class Synchronizer:
                 current_frame_index = self.cam_id_current_frame[cam_id]
 
                 cam_id_index_key = f"{cam_id}_{current_frame_index}"
-                current_frame_packet = self.all_frame_packets[cam_id_index_key]
-                frame_time = current_frame_packet.frame_time
+                current_tracked_frame = self.all_tracked_frames[cam_id_index_key]
+                frame_time = current_tracked_frame.frame_time
 
-                # don't put a frame in a synched frame packet if the next packet has a frame before it
+                # don't put a frame in a sync layer if the next frame arrives before it
                 if frame_time > earliest_next[cam_id]:
                     # definitly should be put in the next layer and not this one
-                    current_frame_packets[cam_id] = None
+                    current_tracked_frames[cam_id] = None
                     logger.warning(f"Skipped frame at cam_id {cam_id}: > earliest_next")
                 elif (
                     earliest_next[cam_id] - frame_time < frame_time - latest_current[cam_id]
                 ):  # frame time is closer to earliest next than latest current
                     # if it's closer to the earliest next frame than the latest current frame, bump it up
                     # only applying for 2 camera setup where I noticed this was an issue (frames stay out of synch)
-                    current_frame_packets[cam_id] = None
+                    current_tracked_frames[cam_id] = None
                     logger.warning(f"Skipped frame at cam_id {cam_id}: delta < time-latest_current")
                 else:
                     # add the data and increment the index
-                    current_frame_packets[cam_id] = self.all_frame_packets.pop(cam_id_index_key)
-                    # frame_packets[cam_id]["sync_index"] = sync_index
+                    current_tracked_frames[cam_id] = self.all_tracked_frames.pop(cam_id_index_key)
+                    # tracked_frames[cam_id]["sync_index"] = sync_index
                     self.cam_id_current_frame[cam_id] += 1
                     layer_frame_times.append(frame_time)
                     logger.debug(
@@ -280,7 +280,7 @@ class Synchronizer:
                         f"at index {current_frame_index} and frame time: {frame_time}"
                     )
 
-            logger.debug(f"Unassigned Frames: {len(self.all_frame_packets)}")
+            logger.debug(f"Unassigned Frames: {len(self.all_tracked_frames)}")
 
             # only calculate mean and FPS if frames were actually synched this layer
             if layer_frame_times:
@@ -290,7 +290,7 @@ class Synchronizer:
                 logger.warning("No frames were synchronized this cycle; skipping FPS update")
 
             logger.debug(f"Updating sync packet for sync_index {sync_index}")
-            self.current_sync_packet = SyncPacket(sync_index, current_frame_packets)
+            self.current_sync_packet = SyncPacket(sync_index, current_tracked_frames)
 
             self.update_dropped_frame_history()
 
@@ -304,7 +304,7 @@ class Synchronizer:
                 q.put(self.current_sync_packet)
                 if self.current_sync_packet is not None:
                     logger.debug(
-                        f"Placing new synched frames packet on queue with {self.current_sync_packet.frame_packet_count} frames"  # noqa E501
+                        f"Placing new synched frames packet on queue with {self.current_sync_packet.tracked_frame_count} frames"  # noqa E501
                     )
                     logger.debug(f"Placing new synched frames with index {self.current_sync_packet.sync_index}")
 
@@ -313,7 +313,7 @@ class Synchronizer:
                         logger.info(f"Placing new synched frames with index {self.current_sync_packet.sync_index}")
                 else:
                     logger.info("signaling end of frames with `None` packet on subscriber queue.")
-                    for cam_id, q in self.frame_packet_queues.items():
-                        logger.info(f"Currently {q.qsize()} frame packets unprocessed for cam_id {cam_id}")
+                    for cam_id, q in self.tracked_frame_queues.items():
+                        logger.info(f"Currently {q.qsize()} tracked frames unprocessed for cam_id {cam_id}")
 
         logger.info("Frame synch worker successfully ended")

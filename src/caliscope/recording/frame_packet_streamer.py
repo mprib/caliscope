@@ -1,4 +1,4 @@
-"""Streamer for FramePackets from recorded video.
+"""Streamer for TrackedFrames from recorded video.
 
 FramePacketStreamer wraps a FrameSource and FrameTimestamps, adding threading,
 pub/sub broadcasting, and optional tracking. Forward-only: no seeking.
@@ -20,7 +20,7 @@ from typing import Literal
 
 import numpy as np
 
-from caliscope.packets import FramePacket
+from caliscope.packets import TrackedFrame
 from caliscope.recording.frame_source import FrameSource
 from caliscope.recording.frame_timestamps import FrameTimestamps
 from caliscope.task_manager.cancellation import CancellationToken
@@ -31,7 +31,7 @@ logger = logging.getLogger(__name__)
 
 
 class FramePacketStreamer:
-    """Streams FramePackets from recorded video to subscriber queues.
+    """Streams TrackedFrames from recorded video to subscriber queues.
 
     Wraps FrameSource (video I/O) and FrameTimestamps (timing), adding:
     - Pub/sub broadcasting to multiple queues
@@ -159,7 +159,7 @@ class FramePacketStreamer:
     # -------------------------------------------------------------------------
 
     def subscribe(self, queue: Queue) -> None:
-        """Add a queue to receive FramePackets.
+        """Add a queue to receive TrackedFrames.
 
         Thread-safe. Notifies waiting streamer if this is the first subscriber.
         """
@@ -172,7 +172,7 @@ class FramePacketStreamer:
                 logger.warning(f"Attempted duplicate subscription to streamer at cam_id {self.cam_id}")
 
     def unsubscribe(self, queue: Queue) -> None:
-        """Remove a queue from receiving FramePackets.
+        """Remove a queue from receiving TrackedFrames.
 
         Thread-safe.
         """
@@ -183,7 +183,7 @@ class FramePacketStreamer:
             else:
                 logger.warning(f"Attempted to unsubscribe non-existent queue at cam_id {self.cam_id}")
 
-    def _broadcast(self, packet: FramePacket) -> None:
+    def _broadcast(self, packet: TrackedFrame) -> None:
         """Send packet to all subscribers.
 
         Copies subscriber list while holding lock, then releases lock before
@@ -281,7 +281,7 @@ class FramePacketStreamer:
     # -------------------------------------------------------------------------
 
     def play_worker(self, token: CancellationToken, handle: TaskHandle | None = None) -> None:
-        """Main playback loop. Places FramePackets on subscriber queues.
+        """Main playback loop. Places TrackedFrames on subscriber queues.
 
         Args:
             token: Cancellation token for cooperative shutdown.
@@ -304,9 +304,11 @@ class FramePacketStreamer:
                 if self._milestones is not None:
                     sleep(self._wait_to_next_frame())
 
-                result = self._frame_source.next_frame()
-                if result is not None:
-                    self._frame_index, self._frame_time, current_frame = result
+                raw = self._frame_source.next_frame()
+                if raw is not None:
+                    self._frame_index = raw.frame_index
+                    self._frame_time = raw.frame_time
+                    current_frame = raw.frame
                 else:
                     current_frame = None
 
@@ -314,7 +316,7 @@ class FramePacketStreamer:
                 if current_frame is None:
                     logger.info(f"EOF reached at cam_id {self.cam_id}")
                     self._broadcast(
-                        FramePacket(
+                        TrackedFrame(
                             cam_id=self.cam_id,
                             frame_index=-1,
                             frame_time=-1,
@@ -334,7 +336,7 @@ class FramePacketStreamer:
                     point_data = None
                     draw_instructions = None
 
-                frame_packet = FramePacket(
+                tracked = TrackedFrame(
                     cam_id=self.cam_id,
                     frame_index=self._frame_index,
                     frame_time=self._frame_time,
@@ -344,13 +346,13 @@ class FramePacketStreamer:
                 )
 
                 logger.debug(f"Broadcasting frame {self._frame_index} at cam_id {self.cam_id}")
-                self._broadcast(frame_packet)
+                self._broadcast(tracked)
 
                 if self._frame_index == self.last_frame_index:
                     if self._end_behavior == "stop":
                         logger.info(f"Reached last frame at cam_id {self.cam_id}")
                         self._broadcast(
-                            FramePacket(
+                            TrackedFrame(
                                 cam_id=self.cam_id,
                                 frame_index=-1,
                                 frame_time=-1,

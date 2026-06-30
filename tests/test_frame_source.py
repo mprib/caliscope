@@ -1,4 +1,4 @@
-"""Tests for FrameSource - raw video frame access."""
+"""Tests for FrameSource - forward-only video frame access."""
 
 from collections.abc import Generator
 from pathlib import Path
@@ -36,13 +36,9 @@ class TestFrameSourceProperties:
         """start_frame_index is always 0 for raw video."""
         assert frame_source.start_frame_index == 0
 
-    def test_last_frame_index_is_accessible(self, frame_source: FrameSource) -> None:
-        """last_frame_index returns an accessible frame, not metadata estimate."""
-        # The actual last frame should be accessible
-        frame = frame_source.get_frame(frame_source.last_frame_index)
-        assert frame is not None
-        # Should not exceed metadata estimate
-        assert frame_source.last_frame_index <= frame_source.frame_count - 1
+    def test_last_frame_index_tracks_frame_count(self, frame_source: FrameSource) -> None:
+        """last_frame_index is the metadata-derived final index."""
+        assert frame_source.last_frame_index == frame_source.frame_count - 1
 
     def test_cam_id_stored(self, frame_source: FrameSource) -> None:
         """cam_id is stored from constructor."""
@@ -57,133 +53,44 @@ class TestFrameSourceProperties:
 class TestSequentialReading:
     """Test read_frame() sequential access."""
 
-    def test_read_frame_returns_numpy_array(self, frame_source: FrameSource) -> None:
-        """read_frame() returns BGR numpy array."""
-        frame = frame_source.read_frame()
-        assert frame is not None
-        assert isinstance(frame, np.ndarray)
-        assert frame.ndim == 3  # height, width, channels
-        assert frame.shape[2] == 3  # BGR
+    def test_next_frame_returns_tuple(self, frame_source: FrameSource) -> None:
+        """next_frame() returns (frame_index, frame_time, bgr)."""
+        result = frame_source.next_frame()
+        assert result is not None
+        frame_index, frame_time, bgr = result
+        assert frame_index == 0
+        assert isinstance(frame_time, float)
+        assert isinstance(bgr, np.ndarray)
+        assert bgr.ndim == 3
+        assert bgr.shape[2] == 3
 
-    def test_read_frame_matches_video_size(self, frame_source: FrameSource) -> None:
+    def test_next_frame_matches_video_size(self, frame_source: FrameSource) -> None:
         """Frame dimensions match video size."""
-        frame = frame_source.read_frame()
-        assert frame is not None
-        height, width, _ = frame.shape
+        result = frame_source.next_frame()
+        assert result is not None
+        _, _, bgr = result
+        height, width, _ = bgr.shape
         expected_width, expected_height = frame_source.size
         assert width == expected_width
         assert height == expected_height
 
-    def test_read_frame_returns_none_at_eof(self, frame_source: FrameSource) -> None:
-        """read_frame() returns None when video is exhausted."""
-        # Read all frames
+    def test_next_frame_returns_none_at_eof(self, frame_source: FrameSource) -> None:
+        """next_frame() returns None when video is exhausted."""
         frame_count = 0
-        while frame_source.read_frame() is not None:
+        while frame_source.next_frame() is not None:
             frame_count += 1
 
-        # Next read should return None
-        assert frame_source.read_frame() is None
+        assert frame_source.next_frame() is None
         assert frame_count == frame_source.frame_count
 
     def test_sequential_frames_are_different(self, frame_source: FrameSource) -> None:
         """Sequential frames should be different (video has motion)."""
-        frame1 = frame_source.read_frame()
-        frame2 = frame_source.read_frame()
-        assert frame1 is not None
-        assert frame2 is not None
-        # Frames should not be identical (unless video is static)
-        # Using a tolerance check - at least some pixels should differ
-        diff = np.abs(frame1.astype(np.int16) - frame2.astype(np.int16))
+        r1 = frame_source.next_frame()
+        r2 = frame_source.next_frame()
+        assert r1 is not None
+        assert r2 is not None
+        diff = np.abs(r1[2].astype(np.int16) - r2[2].astype(np.int16))
         assert np.max(diff) > 0, "Sequential frames should differ"
-
-
-class TestExactFrameAccess:
-    """Test get_frame() exact frame seeking."""
-
-    def test_get_frame_returns_numpy_array(self, frame_source: FrameSource) -> None:
-        """get_frame() returns BGR numpy array."""
-        frame = frame_source.get_frame(0)
-        assert frame is not None
-        assert isinstance(frame, np.ndarray)
-        assert frame.ndim == 3
-        assert frame.shape[2] == 3
-
-    def test_get_frame_at_start(self, frame_source: FrameSource) -> None:
-        """get_frame(0) returns first frame."""
-        frame = frame_source.get_frame(0)
-        assert frame is not None
-
-    def test_get_frame_at_middle(self, frame_source: FrameSource) -> None:
-        """get_frame() works for middle frames."""
-        middle = frame_source.frame_count // 2
-        frame = frame_source.get_frame(middle)
-        assert frame is not None
-
-    def test_get_frame_at_end(self, frame_source: FrameSource) -> None:
-        """get_frame() works for last frame."""
-        last = frame_source.last_frame_index
-        frame = frame_source.get_frame(last)
-        assert frame is not None
-
-    def test_get_frame_beyond_end_returns_none(self, frame_source: FrameSource) -> None:
-        """get_frame() beyond video length returns None."""
-        beyond = frame_source.frame_count + 100
-        frame = frame_source.get_frame(beyond)
-        assert frame is None
-
-    def test_get_frame_different_positions_return_different_frames(self, frame_source: FrameSource) -> None:
-        """get_frame() at different positions returns different frames."""
-        frame_start = frame_source.get_frame(0)
-        frame_middle = frame_source.get_frame(frame_source.frame_count // 2)
-        assert frame_start is not None
-        assert frame_middle is not None
-        # Should be different frames
-        assert not np.array_equal(frame_start, frame_middle)
-
-
-class TestKeyframeAccess:
-    """Test get_nearest_keyframe() keyframe seeking."""
-
-    def test_get_nearest_keyframe_returns_tuple(self, frame_source: FrameSource) -> None:
-        """get_nearest_keyframe() returns (frame, actual_index) tuple."""
-        result = frame_source.get_nearest_keyframe(10)
-        assert isinstance(result, tuple)
-        assert len(result) == 2
-        frame, actual_idx = result
-        assert frame is not None
-        assert isinstance(actual_idx, int)
-
-    def test_get_nearest_keyframe_actual_index_at_or_before_target(self, frame_source: FrameSource) -> None:
-        """get_nearest_keyframe() returns keyframe at or before target."""
-        target = frame_source.frame_count // 2
-        frame, actual_idx = frame_source.get_nearest_keyframe(target)
-        assert frame is not None
-        # Actual index should be at or before target (keyframe)
-        assert actual_idx <= target
-
-    def test_get_nearest_keyframe_returns_valid_frame(self, frame_source: FrameSource) -> None:
-        """get_nearest_keyframe() returns valid BGR array."""
-        frame, _ = frame_source.get_nearest_keyframe(10)
-        assert frame is not None
-        assert isinstance(frame, np.ndarray)
-        assert frame.ndim == 3
-        assert frame.shape[2] == 3
-
-    def test_get_nearest_keyframe_beyond_end_returns_none_and_minus_one(self, frame_source: FrameSource) -> None:
-        """get_nearest_keyframe() beyond video length returns (None, -1).
-
-        Bounds checking prevents PyAV's wrap-around behavior.
-        """
-        beyond = frame_source.frame_count + 100
-        frame, actual_idx = frame_source.get_nearest_keyframe(beyond)
-        assert frame is None
-        assert actual_idx == -1
-
-    def test_get_nearest_keyframe_negative_index_returns_none_and_minus_one(self, frame_source: FrameSource) -> None:
-        """get_nearest_keyframe() with negative index returns (None, -1)."""
-        frame, actual_idx = frame_source.get_nearest_keyframe(-1)
-        assert frame is None
-        assert actual_idx == -1
 
 
 class TestContextManager:
@@ -192,14 +99,14 @@ class TestContextManager:
     def test_context_manager_opens_and_closes(self) -> None:
         """Context manager properly opens and closes resources."""
         with FrameSource(TEST_VIDEO_DIR, TEST_CAM_ID) as source:
-            frame = source.read_frame()
-            assert frame is not None
+            result = source.next_frame()
+            assert result is not None
 
     def test_context_manager_closes_on_exception(self) -> None:
         """Context manager closes resources even on exception."""
         try:
             with FrameSource(TEST_VIDEO_DIR, TEST_CAM_ID) as source:
-                _ = source.read_frame()
+                _ = source.next_frame()
                 raise ValueError("Test exception")
         except ValueError:
             pass
@@ -224,11 +131,7 @@ class TestResourceManagement:
     def test_read_after_close_returns_none(self, frame_source: FrameSource) -> None:
         """Operations after close() return None gracefully."""
         frame_source.close()
-        assert frame_source.read_frame() is None
-        assert frame_source.get_frame(0) is None
-        frame, idx = frame_source.get_nearest_keyframe(0)
-        assert frame is None
-        assert idx == -1
+        assert frame_source.next_frame() is None
 
 
 class TestInvalidInput:
@@ -244,11 +147,6 @@ class TestInvalidInput:
         with pytest.raises(FileNotFoundError):
             FrameSource(TEST_VIDEO_DIR, 999)
 
-    def test_negative_frame_index_returns_none(self, frame_source: FrameSource) -> None:
-        """Negative frame index returns None (bounds checking)."""
-        frame = frame_source.get_frame(-1)
-        assert frame is None
-
 
 if __name__ == "__main__":
     """Debug harness for running tests with debugpy."""
@@ -257,7 +155,6 @@ if __name__ == "__main__":
     debug_dir = Path(__file__).parent / "tmp"
     debug_dir.mkdir(parents=True, exist_ok=True)
 
-    # Test basic functionality
     print(f"Test video dir: {TEST_VIDEO_DIR}")
     print(f"Test camera: {TEST_CAM_ID}")
     print(f"Dir exists: {TEST_VIDEO_DIR.exists()}")
@@ -270,14 +167,10 @@ if __name__ == "__main__":
         print(f"Start index: {source.start_frame_index}")
         print(f"Last index: {source.last_frame_index}")
 
-        # Test sequential read
         frame = source.read_frame()
         print(f"First frame shape: {frame.shape if frame is not None else None}")
 
-        # Test exact seek
-        frame = source.get_frame(50)
-        print(f"Frame 50 shape: {frame.shape if frame is not None else None}")
-
-        # Test keyframe seek
-        frame, idx = source.get_nearest_keyframe(50)
-        print(f"Keyframe seek to 50: got frame at index {idx}")
+    with FrameSource(TEST_VIDEO_DIR, TEST_CAM_ID) as source:
+        wanted = [0, 5, 10]
+        got = {i: bgr for i, _t, bgr in source.iter_frames(wanted)}
+        print(f"iter_frames({wanted}) returned indices {sorted(got)}")

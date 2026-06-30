@@ -1,7 +1,7 @@
 import logging
 from pathlib import Path
-from queue import Empty, Queue
-from time import sleep, time
+from queue import Queue
+from time import sleep
 
 import numpy as np
 
@@ -45,34 +45,20 @@ def test_intrinsic_calibrator(tmp_path: Path):
     frame_q = Queue()
     streamer.subscribe(frame_q)
 
+    test_frames = {3, 5, 7, 9, 20, 25}
+
     streamer.start()
-    streamer.pause()
 
-    # Drain any initial frames - use timeout-based drain since qsize() is unreliable
-    # in multithreaded contexts
-    while True:
-        try:
-            frame_q.get(timeout=0.2)
-        except Empty:
+    collected = 0
+    while collected < len(test_frames):
+        packet = frame_q.get(timeout=5.0)
+        if packet.frame is None:
             break
+        if packet.frame_index in test_frames:
+            intrinsic_calibrator.add_frame_packet(packet)
+            intrinsic_calibrator.add_calibration_frame_index(packet.frame_index)
+            collected += 1
 
-    test_frames = [3, 5, 7, 9, 20, 25]
-    for i in test_frames:
-        streamer.seek_to(i)
-        # Get packets until we find the one from the seek.
-        # Due to race conditions, there may be stale packets from before pause took
-        # full effect. The seek will produce exactly one packet with the target index.
-        timeout_at = time() + 2.0
-        while time() < timeout_at:
-            packet = frame_q.get(timeout=0.5)
-            if packet.frame_index == i:
-                break
-        assert i == packet.frame_index, f"Expected frame {i}, got {packet.frame_index}"
-        logger.info(packet.frame_index)
-        intrinsic_calibrator.add_frame_packet(packet)
-        intrinsic_calibrator.add_calibration_frame_index(packet.frame_index)
-
-    streamer.unpause()
     streamer.stop()
     intrinsic_calibrator.stop_event.set()
 
@@ -134,7 +120,6 @@ def test_autopopulate_data(tmp_path: Path):
         target_grid_count=target_grid_count,
     )
 
-    streamer.seek_to(0)
     streamer.unpause()
 
     while intrinsic_calibrator.auto_store_data.is_set():

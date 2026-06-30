@@ -21,7 +21,7 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QPushButton,
-    QSlider,
+    QProgressBar,
     QVBoxLayout,
     QWidget,
 )
@@ -547,8 +547,8 @@ class IntrinsicCalibrationWidget(QWidget):
 
     Layout:
     - Frame display (QLabel)
-    - Frame jogger slider
-    - Calibrate button and Undistort checkbox
+    - Collection progress bar (visible during collection only)
+    - Calibrate/Cancel button and Undistort checkbox
     """
 
     def __init__(
@@ -558,7 +558,6 @@ class IntrinsicCalibrationWidget(QWidget):
     ):
         super().__init__(parent)
         self._presenter = presenter
-        self._user_dragging = False
 
         self._setup_ui()
         self._setup_render_thread()
@@ -607,21 +606,25 @@ class IntrinsicCalibrationWidget(QWidget):
         self._boundary_legend.hide()
         video_layout.addWidget(self._boundary_legend)
 
-        # Position slider row - directly beneath video
-        slider_row = QHBoxLayout()
-        slider_row.setSpacing(8)
+        # Progress row — visible only during collection
+        self._progress_widget = QWidget()
+        progress_row = QHBoxLayout(self._progress_widget)
+        progress_row.setContentsMargins(0, 0, 0, 0)
+        progress_row.setSpacing(8)
 
-        self._position_slider = QSlider(Qt.Orientation.Horizontal)
-        self._position_slider.setMinimum(0)
-        self._position_slider.setMaximum(max(0, self._presenter.frame_count - 1))
-        self._position_slider.setStyleSheet(Styles.SLIDER)
-        slider_row.addWidget(self._position_slider)
+        self._progress_bar = QProgressBar()
+        self._progress_bar.setMinimum(0)
+        self._progress_bar.setMaximum(max(0, self._presenter.frame_count - 1))
+        self._progress_bar.setValue(0)
+        self._progress_bar.setTextVisible(False)
+        progress_row.addWidget(self._progress_bar)
 
         self._frame_counter = QLabel(f"0 / {self._presenter.frame_count - 1}")
         self._frame_counter.setMinimumWidth(100)
-        slider_row.addWidget(self._frame_counter)
+        progress_row.addWidget(self._frame_counter)
 
-        video_layout.addLayout(slider_row)
+        self._progress_widget.hide()
+        video_layout.addWidget(self._progress_widget)
 
         # Controls row - Calibrate button and Undistort checkbox, centered together
         controls = QHBoxLayout()
@@ -671,39 +674,15 @@ class IntrinsicCalibrationWidget(QWidget):
         self._presenter.calibration_complete.connect(self._on_calibration_complete)
         self._presenter.calibration_failed.connect(self._on_calibration_failed)
 
-        # Slider user interaction tracking
-        self._position_slider.sliderPressed.connect(self._on_slider_pressed)
-        self._position_slider.sliderReleased.connect(self._on_slider_released)
-        self._position_slider.valueChanged.connect(self._on_slider_changed)
-
-        # Position tracking from presenter
         self._presenter.frame_position_changed.connect(self._on_position_changed)
 
     def _on_pixmap_ready(self, pixmap: QPixmap) -> None:
         """Update frame display."""
         self._frame_label.setPixmap(pixmap)
 
-    def _on_slider_pressed(self) -> None:
-        """User started dragging slider."""
-        self._user_dragging = True
-
-    def _on_slider_released(self) -> None:
-        """User released slider."""
-        self._user_dragging = False
-
-    def _on_slider_changed(self, value: int) -> None:
-        """Slider value changed - seek only if user is dragging."""
-        if self._user_dragging and self._position_slider.isEnabled():
-            self._presenter.seek_to(value)
-
     def _on_position_changed(self, frame_index: int) -> None:
-        """Presenter reports position - update slider and counter."""
-        self._position_slider.blockSignals(True)
-        try:
-            self._position_slider.setValue(frame_index)
-        finally:
-            self._position_slider.blockSignals(False)
-
+        """Presenter reports position - update progress bar and counter."""
+        self._progress_bar.setValue(frame_index)
         self._frame_counter.setText(f"{frame_index} / {self._presenter.frame_count - 1}")
 
     def _update_ui_for_state(self, state: IntrinsicCalibrationState) -> None:
@@ -712,22 +691,23 @@ class IntrinsicCalibrationWidget(QWidget):
             self._calibrate_btn.setText("Calibrate")
             self._calibrate_btn.setEnabled(True)
             self._undistort_checkbox.setEnabled(False)
-            self._position_slider.setEnabled(True)
+            self._progress_widget.hide()
         elif state == IntrinsicCalibrationState.COLLECTING:
-            self._calibrate_btn.setText("Stop")
+            self._calibrate_btn.setText("Cancel")
             self._calibrate_btn.setEnabled(True)
             self._undistort_checkbox.setEnabled(False)
-            self._position_slider.setEnabled(False)
+            self._progress_bar.setValue(0)
+            self._progress_widget.show()
         elif state == IntrinsicCalibrationState.CALIBRATING:
             self._calibrate_btn.setText("Calibrating...")
             self._calibrate_btn.setEnabled(False)
             self._undistort_checkbox.setEnabled(False)
-            self._position_slider.setEnabled(False)
+            self._progress_widget.hide()
         elif state == IntrinsicCalibrationState.CALIBRATED:
             self._calibrate_btn.setText("Recalibrate")
             self._calibrate_btn.setEnabled(True)
             self._undistort_checkbox.setEnabled(True)
-            self._position_slider.setEnabled(True)
+            self._progress_widget.hide()
 
     def _restore_calibrated_state(self) -> None:
         """Initialize display for restored calibration state (from session cache).

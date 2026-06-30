@@ -56,11 +56,10 @@ class IntrinsicCalibrationPresenter(QObject):
     submission of calibration to TaskManager. Exposes a display_queue for
     the View's processing thread to consume directly (avoids GUI thread hop).
 
-    Collection uses a batch-seek pattern: a background thread seeks directly to
-    every Nth frame via FrameSource.get_frame(), tracks it, and emits for display.
-    This skips expensive tracking on frames that won't be used.
+    Collection decodes forward through the video via FrameSource.next_frame() with
+    wanted_indices filtering, skipping BGR conversion on unwanted frames.
 
-    A FramePacketStreamer handles interactive scrubbing in READY/CALIBRATED states.
+    A FramePacketStreamer provides the initial frame for display.
 
     Signals:
         state_changed: Emitted when computed state changes. View updates UI.
@@ -137,7 +136,7 @@ class IntrinsicCalibrationPresenter(QObject):
         self._stop_collection = Event()
         self._collection_thread: Thread | None = None
 
-        # Single streamer for scrubbing (READY/CALIBRATED states)
+        # Streamer reads the first frame for initial display
         self._streamer = create_streamer(
             video_directory=self._video_path.parent,
             cam_id=self._camera.cam_id,
@@ -155,15 +154,12 @@ class IntrinsicCalibrationPresenter(QObject):
             auto_start=False,
         )
         self._task_manager.start_task(self._stream_handle.task_id)
-        self._streamer.pause()  # Immediately pause for scrubbing mode
+        self._streamer.pause()
 
-        # Position tracking (must be set before _load_initial_frame)
         self._current_frame_index: int = self._streamer.start_frame_index
+        self._first_frame_packet: FramePacket | None = None
 
-        # Guaranteed initial frame display (don't rely on thread timing)
-        self._load_initial_frame()
-
-        # Consumer thread for streamer frames (scrubbing display only)
+        # Consumer thread caches first frame and forwards to display
         self._stop_event = Event()
         self._consumer_thread = Thread(target=self._consume_frames, daemon=True)
         self._consumer_thread.start()
@@ -244,43 +240,15 @@ class IntrinsicCalibrationPresenter(QObject):
         Call this when display settings change (e.g., undistort toggle)
         and the View needs to re-render with new settings.
         """
-        self._load_initial_frame()
+        self._show_first_frame()
 
-    def seek_to(self, frame_index: int) -> None:
-        """Seek to frame. Works in READY/CALIBRATED states via streamer's seek_to."""
-        if self.state not in (IntrinsicCalibrationState.READY, IntrinsicCalibrationState.CALIBRATED):
-            return
-
-        frame_index = max(0, min(frame_index, self.frame_count - 1))
-        self._streamer.seek_to(
-            frame_index, precise=True
-        )  # precise=False would cause Fast seek, skipping between keyframes
-
-    def _load_initial_frame(self) -> None:
-        """Read current frame from video with tracking and put on display queue.
-
-        Uses current_frame_index to preserve user's position (not always start_frame_index).
-        """
-        # Use current position (default to start if not yet set)
-        target_index = self._current_frame_index if self._current_frame_index > 0 else self._streamer.start_frame_index
-
-        packet = self._streamer.peek_tracked_frame(target_index)
-
-        if packet is not None:
-            self._display_queue.put(packet)
-        else:
-            logger.warning(f"Failed to load frame {target_index} from {self._video_path}")
-
-    # -------------------------------------------------------------------------
-    # Collection: batch-seek pattern
-    # -------------------------------------------------------------------------
+    def _show_first_frame(self) -> None:
+        """Put the cached first frame on the display queue."""
+        if self._first_frame_packet is not None:
+            self._display_queue.put(self._first_frame_packet)
 
     def start_calibration(self) -> None:
-        """Start collecting calibration frames via batch-seek loop.
-
-        Pauses the streamer (keeps it alive for later scrubbing) and spawns
-        a collection thread that seeks directly to every Nth frame.
-        """
+        """Start collecting calibration frames via forward decode."""
         if self.state not in (IntrinsicCalibrationState.READY, IntrinsicCalibrationState.CALIBRATED):
             logger.warning(f"Cannot start calibration in state {self.state}")
             return
@@ -294,10 +262,7 @@ class IntrinsicCalibrationPresenter(QObject):
         self._output = None
         self._calibration_task = None
 
-        # Pause streamer — collection uses its own FrameSource
-        self._streamer.pause()
-
-        # Now set collecting and emit state change
+        # Set collecting and emit state change
         self._is_collecting = True
         self._stop_collection.clear()
         self._emit_state_changed()
@@ -325,32 +290,29 @@ class IntrinsicCalibrationPresenter(QObject):
         self._collected_points.clear()
         self._is_collecting = False
         self._emit_state_changed()
+        self._show_first_frame()
 
     def _run_collection(self) -> None:
-        """Batch collection loop — seeks directly to every Nth frame.
+        """Batch collection loop — decodes the video once forward, sampling every Nth frame.
 
-        Creates a temporary FrameSource, iterates through subsampled frame
-        indices, tracks each frame, accumulates points, and emits for display.
-        Matches the pattern in process_synchronized_recording().
+        Creates a temporary FrameSource, does a single forward pass over the
+        subsampled frame indices, tracks each, accumulates detected points, and
+        emits for display.
         """
-        frame_source = FrameSource(self._video_path.parent, self._cam_id)
-        last_index = self._streamer.last_frame_index
         frame_skip = max(1, self._frame_skip)
+        wanted = set(range(0, self._streamer.last_frame_index + 1, frame_skip))
+        frame_source = FrameSource(self._video_path.parent, self._cam_id, wanted_indices=wanted)
 
-        indices = list(range(0, last_index + 1, frame_skip))
-        total = len(indices)
-
-        logger.info(f"Collection batch: {total} frames (skip={frame_skip}, total available={last_index + 1})")
+        logger.info(
+            f"Collection batch: {len(wanted)} frames (skip={frame_skip}, total available={frame_source.frame_count})"
+        )
 
         try:
-            for i, frame_idx in enumerate(indices):
+            while (result := frame_source.next_frame()) is not None:
+                frame_idx, _frame_time, frame = result
                 if self._stop_collection.is_set():
                     logger.info(f"Collection cancelled at frame {frame_idx}")
                     break
-
-                frame = frame_source.read_frame_at(frame_idx)
-                if frame is None:
-                    continue
 
                 # Track the frame
                 points = self._tracker.get_points(frame, self._cam_id, self._camera.rotation_count)
@@ -359,7 +321,7 @@ class IntrinsicCalibrationPresenter(QObject):
                 if points is not None and len(points.point_id) > 0:
                     self._collected_points.append((frame_idx, points))
 
-                # Emit for display (subsampled frames only — preferred)
+                # Emit for display
                 packet = FramePacket(
                     cam_id=self._cam_id,
                     frame_index=frame_idx,
@@ -378,16 +340,8 @@ class IntrinsicCalibrationPresenter(QObject):
         if not self._stop_collection.is_set():
             self._on_collection_complete()
 
-    # -------------------------------------------------------------------------
-    # Scrubbing consumer (READY/CALIBRATED states only)
-    # -------------------------------------------------------------------------
-
     def _consume_frames(self) -> None:
-        """Pull frames from streamer queue and emit for display.
-
-        Handles scrubbing in READY/CALIBRATED states. During COLLECTING state,
-        the batch loop writes directly to the display queue instead.
-        """
+        """Pull frames from streamer queue, cache the first, and emit for display."""
         logger.debug(f"Consumer thread started for cam_id {self._cam_id}")
 
         while not self._stop_event.is_set():
@@ -400,11 +354,12 @@ class IntrinsicCalibrationPresenter(QObject):
             except Empty:
                 continue
 
-            # Skip end-of-stream markers
             if packet.frame_index == -1:
                 continue
 
-            # Emit for display (scrubbing only — collection uses its own path)
+            if self._first_frame_packet is None:
+                self._first_frame_packet = packet
+
             self._display_queue.put(packet)
             self._current_frame_index = packet.frame_index
             self.frame_position_changed.emit(packet.frame_index)
@@ -519,8 +474,7 @@ class IntrinsicCalibrationPresenter(QObject):
         self.calibration_complete.emit(output)
         self._emit_state_changed()
 
-        # Seek to first frame so View can display with undistortion
-        self._streamer.seek_to(0, precise=True)
+        self._show_first_frame()
 
     def _on_calibration_failed(self, exc_type: str, message: str) -> None:
         """Handle calibration failure."""
@@ -537,7 +491,6 @@ class IntrinsicCalibrationPresenter(QObject):
     def update_tracker(self, tracker: Tracker) -> None:
         """Update tracker for next calibration run.
 
-        Hot-swaps the tracker reference in both the presenter and the streamer.
         Clears any collected points (old tracker's point IDs are stale) and
         resets calibration state.
 

@@ -597,7 +597,15 @@ class CaptureVolume:
         img_df = self.image_points.df
         world_df = self.world_points.df
 
-        # Find sync_indices where obj_loc data exists
+        # Multi-marker guard: cross-marker pairwise distances are meaningless
+        # because each marker's obj_loc is in its own local coordinate frame
+        unique_objects = img_df["object_id"].unique()
+        if len(unique_objects) > 1:
+            raise ValueError(
+                f"Scale accuracy requires single-object data, got object_ids {sorted(unique_objects)}. "
+                "Multi-marker scale accuracy requires Branch 3 constraint file."
+            )
+
         # Check if obj_loc columns are present
         obj_loc_cols = ["obj_loc_x", "obj_loc_y", "obj_loc_z"]
         if not all(col in img_df.columns for col in obj_loc_cols):
@@ -703,6 +711,16 @@ class CaptureVolume:
             raise ValueError(f"No image observations at sync_index {sync_index}")
         if world_subset.empty:
             raise ValueError(f"No world points at sync_index {sync_index}")
+
+        # Multi-marker guard: similarity transform between world points (global frame)
+        # and obj_loc (mixed local frames) is geometrically meaningless
+        unique_objects = img_subset["object_id"].unique()
+        if len(unique_objects) > 1:
+            raise ValueError(
+                f"align_to_object requires single-object data at sync_index {sync_index}, "
+                f"got object_ids {sorted(unique_objects)}. "
+                "Multi-marker alignment requires Branch 3 constraint file."
+            )
 
         # Merge on (object_id, keypoint_id) to find correspondences
         merged = pd.merge(

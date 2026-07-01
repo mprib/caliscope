@@ -84,9 +84,9 @@ class Chessboard:
         edges: set[tuple[int, int]] = set()
         for r in range(self.rows):
             for c in range(self.columns):
-                point_id = r * self.columns + c
+                keypoint_id = r * self.columns + c
                 if c < self.columns - 1:
-                    edges.add((point_id, point_id + 1))
+                    edges.add((keypoint_id, keypoint_id + 1))
                 if r < self.rows - 1:
-                    edges.add((point_id, point_id + self.columns))
+                    edges.add((keypoint_id, keypoint_id + self.columns))
         return edges

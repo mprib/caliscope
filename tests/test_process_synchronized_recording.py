@@ -65,7 +65,8 @@ class TestProcessSynchronizedRecording:
         required_columns = [
             "sync_index",
             "cam_id",
-            "point_id",
+            "object_id",
+            "keypoint_id",
             "img_loc_x",
             "img_loc_y",
         ]

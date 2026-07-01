@@ -82,7 +82,7 @@ def test_triangulator(tmp_path: Path):
     world_points = WorldPoints.from_csv(csv_dir / "xyz_CHARUCO.csv")
 
     # 2. USE GROUND TRUTH DATAFRAME
-    # The CSV already contains unique 3D points (sync_index, point_id, x/y/z_coord)
+    # The CSV already contains unique 3D points (sync_index, object_id, keypoint_id, x/y/z_coord)
     df_ground_truth = world_points.df.copy()
 
     # 3. NORMALIZE SYNC INDICES
@@ -95,7 +95,10 @@ def test_triangulator(tmp_path: Path):
     # 4. MERGE FOR ALIGNMENT
     # Perform an inner merge to align points that appear in BOTH datasets for each frame.
     df_merged = pd.merge(
-        df_ground_truth, xyz_history, on=["sync_index", "point_id"], suffixes=("_truth", "_triangulated")
+        df_ground_truth,
+        xyz_history,
+        on=["sync_index", "object_id", "keypoint_id"],
+        suffixes=("_truth", "_triangulated"),
     )
 
     # 5. CALCULATE PER-POINT ERROR

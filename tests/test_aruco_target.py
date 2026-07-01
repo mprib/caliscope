@@ -128,7 +128,7 @@ def test_tracker_with_target_populates_obj_loc():
 
     assert packet.obj_loc is not None
     assert packet.obj_loc.shape == (4, 3)  # 4 corners, 3D
-    assert len(packet.point_id) == 4
+    assert len(packet.keypoint_id) == 4
 
 
 def test_tracker_without_target_has_none_obj_loc():
@@ -144,7 +144,7 @@ def test_tracker_without_target_has_none_obj_loc():
     packet = tracker.get_points(frame)
 
     assert packet.obj_loc is None
-    assert len(packet.point_id) > 0  # Still detects markers
+    assert len(packet.keypoint_id) > 0  # Still detects markers
 
 
 def test_tracker_filters_to_target_marker_ids():
@@ -160,9 +160,9 @@ def test_tracker_filters_to_target_marker_ids():
     assert frame is not None
     packet = tracker.get_points(frame)
 
-    # All point IDs should be for marker 0 (0-9 range)
-    for pid in packet.point_id:
-        assert pid // 10 == 0
+    # All points should be for marker 0
+    for oid in packet.object_id:
+        assert oid == 0
 
 
 def test_obj_loc_matches_target_corners():
@@ -180,8 +180,7 @@ def test_obj_loc_matches_target_corners():
 
     expected_corners = target.corners[0]
 
-    for i, pid in enumerate(packet.point_id):
-        corner_index = pid % 10  # 0-3, matches OpenCV corner order
+    for i, corner_index in enumerate(packet.keypoint_id):
         np.testing.assert_array_almost_equal(packet.obj_loc[i], expected_corners[corner_index])
 
 
@@ -198,7 +197,7 @@ def test_no_marker_returns_empty_packet_with_target():
     assert frame is not None
     packet = tracker.get_points(frame)
 
-    assert len(packet.point_id) == 0
+    assert len(packet.keypoint_id) == 0
     assert packet.obj_loc is not None  # Not None when target is set
     assert packet.obj_loc.shape == (0, 3)
 
@@ -219,21 +218,21 @@ def test_cross_camera_detection():
         if frame is None:
             continue
         packet = tracker.get_points(frame)
-        if len(packet.point_id) > 0:
+        if len(packet.keypoint_id) > 0:
             packets.append((path, packet))
 
     assert len(packets) >= 2, "Need at least 2 successful detections"
 
     # All should have 4 corners with obj_loc
     for path, packet in packets:
-        assert len(packet.point_id) == 4, f"Expected 4 corners from {path}"
+        assert len(packet.keypoint_id) == 4, f"Expected 4 corners from {path}"
         assert packet.obj_loc is not None
         assert packet.obj_loc.shape == (4, 3)
 
-    # All cameras should report the same point IDs (same marker)
-    reference_ids = sorted(packets[0][1].point_id.tolist())
+    # All cameras should report the same keypoint IDs (same marker)
+    reference_ids = sorted(packets[0][1].keypoint_id.tolist())
     for path, packet in packets[1:]:
-        assert sorted(packet.point_id.tolist()) == reference_ids, f"Point ID mismatch: {packets[0][0]} vs {path}"
+        assert sorted(packet.keypoint_id.tolist()) == reference_ids, f"Keypoint ID mismatch: {packets[0][0]} vs {path}"
 
 
 # -- Debug harness -----------------------------------------------------------
@@ -265,13 +264,13 @@ if __name__ == "__main__":
         frame = cv2.imread(str(frame_path))
         packet = tracker.get_points(frame)
 
-        print(f"\nDetected {len(packet.point_id)} points")
-        print(f"Point IDs: {packet.point_id}")
+        print(f"\nDetected {len(packet.keypoint_id)} points")
+        print(f"Keypoint IDs: {packet.keypoint_id}")
         print(f"obj_loc shape: {packet.obj_loc.shape if packet.obj_loc is not None else None}")
 
         # Draw detection
         annotated = frame.copy()
-        for pid, img_loc, obj_loc in zip(packet.point_id, packet.img_loc, packet.obj_loc):
+        for pid, img_loc, obj_loc in zip(packet.keypoint_id, packet.img_loc, packet.obj_loc):
             x, y = int(img_loc[0]), int(img_loc[1])
             cv2.circle(annotated, (x, y), 5, (0, 255, 0), 2)
             label = f"{pid}: ({obj_loc[0]:.3f}, {obj_loc[1]:.3f})"

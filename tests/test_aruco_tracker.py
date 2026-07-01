@@ -37,17 +37,18 @@ def test_aruco_tracker_detection():
 
     # Validate PointPacket structure
     assert point_packet is not None
-    assert isinstance(point_packet.point_id, np.ndarray)
+    assert isinstance(point_packet.object_id, np.ndarray)
+    assert isinstance(point_packet.keypoint_id, np.ndarray)
     assert isinstance(point_packet.img_loc, np.ndarray)
     assert point_packet.obj_loc is None  # ArUco has no board reference
 
     # Should detect markers
-    assert len(point_packet.point_id) > 0
-    assert len(point_packet.img_loc) == len(point_packet.point_id)
+    assert len(point_packet.keypoint_id) > 0
+    assert len(point_packet.img_loc) == len(point_packet.keypoint_id)
     assert point_packet.img_loc.shape[1] == 2  # x,y coordinates
 
     logger.info(
-        f"Detected {len(point_packet.point_id)} points across {len(np.unique(point_packet.point_id // 10))} markers"
+        f"Detected {len(point_packet.keypoint_id)} points across {len(np.unique(point_packet.object_id))} markers"
     )
 
 
@@ -65,7 +66,7 @@ def test_aruco_draw_instructions():
     """Test drawing instructions return correct format."""
     tracker = ArucoTracker()
 
-    instructions = tracker.scatter_draw_instructions(point_id=123)
+    instructions = tracker.scatter_draw_instructions(keypoint_id=123)
 
     assert isinstance(instructions, dict)
     assert "radius" in instructions
@@ -79,7 +80,7 @@ def test_aruco_draw_instructions():
 
 
 def test_aruco_point_id_mapping():
-    """Verify point ID scheme: marker_id * 10 + corner_index (0-3)."""
+    """Verify object_id is the marker_id and keypoint_id is the corner_index (0-3)."""
     tracker = ArucoTracker(inverted=True)
     fixture_dir = __root__ / "tests/sessions/post_optimization"
     sample_video_path = fixture_dir / "calibration/extrinsic/cam_0.mp4"
@@ -90,12 +91,12 @@ def test_aruco_point_id_mapping():
 
     point_packet = tracker.get_points(frame)
 
-    # Check that point IDs follow the expected pattern
-    unique_marker_ids = np.unique(point_packet.point_id // 10)
+    # Check that each marker has exactly the expected corner indices
+    unique_marker_ids = np.unique(point_packet.object_id)
 
     for marker_id in unique_marker_ids:
-        corner_ids = point_packet.point_id[point_packet.point_id // 10 == marker_id]
-        expected_ids = np.array([marker_id * 10 + i for i in range(0, 4)])
+        corner_ids = point_packet.keypoint_id[point_packet.object_id == marker_id]
+        expected_ids = np.array([0, 1, 2, 3])
 
         np.testing.assert_array_equal(
             np.sort(corner_ids),

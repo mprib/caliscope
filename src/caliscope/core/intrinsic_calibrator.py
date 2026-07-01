@@ -90,7 +90,7 @@ class IntrinsicCalibrator:
         index = tracked_frame.frame_index
 
         if index != -1 and tracked_frame.points is not None:
-            self.all_ids[index] = tracked_frame.points.point_id
+            self.all_ids[index] = tracked_frame.points.keypoint_id
             self.all_img_loc[index] = tracked_frame.points.img_loc
             self.all_obj_loc[index] = tracked_frame.points.obj_loc
 
@@ -99,12 +99,12 @@ class IntrinsicCalibrator:
             # when auto store data is set, the stream should be pushing out all
             # frames consecutively from the beginning
             if self.auto_store_data.is_set():
-                point_id = tracked_frame.points.point_id
+                keypoint_id = tracked_frame.points.keypoint_id
 
-                if point_id.size == 0:
+                if keypoint_id.size == 0:
                     corner_count = 0
                 else:
-                    corner_count = tracked_frame.points.point_id.shape[0]
+                    corner_count = tracked_frame.points.keypoint_id.shape[0]
                 logger.debug(f"Corner count is {corner_count} and frame wait is {self.auto_pop_frame_wait}")
                 if self.auto_pop_frame_wait == 0 and corner_count >= self.threshold_corner_count:
                     # add frame to calibration data and reset the wait time
@@ -186,21 +186,21 @@ class IntrinsicCalibrator:
         have been flagged (either by the user via self.add_calibration_frame_index or by autopopulated
         within self.add_tracked_frame when autopop is enabled.)
         """
-        self.calibration_point_ids = []
+        self.calibration_keypoint_ids = []
         self.calibration_img_loc = []
         self.calibration_obj_loc = []
         logger.info(f"Blank calibration inputs initialized at cam {self.camera.cam_id}")
         for index in self.calibration_frame_indices:
             id_count = len(self.all_ids[index])
             if id_count > 3:  # I believe this is a requirement of opencv
-                self.calibration_point_ids.append(self.all_ids[index])
+                self.calibration_keypoint_ids.append(self.all_ids[index])
                 self.calibration_img_loc.append(self.all_img_loc[index])
                 self.calibration_obj_loc.append(self.all_obj_loc[index])
             else:
                 logger.info(
                     f"Note that empty data stored in frame index {index}. This is not being used in the calibration"
                 )
-        logger.info(f"Total size of inputs is {len(self.calibration_point_ids)}")
+        logger.info(f"Total size of inputs is {len(self.calibration_keypoint_ids)}")
 
     def calibrate_camera(self):
         """

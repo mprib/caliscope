@@ -144,11 +144,14 @@ def test_gap_fill_pipeline_accuracy(tmp_path: Path):
         filled_points = filled_df[filled_df["sync_index"] == sync_idx]
 
         for _, gold_row in gold_points.iterrows():
-            point_id = gold_row["point_id"]
-            filled_row = filled_points[filled_points["point_id"] == point_id]
+            object_id = gold_row["object_id"]
+            keypoint_id = gold_row["keypoint_id"]
+            filled_row = filled_points[
+                (filled_points["object_id"] == object_id) & (filled_points["keypoint_id"] == keypoint_id)
+            ]
 
             if filled_row.empty:
-                logger.warning(f"  sync_index={sync_idx}, point_id={point_id}: NOT FILLED")
+                logger.warning(f"  sync_index={sync_idx}, object_id={object_id}, keypoint_id={keypoint_id}: NOT FILLED")
                 continue
 
             gold_pos = np.array([gold_row["x_coord"], gold_row["y_coord"], gold_row["z_coord"]])
@@ -165,7 +168,7 @@ def test_gap_fill_pipeline_accuracy(tmp_path: Path):
             errors.append(error_mm)
 
             logger.info(
-                f"  sync_index={sync_idx}, point_id={int(point_id)}: "
+                f"  sync_index={sync_idx}, object_id={int(object_id)}, keypoint_id={int(keypoint_id)}: "
                 f"gold=({gold_pos[0]:.3f}, {gold_pos[1]:.3f}, {gold_pos[2]:.3f}), "
                 f"filled=({filled_pos[0]:.3f}, {filled_pos[1]:.3f}, {filled_pos[2]:.3f}), "
                 f"error={error_mm:.1f}mm"

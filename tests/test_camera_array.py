@@ -35,8 +35,10 @@ def analyze_true_connectivity(image_points: ImagePoints) -> dict:
     # 2. Shared point analysis
     print("\n🔍 SHARED POINTS ANALYSIS:")
 
-    # Group by sync_index + point_id to find which cameras see the same point
-    point_coverage = df.groupby(["sync_index", "point_id"])["cam_id"].apply(lambda x: tuple(sorted(set(x))))
+    # Group by sync_index + (object_id, keypoint_id) to find which cameras see the same point
+    point_coverage = df.groupby(["sync_index", "object_id", "keypoint_id"])["cam_id"].apply(
+        lambda x: tuple(sorted(set(x)))
+    )
 
     # Count coverage patterns
     coverage_counts = point_coverage.value_counts()
@@ -50,7 +52,7 @@ def analyze_true_connectivity(image_points: ImagePoints) -> dict:
 
     # For each sync_index, find all camera pairs that see the same board
     pair_counts = {}
-    for (sync_idx, point_id), group in df.groupby(["sync_index", "point_id"]):
+    for (sync_idx, object_id, keypoint_id), group in df.groupby(["sync_index", "object_id", "keypoint_id"]):
         ports_in_group = sorted(group["cam_id"].unique())
 
         # Count all pairs within this group
@@ -71,7 +73,7 @@ def analyze_true_connectivity(image_points: ImagePoints) -> dict:
 
     # For each camera pair, count how many unique boards (sync_index) they share
     board_counts = {}
-    for (sync_idx, point_id), group in df.groupby(["sync_index", "point_id"]):
+    for (sync_idx, object_id, keypoint_id), group in df.groupby(["sync_index", "object_id", "keypoint_id"]):
         ports_in_group = sorted(group["cam_id"].unique())
 
         for i, port_a in enumerate(ports_in_group):

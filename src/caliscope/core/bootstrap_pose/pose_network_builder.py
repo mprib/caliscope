@@ -52,7 +52,7 @@ class PoseNetworkBuilder:
         Args:
             camera_array: Camera array with intrinsic calibration
             point_data: DataFrame with 2D/3D point correspondences
-                       Required columns: sync_index, cam_id, point_id,
+                       Required columns: sync_index, cam_id, object_id, keypoint_id,
                                        img_loc_x, img_loc_y, obj_loc_x, obj_loc_y
         """
         self.camera_array: CameraArray = camera_array
@@ -247,7 +247,8 @@ def compute_camera_to_object_poses_pnp(
         raise ValueError("No valid camera data found for PnP")
 
     all_undistorted = pd.concat(undistorted_data)
-    grouped = all_undistorted.groupby(["cam_id", "sync_index"])
+    # Group by object_id so keypoint_ids from different objects don't mix obj_loc frames
+    grouped = all_undistorted.groupby(["cam_id", "sync_index", "object_id"])
 
     poses = {}
     success_count = 0
@@ -257,7 +258,7 @@ def compute_camera_to_object_poses_pnp(
     K_perfect = np.identity(3)
     D_perfect = np.zeros(5)
 
-    for (cam_id, sync_index), group in grouped:
+    for (cam_id, sync_index, _object_id), group in grouped:
         if len(group) < min_points:
             failure_count += 1
             continue
@@ -596,7 +597,7 @@ def _precompute_common_observations(
         data_b = df[df["cam_id"] == cam_id_b]
 
         # Merge once per pair
-        common = pd.merge(data_a, data_b, on=["sync_index", "point_id"], suffixes=("_a", "_b"))
+        common = pd.merge(data_a, data_b, on=["sync_index", "object_id", "keypoint_id"], suffixes=("_a", "_b"))
         if len(common) >= DEFAULT_MIN_PNP_POINTS:
             common_obs[(cam_id_a, cam_id_b)] = common
 

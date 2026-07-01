@@ -221,7 +221,7 @@ def _accumulate_points(
     if points is None:
         return
 
-    point_count = len(points.point_id)
+    point_count = len(points.keypoint_id)
     if point_count == 0:
         return
 
@@ -234,7 +234,8 @@ def _accumulate_points(
                 "cam_id": cam_id,
                 "frame_index": frame_index,
                 "frame_time": frame_time,
-                "point_id": int(points.point_id[i]),
+                "object_id": int(points.object_id[i]),
+                "keypoint_id": int(points.keypoint_id[i]),
                 "img_loc_x": float(points.img_loc[i, 0]),
                 "img_loc_y": float(points.img_loc[i, 1]),
                 "obj_loc_x": obj_loc_x[i],
@@ -253,7 +254,8 @@ def _build_image_points(point_rows: list[dict]) -> ImagePoints:
                 "cam_id",
                 "frame_index",
                 "frame_time",
-                "point_id",
+                "object_id",
+                "keypoint_id",
                 "img_loc_x",
                 "img_loc_y",
                 "obj_loc_x",

@@ -101,7 +101,7 @@ def calibrate_intrinsics(
 
     Args:
         image_points: Detected charuco corners across all frames. Must contain
-            columns: sync_index, cam_id, point_id, img_loc_x, img_loc_y,
+            columns: sync_index, cam_id, object_id, keypoint_id, img_loc_x, img_loc_y,
             obj_loc_x, obj_loc_y, obj_loc_z.
         cam_id: Camera cam_id to calibrate.
         image_size: (width, height) of camera images in pixels.

@@ -47,7 +47,8 @@ class TestOrientationExtraction:
         data = {
             "sync_index": [0] * 9,
             "cam_id": [0] * 9,
-            "point_id": list(range(9)),
+            "object_id": [0] * 9,
+            "keypoint_id": list(range(9)),
             "obj_loc_x": obj_x,
             "obj_loc_y": obj_y,
             "img_loc_x": img_x,
@@ -96,7 +97,8 @@ class TestOrientationExtraction:
         data = {
             "sync_index": [0] * 9,
             "cam_id": [0] * 9,
-            "point_id": list(range(9)),
+            "object_id": [0] * 9,
+            "keypoint_id": list(range(9)),
             "obj_loc_x": obj_x,
             "obj_loc_y": obj_y,
             "img_loc_x": img_x,
@@ -145,7 +147,8 @@ class TestOrientationExtraction:
         data = {
             "sync_index": [0] * 3,
             "cam_id": [0] * 3,
-            "point_id": [0, 1, 2],
+            "object_id": [0] * 3,
+            "keypoint_id": [0, 1, 2],
             "obj_loc_x": [0, 1, 2],
             "obj_loc_y": [0, 0, 0],
             "img_loc_x": [100, 200, 300],
@@ -190,7 +193,8 @@ class TestTwoPhaseSelection:
         data = {
             "sync_index": [0],
             "cam_id": [1],  # Only camera 1 has data
-            "point_id": [0],
+            "object_id": [0],
+            "keypoint_id": [0],
             "img_loc_x": [100],
             "img_loc_y": [100],
             "obj_loc_x": [0.0],
@@ -246,7 +250,8 @@ class TestEdgeCases:
         data = {
             "sync_index": [0, 1],
             "cam_id": [1, 1],  # Only camera 1 has data
-            "point_id": [0, 0],
+            "object_id": [0, 0],
+            "keypoint_id": [0, 0],
             "img_loc_x": [100, 200],
             "img_loc_y": [100, 200],
             "obj_loc_x": [0.0, 0.05],
@@ -270,16 +275,17 @@ class TestEdgeCases:
         # All frames have only 3 corners (below default min of 6)
         data = []
         for sync_index in range(5):
-            for point_id in range(3):
+            for keypoint_id in range(3):
                 data.append(
                     {
                         "sync_index": sync_index,
                         "cam_id": 0,
-                        "point_id": point_id,
-                        "img_loc_x": 100 + point_id * 100,
-                        "img_loc_y": 100 + point_id * 100,
-                        "obj_loc_x": point_id * 0.05,
-                        "obj_loc_y": point_id * 0.05,
+                        "object_id": 0,
+                        "keypoint_id": keypoint_id,
+                        "img_loc_x": 100 + keypoint_id * 100,
+                        "img_loc_y": 100 + keypoint_id * 100,
+                        "obj_loc_x": keypoint_id * 0.05,
+                        "obj_loc_y": keypoint_id * 0.05,
                     }
                 )
 

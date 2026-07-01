@@ -37,9 +37,9 @@ class PlaybackViewModel:
 
         # Handle camera-only mode (no points)
         if world_points is None:
-            self.all_point_ids = np.array([], dtype=np.int64)
+            self.all_point_keys: list[tuple[int, int]] = []
             self.n_points = 0
-            self.id_to_index: dict[int, int] = {}
+            self.id_to_index: dict[tuple[int, int], int] = {}
             self._static_lines = np.empty((0, 2), dtype=np.int32)
             self._static_line_colors = np.empty((0, 3), dtype=np.float32)
             self._grouped_points: dict[Any, Any] = {}
@@ -47,15 +47,14 @@ class PlaybackViewModel:
             return
 
         # 1. Establish the Canonical Map (The "Superset" of all points)
-        # We find every unique point_id that appears in the entire recording.
-        unique_ids = np.unique(world_points.df["point_id"].to_numpy())
-        unique_ids.sort()
+        # Build unique (object_id, keypoint_id) pairs across the full recording
+        df = world_points.df
+        unique_keys = df[["object_id", "keypoint_id"]].drop_duplicates().sort_values(["object_id", "keypoint_id"])
+        self.all_point_keys = list(zip(unique_keys["object_id"], unique_keys["keypoint_id"]))
+        self.n_points = len(self.all_point_keys)
 
-        self.all_point_ids = unique_ids
-        self.n_points = len(unique_ids)
-
-        # Map: Point ID -> Buffer Index (0 to N-1)
-        self.id_to_index = {pid: i for i, pid in enumerate(unique_ids)}
+        # Map: (object_id, keypoint_id) -> Buffer Index (0 to N-1)
+        self.id_to_index = {key: i for i, key in enumerate(self.all_point_keys)}
 
         logger.info(f"PlaybackViewModel initialized with {self.n_points} unique points.")
 
@@ -179,25 +178,19 @@ class PlaybackViewModel:
         if sync_index in self._grouped_points:
             frame_df = self._grouped_points[sync_index]
 
-            # Extract raw data
-            p_ids = frame_df["point_id"].values
             coords = frame_df[["x_coord", "y_coord", "z_coord"]].values.astype(np.float32)
 
-            # Vectorized Scatter
-            # We map the frame's point_ids to their canonical buffer indices
-            # Note: We filter out any IDs that might not be in our canonical set (safety)
-            # p_ids from .values might be ExtensionArray - convert to numpy for isin
-            valid_mask = np.isin(np.asarray(p_ids), self.all_point_ids)
+            # Map each row's (object_id, keypoint_id) to its canonical buffer index
+            indices = []
+            valid_rows = []
+            for i, (oid, kid) in enumerate(zip(frame_df["object_id"].values, frame_df["keypoint_id"].values)):
+                key = (int(oid), int(kid))
+                if key in self.id_to_index:
+                    indices.append(self.id_to_index[key])
+                    valid_rows.append(i)
 
-            if np.any(valid_mask):
-                p_ids = p_ids[valid_mask]
-                coords = coords[valid_mask]
-
-                # Look up indices
-                indices = [self.id_to_index[pid] for pid in p_ids]
-
-                # Scatter into the buffer
-                points_buffer[indices] = coords
+            if indices:
+                points_buffer[indices] = coords[valid_rows]
 
                 # Here you could also scatter dynamic colors (e.g. confidence) if available
                 # colors_buffer[indices] = ...
@@ -213,10 +206,12 @@ class PlaybackViewModel:
         colors = []
 
         for segment in self.wireframe_segments:
-            # Only create lines if BOTH points exist in our dataset
-            if segment.point_a_id in self.id_to_index and segment.point_b_id in self.id_to_index:
-                idx_a = self.id_to_index[segment.point_a_id]
-                idx_b = self.id_to_index[segment.point_b_id]
+            # Wireframe segments use keypoint IDs within object 0
+            key_a = (0, segment.point_a_id)
+            key_b = (0, segment.point_b_id)
+            if key_a in self.id_to_index and key_b in self.id_to_index:
+                idx_a = self.id_to_index[key_a]
+                idx_b = self.id_to_index[key_b]
 
                 lines.append([idx_a, idx_b])
                 colors.append(segment.color_rgb)

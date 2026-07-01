@@ -113,10 +113,10 @@ class CaptureVolume:
     def _compute_img_to_obj_map(self) -> np.ndarray:
         """Map each image observation to its world point index. Returns -1 for unmatched."""
         world_df = self.world_points.df.reset_index().rename(columns={"index": "world_idx"})
-        mapping = world_df.set_index(["sync_index", "point_id"])["world_idx"].to_dict()
+        mapping = world_df.set_index(["sync_index", "object_id", "keypoint_id"])["world_idx"].to_dict()
 
         img_df = self.image_points.df
-        keys = list(zip(img_df["sync_index"], img_df["point_id"]))
+        keys = list(zip(img_df["sync_index"], img_df["object_id"], img_df["keypoint_id"]))
         img_to_obj_map = np.array([mapping.get(key, -1) for key in keys], dtype=np.int32)
 
         n_unmatched = np.sum(img_to_obj_map == -1)
@@ -165,7 +165,8 @@ class CaptureVolume:
             {
                 "sync_index": matched_img_df["sync_index"].values,
                 "cam_id": matched_img_df["cam_id"].values,
-                "point_id": matched_img_df["point_id"].values,
+                "object_id": matched_img_df["object_id"].values,
+                "keypoint_id": matched_img_df["keypoint_id"].values,
                 "error_x": errors_xy[:, 0],
                 "error_y": errors_xy[:, 1],
                 "euclidean_error": euclidean_error,
@@ -180,10 +181,14 @@ class CaptureVolume:
             cam_errors = euclidean_error[matched_img_df["cam_id"] == cam_id]
             by_camera[cam_id] = float(np.sqrt(np.mean(cam_errors**2))) if len(cam_errors) > 0 else 0.0
 
-        by_point_id = {}
-        for point_id in np.unique(matched_img_df["point_id"]):
-            point_errors = euclidean_error[matched_img_df["point_id"] == point_id]
-            by_point_id[point_id] = float(np.sqrt(np.mean(point_errors**2)))
+        by_point = {}
+        # Build composite key for per-point RMSE
+        point_keys = list(zip(matched_img_df["object_id"], matched_img_df["keypoint_id"]))
+        unique_keys = set(point_keys)
+        for obj_id, kp_id in unique_keys:
+            mask = (matched_img_df["object_id"].values == obj_id) & (matched_img_df["keypoint_id"].values == kp_id)
+            point_errors = euclidean_error[mask]
+            by_point[(obj_id, kp_id)] = float(np.sqrt(np.mean(point_errors**2)))
 
         # 6. Count unmatched by camera (only count for posed cameras)
         unmatched_by_camera = {}
@@ -196,7 +201,7 @@ class CaptureVolume:
         report = ReprojectionReport(
             overall_rmse=overall_rmse,
             by_camera=by_camera,
-            by_point_id=by_point_id,
+            by_point=by_point,
             n_unmatched_observations=int(n_unmatched),
             unmatched_rate=n_unmatched / n_total if n_total > 0 else 0.0,
             unmatched_by_camera=unmatched_by_camera,
@@ -483,15 +488,19 @@ class CaptureVolume:
                     keep_mask[camera_idx] = raw_errors.loc[camera_idx, "euclidean_error"] <= threshold_to_add  # type: ignore[index, operator]
 
         # Get keys of observations to keep
-        keep_keys = raw_errors[keep_mask][["sync_index", "cam_id", "point_id"]]
+        keep_keys = raw_errors[keep_mask][["sync_index", "cam_id", "object_id", "keypoint_id"]]
 
         # Filter image points by merging with keep keys
-        filtered_img_df = self.image_points.df.merge(keep_keys, on=["sync_index", "cam_id", "point_id"], how="inner")
+        filtered_img_df = self.image_points.df.merge(
+            keep_keys, on=["sync_index", "cam_id", "object_id", "keypoint_id"], how="inner"
+        )
         filtered_image_points = ImagePoints(filtered_img_df)
 
         # Prune orphaned world points (3D points with no observations)
-        remaining_3d_keys = filtered_img_df[["sync_index", "point_id"]].drop_duplicates()
-        filtered_world_df = self.world_points.df.merge(remaining_3d_keys, on=["sync_index", "point_id"], how="inner")
+        remaining_3d_keys = filtered_img_df[["sync_index", "object_id", "keypoint_id"]].drop_duplicates()
+        filtered_world_df = self.world_points.df.merge(
+            remaining_3d_keys, on=["sync_index", "object_id", "keypoint_id"], how="inner"
+        )
 
         filtered_world_points = WorldPoints(filtered_world_df)
 
@@ -611,13 +620,13 @@ class CaptureVolume:
             if img_subset.empty or world_subset.empty:
                 continue
 
-            # Get unique point_ids with obj_loc data (drop duplicates from multi-camera observations)
-            obj_points_df = img_subset[["point_id", "obj_loc_x", "obj_loc_y", "obj_loc_z"]].drop_duplicates(
-                subset=["point_id"]
-            )
+            # Get unique points with obj_loc data (drop duplicates from multi-camera observations)
+            obj_points_df = img_subset[
+                ["object_id", "keypoint_id", "obj_loc_x", "obj_loc_y", "obj_loc_z"]
+            ].drop_duplicates(subset=["object_id", "keypoint_id"])
 
-            # Merge world points with object locations by point_id
-            merged = world_subset.merge(obj_points_df, on="point_id", how="inner")
+            # Merge world points with object locations
+            merged = world_subset.merge(obj_points_df, on=["object_id", "keypoint_id"], how="inner")
 
             # Handle planar objects (z=0 or NaN)
             if merged["obj_loc_z"].isna().all():
@@ -634,7 +643,9 @@ class CaptureVolume:
 
             # Count cameras contributing at this frame
             n_cameras_contributing = int(
-                img_subset[img_subset["point_id"].isin(merged["point_id"])]["cam_id"].nunique()
+                img_subset.merge(merged[["object_id", "keypoint_id"]], on=["object_id", "keypoint_id"], how="inner")[
+                    "cam_id"
+                ].nunique()
             )
 
             # Extract arrays for scale accuracy computation
@@ -693,11 +704,11 @@ class CaptureVolume:
         if world_subset.empty:
             raise ValueError(f"No world points at sync_index {sync_index}")
 
-        # Merge on point_id to find correspondences
+        # Merge on (object_id, keypoint_id) to find correspondences
         merged = pd.merge(
-            world_subset[["point_id", "x_coord", "y_coord", "z_coord"]],
-            img_subset[["point_id", "obj_loc_x", "obj_loc_y", "obj_loc_z"]],
-            on="point_id",
+            world_subset[["object_id", "keypoint_id", "x_coord", "y_coord", "z_coord"]],
+            img_subset[["object_id", "keypoint_id", "obj_loc_x", "obj_loc_y", "obj_loc_z"]],
+            on=["object_id", "keypoint_id"],
             how="inner",
         )
 

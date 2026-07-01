@@ -38,14 +38,14 @@ def test_multicam_extraction_matches_independent_oracle(tmp_path: Path):
     # decoded frame at its frame_index.
     sample = df.iloc[0]
     cam_id, sync_index, frame_index = int(sample["cam_id"]), int(sample["sync_index"]), int(sample["frame_index"])
-    group = df[(df["cam_id"] == cam_id) & (df["sync_index"] == sync_index)].sort_values("point_id")
+    group = df[(df["cam_id"] == cam_id) & (df["sync_index"] == sync_index)].sort_values("keypoint_id")
 
     truth = dump_frame(videos[cam_id], frame_index)
     packet = tracker.get_points(truth, cam_id=cam_id, rotation_count=0)
-    order = np.argsort(packet.point_id)
+    order = np.argsort(packet.keypoint_id)
 
     # Same frame selected -> identical detected corner set.
-    assert group["point_id"].tolist() == packet.point_id[order].tolist()
+    assert group["keypoint_id"].tolist() == packet.keypoint_id[order].tolist()
     # img_loc within a pixel: the only difference vs the oracle is YUV->BGR
     # conversion rounding between PyAV and ffmpeg, not a different frame.
     np.testing.assert_allclose(group["img_loc_x"].to_numpy(), packet.img_loc[order, 0], atol=1.0)

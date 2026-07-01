@@ -80,21 +80,21 @@ def _add_coverage_regions(point_data: pd.DataFrame) -> pd.DataFrame:
     Pre-compute coverage regions for all points.
     Coverage region is a string like "_1_2_3_" showing which cam_ids see each point.
     """
-    # Extract unique combinations of sync_index, point_id, and cam_id
-    point_cam_ids = point_data[["sync_index", "point_id", "cam_id"]].drop_duplicates()
+    # Extract unique combinations of sync_index, object_id, keypoint_id, and cam_id
+    point_cam_ids = point_data[["sync_index", "object_id", "keypoint_id", "cam_id"]].drop_duplicates()
 
     # Convert cam_id to string for easier handling
     point_cam_ids["cam_id_str"] = point_cam_ids["cam_id"].astype(str)
 
-    # Group by sync_index and point_id to collect cam_ids
+    # Group by (sync_index, object_id, keypoint_id) to collect cam_ids
     grouped = (
-        point_cam_ids.groupby(["sync_index", "point_id"])["cam_id_str"]
+        point_cam_ids.groupby(["sync_index", "object_id", "keypoint_id"])["cam_id_str"]
         .apply(lambda x: "_" + "_".join(sorted(x)) + "_")
         .reset_index(name="coverage_region")
     )
 
     # Merge back with original data
-    result = point_data.merge(grouped, on=["sync_index", "point_id"], how="left")
+    result = point_data.merge(grouped, on=["sync_index", "object_id", "keypoint_id"], how="left")
 
     return result
 
@@ -256,7 +256,7 @@ def _prepare_stereocal_inputs(cam_id: int, pair_points: pd.DataFrame):
         return [], []
 
     # ensure deterministic output with explicit sort
-    cam_data.sort_values(by=["sync_index", "point_id"], inplace=True)
+    cam_data.sort_values(by=["sync_index", "object_id", "keypoint_id"], inplace=True)
 
     sync_indices = cam_data["sync_index"].to_numpy().round().astype(int)
     img_loc_x = cam_data["img_loc_x"].to_numpy().astype(np.float32)

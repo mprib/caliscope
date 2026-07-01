@@ -12,7 +12,7 @@ logger = logging.getLogger(__name__)
 def xyz_to_wide_labelled(xyz: pd.DataFrame, tracker: Tracker) -> pd.DataFrame:
     """
     Will save a csv file in the same directory as the long xyz point data
-    Column headings will be based on the point_id names in the Tracker
+    Column headings will be based on the keypoint_id names in the Tracker
     """
 
     # save out named data in a tabular format
@@ -24,9 +24,10 @@ def xyz_to_wide_labelled(xyz: pd.DataFrame, tracker: Tracker) -> pd.DataFrame:
         },
         axis=1,
     )
-    xyz = xyz[["sync_index", "point_id", "x", "y", "z"]]
+    # object_id dropped: single-object assumption. Multi-object needs a revised export format.
+    xyz = xyz[["sync_index", "keypoint_id", "x", "y", "z"]]
 
-    xyz["point_name"] = xyz["point_id"].map(tracker.get_point_name)
+    xyz["point_name"] = xyz["keypoint_id"].map(tracker.get_point_name)
     # pivot the DataFrame wider
     df_wide = xyz.pivot_table(index=["sync_index"], columns="point_name", values=["x", "y", "z"])
     # flatten the column names

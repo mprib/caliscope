@@ -27,73 +27,78 @@ def make_test_image_points() -> ImagePoints:
     rows = []
     for frame in range(5):
         # Points 0-2: camera 0 only
-        for point_id in range(3):
+        for keypoint_id in range(3):
             rows.append(
                 {
                     "sync_index": frame,
                     "cam_id": 0,
-                    "point_id": point_id,
-                    "img_loc_x": float(frame * 10 + point_id),
-                    "img_loc_y": float(frame * 10 + point_id),
+                    "object_id": 0,
+                    "keypoint_id": keypoint_id,
+                    "img_loc_x": float(frame * 10 + keypoint_id),
+                    "img_loc_y": float(frame * 10 + keypoint_id),
                     "obj_loc_x": 0.0,
                     "obj_loc_y": 0.0,
                     "obj_loc_z": 0.0,
                 }
             )
         # Points 3-5: camera 1 only
-        for point_id in range(3, 6):
+        for keypoint_id in range(3, 6):
             rows.append(
                 {
                     "sync_index": frame,
                     "cam_id": 1,
-                    "point_id": point_id,
-                    "img_loc_x": float(frame * 10 + point_id),
-                    "img_loc_y": float(frame * 10 + point_id),
+                    "object_id": 0,
+                    "keypoint_id": keypoint_id,
+                    "img_loc_x": float(frame * 10 + keypoint_id),
+                    "img_loc_y": float(frame * 10 + keypoint_id),
                     "obj_loc_x": 0.0,
                     "obj_loc_y": 0.0,
                     "obj_loc_z": 0.0,
                 }
             )
         # Points 6-8: cameras 0 and 1 shared
-        for point_id in range(6, 9):
+        for keypoint_id in range(6, 9):
             for cam_id in [0, 1]:
                 rows.append(
                     {
                         "sync_index": frame,
                         "cam_id": cam_id,
-                        "point_id": point_id,
-                        "img_loc_x": float(frame * 10 + cam_id + point_id),
-                        "img_loc_y": float(frame * 10 + cam_id + point_id),
+                        "object_id": 0,
+                        "keypoint_id": keypoint_id,
+                        "img_loc_x": float(frame * 10 + cam_id + keypoint_id),
+                        "img_loc_y": float(frame * 10 + cam_id + keypoint_id),
                         "obj_loc_x": 0.0,
                         "obj_loc_y": 0.0,
                         "obj_loc_z": 0.0,
                     }
                 )
         # Points 9-11: cameras 2 and 3 shared
-        for point_id in range(9, 12):
+        for keypoint_id in range(9, 12):
             for cam_id in [2, 3]:
                 rows.append(
                     {
                         "sync_index": frame,
                         "cam_id": cam_id,
-                        "point_id": point_id,
-                        "img_loc_x": float(frame * 10 + cam_id + point_id),
-                        "img_loc_y": float(frame * 10 + cam_id + point_id),
+                        "object_id": 0,
+                        "keypoint_id": keypoint_id,
+                        "img_loc_x": float(frame * 10 + cam_id + keypoint_id),
+                        "img_loc_y": float(frame * 10 + cam_id + keypoint_id),
                         "obj_loc_x": 0.0,
                         "obj_loc_y": 0.0,
                         "obj_loc_z": 0.0,
                     }
                 )
         # Points 12-14: all cameras
-        for point_id in range(12, 15):
+        for keypoint_id in range(12, 15):
             for cam_id in range(4):
                 rows.append(
                     {
                         "sync_index": frame,
                         "cam_id": cam_id,
-                        "point_id": point_id,
-                        "img_loc_x": float(frame * 10 + cam_id + point_id),
-                        "img_loc_y": float(frame * 10 + cam_id + point_id),
+                        "object_id": 0,
+                        "keypoint_id": keypoint_id,
+                        "img_loc_x": float(frame * 10 + cam_id + keypoint_id),
+                        "img_loc_y": float(frame * 10 + cam_id + keypoint_id),
                         "obj_loc_x": 0.0,
                         "obj_loc_y": 0.0,
                         "obj_loc_z": 0.0,
@@ -185,17 +190,19 @@ class TestKilledLinkages:
         assert 0 in filtered.df["cam_id"].values
         assert 1 in filtered.df["cam_id"].values
 
-        # But no (sync_index, point_id) should be shared between them
+        # But no (sync_index, object_id, keypoint_id) should be shared between them
         cam0_obs = set(
             zip(
                 filtered.df[filtered.df["cam_id"] == 0]["sync_index"],
-                filtered.df[filtered.df["cam_id"] == 0]["point_id"],
+                filtered.df[filtered.df["cam_id"] == 0]["object_id"],
+                filtered.df[filtered.df["cam_id"] == 0]["keypoint_id"],
             )
         )
         cam1_obs = set(
             zip(
                 filtered.df[filtered.df["cam_id"] == 1]["sync_index"],
-                filtered.df[filtered.df["cam_id"] == 1]["point_id"],
+                filtered.df[filtered.df["cam_id"] == 1]["object_id"],
+                filtered.df[filtered.df["cam_id"] == 1]["keypoint_id"],
             )
         )
 

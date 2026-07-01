@@ -36,13 +36,14 @@ def make_simple_image_points() -> ImagePoints:
     rows = []
     for frame in range(3):
         # Points 0-1: cameras 0,1 only
-        for point_id in [0, 1]:
+        for keypoint_id in [0, 1]:
             for cam_id in [0, 1]:
                 rows.append(
                     {
                         "sync_index": frame,
                         "cam_id": cam_id,
-                        "point_id": point_id,
+                        "object_id": 0,
+                        "keypoint_id": keypoint_id,
                         "img_loc_x": 100.0,
                         "img_loc_y": 100.0,
                         "obj_loc_x": 0.0,
@@ -51,13 +52,14 @@ def make_simple_image_points() -> ImagePoints:
                     }
                 )
         # Points 2-3: cameras 1,2 only
-        for point_id in [2, 3]:
+        for keypoint_id in [2, 3]:
             for cam_id in [1, 2]:
                 rows.append(
                     {
                         "sync_index": frame,
                         "cam_id": cam_id,
-                        "point_id": point_id,
+                        "object_id": 0,
+                        "keypoint_id": keypoint_id,
                         "img_loc_x": 100.0,
                         "img_loc_y": 100.0,
                         "obj_loc_x": 0.0,
@@ -66,13 +68,14 @@ def make_simple_image_points() -> ImagePoints:
                     }
                 )
         # Points 4-5: cameras 0,2 only
-        for point_id in [4, 5]:
+        for keypoint_id in [4, 5]:
             for cam_id in [0, 2]:
                 rows.append(
                     {
                         "sync_index": frame,
                         "cam_id": cam_id,
-                        "point_id": point_id,
+                        "object_id": 0,
+                        "keypoint_id": keypoint_id,
                         "img_loc_x": 100.0,
                         "img_loc_y": 100.0,
                         "obj_loc_x": 0.0,
@@ -81,13 +84,14 @@ def make_simple_image_points() -> ImagePoints:
                     }
                 )
         # Points 6-7: all cameras
-        for point_id in [6, 7]:
+        for keypoint_id in [6, 7]:
             for cam_id in range(3):
                 rows.append(
                     {
                         "sync_index": frame,
                         "cam_id": cam_id,
-                        "point_id": point_id,
+                        "object_id": 0,
+                        "keypoint_id": keypoint_id,
                         "img_loc_x": 100.0,
                         "img_loc_y": 100.0,
                         "obj_loc_x": 0.0,
@@ -187,13 +191,14 @@ class TestCoverageIntegration:
 
         # 10 frames, both cameras see 5 points each frame
         for frame in range(10):
-            for point_id in range(5):
+            for keypoint_id in range(5):
                 for cam_id in [0, 1]:
                     rows.append(
                         {
                             "sync_index": frame,
                             "cam_id": cam_id,
-                            "point_id": point_id,
+                            "object_id": 0,
+                            "keypoint_id": keypoint_id,
                             "img_loc_x": 100.0,
                             "img_loc_y": 100.0,
                             "obj_loc_x": 0.0,
@@ -258,12 +263,13 @@ class TestExtrinsicCoverageRecam_id:
         rows = []
         for frame in range(3):
             # Camera 0 sees points 0-2 (unique to camera 0)
-            for point_id in range(3):
+            for keypoint_id in range(3):
                 rows.append(
                     {
                         "sync_index": frame,
                         "cam_id": 0,
-                        "point_id": point_id,
+                        "object_id": 0,
+                        "keypoint_id": keypoint_id,
                         "img_loc_x": 100.0,
                         "img_loc_y": 100.0,
                         "obj_loc_x": 0.0,
@@ -272,13 +278,14 @@ class TestExtrinsicCoverageRecam_id:
                     }
                 )
             # Cameras 1 and 2 share points 10-12
-            for point_id in range(10, 13):
+            for keypoint_id in range(10, 13):
                 for cam_id in [1, 2]:
                     rows.append(
                         {
                             "sync_index": frame,
                             "cam_id": cam_id,
-                            "point_id": point_id,
+                            "object_id": 0,
+                            "keypoint_id": keypoint_id,
                             "img_loc_x": 100.0,
                             "img_loc_y": 100.0,
                             "obj_loc_x": 0.0,
@@ -300,13 +307,14 @@ class TestExtrinsicCoverageRecam_id:
         rows = []
         for frame in range(3):
             # Cameras 0 and 1 share points 0-2
-            for point_id in range(3):
+            for keypoint_id in range(3):
                 for cam_id in [0, 1]:
                     rows.append(
                         {
                             "sync_index": frame,
                             "cam_id": cam_id,
-                            "point_id": point_id,
+                            "object_id": 0,
+                            "keypoint_id": keypoint_id,
                             "img_loc_x": 100.0,
                             "img_loc_y": 100.0,
                             "obj_loc_x": 0.0,
@@ -315,13 +323,14 @@ class TestExtrinsicCoverageRecam_id:
                         }
                     )
             # Cameras 2 and 3 share points 3-5 (different point IDs = no cross-link)
-            for point_id in range(3, 6):
+            for keypoint_id in range(3, 6):
                 for cam_id in [2, 3]:
                     rows.append(
                         {
                             "sync_index": frame,
                             "cam_id": cam_id,
-                            "point_id": point_id,
+                            "object_id": 0,
+                            "keypoint_id": keypoint_id,
                             "img_loc_x": 100.0,
                             "img_loc_y": 100.0,
                             "obj_loc_x": 0.0,
@@ -344,13 +353,14 @@ class TestExtrinsicCoverageRecam_id:
         rows = []
         for frame in range(3):
             # Camera 0 and 1 share points 0-2
-            for point_id in range(3):
+            for keypoint_id in range(3):
                 for cam_id in [0, 1]:
                     rows.append(
                         {
                             "sync_index": frame,
                             "cam_id": cam_id,
-                            "point_id": point_id,
+                            "object_id": 0,
+                            "keypoint_id": keypoint_id,
                             "img_loc_x": 100.0,
                             "img_loc_y": 100.0,
                             "obj_loc_x": 0.0,
@@ -359,13 +369,14 @@ class TestExtrinsicCoverageRecam_id:
                         }
                     )
             # Camera 1 and 2 share points 3-5
-            for point_id in range(3, 6):
+            for keypoint_id in range(3, 6):
                 for cam_id in [1, 2]:
                     rows.append(
                         {
                             "sync_index": frame,
                             "cam_id": cam_id,
-                            "point_id": point_id,
+                            "object_id": 0,
+                            "keypoint_id": keypoint_id,
                             "img_loc_x": 100.0,
                             "img_loc_y": 100.0,
                             "obj_loc_x": 0.0,
@@ -407,12 +418,13 @@ class TestStructuralWarnings:
         rows = []
         for frame in range(3):
             # Camera 0 sees points 0-2 (unique to camera 0)
-            for point_id in range(3):
+            for keypoint_id in range(3):
                 rows.append(
                     {
                         "sync_index": frame,
                         "cam_id": 0,
-                        "point_id": point_id,
+                        "object_id": 0,
+                        "keypoint_id": keypoint_id,
                         "img_loc_x": 100.0,
                         "img_loc_y": 100.0,
                         "obj_loc_x": 0.0,
@@ -421,13 +433,14 @@ class TestStructuralWarnings:
                     }
                 )
             # Cameras 1 and 2 share points 10-12
-            for point_id in range(10, 13):
+            for keypoint_id in range(10, 13):
                 for cam_id in [1, 2]:
                     rows.append(
                         {
                             "sync_index": frame,
                             "cam_id": cam_id,
-                            "point_id": point_id,
+                            "object_id": 0,
+                            "keypoint_id": keypoint_id,
                             "img_loc_x": 100.0,
                             "img_loc_y": 100.0,
                             "obj_loc_x": 0.0,
@@ -450,13 +463,14 @@ class TestStructuralWarnings:
         """A 2-camera setup doesn't warn about leaf nodes (both are necessarily leaves)."""
         rows = []
         for frame in range(10):
-            for point_id in range(5):
+            for keypoint_id in range(5):
                 for cam_id in [0, 1]:
                     rows.append(
                         {
                             "sync_index": frame,
                             "cam_id": cam_id,
-                            "point_id": point_id,
+                            "object_id": 0,
+                            "keypoint_id": keypoint_id,
                             "img_loc_x": 100.0,
                             "img_loc_y": 100.0,
                             "obj_loc_x": 0.0,
@@ -481,13 +495,14 @@ class TestStructuralWarnings:
         rows = []
         for frame in range(3):
             # Camera 0 and 1 share only 3 points (9 total observations - weak)
-            for point_id in range(3):
+            for keypoint_id in range(3):
                 for cam_id in [0, 1]:
                     rows.append(
                         {
                             "sync_index": frame,
                             "cam_id": cam_id,
-                            "point_id": point_id,
+                            "object_id": 0,
+                            "keypoint_id": keypoint_id,
                             "img_loc_x": 100.0,
                             "img_loc_y": 100.0,
                             "obj_loc_x": 0.0,
@@ -496,13 +511,14 @@ class TestStructuralWarnings:
                         }
                     )
             # Camera 1 and 2 share points 3-52 (150 observations - strong)
-            for point_id in range(3, 53):
+            for keypoint_id in range(3, 53):
                 for cam_id in [1, 2]:
                     rows.append(
                         {
                             "sync_index": frame,
                             "cam_id": cam_id,
-                            "point_id": point_id,
+                            "object_id": 0,
+                            "keypoint_id": keypoint_id,
                             "img_loc_x": 100.0,
                             "img_loc_y": 100.0,
                             "obj_loc_x": 0.0,
@@ -527,13 +543,14 @@ class TestStructuralWarnings:
         rows = []
         # Only camera 1 and 2 connected, camera 0 isolated
         for frame in range(3):
-            for point_id in range(3):
+            for keypoint_id in range(3):
                 for cam_id in [1, 2]:
                     rows.append(
                         {
                             "sync_index": frame,
                             "cam_id": cam_id,
-                            "point_id": point_id,
+                            "object_id": 0,
+                            "keypoint_id": keypoint_id,
                             "img_loc_x": 100.0,
                             "img_loc_y": 100.0,
                             "obj_loc_x": 0.0,
@@ -542,12 +559,13 @@ class TestStructuralWarnings:
                         }
                     )
             # Camera 0 sees different points (no shared with 1 or 2)
-            for point_id in range(10, 13):
+            for keypoint_id in range(10, 13):
                 rows.append(
                     {
                         "sync_index": frame,
                         "cam_id": 0,
-                        "point_id": point_id,
+                        "object_id": 0,
+                        "keypoint_id": keypoint_id,
                         "img_loc_x": 100.0,
                         "img_loc_y": 100.0,
                         "obj_loc_x": 0.0,

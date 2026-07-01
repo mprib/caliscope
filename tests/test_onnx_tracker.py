@@ -53,8 +53,8 @@ def test_onnx_tracker_detects_all_keypoints():
     frame = np.zeros((480, 640, 3), dtype=np.uint8)
     packet = tracker.get_points(frame)
 
-    assert len(packet.point_id) == 3
-    assert np.array_equal(packet.point_id, np.array([0, 1, 2], dtype=np.int32))
+    assert len(packet.keypoint_id) == 3
+    assert np.array_equal(packet.keypoint_id, np.array([0, 1, 2], dtype=np.int32))
     assert packet.img_loc.shape == (3, 2)
     assert packet.confidence is not None
     assert all(packet.confidence >= 0.3)
@@ -85,8 +85,8 @@ def test_onnx_tracker_filters_low_confidence():
     packet = tracker.get_points(frame)
 
     # Model has 4 keypoints, but low_conf (id=3) has logit 0.1 < threshold 0.3
-    assert len(packet.point_id) == 3
-    assert 3 not in packet.point_id
+    assert len(packet.keypoint_id) == 3
+    assert 3 not in packet.keypoint_id
 
 
 def test_onnx_tracker_wireframe():
@@ -108,8 +108,8 @@ if __name__ == "__main__":
     frame = np.zeros((480, 640, 3), dtype=np.uint8)
     packet = tracker.get_points(frame)
 
-    print(f"Detected {len(packet.point_id)} keypoints:")
-    for i, pid in enumerate(packet.point_id):
+    print(f"Detected {len(packet.keypoint_id)} keypoints:")
+    for i, pid in enumerate(packet.keypoint_id):
         name = tracker.get_point_name(int(pid))
         x, y = packet.img_loc[i]
         conf = packet.confidence[i] if packet.confidence is not None else None

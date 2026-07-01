@@ -23,7 +23,8 @@ class PointPacket:
     """
 
     # Using NDArray[Any] because trackers produce various dtypes (int32 for IDs, float32/64 for coords)
-    point_id: NDArray[Any]  # unique point id that aligns with Tracker.get_point_names()
+    object_id: NDArray[Any]  # which object (marker ID, board ID, person instance)
+    keypoint_id: NDArray[Any]  # which point within the object (corner index, joint index)
     img_loc: NDArray[Any]  # x,y position of tracked point
     obj_loc: NDArray[Any] | None = None  # x,y,z in object frame of reference; primarily for intrinsic calibration
     confidence: NDArray[Any] | None = None  # may be available in some trackers..include for future
@@ -40,7 +41,7 @@ class PointPacket:
             obj_loc_y = self.obj_loc[:, 1].tolist()
             obj_loc_z = self.obj_loc[:, 2].tolist()
         else:
-            length = len(self.point_id) if self.point_id is not None else 0
+            length = len(self.keypoint_id) if self.keypoint_id is not None else 0
             obj_loc_x = [None] * length
             obj_loc_y = [None] * length
             obj_loc_z = [None] * length
@@ -78,14 +79,15 @@ class TrackedFrame:
         used for creating csv output via pandas
         """
         if self.points is not None:
-            point_count = len(self.points.point_id)
+            point_count = len(self.points.keypoint_id)
             if point_count > 0:
                 table = {
                     "sync_index": [sync_index] * point_count,
                     "cam_id": [self.cam_id] * point_count,
                     "frame_index": [self.frame_index] * point_count,
                     "frame_time": [self.frame_time] * point_count,
-                    "point_id": self.points.point_id.tolist(),
+                    "object_id": self.points.object_id.tolist(),
+                    "keypoint_id": self.points.keypoint_id.tolist(),
                     "img_loc_x": self.points.img_loc[:, 0].tolist(),
                     "img_loc_y": self.points.img_loc[:, 1].tolist(),
                     "obj_loc_x": self.points.obj_loc_list[0],
@@ -108,7 +110,7 @@ class TrackedFrame:
             if self.pixel_format == PixelFormat.GRAY:
                 drawn_frame = cv2.cvtColor(drawn_frame, cv2.COLOR_GRAY2BGR)
 
-            ids = self.points.point_id
+            ids = self.points.keypoint_id
             locs = self.points.img_loc
             for _id, coord in zip(ids, locs):
                 x = round(coord[0])
@@ -139,24 +141,20 @@ class SyncPacket:
 
     @property
     def triangulation_inputs(self):
-        """
-        returns three key items used by the triangulation functions
-            cameras: a list of the camera ids associated with each reported 2d point
-            point_ids: the point id associated with each 2d point
-            img_xy: the 2d image points themselves
-
-        """
+        """Returns (cameras, object_ids, keypoint_ids, img_xy) for triangulation."""
         cameras = []
-        point_ids = []
+        object_ids = []
+        keypoint_ids = []
         img_xy = []
 
         for cam_id, tracked_frame in self.tracked_frames.items():
             if tracked_frame is not None and tracked_frame.points is not None:
-                cameras.extend([cam_id] * len(tracked_frame.points.point_id))
-                point_ids.extend(tracked_frame.points.point_id.tolist())
+                cameras.extend([cam_id] * len(tracked_frame.points.keypoint_id))
+                object_ids.extend(tracked_frame.points.object_id.tolist())
+                keypoint_ids.extend(tracked_frame.points.keypoint_id.tolist())
                 img_xy.extend(tracked_frame.points.img_loc.tolist())
 
-        return cameras, point_ids, img_xy
+        return cameras, object_ids, keypoint_ids, img_xy
 
     @property
     def dropped(self):
@@ -183,11 +181,13 @@ class SyncPacket:
 @dataclass(slots=True, frozen=True)
 class XYZPacket:
     sync_index: int
-    point_ids: NDArray[np.float64]  # (n,1)
+    object_ids: NDArray[np.int64]  # (n,)
+    keypoint_ids: NDArray[np.int64]  # (n,)
     point_xyz: NDArray[np.float64]  # (n,3)
 
-    def get_point_xyz(self, point_id: int) -> np.ndarray:
-        return self.point_xyz[self.point_ids == point_id]
+    def get_point_xyz(self, object_id: int, keypoint_id: int) -> np.ndarray:
+        mask = (self.object_ids == object_id) & (self.keypoint_ids == keypoint_id)
+        return self.point_xyz[mask]
 
-    def get_segment_ends(self, point_id_A: int, point_id_B: int) -> np.ndarray:
-        return np.vstack([self.get_point_xyz(point_id_A), self.get_point_xyz(point_id_B)])
+    def get_segment_ends(self, obj_A: int, kp_A: int, obj_B: int, kp_B: int) -> np.ndarray:
+        return np.vstack([self.get_point_xyz(obj_A, kp_A), self.get_point_xyz(obj_B, kp_B)])

@@ -156,25 +156,17 @@ class FilterConfig:
     def _kill_linkage(df: pd.DataFrame, cam_a: int, cam_b: int) -> pd.DataFrame:
         """Remove points that are seen by BOTH cameras in a pair.
 
-        For each (sync_index, point_id), if observed by both cam_a and cam_b,
+        For each (sync_index, object_id, keypoint_id), if observed by both cam_a and cam_b,
         remove ALL observations of that point at that frame from those cameras.
         This breaks the stereo constraint between them.
         """
         # Find points seen by cam_a
-        seen_by_a = set(
-            zip(
-                df[df["cam_id"] == cam_a]["sync_index"],
-                df[df["cam_id"] == cam_a]["point_id"],
-            )
-        )
+        cam_a_df = df[df["cam_id"] == cam_a]
+        seen_by_a = set(zip(cam_a_df["sync_index"], cam_a_df["object_id"], cam_a_df["keypoint_id"]))
 
         # Find points seen by cam_b
-        seen_by_b = set(
-            zip(
-                df[df["cam_id"] == cam_b]["sync_index"],
-                df[df["cam_id"] == cam_b]["point_id"],
-            )
-        )
+        cam_b_df = df[df["cam_id"] == cam_b]
+        seen_by_b = set(zip(cam_b_df["sync_index"], cam_b_df["object_id"], cam_b_df["keypoint_id"]))
 
         # Shared points
         shared = seen_by_a & seen_by_b
@@ -186,7 +178,7 @@ class FilterConfig:
         shared_set = set(shared)
 
         def should_keep(row: pd.Series[Any]) -> bool:
-            key = (row["sync_index"], row["point_id"])
+            key = (row["sync_index"], row["object_id"], row["keypoint_id"])
             if key in shared_set and row["cam_id"] in (cam_a, cam_b):
                 return False
             return True
@@ -220,17 +212,19 @@ class FilterConfig:
             if target_df.empty:
                 continue
 
-            # Find shared observations (sync_index, point_id pairs)
+            # Find shared observations (sync_index, object_id, keypoint_id tuples)
             occluded_points = set(
                 zip(
                     occluded_cam_obs["sync_index"],
-                    occluded_cam_obs["point_id"],
+                    occluded_cam_obs["object_id"],
+                    occluded_cam_obs["keypoint_id"],
                 )
             )
             target_points = set(
                 zip(
                     target_df["sync_index"],
-                    target_df["point_id"],
+                    target_df["object_id"],
+                    target_df["keypoint_id"],
                 )
             )
             shared_points = occluded_points & target_points
@@ -259,7 +253,7 @@ class FilterConfig:
             def should_keep(row: pd.Series[Any]) -> bool:
                 if row["cam_id"] != occlusion.camera_cam_id:
                     return True
-                key = (row["sync_index"], row["point_id"])
+                key = (row["sync_index"], row["object_id"], row["keypoint_id"])
                 return key not in points_to_drop
 
             # Pandas stubs don't properly type axis=1 apply operations

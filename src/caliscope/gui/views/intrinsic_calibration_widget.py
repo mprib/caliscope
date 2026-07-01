@@ -465,7 +465,7 @@ class FrameRenderThread(QThread):
             if frame_idx not in selected_set:
                 continue
 
-            id_to_loc = {int(pid): (int(x), int(y)) for pid, (x, y) in zip(points.point_id, points.img_loc)}
+            id_to_loc = {int(kid): (int(x), int(y)) for kid, (x, y) in zip(points.keypoint_id, points.img_loc)}
 
             for id_a, id_b in connectivity:
                 if id_a in id_to_loc and id_b in id_to_loc:

@@ -70,7 +70,7 @@ class Tracker(ABC):
         OPTIONAL METHOD
         used for 2d drawing purposes elsewhere. Specify which
         points (if any) should have a line connecting them
-        {(point_id_A, point_id_B),etc...}
+        {(keypoint_id_A, keypoint_id_B),etc...}
 
         currently only implemented for charuco...
         """

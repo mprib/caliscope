@@ -323,7 +323,7 @@ class IntrinsicCalibrationPresenter(QObject):
                 points = self._tracker.get_points(raw.frame, self._cam_id, self._camera.rotation_count)
 
                 # Accumulate if board detected
-                if points is not None and len(points.point_id) > 0:
+                if points is not None and len(points.keypoint_id) > 0:
                     self._collected_points.append((raw.frame_index, points))
 
                 # Emit for display
@@ -447,7 +447,7 @@ class IntrinsicCalibrationPresenter(QObject):
         rows = []
         for frame_index, points in self._collected_points:
             # For single-camera calibration, sync_index == frame_index
-            point_count = len(points.point_id)
+            point_count = len(points.keypoint_id)
 
             # Build row data matching ImagePoints schema
             row_data = {
@@ -455,7 +455,8 @@ class IntrinsicCalibrationPresenter(QObject):
                 "cam_id": [self._cam_id] * point_count,
                 "frame_index": [frame_index] * point_count,
                 "frame_time": [0.0] * point_count,  # Not used for calibration
-                "point_id": points.point_id.tolist(),
+                "object_id": points.object_id.tolist(),
+                "keypoint_id": points.keypoint_id.tolist(),
                 "img_loc_x": points.img_loc[:, 0].tolist(),
                 "img_loc_y": points.img_loc[:, 1].tolist(),
                 "obj_loc_x": points.obj_loc[:, 0].tolist() if points.obj_loc is not None else [None] * point_count,

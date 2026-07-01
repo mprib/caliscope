@@ -14,7 +14,8 @@ def _get_valid_xy_df() -> pd.DataFrame:
         {
             "sync_index": [0, 1, 0, 1],
             "cam_id": [0, 0, 1, 1],
-            "point_id": [10, 10, 10, 10],
+            "object_id": [0, 0, 0, 0],
+            "keypoint_id": [10, 10, 10, 10],
             "img_loc_x": [100.5, 102.3, 200.1, 202.8],
             "img_loc_y": [300.2, 301.9, 400.6, 401.3],
             "extra_col": ["a", "b", "c", "d"],
@@ -37,7 +38,8 @@ def _get_valid_xyz_df() -> pd.DataFrame:
     return pd.DataFrame(
         {
             "sync_index": [0, 1, 2],
-            "point_id": [10, 10, 10],
+            "object_id": [0, 0, 0],
+            "keypoint_id": [10, 10, 10],
             "x_coord": [1.1, 1.2, 1.3],
             "y_coord": [2.1, 2.2, 2.3],
             "z_coord": [3.1, 3.2, 3.3],
@@ -73,7 +75,7 @@ def test_xydata_creation_success(valid_xy_df):
 
 
 def test_xydata_creation_failure(invalid_xy_df):
-    with pytest.raises(ValueError, match="point_id.*not in dataframe"):
+    with pytest.raises(ValueError, match="keypoint_id.*not in dataframe"):
         ImagePoints(invalid_xy_df)
 
 
@@ -97,7 +99,8 @@ def test_xydata_fill_gaps():
         {
             "sync_index": [1, 3, 1, 3],
             "cam_id": [0, 0, 1, 1],
-            "point_id": [1, 1, 2, 2],
+            "object_id": [0, 0, 0, 0],
+            "keypoint_id": [1, 1, 2, 2],
             "img_loc_x": [10, 30, 100, 300],
             "img_loc_y": [20, 40, 200, 400],
         }
@@ -110,17 +113,18 @@ def test_xydata_fill_gaps():
             {
                 "sync_index": [1, 2, 3, 1, 2, 3],
                 "cam_id": [0, 0, 0, 1, 1, 1],
-                "point_id": [1, 1, 1, 2, 2, 2],
+                "object_id": [0, 0, 0, 0, 0, 0],
+                "keypoint_id": [1, 1, 1, 2, 2, 2],
                 "img_loc_x": [10.0, 20.0, 30.0, 100.0, 200.0, 300.0],
                 "img_loc_y": [20.0, 30.0, 40.0, 200.0, 300.0, 400.0],
             }
         )
-        .sort_values(["cam_id", "point_id", "sync_index"])
+        .sort_values(["cam_id", "object_id", "keypoint_id", "sync_index"])
         .reset_index(drop=True)
     )
     result_df = (
-        xy_filled.df[["sync_index", "cam_id", "point_id", "img_loc_x", "img_loc_y"]]
-        .sort_values(["cam_id", "point_id", "sync_index"])
+        xy_filled.df[["sync_index", "cam_id", "object_id", "keypoint_id", "img_loc_x", "img_loc_y"]]
+        .sort_values(["cam_id", "object_id", "keypoint_id", "sync_index"])
         .reset_index(drop=True)
     )
     pd.testing.assert_frame_equal(expected_data, result_df)
@@ -143,7 +147,8 @@ def test_worldpoints_from_csv_with_frame_time(tmp_path: Path):
     df = pd.DataFrame(
         {
             "sync_index": [0, 1],
-            "point_id": [1, 1],
+            "object_id": [0, 0],
+            "keypoint_id": [1, 1],
             "x_coord": [1.0, 1.1],
             "y_coord": [2.0, 2.1],
             "z_coord": [3.0, 3.1],

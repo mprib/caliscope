@@ -19,16 +19,16 @@ class TestConstruction:
 
         assert obj.n_points == 4
         assert np.allclose(obj.points, points)
-        assert np.array_equal(obj.point_ids, np.arange(4))
+        assert np.array_equal(obj.keypoint_ids, np.arange(4))
 
     def test_from_points_with_custom_ids(self):
         """Create object with custom point IDs."""
         points = np.array([[0, 0, 0], [1, 0, 0], [0, 1, 0], [0, 0, 1]], dtype=np.float64)
         ids = np.array([10, 20, 30, 40], dtype=np.int64)
 
-        obj = CalibrationObject.from_points(points, point_ids=ids)
+        obj = CalibrationObject.from_points(points, keypoint_ids=ids)
 
-        assert np.array_equal(obj.point_ids, ids)
+        assert np.array_equal(obj.keypoint_ids, ids)
 
     def test_invalid_points_rejected(self):
         """Reject invalid point arrays or IDs."""
@@ -41,7 +41,7 @@ class TestConstruction:
         points = np.array([[0, 0, 0], [1, 0, 0], [0, 1, 0], [0, 0, 1]], dtype=np.float64)
         ids = np.array([0, 1], dtype=np.int64)
         with pytest.raises(ValueError, match="same length"):
-            CalibrationObject.from_points(points, point_ids=ids)
+            CalibrationObject.from_points(points, keypoint_ids=ids)
 
 
 class TestPlanarGrid:

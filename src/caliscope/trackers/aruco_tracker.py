@@ -3,7 +3,7 @@ ArUco marker tracker for extrinsic calibration.
 
 Design decisions:
 - Tracks 4 corners per marker for spatial precision
-- Point ID scheme: marker_id * 10 + corner_index (0-3)
+- Identity scheme: object_id = marker_id, keypoint_id = corner_index (0-3)
 - obj_loc populated when ArucoTarget is provided
 - Default dictionary: cv2.aruco.DICT_4X4_100
 - Default inversion: False (True only for legacy test data)
@@ -154,6 +154,7 @@ class ArucoTracker(Tracker):
             mirrored_frame = cv2.flip(gray_frame, 1)  # Horizontal flip
             object_ids, keypoint_ids, all_corners = self._detect_markers(mirrored_frame)
 
+            # If markers found in mirror, adjust x-coordinates back to original frame
             if object_ids is not None and all_corners is not None:
                 frame_width = gray_frame.shape[1]
                 all_corners[:, 0] = frame_width - all_corners[:, 0]

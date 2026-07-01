@@ -52,7 +52,7 @@ def test_triangulation_consistency(tmp_path: Path):
     logger.info(f"✓ Produced {n_world_points} world points")
 
     # Check 2: All required columns present
-    required_cols = ["sync_index", "point_id", "x_coord", "y_coord", "z_coord"]
+    required_cols = ["sync_index", "object_id", "keypoint_id", "x_coord", "y_coord", "z_coord"]
     for col in required_cols:
         assert col in world_points_triangulated.df.columns, f"Missing required column: {col}"
     logger.info("✓ All required columns present")
@@ -191,7 +191,7 @@ def test_align_bundle_to_charuco_board(larger_calibration_session_reduced: Calib
     merged_points = pd.merge(
         retriangulated_points.df,
         aligned.world_points.df,
-        on=["sync_index", "point_id"],
+        on=["sync_index", "object_id", "keypoint_id"],
         suffixes=("_retri", "_aligned"),
     )
 
@@ -208,7 +208,9 @@ def test_align_bundle_to_charuco_board(larger_calibration_session_reduced: Calib
     # Get object coordinates from image points
     img_at_sync = image_points.df[image_points.df["sync_index"] == sync_index]
     merged_at_sync = pd.merge(
-        aligned_world_at_sync, img_at_sync[["point_id", "obj_loc_x", "obj_loc_y", "obj_loc_z"]], on="point_id"
+        aligned_world_at_sync,
+        img_at_sync[["object_id", "keypoint_id", "obj_loc_x", "obj_loc_y", "obj_loc_z"]],
+        on=["object_id", "keypoint_id"],
     )
 
     # Check that aligned points match object coordinates (within tolerance for noise)

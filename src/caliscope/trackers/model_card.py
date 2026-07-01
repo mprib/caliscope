@@ -34,8 +34,7 @@ class ModelCard:
     license_url: str | None = None
 
     @property
-    def point_id_to_name(self) -> dict[int, str]:
-        """Reverse mapping from point ID to landmark name."""
+    def keypoint_id_to_name(self) -> dict[int, str]:
         return {v: k for k, v in self.point_name_to_id.items()}
 
     @property

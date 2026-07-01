@@ -67,10 +67,15 @@ class CharucoTracker(Tracker):
                 break
 
         obj_loc = self.get_obj_loc(ids)
-        return PointPacket(ids, img_loc, obj_loc)
+        return PointPacket(
+            object_id=np.zeros(len(ids), dtype=np.int32),
+            keypoint_id=ids,
+            img_loc=img_loc,
+            obj_loc=obj_loc,
+        )
 
-    def get_point_name(self, point_id: int) -> str:
-        return str(point_id)
+    def get_point_name(self, keypoint_id: int) -> str:
+        return str(keypoint_id)
 
     def get_connected_points(self) -> set[tuple[int, int]]:
         return self.charuco.get_connected_points()
@@ -116,7 +121,5 @@ class CharucoTracker(Tracker):
         else:
             return np.empty((0, 3), dtype=np.float64)
 
-    # @property
-    def scatter_draw_instructions(self, point_id: int) -> dict:
-        rules = {"radius": 5, "color": (0, 0, 220), "thickness": 3}
-        return rules
+    def scatter_draw_instructions(self, keypoint_id: int) -> dict:
+        return {"radius": 5, "color": (0, 0, 220), "thickness": 3}

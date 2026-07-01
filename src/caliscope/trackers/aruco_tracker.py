@@ -79,9 +79,8 @@ class ArucoTracker(Tracker):
         return PixelFormat.GRAY
 
     def _detect_markers(self, gray_frame):
-        """
-        Internal helper to detect markers and format results.
-        Returns (point_ids, all_corners) or (None, None) if no markers.
+        """Internal helper to detect markers and format results.
+        Returns (object_ids, keypoint_ids, all_corners) or (None, None, None) if no markers.
         """
         corners, ids, rejected = self.detector.detectMarkers(gray_frame)
 
@@ -90,52 +89,54 @@ class ArucoTracker(Tracker):
             # We want shape (n_markers * 4, 2)
             all_corners = np.vstack(corners).reshape(-1, 2)
 
-            # Generate point IDs: marker_id * 10 + corner_index (0-3)
-            point_ids = []
+            # Build separate object_id (marker_id) and keypoint_id (corner 0-3) arrays
+            object_ids = []
+            keypoint_ids = []
             for marker_id in ids.flatten():
-                base_id = marker_id * 10
-                point_ids.extend([base_id + j for j in range(CORNER_TL, CORNER_BL + 1)])
+                for corner_idx in range(CORNER_TL, CORNER_BL + 1):
+                    object_ids.append(marker_id)
+                    keypoint_ids.append(corner_idx)
 
-            point_ids = np.array(point_ids, dtype=np.int32)
+            object_ids = np.array(object_ids, dtype=np.int32)
+            keypoint_ids = np.array(keypoint_ids, dtype=np.int32)
 
-            # Validate shapes match
-            assert len(point_ids) == len(all_corners), "Point ID count must match corner count"
+            assert len(object_ids) == len(all_corners), "ID count must match corner count"
 
-            logger.debug(f"Detected {len(ids)} markers, {len(point_ids)} corners")
-            return point_ids, all_corners
+            logger.debug(f"Detected {len(ids)} markers, {len(object_ids)} corners")
+            return object_ids, keypoint_ids, all_corners
 
-        return None, None
+        return None, None, None
 
     def _apply_target_filter(
         self,
-        point_ids: np.ndarray,
+        object_ids: np.ndarray,
+        keypoint_ids: np.ndarray,
         img_corners: np.ndarray,
-    ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
         """Filter to tracked markers and build obj_loc from target geometry.
 
         Only markers in aruco_target.marker_ids are kept. obj_loc is populated
         from the target's known corner positions.
+
+        Returns (object_ids, keypoint_ids, img_loc, obj_loc).
         """
         assert self.aruco_target is not None
 
         tracked_ids = set(self.aruco_target.marker_ids)
-        marker_ids = point_ids // 10
-        mask = np.isin(marker_ids, list(tracked_ids))
+        mask = np.isin(object_ids, list(tracked_ids))
 
-        filtered_point_ids = point_ids[mask]
+        filtered_obj_ids = object_ids[mask]
+        filtered_kp_ids = keypoint_ids[mask]
         filtered_img_loc = img_corners[mask]
 
-        # Build obj_loc: point_id = marker_id * 10 + corner_index (0-3)
         obj_loc_list = []
-        for pid in filtered_point_ids:
-            mid = int(pid // 10)
-            corner_index = int(pid % 10)  # 0-3, matches OpenCV corner order
-            corner_pos = self.aruco_target.corners[mid][corner_index]
+        for oid, kid in zip(filtered_obj_ids, filtered_kp_ids):
+            corner_pos = self.aruco_target.corners[int(oid)][int(kid)]
             obj_loc_list.append(corner_pos)
 
         obj_loc = np.array(obj_loc_list, dtype=np.float32) if obj_loc_list else np.empty((0, 3), dtype=np.float32)
 
-        return filtered_point_ids, filtered_img_loc, obj_loc
+        return filtered_obj_ids, filtered_kp_ids, filtered_img_loc, obj_loc
 
     def _detect(self, frame: np.ndarray, cam_id: int = 0, rotation_count: int = 0) -> PointPacket:
         gray_frame = frame
@@ -145,43 +146,40 @@ class ArucoTracker(Tracker):
             gray_frame = cv2.bitwise_not(gray_frame)
 
         # Attempt detection on original orientation
-        point_ids, all_corners = self._detect_markers(gray_frame)
+        object_ids, keypoint_ids, all_corners = self._detect_markers(gray_frame)
 
         # If no markers found and mirror search enabled, try flipped image
-        if point_ids is None and self.mirror_flag_search:
+        if object_ids is None and self.mirror_flag_search:
             logger.debug("No markers found in original orientation, trying mirrored image")
             mirrored_frame = cv2.flip(gray_frame, 1)  # Horizontal flip
-            point_ids, all_corners = self._detect_markers(mirrored_frame)
+            object_ids, keypoint_ids, all_corners = self._detect_markers(mirrored_frame)
 
-            # If markers found in mirror, adjust x-coordinates back to original frame and send packet
-            if point_ids is not None and all_corners is not None:
+            if object_ids is not None and all_corners is not None:
                 frame_width = gray_frame.shape[1]
                 all_corners[:, 0] = frame_width - all_corners[:, 0]
-                logger.debug(f"Detected {len(np.unique(point_ids // 10))} markers in mirrored image")
+                logger.debug(f"Detected {len(np.unique(object_ids))} markers in mirrored image")
 
-        if point_ids is not None and all_corners is not None:
+        if object_ids is not None and keypoint_ids is not None and all_corners is not None:
             if self.aruco_target is not None:
-                point_ids, all_corners, obj_loc = self._apply_target_filter(point_ids, all_corners)
-                return PointPacket(point_id=point_ids, img_loc=all_corners, obj_loc=obj_loc)
+                object_ids, keypoint_ids, all_corners, obj_loc = self._apply_target_filter(
+                    object_ids, keypoint_ids, all_corners
+                )
+                return PointPacket(object_id=object_ids, keypoint_id=keypoint_ids, img_loc=all_corners, obj_loc=obj_loc)
             else:
-                return PointPacket(point_id=point_ids, img_loc=all_corners, obj_loc=None)
+                return PointPacket(object_id=object_ids, keypoint_id=keypoint_ids, img_loc=all_corners, obj_loc=None)
 
         # Return empty PointPacket if no markers detected
         return PointPacket(
-            point_id=np.array([], dtype=np.int32),
+            object_id=np.array([], dtype=np.int32),
+            keypoint_id=np.array([], dtype=np.int32),
             img_loc=np.empty((0, 2), dtype=np.float32),
             obj_loc=np.empty((0, 3), dtype=np.float32) if self.aruco_target else None,
         )
 
-    def get_point_name(self, point_id: int) -> str:
-        """Minimal implementation: return point ID as string."""
-        return str(point_id)
+    def get_point_name(self, keypoint_id: int) -> str:
+        return str(keypoint_id)
 
-    def scatter_draw_instructions(self, point_id: int) -> dict:
-        """
-        Return drawing parameters for visualizing ArUco corners.
-        Green circles to distinguish from CharucoTracker's blue.
-        """
+    def scatter_draw_instructions(self, keypoint_id: int) -> dict:
         return {
             "radius": 4,
             "color": (0, 255, 0),  # Green in BGR

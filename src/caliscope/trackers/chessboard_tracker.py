@@ -67,7 +67,8 @@ class ChessboardTracker(Tracker):
         if not found or corners is None:
             # Return empty PointPacket on detection failure
             return PointPacket(
-                point_id=np.array([], dtype=np.int32),
+                object_id=np.array([], dtype=np.int32),
+                keypoint_id=np.array([], dtype=np.int32),
                 img_loc=np.empty((0, 2), dtype=np.float32),
                 obj_loc=np.empty((0, 3), dtype=np.float32),
             )
@@ -86,26 +87,23 @@ class ChessboardTracker(Tracker):
 
         # Generate point IDs: 0 to N-1 in row-major order
         n_corners = self.chessboard.rows * self.chessboard.columns
-        point_id = np.arange(n_corners, dtype=np.int32)
+        keypoint_id = np.arange(n_corners, dtype=np.int32)
+        object_id = np.zeros(n_corners, dtype=np.int32)
 
         # Object locations from chessboard geometry
         obj_loc = self.chessboard.get_object_points()
 
-        return PointPacket(point_id=point_id, img_loc=img_loc, obj_loc=obj_loc)
+        return PointPacket(object_id=object_id, keypoint_id=keypoint_id, img_loc=img_loc, obj_loc=obj_loc)
 
     def get_connected_points(self) -> set[tuple[int, int]]:
         """Point ID pairs forming the grid pattern (adjacent corners only)."""
         return self.chessboard.get_connected_points()
 
-    def get_point_name(self, point_id: int) -> str:
-        """Return point ID as string (corners don't have semantic names)."""
-        return str(point_id)
+    def get_point_name(self, keypoint_id: int) -> str:
+        return str(keypoint_id)
 
-    def scatter_draw_instructions(self, point_id: int) -> dict:
-        """
-        Return drawing parameters for corner visualization.
-
-        Green color (0, 220, 0) in BGR to distinguish from:
+    def scatter_draw_instructions(self, keypoint_id: int) -> dict:
+        """Green color (0, 220, 0) in BGR to distinguish from:
         - CharucoTracker: red/blue (0, 0, 220)
         - ArucoTracker: bright green (0, 255, 0)
         """

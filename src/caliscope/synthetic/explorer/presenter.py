@@ -268,7 +268,6 @@ class ExplorerPresenter(QObject):
             pose_network = build_paired_pose_network(
                 image_points,
                 intrinsics_only,
-                method="pnp",
             )
 
             # Apply to get initial extrinsics

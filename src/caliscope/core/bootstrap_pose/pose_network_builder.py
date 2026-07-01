@@ -60,7 +60,7 @@ class PoseNetworkBuilder:
 
         # Pipeline state
         self._camera_to_object_poses: (
-            dict[tuple[int, int], tuple[NDArray[np.float64], NDArray[np.float64], float]] | None
+            dict[tuple[int, int, int], tuple[NDArray[np.float64], NDArray[np.float64], float]] | None
         ) = None
         self._relative_poses: dict[tuple[tuple[int, int], int], StereoPair] | None = None
         self._filtered_poses: dict[tuple[int, int], list[StereoPair]] | None = None
@@ -210,7 +210,7 @@ def compute_camera_to_object_poses_pnp(
     min_points: int = DEFAULT_MIN_PNP_POINTS,
     pnp_flags: int = cv2.SOLVEPNP_IPPE,
     fallback_flags: int = cv2.SOLVEPNP_ITERATIVE,
-) -> dict[tuple[int, int], tuple[NDArray[np.float64], NDArray[np.float64], float]]:
+) -> dict[tuple[int, int, int], tuple[NDArray[np.float64], NDArray[np.float64], float]]:
     """
     Compute per-camera poses relative to the object coordinate frame for each sync_index.
 
@@ -222,7 +222,7 @@ def compute_camera_to_object_poses_pnp(
         fallback_flags: Fallback algorithm if primary fails (default: SOLVEPNP_ITERATIVE)
 
     Returns:
-        dict mapping (cam_id, sync_index) -> (R, t, reprojection_error)
+        dict mapping (cam_id, sync_index, object_id) -> (R, t, reprojection_error)
     """
     logger.info(f"Computing per-frame camera poses with PnP (min_points={min_points})...")
 
@@ -258,7 +258,7 @@ def compute_camera_to_object_poses_pnp(
     K_perfect = np.identity(3)
     D_perfect = np.zeros(5)
 
-    for (cam_id, sync_index, _object_id), group in grouped:
+    for (cam_id, sync_index, object_id), group in grouped:
         if len(group) < min_points:
             failure_count += 1
             continue
@@ -286,7 +286,7 @@ def compute_camera_to_object_poses_pnp(
             projected, _ = cv2.projectPoints(obj_points, rvec, tvec, K_perfect, D_perfect)
             rmse = np.sqrt(np.mean(np.sum((img_points - projected.reshape(-1, 2)) ** 2, axis=1)))
 
-            poses[(cam_id, sync_index)] = (R, t, rmse)
+            poses[(cam_id, sync_index, object_id)] = (R, t, rmse)
             success_count += 1
         else:
             failure_count += 1
@@ -452,11 +452,11 @@ def translation_error(t1: NDArray[np.float64], t2: NDArray[np.float64]) -> dict[
 
 
 def compute_relative_poses(
-    camera_to_object_poses: dict[tuple[int, int], tuple[NDArray[np.float64], NDArray[np.float64], float]],
+    camera_to_object_poses: dict[tuple[int, int, int], tuple[NDArray[np.float64], NDArray[np.float64], float]],
     camera_array: CameraArray,
 ) -> dict[tuple[tuple[int, int], int], StereoPair]:
     """
-    Compute relative poses between camera pairs at each sync_index.
+    Compute relative poses between camera pairs at each (sync_index, object_id).
 
     For cameras A and B observing the same object at a sync index:
     T_B_A = T_B_obj @ T_obj_A = T_B_obj @ inv(T_A_obj)
@@ -471,14 +471,14 @@ def compute_relative_poses(
     pairs = [(i, j) for i, j in combinations(cam_ids, 2) if i < j]
 
     for cam_id_a, cam_id_b in pairs:
-        # Find sync indices where both cameras have poses
-        sync_a = {s for c, s in camera_to_object_poses.keys() if c == cam_id_a}
-        sync_b = {s for c, s in camera_to_object_poses.keys() if c == cam_id_b}
-        common_sync = sync_a.intersection(sync_b)
+        # Find (sync_index, object_id) tuples where both cameras have poses
+        so_a = {(s, o) for c, s, o in camera_to_object_poses.keys() if c == cam_id_a}
+        so_b = {(s, o) for c, s, o in camera_to_object_poses.keys() if c == cam_id_b}
+        common_so = so_a.intersection(so_b)
 
-        for sync_index in common_sync:
-            R_a, t_a, _ = camera_to_object_poses[(cam_id_a, sync_index)]
-            R_b, t_b, _ = camera_to_object_poses[(cam_id_b, sync_index)]
+        for sync_index, object_id in common_so:
+            R_a, t_a, _ = camera_to_object_poses[(cam_id_a, sync_index, object_id)]
+            R_b, t_b, _ = camera_to_object_poses[(cam_id_b, sync_index, object_id)]
 
             # Compute relative transformation: T_B_A = T_B_obj @ inv(T_A_obj)
             R_a_inv = R_a.T

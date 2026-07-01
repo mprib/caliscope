@@ -15,7 +15,7 @@ from typing import Literal
 import rtoml
 
 from caliscope.persistence import PersistenceError
-from caliscope.core.aruco_target import ArucoTarget
+from caliscope.core.aruco_marker import ArucoMarker, ArucoMarkerSet
 from caliscope.core.charuco import Charuco
 from caliscope.core.chessboard import Chessboard
 
@@ -47,7 +47,7 @@ class CalibrationTargetsRepository:
             intrinsic_charuco.toml   # ChArUco config for intrinsic role
             extrinsic_charuco.toml   # ChArUco config for extrinsic role (when not same_as_intrinsic)
             chessboard.toml          # Chessboard config
-            aruco_target.toml        # ArUco target config
+            aruco_marker_set.toml    # ArUco marker set config
     """
 
     def __init__(self, targets_dir: Path) -> None:
@@ -211,27 +211,27 @@ class CalibrationTargetsRepository:
         """Check if chessboard.toml exists."""
         return (self._dir / "chessboard.toml").exists()
 
-    # -- ArUco Target -----------------------------------------------------
+    # -- ArUco Marker Set -------------------------------------------------
 
-    def load_aruco_target(self) -> ArucoTarget:
-        """Load ArUco target config. Raises ValueError if file doesn't exist."""
-        path = self._dir / "aruco_target.toml"
+    def load_aruco_marker_set(self) -> ArucoMarkerSet:
+        """Load ArUco marker set config. Raises ValueError if file doesn't exist."""
+        path = self._dir / "aruco_marker_set.toml"
         try:
-            return ArucoTarget.from_toml(path)
+            return ArucoMarkerSet.from_toml(path)
         except PersistenceError as e:
-            raise ValueError(f"Failed to load aruco target: {e}") from e
+            raise ValueError(f"Failed to load aruco marker set: {e}") from e
 
-    def save_aruco_target(self, target: ArucoTarget) -> None:
-        """Save ArUco target config to aruco_target.toml."""
+    def save_aruco_marker_set(self, marker_set: ArucoMarkerSet) -> None:
+        """Save ArUco marker set config to aruco_marker_set.toml."""
         self._dir.mkdir(parents=True, exist_ok=True)
         try:
-            target.to_toml(self._dir / "aruco_target.toml")
+            marker_set.to_toml(self._dir / "aruco_marker_set.toml")
         except PersistenceError as e:
-            raise ValueError(f"Failed to save aruco target: {e}") from e
+            raise ValueError(f"Failed to save aruco marker set: {e}") from e
 
-    def aruco_target_exists(self) -> bool:
-        """Check if aruco_target.toml exists."""
-        return (self._dir / "aruco_target.toml").exists()
+    def aruco_marker_set_exists(self) -> bool:
+        """Check if aruco_marker_set.toml exists."""
+        return (self._dir / "aruco_marker_set.toml").exists()
 
     # -- Convenience: Role-Based Tracker Name -----------------------------
 
@@ -259,7 +259,7 @@ class CalibrationTargetsRepository:
         - config.toml: charuco/charuco, same_as_intrinsic = true
         - intrinsic_charuco.toml: Charuco(4, 5, 11, 8.5, square_size_override_cm=5.4)
         - chessboard.toml: Chessboard(rows=6, columns=9)
-        - aruco_target.toml: ArucoTarget.single_marker()
+        - aruco_marker_set.toml: default single-marker ArucoMarkerSet
 
         Note: extrinsic_charuco.toml is NOT created at init because
         same_as_intrinsic defaults to true (reads from intrinsic file).
@@ -288,14 +288,19 @@ class CalibrationTargetsRepository:
             default_chessboard = Chessboard(rows=6, columns=9)
             self.save_chessboard(default_chessboard)
 
-        # ArUco target
-        if not self.aruco_target_exists():
-            logger.info("Creating default ArUco target")
+        # ArUco marker set
+        if not self.aruco_marker_set_exists():
+            legacy = self._dir / "aruco_target.toml"
+            if legacy.exists():
+                logger.warning(
+                    "Found legacy aruco_target.toml; this format is no longer supported. "
+                    "Please recreate your marker set in the new aruco_marker_set.toml format."
+                )
+            logger.info("Creating default ArUco marker set")
             import cv2
 
-            default_aruco = ArucoTarget.single_marker(
-                marker_id=0,
-                marker_size_m=0.05,
+            default_aruco = ArucoMarkerSet(
                 dictionary=cv2.aruco.DICT_4X4_100,
+                markers={0: ArucoMarker(marker_id=0, size_m=0.05)},
             )
-            self.save_aruco_target(default_aruco)
+            self.save_aruco_marker_set(default_aruco)

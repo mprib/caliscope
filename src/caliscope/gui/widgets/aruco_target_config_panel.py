@@ -1,136 +1,120 @@
-"""ArUco target configuration panel for extrinsic calibration.
+"""ArUco marker set summary panel for extrinsic calibration.
 
-Allows user to configure dictionary, marker ID, and physical size for
-the ArUco marker used in extrinsic calibration. Physical size is essential
-for setting the world scale gauge.
+Read-only summary of the loaded marker set. The TOML file is the interface
+for editing — this panel shows what was loaded and provides reload/save/open actions.
 """
 
 import logging
+from pathlib import Path
 
 import cv2
-from PySide6.QtCore import Signal
+from PySide6.QtCore import QUrl, Signal
+from PySide6.QtGui import QDesktopServices
 from PySide6.QtWidgets import (
-    QComboBox,
-    QDoubleSpinBox,
     QHBoxLayout,
     QLabel,
-    QSpinBox,
+    QPushButton,
     QVBoxLayout,
     QWidget,
 )
 
-from caliscope.core.aruco_target import ArucoTarget
-from caliscope.gui.utils.spinbox_utils import setup_spinbox_sizing
+from caliscope.core.aruco_marker import ArucoMarkerSet
 
 logger = logging.getLogger(__name__)
 
 
-# Dictionary options: display name -> cv2 constant value
-ARUCO_DICTIONARIES = [
-    ("4x4 (50 markers)", cv2.aruco.DICT_4X4_50),
-    ("4x4 (100 markers)", cv2.aruco.DICT_4X4_100),
-    ("4x4 (250 markers)", cv2.aruco.DICT_4X4_250),
-    ("5x5 (50 markers)", cv2.aruco.DICT_5X5_50),
-    ("5x5 (100 markers)", cv2.aruco.DICT_5X5_100),
-]
+class ArucoMarkerSetPanel(QWidget):
+    """Read-only summary panel for ArUco marker set configuration.
 
+    Shows marker count, IDs, and sizes. Provides buttons to open the
+    TOML directory, reload the config, and save all marker PNGs.
 
-class ArucoTargetConfigPanel(QWidget):
-    """ArUco target configuration for extrinsic calibration.
-
-    Layout:
-    - Row 1: Dictionary: [combo box]
-    - Row 2: Marker ID: [spinbox]
-    - Row 3: Marker Size: [spinbox] cm
-    - Helper text explaining scale gauge
-
-    Emits `config_changed` whenever any value changes.
-    Use `get_aruco_target()` to build an ArucoTarget from current values.
+    Emits `config_changed` after a reload so callers can refresh state.
     """
 
     config_changed = Signal()
 
     def __init__(
         self,
-        initial_target: ArucoTarget,
+        marker_set: ArucoMarkerSet,
+        targets_dir: Path,
         parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent)
-        self._setup_ui(initial_target)
+        self._marker_set = marker_set
+        self._targets_dir = targets_dir
+        self._setup_ui()
 
-    def _setup_ui(self, initial_target: ArucoTarget) -> None:
+    def _setup_ui(self) -> None:
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(8)
 
-        # Row 1: Dictionary
-        dict_row = QHBoxLayout()
-        dict_row.addWidget(QLabel("Dictionary:"))
-        self._dict_combo = QComboBox()
-        for display_name, value in ARUCO_DICTIONARIES:
-            self._dict_combo.addItem(display_name, value)
-        # Set initial selection
-        for i, (_, value) in enumerate(ARUCO_DICTIONARIES):
-            if value == initial_target.dictionary:
-                self._dict_combo.setCurrentIndex(i)
-                break
-        dict_row.addWidget(self._dict_combo)
-        dict_row.addStretch()
-        layout.addLayout(dict_row)
+        # Summary label
+        self._summary_label = QLabel()
+        self._summary_label.setWordWrap(True)
+        self._update_summary()
+        layout.addWidget(self._summary_label)
 
-        # Row 2: Marker ID
-        id_row = QHBoxLayout()
-        id_row.addWidget(QLabel("Marker ID:"))
-        self._id_spin = QSpinBox()
-        self._id_spin.setMinimum(0)
-        self._id_spin.setMaximum(249)  # Max for 4x4_250
-        initial_id = initial_target.marker_ids[0] if initial_target.marker_ids else 0
-        self._id_spin.setValue(initial_id)
-        setup_spinbox_sizing(self._id_spin, min_value=0, max_value=249)
-        id_row.addWidget(self._id_spin)
-        id_row.addStretch()
-        layout.addLayout(id_row)
+        # Button row
+        btn_row = QHBoxLayout()
 
-        # Row 3: Marker Size (in cm, domain uses meters)
-        size_row = QHBoxLayout()
-        size_row.addWidget(QLabel("Marker Size:"))
-        self._size_spin = QDoubleSpinBox()
-        self._size_spin.setDecimals(1)
-        self._size_spin.setSingleStep(0.5)
-        self._size_spin.setMinimum(0.5)
-        self._size_spin.setMaximum(100.0)
-        self._size_spin.setSuffix(" cm")
-        # Convert meters to cm for display
-        initial_cm = initial_target.marker_size_m * 100
-        self._size_spin.setValue(initial_cm)
-        setup_spinbox_sizing(self._size_spin, min_value=0.5, max_value=100.0)
-        size_row.addWidget(self._size_spin)
-        size_row.addStretch()
-        layout.addLayout(size_row)
+        open_btn = QPushButton("Open Folder")
+        open_btn.setToolTip("Open the targets directory in the file browser")
+        open_btn.clicked.connect(self._open_folder)
+        btn_row.addWidget(open_btn)
 
-        # Helper text
-        helper = QLabel("(Physical size sets the world scale gauge)")
-        helper.setStyleSheet("color: #888; font-style: italic; font-size: 11px;")
-        layout.addWidget(helper)
+        reload_btn = QPushButton("Reload")
+        reload_btn.setToolTip("Re-read aruco_marker_set.toml from disk")
+        reload_btn.clicked.connect(self._reload)
+        btn_row.addWidget(reload_btn)
+
+        save_btn = QPushButton("Save All PNGs")
+        save_btn.setToolTip("Save one PNG per marker to the targets directory")
+        save_btn.clicked.connect(self._save_all_pngs)
+        btn_row.addWidget(save_btn)
+
+        btn_row.addStretch()
+        layout.addLayout(btn_row)
 
         layout.addStretch()
 
-        # Connect signals
-        self._dict_combo.currentIndexChanged.connect(self._on_config_changed)
-        self._id_spin.valueChanged.connect(self._on_config_changed)
-        self._size_spin.valueChanged.connect(self._on_config_changed)
+    def _update_summary(self) -> None:
+        ms = self._marker_set
+        lines = [f"<b>{len(ms.markers)} marker(s)</b>"]
+        for mid in sorted(ms.markers.keys()):
+            size_cm = ms.markers[mid].size_m * 100
+            lines.append(f"  ID {mid}: {size_cm:.1f} cm")
+        self._summary_label.setText("<br>".join(lines))
 
-    def _on_config_changed(self) -> None:
-        self.config_changed.emit()
+    def _open_folder(self) -> None:
+        QDesktopServices.openUrl(QUrl.fromLocalFile(str(self._targets_dir)))
 
-    def get_aruco_target(self) -> ArucoTarget:
-        """Build ArucoTarget from current widget values."""
-        dictionary = self._dict_combo.currentData()
-        marker_id = self._id_spin.value()
-        marker_size_m = self._size_spin.value() / 100.0  # cm -> meters
+    def _reload(self) -> None:
+        toml_path = self._targets_dir / "aruco_marker_set.toml"
+        if toml_path.exists():
+            try:
+                self._marker_set = ArucoMarkerSet.from_toml(toml_path)
+                self._update_summary()
+                self.config_changed.emit()
+                logger.info("Reloaded ArUco marker set from %s", toml_path)
+            except Exception as e:
+                logger.error("Failed to reload marker set: %s", e)
+        else:
+            logger.warning("No aruco_marker_set.toml found at %s", toml_path)
 
-        return ArucoTarget.single_marker(
-            marker_id=marker_id,
-            marker_size_m=marker_size_m,
-            dictionary=dictionary,
-        )
+    def _save_all_pngs(self) -> None:
+        ms = self._marker_set
+        largest_size = max(m.size_m for m in ms.markers.values())
+        int(8000 / largest_size * largest_size)
+
+        for mid, marker in ms.markers.items():
+            pixel_size = int(marker.size_m * 8000)
+            bgr = ms.generate_marker_image(mid, pixel_size)
+            out_path = self._targets_dir / f"marker_{mid}.png"
+            cv2.imwrite(str(out_path), bgr)
+            logger.info("Saved %s", out_path)
+
+    @property
+    def marker_set(self) -> ArucoMarkerSet:
+        return self._marker_set

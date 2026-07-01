@@ -569,7 +569,7 @@ class WorldPoints:
     def from_csv(cls, path: str | Path) -> WorldPoints:
         """Load WorldPoints from a CSV file.
 
-        Expected columns: sync_index, point_id, x_coord, y_coord, z_coord
+        Expected columns: sync_index, object_id, keypoint_id, x_coord, y_coord, z_coord
         Optional: frame_time (nullable)
         """
         df = pd.read_csv(path)

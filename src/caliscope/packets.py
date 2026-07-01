@@ -33,7 +33,7 @@ class PointPacket:
     def obj_loc_list(self) -> list[list[float | None]]:
         """
         if obj loc is none, printing data to a table format will be undermined
-        this creates a list of length len(point_id) that is empty so that a pd.dataframe
+        this creates a list of length len(keypoint_id) that is empty so that a pd.dataframe
         can be constructed from it.
         """
         if self.obj_loc is not None:

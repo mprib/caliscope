@@ -37,14 +37,13 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-import cv2
 
 from caliscope.core.charuco import Charuco, DictionaryCapacityError
 from caliscope.core.workflow_status import StepStatus, WorkflowStatus
 from caliscope.gui.utils.aruco_preview import render_aruco_pixmap
 from caliscope.gui.utils.chessboard_preview import render_chessboard_pixmap
 from caliscope.gui.utils.charuco_preview import render_charuco_pixmap
-from caliscope.gui.widgets.aruco_target_config_panel import ArucoTargetConfigPanel
+from caliscope.gui.widgets.aruco_marker_set_panel import ArucoMarkerSetPanel
 from caliscope.gui.widgets.chessboard_config_panel import ChessboardConfigPanel
 from caliscope.gui.widgets.charuco_config_panel import CharucoConfigPanel
 from caliscope.workspace_coordinator import WorkspaceCoordinator
@@ -177,7 +176,7 @@ class ProjectSetupView(QWidget):
         # Panel references (populated during setup)
         self._intrinsic_charuco_panel: CharucoConfigPanel | None = None
         self._intrinsic_chessboard_panel: ChessboardConfigPanel | None = None
-        self._extrinsic_aruco_panel: ArucoTargetConfigPanel | None = None
+        self._extrinsic_aruco_panel: ArucoMarkerSetPanel | None = None
         self._extrinsic_charuco_panel: CharucoConfigPanel | None = None
 
         self._setup_ui()
@@ -346,8 +345,9 @@ class ProjectSetupView(QWidget):
         # Page 0: ArUco
         aruco_page = QWidget()
         aruco_layout = QHBoxLayout(aruco_page)
-        aruco_target = self._coordinator.targets_repository.load_aruco_target()
-        self._extrinsic_aruco_panel = ArucoTargetConfigPanel(aruco_target)
+        marker_set = self._coordinator.targets_repository.load_aruco_marker_set()
+        targets_dir = self._coordinator.targets_repository.targets_dir
+        self._extrinsic_aruco_panel = ArucoMarkerSetPanel(marker_set, targets_dir)
         aruco_layout.addWidget(self._extrinsic_aruco_panel)
 
         self._extrinsic_aruco_preview = QLabel()
@@ -605,11 +605,11 @@ class ProjectSetupView(QWidget):
             self._update_extrinsic_charuco_preview()
 
     def _on_extrinsic_aruco_changed(self) -> None:
-        """Handle extrinsic ArUco config panel change."""
+        """Handle extrinsic ArUco marker set reload."""
         if self._extrinsic_aruco_panel is None:
             return
-        target = self._extrinsic_aruco_panel.get_aruco_target()
-        self._coordinator.update_extrinsic_aruco_target(target)
+        self._coordinator.update_extrinsic_aruco_marker_set(self._extrinsic_aruco_panel.marker_set)
+        self._update_extrinsic_aruco_preview()
 
     def _on_extrinsic_charuco_changed(self) -> None:
         """Handle extrinsic charuco config panel change."""
@@ -638,7 +638,8 @@ class ProjectSetupView(QWidget):
         """Save extrinsic target board image(s) to file."""
         target_type = self._coordinator.targets_repository.extrinsic_target_type
         if target_type == "aruco":
-            self._save_aruco_png(self._extrinsic_aruco_panel)
+            if self._extrinsic_aruco_panel is not None:
+                self._extrinsic_aruco_panel._save_all_pngs()
         else:
             self._save_charuco_images(self._extrinsic_charuco_panel)
 
@@ -711,9 +712,10 @@ class ProjectSetupView(QWidget):
 
     def _update_extrinsic_aruco_preview(self) -> None:
         """Update extrinsic ArUco preview."""
-        target = self._coordinator.targets_repository.load_aruco_target()
-        marker_id = target.marker_ids[0] if target.marker_ids else 0
-        pixmap = render_aruco_pixmap(target, marker_id, 120)
+        marker_set = self._coordinator.targets_repository.load_aruco_marker_set()
+        marker_ids = sorted(marker_set.markers.keys())
+        marker_id = marker_ids[0] if marker_ids else 0
+        pixmap = render_aruco_pixmap(marker_set, marker_id, 120)
         self._extrinsic_aruco_preview.setPixmap(pixmap)
 
     # -------------------------------------------------------------------------
@@ -754,27 +756,6 @@ class ProjectSetupView(QWidget):
             pixmap = render_chessboard_pixmap(chessboard, 2000)
             pixmap.save(file_path, "PNG")
             logger.info(f"Saved chessboard to {file_path}")
-
-    def _save_aruco_png(self, panel: ArucoTargetConfigPanel | None) -> None:
-        """Save ArUco marker image to file."""
-        if panel is None:
-            return
-        target = panel.get_aruco_target()
-        marker_id = target.marker_ids[0] if target.marker_ids else 0
-
-        default_path = Path(self._coordinator.workspace) / f"aruco_marker_{marker_id}.png"
-        file_path, _ = QFileDialog.getSaveFileName(
-            self,
-            "Save ArUco Marker",
-            str(default_path),
-            "PNG Files (*.png)",
-        )
-
-        if file_path:
-            # Generate high-resolution marker for printing
-            bgr = target.generate_marker_image(marker_id, pixels_per_meter=8000)
-            cv2.imwrite(file_path, bgr)
-            logger.info(f"Saved ArUco marker to {file_path}")
 
     # -------------------------------------------------------------------------
     # Other Handlers

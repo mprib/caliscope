@@ -56,7 +56,7 @@ class TestDroppedCameras:
         intrinsics_only = scene.intrinsics_only_cameras()
 
         # Build pose network (will not find cameras 9, 10)
-        network = build_paired_pose_network(filtered_image_points, intrinsics_only, method="stereocalibrate")
+        network = build_paired_pose_network(filtered_image_points, intrinsics_only)
         network.apply_to(intrinsics_only)
 
         # Triangulate with posed cameras only
@@ -135,7 +135,7 @@ class TestIsolatedIslands:
         intrinsics_only = scene.intrinsics_only_cameras()
 
         # Build pose network - this is where the interesting behavior happens
-        network = build_paired_pose_network(filtered_image_points, intrinsics_only, method="stereocalibrate")
+        network = build_paired_pose_network(filtered_image_points, intrinsics_only)
         network.apply_to(intrinsics_only)
 
         # Document what happened
@@ -212,7 +212,7 @@ class TestIsolatedIslands:
         filtered_image_points = ImagePoints(filtered_df)
 
         intrinsics_only = scene.intrinsics_only_cameras()
-        network = build_paired_pose_network(filtered_image_points, intrinsics_only, method="stereocalibrate")
+        network = build_paired_pose_network(filtered_image_points, intrinsics_only)
         network.apply_to(intrinsics_only)
 
         posed_cam_ids = set(intrinsics_only.posed_cameras.keys())
@@ -285,7 +285,7 @@ def explore_island_split(island_a_cam_ids: set[int], island_b_cam_ids: set[int],
     filtered_image_points = ImagePoints(filtered_df)
 
     intrinsics_only = scene.intrinsics_only_cameras()
-    network = build_paired_pose_network(filtered_image_points, intrinsics_only, method="stereocalibrate")
+    network = build_paired_pose_network(filtered_image_points, intrinsics_only)
     network.apply_to(intrinsics_only)
 
     posed_cam_ids = set(intrinsics_only.posed_cameras.keys())

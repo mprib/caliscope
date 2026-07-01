@@ -8,20 +8,20 @@ import cv2
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QImage, QPixmap
 
-from caliscope.core.aruco_target import ArucoTarget
+from caliscope.core.aruco_marker import ArucoMarkerSet
 
 
-def render_aruco_pixmap(target: ArucoTarget, marker_id: int, size: int) -> QPixmap:
+def render_aruco_pixmap(marker_set: ArucoMarkerSet, marker_id: int, size: int) -> QPixmap:
     """Render ArUco marker as a QPixmap for display.
 
-    Uses ArucoTarget.generate_marker_image() to create the annotated marker,
+    Uses ArucoMarkerSet.generate_marker_image() to create the annotated marker,
     then converts BGR to QPixmap. Scales to fit within target size while
     maintaining aspect ratio.
     """
-    # Scale proportionally for requested display size
-    # 4x multiplier renders at high resolution for crisp text after downscale
-    ppm = int(size / target.marker_size_m * 4.0)
-    bgr = target.generate_marker_image(marker_id, pixels_per_meter=ppm)
+    marker = marker_set.markers[marker_id]
+    ppm = int(size / marker.size_m * 4.0)
+    pixel_size = int(marker.size_m * ppm)
+    bgr = marker_set.generate_marker_image(marker_id, pixel_size)
 
     # Convert BGR to RGB for Qt
     rgb = cv2.cvtColor(bgr, cv2.COLOR_BGR2RGB)

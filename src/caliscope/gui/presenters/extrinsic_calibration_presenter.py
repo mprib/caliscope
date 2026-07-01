@@ -306,7 +306,7 @@ class ExtrinsicCalibrationPresenter(QObject):
             raise InterruptedError("Calibration cancelled")
 
         handle.report_progress(15, "Bootstrapping camera poses")
-        pose_network = build_paired_pose_network(image_points, camera_array, method="pnp")
+        pose_network = build_paired_pose_network(image_points, camera_array)
         pose_network.apply_to(camera_array)
 
         if token.is_cancelled:

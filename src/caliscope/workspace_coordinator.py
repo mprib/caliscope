@@ -11,7 +11,7 @@ from caliscope.task_manager import TaskHandle, TaskManager
 
 from caliscope.core.charuco import Charuco
 from caliscope.core.chessboard import Chessboard
-from caliscope.core.aruco_target import ArucoTarget
+from caliscope.core.aruco_marker import ArucoMarker, ArucoMarkerSet
 from caliscope.cameras.camera_array import CameraArray, CameraData
 from caliscope.core.calibrate_intrinsics import IntrinsicCalibrationOutput, IntrinsicCalibrationReport
 from caliscope.repositories import (
@@ -362,9 +362,9 @@ class WorkspaceCoordinator(QObject):
         self.targets_repository.save_extrinsic_charuco(charuco)
         self.extrinsic_target_changed.emit()
 
-    def update_extrinsic_aruco_target(self, target: ArucoTarget) -> None:
-        """Persist extrinsic ArUco target config and notify consumers."""
-        self.targets_repository.save_aruco_target(target)
+    def update_extrinsic_aruco_marker_set(self, marker_set: ArucoMarkerSet) -> None:
+        """Persist extrinsic ArUco marker set config and notify consumers."""
+        self.targets_repository.save_aruco_marker_set(marker_set)
         self.extrinsic_target_changed.emit()
 
     def set_extrinsic_charuco_same_as_intrinsic(self, same: bool) -> None:
@@ -386,18 +386,16 @@ class WorkspaceCoordinator(QObject):
         """Create tracker for extrinsic calibration based on current target type."""
         target_type = self.targets_repository.extrinsic_target_type
         if target_type == "aruco":
-            if not self.targets_repository.aruco_target_exists():
-                # Create default if missing (backward compat with first-time setup)
-                default_target = ArucoTarget.single_marker(
-                    marker_id=0,
-                    marker_size_m=0.05,
+            if not self.targets_repository.aruco_marker_set_exists():
+                default_set = ArucoMarkerSet(
                     dictionary=cv2.aruco.DICT_4X4_100,
+                    markers={0: ArucoMarker(marker_id=0, size_m=0.05)},
                 )
-                self.targets_repository.save_aruco_target(default_target)
-            target = self.targets_repository.load_aruco_target()
+                self.targets_repository.save_aruco_marker_set(default_set)
+            marker_set = self.targets_repository.load_aruco_marker_set()
             return ArucoTracker(
-                dictionary=target.dictionary,
-                aruco_target=target,
+                dictionary=marker_set.dictionary,
+                marker_set=marker_set,
             )
         else:  # "charuco"
             charuco = self.targets_repository.load_extrinsic_charuco()

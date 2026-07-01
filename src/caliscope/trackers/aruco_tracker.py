@@ -4,7 +4,7 @@ ArUco marker tracker for extrinsic calibration.
 Design decisions:
 - Tracks 4 corners per marker for spatial precision
 - Identity scheme: object_id = marker_id, keypoint_id = corner_index (0-3)
-- obj_loc populated when ArucoTarget is provided
+- obj_loc populated when ArucoMarkerSet is provided
 - Default dictionary: cv2.aruco.DICT_4X4_100
 - Default inversion: False (True only for legacy test data)
 - Mirror search: Attempts detection on flipped image if no markers found
@@ -15,7 +15,7 @@ import logging
 import cv2
 import numpy as np
 
-from caliscope.core.aruco_target import ArucoTarget
+from caliscope.core.aruco_marker import ArucoMarkerSet
 from caliscope.packets import PixelFormat, PointPacket
 from caliscope.tracker import Tracker
 
@@ -51,19 +51,19 @@ class ArucoTracker(Tracker):
         dictionary=cv2.aruco.DICT_4X4_100,
         inverted=False,
         mirror_flag_search=False,
-        aruco_target: ArucoTarget | None = None,
+        marker_set: ArucoMarkerSet | None = None,
     ):
         """
         Args:
             dictionary: OpenCV ArUco dictionary to use for detection
             inverted: Whether to invert the image before detection (for legacy test data)
             mirror_search: If True, adds detections of mirror images; only use if a single "aruco flag" is employed
-            aruco_target: Target definition for filtering and obj_loc population
+            marker_set: Marker set definition for filtering and obj_loc population
         """
         self.dictionary = dictionary
         self.inverted = inverted
         self.mirror_flag_search = mirror_flag_search  # use with aruco "flag"
-        self.aruco_target = aruco_target
+        self.marker_set = marker_set
 
         # Create detector instance
         self.dictionary_object = cv2.aruco.getPredefinedDictionary(dictionary)
@@ -113,16 +113,16 @@ class ArucoTracker(Tracker):
         keypoint_ids: np.ndarray,
         img_corners: np.ndarray,
     ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
-        """Filter to tracked markers and build obj_loc from target geometry.
+        """Filter to tracked markers and build obj_loc from marker set geometry.
 
-        Only markers in aruco_target.marker_ids are kept. obj_loc is populated
-        from the target's known corner positions.
+        Only markers in marker_set are kept. obj_loc is populated
+        from each marker's known corner positions.
 
         Returns (object_ids, keypoint_ids, img_loc, obj_loc).
         """
-        assert self.aruco_target is not None
+        assert self.marker_set is not None
 
-        tracked_ids = set(self.aruco_target.marker_ids)
+        tracked_ids = set(self.marker_set.markers.keys())
         mask = np.isin(object_ids, list(tracked_ids))
 
         filtered_obj_ids = object_ids[mask]
@@ -131,7 +131,7 @@ class ArucoTracker(Tracker):
 
         obj_loc_list = []
         for oid, kid in zip(filtered_obj_ids, filtered_kp_ids):
-            corner_pos = self.aruco_target.corners[int(oid)][int(kid)]
+            corner_pos = self.marker_set.markers[int(oid)].corners[int(kid)]
             obj_loc_list.append(corner_pos)
 
         obj_loc = np.array(obj_loc_list, dtype=np.float32) if obj_loc_list else np.empty((0, 3), dtype=np.float32)
@@ -161,7 +161,7 @@ class ArucoTracker(Tracker):
                 logger.debug(f"Detected {len(np.unique(object_ids))} markers in mirrored image")
 
         if object_ids is not None and keypoint_ids is not None and all_corners is not None:
-            if self.aruco_target is not None:
+            if self.marker_set is not None:
                 object_ids, keypoint_ids, all_corners, obj_loc = self._apply_target_filter(
                     object_ids, keypoint_ids, all_corners
                 )
@@ -174,7 +174,7 @@ class ArucoTracker(Tracker):
             object_id=np.array([], dtype=np.int32),
             keypoint_id=np.array([], dtype=np.int32),
             img_loc=np.empty((0, 2), dtype=np.float32),
-            obj_loc=np.empty((0, 3), dtype=np.float32) if self.aruco_target else None,
+            obj_loc=np.empty((0, 3), dtype=np.float32) if self.marker_set else None,
         )
 
     def get_point_name(self, keypoint_id: int) -> str:

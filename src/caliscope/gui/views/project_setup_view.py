@@ -43,7 +43,7 @@ from caliscope.core.workflow_status import StepStatus, WorkflowStatus
 from caliscope.gui.utils.aruco_preview import render_aruco_pixmap
 from caliscope.gui.utils.chessboard_preview import render_chessboard_pixmap
 from caliscope.gui.utils.charuco_preview import render_charuco_pixmap
-from caliscope.gui.widgets.aruco_target_config_panel import ArucoMarkerSetPanel
+from caliscope.gui.widgets.aruco_marker_set_panel import ArucoMarkerSetPanel
 from caliscope.gui.widgets.chessboard_config_panel import ChessboardConfigPanel
 from caliscope.gui.widgets.charuco_config_panel import CharucoConfigPanel
 from caliscope.workspace_coordinator import WorkspaceCoordinator
@@ -346,7 +346,7 @@ class ProjectSetupView(QWidget):
         aruco_page = QWidget()
         aruco_layout = QHBoxLayout(aruco_page)
         marker_set = self._coordinator.targets_repository.load_aruco_marker_set()
-        targets_dir = self._coordinator.targets_repository._dir
+        targets_dir = self._coordinator.targets_repository.targets_dir
         self._extrinsic_aruco_panel = ArucoMarkerSetPanel(marker_set, targets_dir)
         aruco_layout.addWidget(self._extrinsic_aruco_panel)
 
@@ -609,6 +609,7 @@ class ProjectSetupView(QWidget):
         if self._extrinsic_aruco_panel is None:
             return
         self._coordinator.update_extrinsic_aruco_marker_set(self._extrinsic_aruco_panel.marker_set)
+        self._update_extrinsic_aruco_preview()
 
     def _on_extrinsic_charuco_changed(self) -> None:
         """Handle extrinsic charuco config panel change."""
@@ -755,11 +756,6 @@ class ProjectSetupView(QWidget):
             pixmap = render_chessboard_pixmap(chessboard, 2000)
             pixmap.save(file_path, "PNG")
             logger.info(f"Saved chessboard to {file_path}")
-
-    def _save_aruco_png(self, panel: ArucoMarkerSetPanel | None) -> None:
-        """Save all ArUco marker images to the targets directory."""
-        if panel is not None:
-            panel._save_all_pngs()
 
     # -------------------------------------------------------------------------
     # Other Handlers

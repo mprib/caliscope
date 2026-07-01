@@ -40,7 +40,9 @@ class ArucoMarkerSet:
             raise ValueError("ArucoMarkerSet requires at least one marker")
         aruco_dict = cv2.aruco.getPredefinedDictionary(self.dictionary)
         capacity = len(aruco_dict.bytesList)
-        for mid in self.markers:
+        for mid, marker in self.markers.items():
+            if marker.marker_id != mid:
+                raise ValueError(f"Key {mid} does not match marker_id {marker.marker_id}")
             if mid < 0 or mid >= capacity:
                 raise ValueError(f"Marker ID {mid} exceeds dictionary capacity ({capacity})")
 

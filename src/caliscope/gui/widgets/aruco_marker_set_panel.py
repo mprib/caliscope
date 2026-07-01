@@ -105,9 +105,6 @@ class ArucoMarkerSetPanel(QWidget):
 
     def _save_all_pngs(self) -> None:
         ms = self._marker_set
-        largest_size = max(m.size_m for m in ms.markers.values())
-        int(8000 / largest_size * largest_size)
-
         for mid, marker in ms.markers.items():
             pixel_size = int(marker.size_m * 8000)
             bgr = ms.generate_marker_image(mid, pixel_size)

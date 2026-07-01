@@ -58,6 +58,10 @@ class CalibrationTargetsRepository:
         self._dir = targets_dir
         self._config_path = targets_dir / "config.toml"
 
+    @property
+    def targets_dir(self) -> Path:
+        return self._dir
+
     # -- Routing ----------------------------------------------------------
 
     def get_routing(self) -> TargetRouting:

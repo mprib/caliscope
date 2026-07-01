@@ -62,7 +62,7 @@ class PoseNetworkBuilder:
         self._camera_to_object_poses: (
             dict[tuple[int, int, int], tuple[NDArray[np.float64], NDArray[np.float64], float]] | None
         ) = None
-        self._relative_poses: dict[tuple[tuple[int, int], int], StereoPair] | None = None
+        self._relative_poses: dict[tuple[tuple[int, int], int, int], StereoPair] | None = None
         self._filtered_poses: dict[tuple[int, int], list[StereoPair]] | None = None
         self._aggregated_poses: dict[tuple[int, int], StereoPair] | None = None
         self._pnp_network: PairedPoseNetwork | None = None
@@ -300,7 +300,7 @@ def compute_camera_to_object_poses_pnp(
 
 
 def reject_outliers(
-    relative_poses: dict[tuple[tuple[int, int], int], StereoPair],
+    relative_poses: dict[tuple[tuple[int, int], int, int], StereoPair],
     threshold: float = DEFAULT_OUTLIER_THRESHOLD,
     rotation_threshold_multiplier: float | None = None,
     translation_threshold_multiplier: float | None = None,
@@ -323,9 +323,10 @@ def reject_outliers(
     rot_multiplier = rotation_threshold_multiplier if rotation_threshold_multiplier is not None else threshold
     trans_multiplier = translation_threshold_multiplier if translation_threshold_multiplier is not None else threshold
 
-    # Group poses by pair
+    # Group poses by pair (discard sync_index and object_id — all observations
+    # from the same camera pair are pooled for outlier rejection)
     poses_by_pair: dict[tuple[int, int], list[StereoPair]] = {}
-    for (pair, _sync_index), stereo_pair in relative_poses.items():
+    for (pair, _sync_index, _object_id), stereo_pair in relative_poses.items():
         poses_by_pair.setdefault(pair, []).append(stereo_pair)
 
     filtered_poses = {}
@@ -454,7 +455,7 @@ def translation_error(t1: NDArray[np.float64], t2: NDArray[np.float64]) -> dict[
 def compute_relative_poses(
     camera_to_object_poses: dict[tuple[int, int, int], tuple[NDArray[np.float64], NDArray[np.float64], float]],
     camera_array: CameraArray,
-) -> dict[tuple[tuple[int, int], int], StereoPair]:
+) -> dict[tuple[tuple[int, int], int, int], StereoPair]:
     """
     Compute relative poses between camera pairs at each (sync_index, object_id).
 
@@ -462,10 +463,10 @@ def compute_relative_poses(
     T_B_A = T_B_obj @ T_obj_A = T_B_obj @ inv(T_A_obj)
 
     Returns:
-        dict mapping (pair, sync_index) -> StereoPair with relative pose
+        dict mapping (pair, sync_index, object_id) -> StereoPair with relative pose
     """
     logger.info("Computing relative poses between camera pairs...")
-    relative_poses: dict[tuple[tuple[int, int], int], StereoPair] = {}
+    relative_poses: dict[tuple[tuple[int, int], int, int], StereoPair] = {}
 
     cam_ids = [c for c, cam in camera_array.cameras.items() if not cam.ignore]
     pairs = [(i, j) for i, j in combinations(cam_ids, 2) if i < j]
@@ -488,7 +489,7 @@ def compute_relative_poses(
 
             # Store as StereoPair (error_score will be computed after aggregation)
             pair_key = (cam_id_a, cam_id_b)
-            relative_poses[(pair_key, sync_index)] = StereoPair(
+            relative_poses[(pair_key, sync_index, object_id)] = StereoPair(
                 primary_cam_id=cam_id_a,
                 secondary_cam_id=cam_id_b,
                 error_score=float("nan"),  # Placeholder until RMSE calculation

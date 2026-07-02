@@ -41,6 +41,14 @@ class CameraData:
     rotation: np.ndarray | None = None  # camera relative to world
     fisheye: bool = False  # default to standard camera model
 
+    @classmethod
+    def from_video(cls, cam_id: int, video_path: Path | str) -> CameraData:
+        """Create an uncalibrated CameraData by reading video dimensions."""
+        from caliscope.recording.video_utils import read_video_properties
+
+        props = read_video_properties(Path(video_path))
+        return cls(cam_id=cam_id, size=(props["width"], props["height"]))
+
     @property
     def transformation(self):
         """

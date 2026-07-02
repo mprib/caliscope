@@ -107,36 +107,33 @@ class ArucoTracker(Tracker):
 
         return None, None, None
 
-    def _apply_target_filter(
+    def _build_obj_loc(
         self,
         object_ids: np.ndarray,
         keypoint_ids: np.ndarray,
-        img_corners: np.ndarray,
-    ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
-        """Filter to tracked markers and build obj_loc from marker set geometry.
+    ) -> np.ndarray:
+        """Build obj_loc from marker set geometry for known markers.
 
-        Only markers in marker_set are kept. obj_loc is populated
-        from each marker's known corner positions.
-
-        Returns (object_ids, keypoint_ids, img_loc, obj_loc).
+        Known markers get their 3D corner positions from the marker set.
+        Unknown markers get NaN obj_loc and trigger a warning.
         """
         assert self.marker_set is not None
 
-        tracked_ids = set(self.marker_set.markers.keys())
-        mask = np.isin(object_ids, list(tracked_ids))
+        known_ids = set(self.marker_set.markers.keys())
+        unknown_ids = set(int(x) for x in object_ids) - known_ids
+        if unknown_ids:
+            logger.warning(
+                f"Detected markers {sorted(unknown_ids)} not in marker set. "
+                f"These markers will have no obj_loc (3D position unknown)."
+            )
 
-        filtered_obj_ids = object_ids[mask]
-        filtered_kp_ids = keypoint_ids[mask]
-        filtered_img_loc = img_corners[mask]
+        obj_loc = np.full((len(object_ids), 3), np.nan, dtype=np.float32)
+        for i, (oid, kid) in enumerate(zip(object_ids, keypoint_ids)):
+            mid = int(oid)
+            if mid in known_ids:
+                obj_loc[i] = self.marker_set.markers[mid].corners[int(kid)]
 
-        obj_loc_list = []
-        for oid, kid in zip(filtered_obj_ids, filtered_kp_ids):
-            corner_pos = self.marker_set.markers[int(oid)].corners[int(kid)]
-            obj_loc_list.append(corner_pos)
-
-        obj_loc = np.array(obj_loc_list, dtype=np.float32) if obj_loc_list else np.empty((0, 3), dtype=np.float32)
-
-        return filtered_obj_ids, filtered_kp_ids, filtered_img_loc, obj_loc
+        return obj_loc
 
     def _detect(self, frame: np.ndarray, cam_id: int = 0, rotation_count: int = 0) -> PointPacket:
         gray_frame = frame
@@ -162,9 +159,7 @@ class ArucoTracker(Tracker):
 
         if object_ids is not None and keypoint_ids is not None and all_corners is not None:
             if self.marker_set is not None:
-                object_ids, keypoint_ids, all_corners, obj_loc = self._apply_target_filter(
-                    object_ids, keypoint_ids, all_corners
-                )
+                obj_loc = self._build_obj_loc(object_ids, keypoint_ids)
                 return PointPacket(object_id=object_ids, keypoint_id=keypoint_ids, img_loc=all_corners, obj_loc=obj_loc)
             else:
                 return PointPacket(object_id=object_ids, keypoint_id=keypoint_ids, img_loc=all_corners, obj_loc=None)

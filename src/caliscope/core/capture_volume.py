@@ -760,80 +760,62 @@ class CaptureVolume:
         return self._filter_by_reprojection_thresholds(thresholds, min_per_camera)
 
     def compute_volumetric_scale_accuracy(self) -> VolumetricScaleReport:
-        """Compute multi-frame scale accuracy across the capture volume.
+        """Compute per-marker, per-frame scale accuracy across the capture volume.
 
-        Compares triangulated world points to their corresponding ground truth
-        object positions (from obj_loc columns) at all frames where >=4 corners
-        are visible. Uses ALL pairwise distances at each frame for robust
-        statistical measurement.
+        Groups by (sync_index, object_id) so each marker's pairwise distances
+        are compared against its own local-frame geometry. Cross-marker distances
+        are never computed (each marker's obj_loc is in its own coordinate frame).
 
         Returns:
-            VolumetricScaleReport containing per-frame errors and aggregate metrics.
+            VolumetricScaleReport containing per-frame-per-object errors and aggregate metrics.
             Returns empty report if no valid frames exist (normal pre-alignment state).
         """
         img_df = self.image_points.df
         world_df = self.world_points.df
 
-        # Multi-marker guard: cross-marker pairwise distances are meaningless
-        # because each marker's obj_loc is in its own local coordinate frame
-        unique_objects = img_df["object_id"].unique()
-        if len(unique_objects) > 1:
-            raise ValueError(
-                f"Scale accuracy requires single-object data, got object_ids {sorted(unique_objects)}. "
-                "Multi-marker scale accuracy requires Branch 3 constraint file."
-            )
-
-        # Check if obj_loc columns are present
         obj_loc_cols = ["obj_loc_x", "obj_loc_y", "obj_loc_z"]
         if not all(col in img_df.columns for col in obj_loc_cols):
             return VolumetricScaleReport.empty()
 
-        # Filter to rows that have obj_loc x/y data (z may be NaN for planar boards)
         obj_loc_mask = ~img_df[["obj_loc_x", "obj_loc_y"]].isna().any(axis=1)
-        frames_with_obj_loc = img_df[obj_loc_mask]["sync_index"].unique()
+        img_with_obj = img_df[obj_loc_mask]
 
-        if len(frames_with_obj_loc) == 0:
+        if img_with_obj.empty:
             return VolumetricScaleReport.empty()
+
+        static_ids = self.constraints.static_object_ids if self.constraints else frozenset()
 
         frame_errors: list[FrameScaleError] = []
 
-        # Process each frame
-        for sync_index in frames_with_obj_loc:
-            img_subset = img_df[img_df["sync_index"] == sync_index]
-            world_subset = world_df[world_df["sync_index"] == sync_index]
+        for (sync_index_raw, object_id_raw), img_group in img_with_obj.groupby(["sync_index", "object_id"]):
+            sync_index = int(sync_index_raw)  # type: ignore[arg-type]
+            object_id = int(object_id_raw)  # type: ignore[arg-type]
 
-            if img_subset.empty or world_subset.empty:
+            # Static markers: world points live at STATIC_SYNC_INDEX
+            world_si = STATIC_SYNC_INDEX if object_id in static_ids else sync_index
+            world_subset = world_df[(world_df["sync_index"] == world_si) & (world_df["object_id"] == object_id)]
+
+            if world_subset.empty:
                 continue
 
-            # Get unique points with obj_loc data (drop duplicates from multi-camera observations)
-            obj_points_df = img_subset[
+            obj_points_df = img_group[
                 ["object_id", "keypoint_id", "obj_loc_x", "obj_loc_y", "obj_loc_z"]
             ].drop_duplicates(subset=["object_id", "keypoint_id"])
 
-            # Merge world points with object locations
             merged = world_subset.merge(obj_points_df, on=["object_id", "keypoint_id"], how="inner")
 
-            # Handle planar objects (z=0 or NaN)
             if merged["obj_loc_z"].isna().all():
                 merged = merged.copy()
                 merged["obj_loc_z"] = 0.0
 
-            # Filter out any remaining NaN values
             valid_mask = ~merged[["obj_loc_x", "obj_loc_y", "obj_loc_z"]].isna().any(axis=1)
             merged = merged[valid_mask]
 
-            # Skip frames with <4 corners (spec's minimum threshold)
-            if len(merged) < 4:
+            if len(merged) < 3:
                 continue
 
-            # Count cameras contributing at this frame
-            n_cameras_contributing = int(
-                img_subset.merge(merged[["object_id", "keypoint_id"]], on=["object_id", "keypoint_id"], how="inner")[
-                    "cam_id"
-                ].nunique()
-            )
+            n_cameras_contributing = int(img_group["cam_id"].nunique())
 
-            # Extract arrays for scale accuracy computation
             world_points = merged[["x_coord", "y_coord", "z_coord"]].to_numpy()
             object_points = merged[["obj_loc_x", "obj_loc_y", "obj_loc_z"]].to_numpy()
 
@@ -841,16 +823,15 @@ class CaptureVolume:
                 frame_error = compute_frame_scale_error(
                     world_points=world_points,
                     object_points=object_points,
-                    sync_index=int(sync_index),
+                    sync_index=sync_index,
+                    object_id=object_id,
                     n_cameras_contributing=n_cameras_contributing,
                 )
                 frame_errors.append(frame_error)
             except ValueError as e:
-                # Log but don't fail — some frames may have degenerate geometry
-                logger.debug(f"Skipping sync_index {sync_index} due to error: {e}")
+                logger.debug(f"Skipping sync_index {sync_index} object_id {object_id}: {e}")
                 continue
 
-        # Return report (empty if no valid frames)
         return VolumetricScaleReport(frame_errors=tuple(frame_errors))
 
     def align_to_object(self, sync_index: int) -> "CaptureVolume":

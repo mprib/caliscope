@@ -154,6 +154,6 @@ class RigidityReport:
     def per_object_rmse_mm(self) -> dict[int, float]:
         by_obj: dict[int, list[float]] = {}
         for v in self.violations:
-            for oid in (v.object_id_a, v.object_id_b):
+            for oid in set((v.object_id_a, v.object_id_b)):
                 by_obj.setdefault(oid, []).append(v.actual - v.expected)
         return {oid: float(np.sqrt(np.mean(np.array(errs) ** 2)) * 1000.0) for oid, errs in by_obj.items()}

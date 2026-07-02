@@ -1,9 +1,11 @@
 import numpy as np
+import pandas as pd
 import pytest
 import cv2
 
 from caliscope.core.aruco_marker import ArucoMarker, ArucoMarkerSet, MarkerLink
 from caliscope.core.constraints import ConstraintSet
+from caliscope.core.point_data import STATIC_SYNC_INDEX, WorldPoints
 
 
 def test_constraint_set_from_single_marker():
@@ -63,3 +65,37 @@ def test_constraint_set_from_toml_missing(tmp_path):
 
     with pytest.raises(PersistenceError):
         ConstraintSet.from_toml(tmp_path / "nope.toml")
+
+
+def test_world_points_static_sync_index_excluded_from_min_max():
+    df = pd.DataFrame(
+        {
+            "sync_index": [STATIC_SYNC_INDEX, STATIC_SYNC_INDEX, 10, 20, 30],
+            "object_id": [4, 4, 0, 0, 0],
+            "keypoint_id": [0, 1, 0, 0, 0],
+            "x_coord": [1.0, 2.0, 3.0, 4.0, 5.0],
+            "y_coord": [1.0, 2.0, 3.0, 4.0, 5.0],
+            "z_coord": [1.0, 2.0, 3.0, 4.0, 5.0],
+            "frame_time": [np.nan, np.nan, 0.1, 0.2, 0.3],
+        }
+    )
+    wp = WorldPoints(df)
+    assert wp.min_index == 10
+    assert wp.max_index == 30
+
+
+def test_world_points_all_static():
+    df = pd.DataFrame(
+        {
+            "sync_index": [STATIC_SYNC_INDEX, STATIC_SYNC_INDEX],
+            "object_id": [4, 4],
+            "keypoint_id": [0, 1],
+            "x_coord": [1.0, 2.0],
+            "y_coord": [1.0, 2.0],
+            "z_coord": [1.0, 2.0],
+            "frame_time": [np.nan, np.nan],
+        }
+    )
+    wp = WorldPoints(df)
+    assert wp.min_index == 0
+    assert wp.max_index == 0

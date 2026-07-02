@@ -7,7 +7,7 @@ import numpy as np
 from numpy.typing import NDArray
 
 from caliscope.cameras.camera_array import CameraArray
-from caliscope.core.point_data import WorldPoints
+from caliscope.core.point_data import STATIC_SYNC_INDEX, WorldPoints
 from caliscope.gui.geometry.camera_frustum import build_camera_geometry
 from caliscope.gui.geometry.wireframe import WireframeSegment
 
@@ -124,7 +124,8 @@ class PlaybackViewModel:
         """
         if not self._grouped_points:
             return np.array([], dtype=np.int64)
-        return np.sort(np.array(list(self._grouped_points.keys()), dtype=np.int64))
+        keys = [k for k in self._grouped_points if k != STATIC_SYNC_INDEX]
+        return np.sort(np.array(keys, dtype=np.int64))
 
     def get_camera_geometry(self, scale: float = 0.0005) -> dict[str, Any] | None:
         """Pass-through to the static camera builder."""
@@ -194,6 +195,15 @@ class PlaybackViewModel:
 
                 # Here you could also scatter dynamic colors (e.g. confidence) if available
                 # colors_buffer[indices] = ...
+
+        # Static points (rigid objects) are present at every frame
+        if STATIC_SYNC_INDEX in self._grouped_points and sync_index != STATIC_SYNC_INDEX:
+            static_df = self._grouped_points[STATIC_SYNC_INDEX]
+            static_coords = static_df[["x_coord", "y_coord", "z_coord"]].values.astype(np.float32)
+            for i, (oid, kid) in enumerate(zip(static_df["object_id"].values, static_df["keypoint_id"].values)):
+                key = (int(oid), int(kid))
+                if key in self.id_to_index:
+                    points_buffer[self.id_to_index[key]] = static_coords[i]
 
         return FrameGeometry(points=points_buffer, colors=colors_buffer)
 

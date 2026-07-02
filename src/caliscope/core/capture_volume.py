@@ -12,7 +12,8 @@ from typing import Literal
 import logging
 
 from caliscope.cameras.camera_array import CameraArray
-from caliscope.core.point_data import ImagePoints, WorldPoints
+from caliscope.core.constraints import ConstraintSet
+from caliscope.core.point_data import STATIC_SYNC_INDEX, ImagePoints, WorldPoints
 from caliscope.core.reprojection import (
     ErrorsXY,
     reprojection_errors,
@@ -67,6 +68,7 @@ class CaptureVolume:
     camera_array: CameraArray
     image_points: ImagePoints
     world_points: WorldPoints
+    constraints: ConstraintSet | None = None
     # Computed field: maps each image observation to its world point index (-1 if unmatched)
     img_to_obj_map: np.ndarray = field(init=False)
     # Optimization metadata: None if capture volume hasn't been optimized or was filtered post-optimization
@@ -115,8 +117,15 @@ class CaptureVolume:
         world_df = self.world_points.df.reset_index().rename(columns={"index": "world_idx"})
         mapping = world_df.set_index(["sync_index", "object_id", "keypoint_id"])["world_idx"].to_dict()
 
+        static_ids = self.constraints.static_object_ids if self.constraints else frozenset()
+
         img_df = self.image_points.df
-        keys = list(zip(img_df["sync_index"], img_df["object_id"], img_df["keypoint_id"]))
+        keys = []
+        for sync_idx, obj_id, kp_id in zip(img_df["sync_index"], img_df["object_id"], img_df["keypoint_id"]):
+            if int(obj_id) in static_ids:
+                keys.append((STATIC_SYNC_INDEX, int(obj_id), int(kp_id)))
+            else:
+                keys.append((int(sync_idx), int(obj_id), int(kp_id)))
         img_to_obj_map = np.array([mapping.get(key, -1) for key in keys], dtype=np.int32)
 
         n_unmatched = np.sum(img_to_obj_map == -1)
@@ -226,24 +235,32 @@ class CaptureVolume:
         self.camera_array.to_toml(directory / "camera_array.toml")
         self.image_points.to_csv(directory / "image_points.csv")
         self.world_points.to_csv(directory / "world_points.csv")
+        if self.constraints is not None:
+            self.constraints.to_toml(directory / "constraints.toml")
 
     @classmethod
     def load(cls, directory: Path | str) -> CaptureVolume:
         """Load capture volume from a directory.
 
         Expects: camera_array.toml, image_points.csv, world_points.csv.
+        Optionally loads constraints.toml if present.
         """
         directory = Path(directory)
         camera_array = CameraArray.from_toml(directory / "camera_array.toml")
         image_points = ImagePoints.from_csv(directory / "image_points.csv")
         world_points = WorldPoints.from_csv(directory / "world_points.csv")
-        return cls(camera_array=camera_array, image_points=image_points, world_points=world_points)
+        constraints_path = directory / "constraints.toml"
+        constraints = ConstraintSet.from_toml(constraints_path) if constraints_path.exists() else None
+        return cls(
+            camera_array=camera_array, image_points=image_points, world_points=world_points, constraints=constraints
+        )
 
     @classmethod
     def bootstrap(
         cls,
         image_points: ImagePoints,
         camera_array: CameraArray,
+        constraints: ConstraintSet | None = None,
     ) -> CaptureVolume:
         """Bootstrap extrinsic calibration from 2D observations.
 
@@ -292,9 +309,10 @@ class CaptureVolume:
         cameras = deepcopy(camera_array)
         pose_network = build_paired_pose_network(image_points, cameras)
         pose_network.apply_to(cameras)
-        world_points = image_points.triangulate(cameras)
+        static_ids = constraints.static_object_ids if constraints else frozenset()
+        world_points = image_points.triangulate(cameras, static_object_ids=static_ids)
 
-        return cls(camera_array=cameras, image_points=image_points, world_points=world_points)
+        return cls(camera_array=cameras, image_points=image_points, world_points=world_points, constraints=constraints)
 
     def optimize(
         self,
@@ -384,6 +402,7 @@ class CaptureVolume:
             camera_array=new_camera_array,
             image_points=self.image_points,
             world_points=new_world_points,
+            constraints=self.constraints,
             _optimization_status=optimization_status,
         )
 
@@ -508,6 +527,7 @@ class CaptureVolume:
             camera_array=self.camera_array,
             image_points=filtered_image_points,
             world_points=filtered_world_points,
+            constraints=self.constraints,
         )
 
     def filter_by_absolute_error(self, max_pixels: float, min_per_camera: int = 10) -> CaptureVolume:
@@ -767,6 +787,7 @@ class CaptureVolume:
             camera_array=new_camera_array,
             image_points=self.image_points,
             world_points=new_world_points,
+            constraints=self.constraints,
             _optimization_status=self._optimization_status,
         )
 
@@ -843,6 +864,7 @@ class CaptureVolume:
             camera_array=new_camera_array,
             image_points=self.image_points,
             world_points=new_world_points,
+            constraints=self.constraints,
             _optimization_status=self._optimization_status,
         )
 

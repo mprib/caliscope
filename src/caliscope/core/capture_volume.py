@@ -861,12 +861,12 @@ class CaptureVolume:
                 raise ValueError(
                     f"sync_index=None is only valid for static markers, but object_id={object_id} is not static"
                 )
-            world_si = STATIC_SYNC_INDEX
-        else:
-            world_si = sync_index
 
         # Select image observations at this frame
         img_subset = img_df[img_df["sync_index"] == sync_index] if sync_index is not None else img_df
+
+        if img_subset.empty:
+            raise ValueError(f"No image observations at sync_index={sync_index}")
 
         # If object_id not specified, infer or require single-object
         if object_id is None:
@@ -878,8 +878,16 @@ class CaptureVolume:
                 )
             object_id = int(unique_objects[0])
 
-        # Filter to specified object
+        # Static markers have world points at STATIC_SYNC_INDEX regardless of
+        # which sync_index the caller asked for
+        world_si = STATIC_SYNC_INDEX if object_id in static_ids else (sync_index if sync_index is not None else 0)
+
+        # Filter to specified object, deduplicate obj_loc for the merge
         img_subset = img_subset[img_subset["object_id"] == object_id]
+        obj_points_df = img_subset[["object_id", "keypoint_id", "obj_loc_x", "obj_loc_y", "obj_loc_z"]].drop_duplicates(
+            subset=["object_id", "keypoint_id"]
+        )
+
         world_subset = world_df[(world_df["sync_index"] == world_si) & (world_df["object_id"] == object_id)]
 
         if img_subset.empty:
@@ -890,7 +898,7 @@ class CaptureVolume:
         # Merge on (object_id, keypoint_id) to find correspondences
         merged = pd.merge(
             world_subset[["object_id", "keypoint_id", "x_coord", "y_coord", "z_coord"]],
-            img_subset[["object_id", "keypoint_id", "obj_loc_x", "obj_loc_y", "obj_loc_z"]],
+            obj_points_df,
             on=["object_id", "keypoint_id"],
             how="inner",
         )

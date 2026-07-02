@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from functools import cached_property
 from pathlib import Path
 
 import numpy as np
@@ -119,3 +120,40 @@ class ConstraintSet:
             raise
         except Exception as e:
             raise PersistenceError(f"Failed to load ConstraintSet from {path}: {e}") from e
+
+
+@dataclass(frozen=True)
+class ConstraintViolation:
+    object_id_a: int
+    keypoint_id_a: int
+    object_id_b: int
+    keypoint_id_b: int
+    sync_index: int
+    expected: float
+    actual: float
+
+
+@dataclass(frozen=True)
+class RigidityReport:
+    violations: tuple[ConstraintViolation, ...]
+
+    @cached_property
+    def rmse_mm(self) -> float:
+        if not self.violations:
+            return 0.0
+        errors = np.array([v.actual - v.expected for v in self.violations])
+        return float(np.sqrt(np.mean(errors**2)) * 1000.0)
+
+    @cached_property
+    def max_violation_mm(self) -> float:
+        if not self.violations:
+            return 0.0
+        return float(max(abs(v.actual - v.expected) for v in self.violations) * 1000.0)
+
+    @cached_property
+    def per_object_rmse_mm(self) -> dict[int, float]:
+        by_obj: dict[int, list[float]] = {}
+        for v in self.violations:
+            for oid in (v.object_id_a, v.object_id_b):
+                by_obj.setdefault(oid, []).append(v.actual - v.expected)
+        return {oid: float(np.sqrt(np.mean(np.array(errs) ** 2)) * 1000.0) for oid, errs in by_obj.items()}

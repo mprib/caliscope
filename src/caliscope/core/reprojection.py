@@ -102,7 +102,10 @@ def bundle_residuals(
     image_coords: ImageCoords,  # (n_observations, 2)
     obj_indices: NDArray[np.int32],  # (n_observations,)
     use_normalized: bool = True,
-) -> NDArray[np.float64]:  # Returns: (n_observations*2,)
+    constraint_pairs: NDArray[np.int32] | None = None,
+    constraint_distances: NDArray[np.float64] | None = None,
+    constraint_weights: NDArray[np.float64] | None = None,
+) -> NDArray[np.float64]:  # Returns: (n_observations*2 + n_constraints,)
     """
     Callback for scipy.optimize.least_squares.
 
@@ -111,31 +114,17 @@ def bundle_residuals(
     This is critical because least_squares evaluates at trial values that may
     be rejected - mutating would corrupt the camera_array with rejected trials.
 
-    Args:
-        params: Flattened optimization vector [camera_params, point_coords]
-        camera_array: CameraArray with posed cameras (READ-ONLY: used for intrinsics only)
-        camera_indices: Array mapping each observation to a camera index
-        image_coords: Observed 2D image coordinates
-        obj_indices: Array mapping each observation to a 3D point index
-        use_normalized: If True, uses undistorted coordinates and ideal camera model
-
-    Returns:
-        residuals: Flattened (n_observations*2,) array of residuals for least_squares
+    Constraint rows are appended after reprojection rows. Reprojection rows
+    occupy positions 0..n_observations*2-1; any consumer computing reprojection
+    RMSE must slice to that range.
     """
     n_cams = len(camera_array.posed_cameras)
     n_cam_params = 6
 
-    # Unpack camera extrinsics from optimization vector (DO NOT mutate camera_array)
-    # Shape: (n_cams, 6) where each row is [rvec(3), tvec(3)]
     extrinsics = params[: n_cams * n_cam_params].reshape((n_cams, n_cam_params))
-
-    # Unpack 3D points from optimization vector
     points_3d = params[n_cams * n_cam_params :].reshape((-1, 3))
-
-    # Map 3D points to observations - shape: (n_observations, 3)
     world_coords = points_3d[obj_indices]
 
-    # Call core with extrinsics override (no mutation)
     errors_xy = reprojection_errors(
         camera_array,
         camera_indices,
@@ -144,4 +133,11 @@ def bundle_residuals(
         use_normalized,
         extrinsics_override=extrinsics,
     )
-    return errors_xy.ravel()  # Flatten to (n_observations*2,)
+    reproj = errors_xy.ravel()
+
+    if constraint_pairs is not None:
+        diffs = points_3d[constraint_pairs[:, 0]] - points_3d[constraint_pairs[:, 1]]
+        constraint_residuals = (np.linalg.norm(diffs, axis=1) - constraint_distances) * constraint_weights
+        return np.concatenate([reproj, constraint_residuals])
+
+    return reproj

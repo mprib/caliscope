@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 import logging
+from collections.abc import Iterable
 from pathlib import Path
 from time import time
 import numpy as np
@@ -13,6 +14,8 @@ from caliscope.cameras.camera_array import CameraArray
 from dataclasses import dataclass
 
 logger = logging.getLogger(__name__)
+
+STATIC_SYNC_INDEX = -1
 
 
 #####################################################################################
@@ -398,8 +401,30 @@ class ImagePoints:
         logger.info("(x,y) gap filling complete")
         return ImagePoints(xy_filled.dropna(subset=["img_loc_x"]))
 
-    def triangulate(self, camera_array: CameraArray) -> WorldPoints:
-        """Triangulates 2D points to create 3D points using the provided CameraArray."""
+    def filter_to_objects(self, object_ids: Iterable[int]) -> ImagePoints:
+        """Return a copy containing only rows whose object_id is in object_ids."""
+        valid = set(object_ids)
+        mask = self._df["object_id"].isin(valid)
+        dropped = self._df[~mask]
+        if len(dropped) > 0:
+            dropped_ids = sorted(dropped["object_id"].unique())
+            for oid in dropped_ids:
+                n = int((dropped["object_id"] == oid).sum())
+                logger.info(f"filter_to_objects: dropped object_id={oid} ({n} rows)")
+        return ImagePoints(self._df[mask].copy())
+
+    def triangulate(
+        self,
+        camera_array: CameraArray,
+        static_object_ids: frozenset[int] = frozenset(),
+    ) -> WorldPoints:
+        """Triangulates 2D points to create 3D points using the provided CameraArray.
+
+        Observations whose object_id is in static_object_ids are treated as a single
+        rigid object across all frames: their sync_index is ignored and all observations
+        of a given (object_id, keypoint_id) are triangulated together into one 3D point,
+        stored under STATIC_SYNC_INDEX.
+        """
         xy_df = self.df
         if xy_df.empty:
             return WorldPoints(pd.DataFrame(columns=list(WORLD_POINT_COLUMNS.keys())))
@@ -431,50 +456,104 @@ class ImagePoints:
         logger.info("Beginning bulk triangulation across all sync indices...")
         start = time()
 
-        # Extract arrays for bulk triangulation
-        sync_arr = valid_data["sync_index"].to_numpy()
-        cam_arr = valid_data["cam_id"].to_numpy()
-        obj_arr = valid_data["object_id"].to_numpy()
-        kp_arr = valid_data["keypoint_id"].to_numpy()
-        xy_arr = np.column_stack(
-            [
-                valid_data["img_loc_undistort_x"].to_numpy(),
-                valid_data["img_loc_undistort_y"].to_numpy(),
-            ]
-        )
+        result_parts: list[pd.DataFrame] = []
 
-        # One call triangulates everything
-        out_sync, out_obj, out_kp, out_xyz = triangulate_image_points(
-            normalized_projection_matrices,
-            sync_arr,
-            cam_arr,
-            obj_arr,
-            kp_arr,
-            xy_arr,
-        )
+        if static_object_ids:
+            static_mask = valid_data["object_id"].isin(static_object_ids)
+            mobile_data = valid_data[~static_mask]
+            static_data = valid_data[static_mask]
+        else:
+            mobile_data = valid_data
+            static_data = valid_data.iloc[0:0]
+
+        if not mobile_data.empty:
+            sync_arr = mobile_data["sync_index"].to_numpy()
+            cam_arr = mobile_data["cam_id"].to_numpy()
+            obj_arr = mobile_data["object_id"].to_numpy()
+            kp_arr = mobile_data["keypoint_id"].to_numpy()
+            xy_arr = np.column_stack(
+                [
+                    mobile_data["img_loc_undistort_x"].to_numpy(),
+                    mobile_data["img_loc_undistort_y"].to_numpy(),
+                ]
+            )
+
+            out_sync, out_obj, out_kp, out_xyz = triangulate_image_points(
+                normalized_projection_matrices,
+                sync_arr,
+                cam_arr,
+                obj_arr,
+                kp_arr,
+                xy_arr,
+            )
+
+            if len(out_kp) > 0:
+                out_frame_times = frame_times.reindex(out_sync).to_numpy()
+                result_parts.append(
+                    pd.DataFrame(
+                        {
+                            "sync_index": out_sync,
+                            "object_id": out_obj,
+                            "keypoint_id": out_kp,
+                            "x_coord": out_xyz[:, 0],
+                            "y_coord": out_xyz[:, 1],
+                            "z_coord": out_xyz[:, 2],
+                            "frame_time": out_frame_times,
+                        }
+                    )
+                )
+
+        if not static_data.empty:
+            # Remap sync_index to the sentinel so all observations of each
+            # (object_id, keypoint_id) group into a single triangulation.
+            sync_arr = np.full(len(static_data), STATIC_SYNC_INDEX, dtype=np.int64)
+            cam_arr = static_data["cam_id"].to_numpy()
+            obj_arr = static_data["object_id"].to_numpy()
+            kp_arr = static_data["keypoint_id"].to_numpy()
+            xy_arr = np.column_stack(
+                [
+                    static_data["img_loc_undistort_x"].to_numpy(),
+                    static_data["img_loc_undistort_y"].to_numpy(),
+                ]
+            )
+
+            out_sync, out_obj, out_kp, out_xyz = triangulate_image_points(
+                normalized_projection_matrices,
+                sync_arr,
+                cam_arr,
+                obj_arr,
+                kp_arr,
+                xy_arr,
+            )
+
+            if len(out_kp) > 0:
+                logger.info(f"Triangulated {len(out_kp)} static world points from {len(static_data)} observations")
+                result_parts.append(
+                    pd.DataFrame(
+                        {
+                            "sync_index": out_sync,
+                            "object_id": out_obj,
+                            "keypoint_id": out_kp,
+                            "x_coord": out_xyz[:, 0],
+                            "y_coord": out_xyz[:, 1],
+                            "z_coord": out_xyz[:, 2],
+                            "frame_time": np.full(len(out_kp), np.nan),
+                        }
+                    )
+                )
 
         elapsed = time() - start
-        logger.info(
-            f"Triangulation complete: {len(out_kp)} points from "
-            f"{len(np.unique(out_sync))} sync indices in {elapsed:.2f}s"
-        )
 
-        if len(out_kp) == 0:
+        if not result_parts:
+            logger.info(f"Triangulation complete: 0 points in {elapsed:.2f}s")
             return WorldPoints(pd.DataFrame(columns=list(WORLD_POINT_COLUMNS.keys())))
 
-        # Build DataFrame directly from arrays
-        out_frame_times = frame_times.reindex(out_sync).to_numpy()
-
-        xyz_df = pd.DataFrame(
-            {
-                "sync_index": out_sync,
-                "object_id": out_obj,
-                "keypoint_id": out_kp,
-                "x_coord": out_xyz[:, 0],
-                "y_coord": out_xyz[:, 1],
-                "z_coord": out_xyz[:, 2],
-                "frame_time": out_frame_times,
-            }
+        xyz_df = pd.concat(result_parts, ignore_index=True)
+        n_static = int((xyz_df["sync_index"] == STATIC_SYNC_INDEX).sum())
+        n_mobile_sync = xyz_df.loc[xyz_df["sync_index"] != STATIC_SYNC_INDEX, "sync_index"].nunique()
+        logger.info(
+            f"Triangulation complete: {len(xyz_df)} points from "
+            f"{n_mobile_sync} sync indices (+{n_static} static) in {elapsed:.2f}s"
         )
 
         return WorldPoints(xyz_df)
@@ -503,9 +582,14 @@ class WorldPoints:
                 f"Duplicates may cause incorrect results."
             )
 
-        # calculate start and stop index
-        min_index = int(self._df["sync_index"].min())
-        max_index = int(self._df["sync_index"].max())
+        # calculate start and stop index, excluding static points (sentinel sync_index)
+        non_static = self._df["sync_index"] != STATIC_SYNC_INDEX
+        if non_static.any():
+            min_index = int(self._df.loc[non_static, "sync_index"].min())
+            max_index = int(self._df.loc[non_static, "sync_index"].max())
+        else:
+            min_index = 0
+            max_index = 0
         object.__setattr__(self, "min_index", min_index)
         object.__setattr__(self, "max_index", max_index)
 

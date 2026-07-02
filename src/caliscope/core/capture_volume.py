@@ -834,51 +834,58 @@ class CaptureVolume:
 
         return VolumetricScaleReport(frame_errors=tuple(frame_errors))
 
-    def align_to_object(self, sync_index: int) -> "CaptureVolume":
+    def align_to_object(
+        self,
+        sync_index: int | None,
+        object_id: int | None = None,
+    ) -> "CaptureVolume":
+        """Align the capture volume to a marker's local coordinate frame.
+
+        The resulting world frame places the marker's center at the origin,
+        X along the top edge (TL->TR), Y up the left edge (BL->TL),
+        Z normal to the marker face (right-handed). A ground marker
+        face-up yields a Z-up world.
+
+        sync_index=None is valid only for static markers (world points at
+        STATIC_SYNC_INDEX). Raises for non-static markers.
         """
-        Align the capture volume to real-world units using object point correspondences.
-
-        Uses the 3D points triangulated at the given sync_index and their
-        corresponding ground truth object positions (from obj_loc columns) to
-        estimate a similarity transform that scales the reconstruction to real-world units.
-
-        Note:
-            Object coordinates (obj_loc_*) must be in real-world units (typically meters).
-            For Charuco boards, this requires defining the board with square_length in meters.
-
-        For planar Charuco boards, obj_loc_z may be missing and will be treated as 0.
-        The obj_loc coordinates must be in the target units (typically meters).
-
-        Args:
-            sync_index: Frame index where object is visible and has obj_loc data
-
-        Returns:
-            New CaptureVolume with cameras and world points in object coordinate units
-
-        Raises:
-            ValueError: If insufficient valid correspondences (< 3 points) or missing data
-        """
-        # Extract data at sync_index
         img_df = self.image_points.df
         world_df = self.world_points.df
+        static_ids = self.constraints.static_object_ids if self.constraints else frozenset()
 
-        img_subset = img_df[img_df["sync_index"] == sync_index]
-        world_subset = world_df[world_df["sync_index"] == sync_index]
+        # Resolve sync_index for static markers
+        if sync_index is None:
+            if object_id is None:
+                raise ValueError("sync_index=None requires an explicit object_id")
+            if object_id not in static_ids:
+                raise ValueError(
+                    f"sync_index=None is only valid for static markers, but object_id={object_id} is not static"
+                )
+            world_si = STATIC_SYNC_INDEX
+        else:
+            world_si = sync_index
+
+        # Select image observations at this frame
+        img_subset = img_df[img_df["sync_index"] == sync_index] if sync_index is not None else img_df
+
+        # If object_id not specified, infer or require single-object
+        if object_id is None:
+            unique_objects = img_subset["object_id"].unique()
+            if len(unique_objects) > 1:
+                raise ValueError(
+                    f"Multiple markers present at sync_index {sync_index}; "
+                    f"specify object_id (available: {sorted(unique_objects)})"
+                )
+            object_id = int(unique_objects[0])
+
+        # Filter to specified object
+        img_subset = img_subset[img_subset["object_id"] == object_id]
+        world_subset = world_df[(world_df["sync_index"] == world_si) & (world_df["object_id"] == object_id)]
 
         if img_subset.empty:
-            raise ValueError(f"No image observations at sync_index {sync_index}")
+            raise ValueError(f"No image observations for object_id={object_id} at sync_index={sync_index}")
         if world_subset.empty:
-            raise ValueError(f"No world points at sync_index {sync_index}")
-
-        # Multi-marker guard: similarity transform between world points (global frame)
-        # and obj_loc (mixed local frames) is geometrically meaningless
-        unique_objects = img_subset["object_id"].unique()
-        if len(unique_objects) > 1:
-            raise ValueError(
-                f"align_to_object requires single-object data at sync_index {sync_index}, "
-                f"got object_ids {sorted(unique_objects)}. "
-                "Multi-marker alignment requires Branch 3 constraint file."
-            )
+            raise ValueError(f"No world points for object_id={object_id} at sync_index={world_si}")
 
         # Merge on (object_id, keypoint_id) to find correspondences
         merged = pd.merge(
@@ -888,31 +895,27 @@ class CaptureVolume:
             how="inner",
         )
 
-        if len(merged) < 3:
-            raise ValueError(f"Need at least 3 point correspondences at sync_index {sync_index}, got {len(merged)}")
-
-        # Handle missing obj_loc_z (planar boards)
         if merged["obj_loc_z"].isna().all():
             logger.info("obj_loc_z is all NaN, assuming planar board with z=0")
             merged["obj_loc_z"] = 0.0
 
-        # Filter out any rows with NaN object coordinates
         obj_cols = ["obj_loc_x", "obj_loc_y", "obj_loc_z"]
         valid_mask = ~merged[obj_cols].isna().any(axis=1)
         merged = merged[valid_mask]
 
         if len(merged) < 3:
-            raise ValueError(
-                f"Need at least 3 valid point correspondences at sync_index {sync_index}, "
-                f"got {len(merged)} after filtering NaN values"
-            )
+            raise ValueError(f"Need at least 3 valid correspondences for object_id={object_id}, got {len(merged)}")
 
-        # Prepare source (triangulated) and target (object) points
         source_points = merged[["x_coord", "y_coord", "z_coord"]].values.astype(np.float64)
         target_points = merged[obj_cols].values.astype(np.float64)
 
-        # Estimate and apply transform
         transform = estimate_similarity_transform(source_points, target_points)
+
+        if self.constraints is not None and abs(transform.scale - 1.0) > 0.02:
+            logger.warning(
+                f"Scale deviation on constrained volume: {transform.scale:.4f} "
+                f"(expected ~1.0). The BA could not reconcile constraints with pixel evidence."
+            )
 
         logger.info(
             f"Estimated alignment: scale={transform.scale:.6f}, "

@@ -14,6 +14,7 @@ from numpy.typing import NDArray
 class ArucoMarker:
     marker_id: int
     size_m: float
+    static: bool = False
 
     def __post_init__(self) -> None:
         if self.size_m <= 0:
@@ -31,9 +32,26 @@ class ArucoMarker:
 
 
 @dataclass(frozen=True)
+class MarkerLink:
+    """Two markers on the same physical object with known corner correspondence."""
+
+    marker_a: int
+    marker_b: int
+    corner_map: tuple[int, int, int, int]
+    separation_m: float = 0.0
+
+    def __post_init__(self) -> None:
+        if sorted(self.corner_map) != [0, 1, 2, 3]:
+            raise ValueError(f"corner_map must be a permutation of (0,1,2,3), got {self.corner_map}")
+        if self.separation_m < 0:
+            raise ValueError(f"separation_m must be >= 0, got {self.separation_m}")
+
+
+@dataclass(frozen=True)
 class ArucoMarkerSet:
     dictionary: int
     markers: dict[int, ArucoMarker]
+    links: tuple[MarkerLink, ...] = ()
 
     def __post_init__(self) -> None:
         if not self.markers:
@@ -45,6 +63,11 @@ class ArucoMarkerSet:
                 raise ValueError(f"Key {mid} does not match marker_id {marker.marker_id}")
             if mid < 0 or mid >= capacity:
                 raise ValueError(f"Marker ID {mid} exceeds dictionary capacity ({capacity})")
+        for link in self.links:
+            if link.marker_a not in self.markers:
+                raise ValueError(f"MarkerLink references unknown marker_a={link.marker_a}")
+            if link.marker_b not in self.markers:
+                raise ValueError(f"MarkerLink references unknown marker_b={link.marker_b}")
 
     @classmethod
     def from_toml(cls, path: Path) -> ArucoMarkerSet:
@@ -59,8 +82,18 @@ class ArucoMarkerSet:
             for entry in data.get("markers", []):
                 mid = entry["id"]
                 size_m = entry["size_m"]
-                markers[mid] = ArucoMarker(marker_id=mid, size_m=size_m)
-            return cls(dictionary=dictionary, markers=markers)
+                markers[mid] = ArucoMarker(marker_id=mid, size_m=size_m, static=entry.get("static", False))
+            links = []
+            for entry in data.get("links", []):
+                links.append(
+                    MarkerLink(
+                        marker_a=entry["marker_a"],
+                        marker_b=entry["marker_b"],
+                        corner_map=tuple(entry["corner_map"]),
+                        separation_m=entry.get("separation_m", 0.0),
+                    )
+                )
+            return cls(dictionary=dictionary, markers=markers, links=tuple(links))
         except PersistenceError:
             raise
         except Exception as e:
@@ -71,13 +104,26 @@ class ArucoMarkerSet:
 
         try:
             path.parent.mkdir(parents=True, exist_ok=True)
-            data = {
+            markers_data = []
+            for m in sorted(self.markers.values(), key=lambda m: m.marker_id):
+                entry = {"id": m.marker_id, "size_m": m.size_m}
+                if m.static:
+                    entry["static"] = True
+                markers_data.append(entry)
+            data: dict = {
                 "dictionary": self.dictionary,
-                "markers": [
-                    {"id": m.marker_id, "size_m": m.size_m}
-                    for m in sorted(self.markers.values(), key=lambda m: m.marker_id)
-                ],
+                "markers": markers_data,
             }
+            if self.links:
+                data["links"] = [
+                    {
+                        "marker_a": link.marker_a,
+                        "marker_b": link.marker_b,
+                        "corner_map": list(link.corner_map),
+                        "separation_m": link.separation_m,
+                    }
+                    for link in self.links
+                ]
             _safe_write_toml(data, path)
         except PersistenceError:
             raise

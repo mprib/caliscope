@@ -2,10 +2,20 @@ import numpy as np
 import pytest
 import cv2
 
-from caliscope.core.aruco_marker import ArucoMarker, ArucoMarkerSet
+from caliscope.core.aruco_marker import ArucoMarker, ArucoMarkerSet, MarkerLink
 
 
 # -- ArucoMarker --
+
+
+def test_aruco_marker_static_default():
+    marker = ArucoMarker(marker_id=0, size_m=0.10)
+    assert marker.static is False
+
+
+def test_aruco_marker_static_true():
+    marker = ArucoMarker(marker_id=0, size_m=0.10, static=True)
+    assert marker.static is True
 
 
 def test_aruco_marker_corners_from_size():
@@ -81,6 +91,88 @@ def test_marker_set_from_toml_missing_file(tmp_path):
 
     with pytest.raises(PersistenceError):
         ArucoMarkerSet.from_toml(tmp_path / "nope.toml")
+
+
+def test_marker_set_toml_round_trip_with_static(tmp_path):
+    markers = {
+        0: ArucoMarker(0, 0.165),
+        4: ArucoMarker(4, 1.0, static=True),
+    }
+    original = ArucoMarkerSet(dictionary=cv2.aruco.DICT_4X4_100, markers=markers)
+    path = tmp_path / "marker_set.toml"
+    original.to_toml(path)
+    loaded = ArucoMarkerSet.from_toml(path)
+    assert loaded.markers[0].static is False
+    assert loaded.markers[4].static is True
+
+
+def test_pre_branch3_toml_loads(tmp_path):
+    """A TOML file without static fields loads with static=False."""
+    path = tmp_path / "old.toml"
+    path.write_text("dictionary = 0\n\n[[markers]]\nid = 0\nsize_m = 0.165\n")
+    loaded = ArucoMarkerSet.from_toml(path)
+    assert loaded.markers[0].static is False
+
+
+# -- MarkerLink --
+
+
+def test_marker_link_construction():
+    link = MarkerLink(marker_a=0, marker_b=8, corner_map=(1, 0, 3, 2), separation_m=0.004)
+    assert link.marker_a == 0
+    assert link.separation_m == 0.004
+
+
+def test_marker_link_rejects_bad_corner_map():
+    with pytest.raises(ValueError, match="permutation"):
+        MarkerLink(marker_a=0, marker_b=1, corner_map=(0, 0, 1, 2))
+
+
+def test_marker_link_rejects_negative_separation():
+    with pytest.raises(ValueError, match="separation_m"):
+        MarkerLink(marker_a=0, marker_b=1, corner_map=(0, 1, 2, 3), separation_m=-0.01)
+
+
+def test_marker_set_with_links(tmp_path):
+    markers = {0: ArucoMarker(0, 0.165), 8: ArucoMarker(8, 0.165)}
+    link = MarkerLink(marker_a=0, marker_b=8, corner_map=(1, 0, 3, 2), separation_m=0.004)
+    ms = ArucoMarkerSet(dictionary=cv2.aruco.DICT_4X4_100, markers=markers, links=(link,))
+    path = tmp_path / "linked.toml"
+    ms.to_toml(path)
+    loaded = ArucoMarkerSet.from_toml(path)
+    assert len(loaded.links) == 1
+    assert loaded.links[0].corner_map == (1, 0, 3, 2)
+    assert loaded.links[0].separation_m == 0.004
+
+
+def test_marker_set_rejects_link_unknown_marker():
+    markers = {0: ArucoMarker(0, 0.165)}
+    link = MarkerLink(marker_a=0, marker_b=99, corner_map=(0, 1, 2, 3))
+    with pytest.raises(ValueError, match="unknown marker_b"):
+        ArucoMarkerSet(dictionary=cv2.aruco.DICT_4X4_100, markers=markers, links=(link,))
+
+
+# -- ImagePoints.filter_to_objects --
+
+
+def test_filter_to_objects():
+    import pandas as pd
+    from caliscope.core.point_data import ImagePoints
+
+    df = pd.DataFrame(
+        {
+            "sync_index": [0, 0, 0, 0, 1, 1],
+            "cam_id": [0, 0, 0, 0, 0, 0],
+            "object_id": [0, 0, 37, 37, 0, 44],
+            "keypoint_id": [0, 1, 0, 1, 0, 0],
+            "img_loc_x": [100.0, 200.0, 300.0, 400.0, 110.0, 500.0],
+            "img_loc_y": [100.0, 200.0, 300.0, 400.0, 110.0, 500.0],
+        }
+    )
+    ip = ImagePoints(df)
+    filtered = ip.filter_to_objects({0})
+    assert len(filtered.df) == 3
+    assert set(filtered.df["object_id"].unique()) == {0}
 
 
 def test_generate_marker_image():

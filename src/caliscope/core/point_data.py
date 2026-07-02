@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 import logging
+from collections.abc import Iterable
 from pathlib import Path
 from time import time
 import numpy as np
@@ -397,6 +398,18 @@ class ImagePoints:
             xy_filled = pd.concat([xy_filled, merged])
         logger.info("(x,y) gap filling complete")
         return ImagePoints(xy_filled.dropna(subset=["img_loc_x"]))
+
+    def filter_to_objects(self, object_ids: Iterable[int]) -> ImagePoints:
+        """Return a copy containing only rows whose object_id is in object_ids."""
+        valid = set(object_ids)
+        mask = self._df["object_id"].isin(valid)
+        dropped = self._df[~mask]
+        if len(dropped) > 0:
+            dropped_ids = sorted(dropped["object_id"].unique())
+            for oid in dropped_ids:
+                n = int((dropped["object_id"] == oid).sum())
+                logger.info(f"filter_to_objects: dropped object_id={oid} ({n} rows)")
+        return ImagePoints(self._df[mask].copy())
 
     def triangulate(self, camera_array: CameraArray) -> WorldPoints:
         """Triangulates 2D points to create 3D points using the provided CameraArray."""

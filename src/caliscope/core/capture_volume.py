@@ -678,6 +678,17 @@ class CaptureVolume:
             remaining_3d_keys, on=["sync_index", "object_id", "keypoint_id"], how="inner"
         )
 
+        # Preserve static world points that still have observations in filtered image points.
+        # Static points live at STATIC_SYNC_INDEX but their observations carry real sync_indices,
+        # so the merge above drops them. Re-attach any static rows whose (object_id, keypoint_id)
+        # still appears in the filtered observations.
+        static_world_df = self.world_points.df[self.world_points.df["sync_index"] == STATIC_SYNC_INDEX]
+        if not static_world_df.empty:
+            static_obs_keys = filtered_img_df[["object_id", "keypoint_id"]].drop_duplicates()
+            static_to_keep = static_world_df.merge(static_obs_keys, on=["object_id", "keypoint_id"], how="inner")
+            if not static_to_keep.empty:
+                filtered_world_df = pd.concat([filtered_world_df, static_to_keep], ignore_index=True)
+
         filtered_world_points = WorldPoints(filtered_world_df)
 
         return CaptureVolume(

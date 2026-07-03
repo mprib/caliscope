@@ -319,3 +319,77 @@ def test_bundle_residuals_with_constraints():
     np.testing.assert_allclose(res_yes[:4], res_no)
     # Constraint residual: (||[1,0,0]-[0,0,0]|| - 1.0) * 0.5 = 0.0
     assert res_yes[4] == pytest.approx(0.0, abs=1e-10)
+
+
+def test_filter_preserves_static_world_points():
+    """Static world points must survive reprojection filtering even though
+    their image observations carry real sync_indices.
+    """
+    from caliscope.core.point_data import ImagePoints
+    from caliscope.core.capture_volume import CaptureVolume
+    from caliscope.cameras.camera_array import CameraArray, CameraData
+
+    cam = CameraData(
+        cam_id=0,
+        size=(400, 400),
+        matrix=np.array([[200, 0, 200], [0, 200, 200], [0, 0, 1]], dtype=np.float64),
+        distortions=np.zeros(5),
+        rotation=np.eye(3),
+        translation=np.array([0.0, 0.0, 5.0]),
+    )
+    ca = CameraArray(cameras={0: cam})
+
+    # World points:
+    # - Static object 10: (0,0,0) and (1,0,0) at STATIC_SYNC_INDEX
+    # - Mobile object 0: (0,1,0) and (1,1,0) at sync_index 0 and 1
+    world_df = pd.DataFrame(
+        {
+            "sync_index": [STATIC_SYNC_INDEX, STATIC_SYNC_INDEX, 0, 0, 1, 1],
+            "object_id": [10, 10, 0, 0, 0, 0],
+            "keypoint_id": [0, 1, 0, 1, 0, 1],
+            "x_coord": [0.0, 1.0, 0.0, 1.0, 0.0, 1.0],
+            "y_coord": [0.0, 0.0, 1.0, 1.0, 1.0, 1.0],
+            "z_coord": [0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+            "frame_time": [np.nan, np.nan, 0.0, 0.0, 0.1, 0.1],
+        }
+    )
+    wp = WorldPoints(world_df)
+
+    # Image observations:
+    # At sync_index=0: all exact projections → ~0 error
+    # At sync_index=1: static obj=10, kp=0 has big offset → ~141px error
+    img_df = pd.DataFrame(
+        {
+            "sync_index": [0, 0, 0, 0, 1, 1, 1, 1],
+            "cam_id": [0, 0, 0, 0, 0, 0, 0, 0],
+            "object_id": [10, 10, 0, 0, 10, 10, 0, 0],
+            "keypoint_id": [0, 1, 0, 1, 0, 1, 0, 1],
+            "img_loc_x": [200.0, 240.0, 200.0, 240.0, 300.0, 240.0, 200.0, 240.0],
+            "img_loc_y": [200.0, 200.0, 240.0, 240.0, 300.0, 200.0, 240.0, 240.0],
+        }
+    )
+    ip = ImagePoints(img_df)
+
+    # Constraints that declare object 10 as static
+    markers = {10: ArucoMarker(10, 1.0, static=True)}
+    ms = ArucoMarkerSet(dictionary=cv2.aruco.DICT_4X4_50, markers=markers)
+    cs = ConstraintSet.from_marker_set(ms)
+
+    cv = CaptureVolume(camera_array=ca, image_points=ip, world_points=wp, constraints=cs)
+
+    # Pre-filter: 8 observations, 6 world points (2 static + 4 mobile)
+    assert len(cv.image_points.df) == 8
+    assert len(cv.world_points.df) == 6
+
+    # Filter with 10px threshold drops the bad static observation
+    filtered = cv.filter_by_absolute_error(max_pixels=10.0, min_per_camera=1)
+
+    # 7 observations remain, but both static world points survive
+    assert len(filtered.image_points.df) == 7
+    static_world = filtered.world_points.df[filtered.world_points.df["sync_index"] == STATIC_SYNC_INDEX]
+    assert len(static_world) == 2
+    assert set(static_world["keypoint_id"]) == {0, 1}
+
+    # All mobile world points also survive
+    mobile_world = filtered.world_points.df[filtered.world_points.df["sync_index"] != STATIC_SYNC_INDEX]
+    assert len(mobile_world) == 4

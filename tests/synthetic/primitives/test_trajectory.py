@@ -53,7 +53,7 @@ class TestWorldPointsAtFrame:
 
     def test_identity_pose_leaves_points_unchanged(self):
         """Identity trajectory doesn't transform points."""
-        obj = CalibrationObject.planar_grid(rows=2, cols=2, spacing_mm=10.0)
+        obj = CalibrationObject.planar_grid(rows=2, cols=2, spacing=0.01)
         traj = Trajectory.stationary(n_frames=1, pose=SE3Pose.identity())
 
         world_points = traj.world_points_at_frame(obj, frame=0)
@@ -66,13 +66,13 @@ class TestOrbitalTrajectory:
 
     def test_creates_correct_number_of_frames(self):
         """Orbital trajectory has requested number of frames."""
-        traj = Trajectory.orbital(n_frames=10, radius_mm=1000.0)
+        traj = Trajectory.orbital(n_frames=10, radius=1.0)
 
         assert len(traj) == 10
 
     def test_origin_frame_has_identity_pose(self):
         """Pose at origin_frame is identity."""
-        traj = Trajectory.orbital(n_frames=5, radius_mm=1000.0, origin_frame=2)
+        traj = Trajectory.orbital(n_frames=5, radius=1.0, origin_frame=2)
 
         pose = traj[2]
         assert np.allclose(pose.rotation, np.eye(3), atol=1e-10)
@@ -81,7 +81,7 @@ class TestOrbitalTrajectory:
     def test_invalid_radius_rejected(self):
         """Radius must be positive."""
         with pytest.raises(ValueError, match="must be positive"):
-            Trajectory.orbital(n_frames=5, radius_mm=0.0)
+            Trajectory.orbital(n_frames=5, radius=0.0)
 
 
 class TestLinearTrajectory:

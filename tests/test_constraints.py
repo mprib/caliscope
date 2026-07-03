@@ -36,16 +36,6 @@ def test_constraint_set_distances_correct():
     np.testing.assert_allclose(dists, expected, atol=1e-10)
 
 
-def test_constraint_set_unit_scale():
-    markers = {0: ArucoMarker(0, 1.0)}
-    ms = ArucoMarkerSet(dictionary=cv2.aruco.DICT_4X4_50, markers=markers)
-    cs_m = ConstraintSet.from_marker_set(ms, unit_scale=1.0)
-    cs_mm = ConstraintSet.from_marker_set(ms, unit_scale=1000.0)
-    for d_m, d_mm in zip(cs_m.distances, cs_mm.distances):
-        assert d_mm.distance == pytest.approx(d_m.distance * 1000.0)
-        assert d_mm.sigma == pytest.approx(d_m.sigma * 1000.0)
-
-
 def test_constraint_set_toml_round_trip(tmp_path):
     markers = {0: ArucoMarker(0, 1.0), 4: ArucoMarker(4, 1.0, static=True)}
     ms = ArucoMarkerSet(dictionary=cv2.aruco.DICT_4X4_50, markers=markers)

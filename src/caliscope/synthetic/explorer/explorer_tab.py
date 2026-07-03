@@ -311,7 +311,7 @@ class ExplorerTab(QWidget):
             for metrics in result.camera_metrics:
                 label_text = (
                     f"C{metrics.cam_id}: {metrics.rotation_error_deg:.2f}° / "
-                    f"{metrics.translation_error_mm:.1f}mm | {metrics.reprojection_rmse:.2f}px"
+                    f"{metrics.translation_error_m * 1000:.1f}mm | {metrics.reprojection_rmse:.2f}px"
                 )
                 label = QLabel(label_text)
                 label.setStyleSheet("font-family: monospace; font-size: 15px;")

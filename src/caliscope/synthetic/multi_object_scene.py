@@ -186,15 +186,13 @@ def aruco_scene(
 ) -> tuple[MultiObjectScene, ConstraintSet]:
     """Build a MultiObjectScene and matching ConstraintSet from an ArucoMarkerSet.
 
-    Markers without an entry in `trajectories` are skipped. Marker corners
-    (meters) are scaled by 1000 to match the synthetic framework's millimeter
-    convention; the returned ConstraintSet uses unit_scale=1000.0 accordingly.
+    Markers without an entry in `trajectories` are skipped.
     """
     objects = []
     for marker_id, marker in marker_set.markers.items():
         if marker_id not in trajectories:
             continue
-        cal_obj = CalibrationObject.from_points(marker.corners * 1000.0)
+        cal_obj = CalibrationObject.from_points(marker.corners)
         objects.append(
             SceneObject(
                 object_id=marker_id,
@@ -210,5 +208,5 @@ def aruco_scene(
         pixel_noise_sigma=pixel_noise_sigma,
         random_seed=random_seed,
     )
-    constraints = ConstraintSet.from_marker_set(marker_set, unit_scale=1000.0)
+    constraints = ConstraintSet.from_marker_set(marker_set)
     return scene, constraints

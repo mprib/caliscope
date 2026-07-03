@@ -13,17 +13,17 @@ def default_ring_scene(
     """Standard 4-camera ring with full orbital trajectory.
 
     Configuration:
-    - 4 cameras in ring, radius=2000mm, height=500mm
-    - 5x7 planar grid, spacing=50mm
-    - 20 frames, orbital radius=200mm, full 360 degree orbit
+    - 4 cameras in ring, radius=2m, height=0.5m
+    - 5x7 planar grid, spacing=0.05m
+    - 20 frames, orbital radius=0.2m, full 360 degree orbit
     """
-    camera_array = CameraSynthesizer().add_ring(n=4, radius_mm=2000.0, height_mm=500.0).build()
+    camera_array = CameraSynthesizer().add_ring(n=4, radius=2.0, height=0.5).build()
 
-    calibration_object = CalibrationObject.planar_grid(rows=5, cols=7, spacing_mm=50.0)
+    calibration_object = CalibrationObject.planar_grid(rows=5, cols=7, spacing=0.05)
 
     trajectory = Trajectory.orbital(
         n_frames=20,
-        radius_mm=200.0,
+        radius=0.2,
         arc_extent_deg=360.0,
         tumble_rate=1.0,
     )
@@ -45,14 +45,14 @@ def sparse_coverage_scene(
 
     Tests scenarios where cameras have limited shared visibility.
     """
-    camera_array = CameraSynthesizer().add_ring(n=4, radius_mm=2000.0, height_mm=500.0).build()
+    camera_array = CameraSynthesizer().add_ring(n=4, radius=2.0, height=0.5).build()
 
-    calibration_object = CalibrationObject.planar_grid(rows=5, cols=7, spacing_mm=50.0)
+    calibration_object = CalibrationObject.planar_grid(rows=5, cols=7, spacing=0.05)
 
     trajectory = Trajectory.orbital(
         n_frames=20,
-        radius_mm=400.0,  # Larger radius = less overlap
-        arc_extent_deg=180.0,  # Half orbit
+        radius=0.4,
+        arc_extent_deg=180.0,
         tumble_rate=0.5,
     )
 
@@ -70,13 +70,13 @@ def quick_test_scene(
     random_seed: int = 42,
 ) -> SyntheticScene:
     """Minimal scene for fast tests (5 frames, small grid)."""
-    camera_array = CameraSynthesizer().add_ring(n=4, radius_mm=2000.0, height_mm=500.0).build()
+    camera_array = CameraSynthesizer().add_ring(n=4, radius=2.0, height=0.5).build()
 
-    calibration_object = CalibrationObject.planar_grid(rows=3, cols=4, spacing_mm=50.0)
+    calibration_object = CalibrationObject.planar_grid(rows=3, cols=4, spacing=0.05)
 
     trajectory = Trajectory.orbital(
         n_frames=5,
-        radius_mm=200.0,
+        radius=0.2,
         arc_extent_deg=180.0,
         tumble_rate=0.5,
     )

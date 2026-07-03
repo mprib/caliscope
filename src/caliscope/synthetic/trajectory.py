@@ -76,22 +76,22 @@ class Trajectory:
     def orbital(
         cls,
         n_frames: int,
-        radius_mm: float,
+        radius: float,
         arc_extent_deg: float = 360.0,
-        height_mm: float = 0.0,
+        height: float = 0.0,
         tumble_rate: float = 0.0,
         origin_frame: int = 0,
     ) -> Trajectory:
         """Object orbits around world origin with optional tumble.
 
-        The object center follows a circular arc in the XY plane at Z=height_mm.
+        The object center follows a circular arc in the XY plane at the given height.
         Optionally, the object rotates (tumbles) around its local Z-axis as it orbits.
 
         Args:
             n_frames: Number of frames in trajectory
-            radius_mm: Distance from world origin to object center
+            radius: Distance from world origin to object center (meters)
             arc_extent_deg: Angular extent of orbit (360 = full circle, 180 = half)
-            height_mm: Height of orbital plane above XY (Z coordinate)
+            height: Height of orbital plane above XY (meters)
             tumble_rate: Full rotations of object per orbit (0 = no tumble)
             origin_frame: Frame where object pose is identity
 
@@ -99,12 +99,12 @@ class Trajectory:
             Trajectory with n_frames poses
 
         Raises:
-            ValueError: If n_frames < 1 or radius_mm <= 0
+            ValueError: If n_frames < 1 or radius <= 0
         """
         if n_frames < 1:
             raise ValueError(f"n_frames must be >= 1, got {n_frames}")
-        if radius_mm <= 0:
-            raise ValueError(f"radius_mm must be positive, got {radius_mm}")
+        if radius <= 0:
+            raise ValueError(f"radius must be positive, got {radius}")
 
         poses = []
         arc_rad = np.radians(arc_extent_deg)
@@ -121,9 +121,9 @@ class Trajectory:
 
             # Orbital position (object center in world coords)
             angle = arc_rad * t
-            x = radius_mm * np.cos(angle)
-            y = radius_mm * np.sin(angle)
-            z = height_mm
+            x = radius * np.cos(angle)
+            y = radius * np.sin(angle)
+            z = height
 
             # Tumble rotation (around object's local Z-axis)
             tumble_angle = 2 * np.pi * tumble_rate * t

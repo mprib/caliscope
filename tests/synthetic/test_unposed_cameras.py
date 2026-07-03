@@ -21,12 +21,12 @@ def make_12_camera_scene() -> SyntheticScene:
 
     Configuration:
     - 12 cameras (cam_ids 0-11) arranged in a ring
-    - 2000mm radius, 500mm height
-    - 5x7 grid at 50mm spacing (250x300mm total)
+    - 2m radius, 0.5m height
+    - 5x7 grid at 0.05m spacing (0.25x0.3m total)
     - 5 stationary frames (sufficient for crash testing)
     """
-    camera_array = CameraSynthesizer().add_ring(n=12, radius_mm=2000.0, height_mm=500.0).build()
-    calibration_object = CalibrationObject.planar_grid(rows=5, cols=7, spacing_mm=50.0)
+    camera_array = CameraSynthesizer().add_ring(n=12, radius=2.0, height=0.5).build()
+    calibration_object = CalibrationObject.planar_grid(rows=5, cols=7, spacing=0.05)
     trajectory = Trajectory.stationary(n_frames=5)
 
     return SyntheticScene(

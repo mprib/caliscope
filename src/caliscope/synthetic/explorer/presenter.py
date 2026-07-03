@@ -71,7 +71,7 @@ class CameraMetrics:
 
     cam_id: int
     rotation_error_deg: float
-    translation_error_mm: float
+    translation_error_m: float
     reprojection_rmse: float
     n_observations: int
 
@@ -82,7 +82,7 @@ def _compute_pose_error(
     ground_truth_rotation: np.ndarray,
     ground_truth_translation: np.ndarray,
 ) -> tuple[float, float]:
-    """Compute rotation error (degrees) and translation error (mm).
+    """Compute rotation error (degrees) and translation error (meters).
 
     Rotation error uses geodesic distance on SO(3) via Rodrigues.
     Translation error is Euclidean distance between camera positions.
@@ -97,9 +97,9 @@ def _compute_pose_error(
     # Translation error: Euclidean distance between camera positions
     pos_est = -estimated_rotation.T @ estimated_translation
     pos_gt = -ground_truth_rotation.T @ ground_truth_translation
-    translation_mm = float(np.linalg.norm(pos_est - pos_gt))
+    translation_m = float(np.linalg.norm(pos_est - pos_gt))
 
-    return rotation_deg, translation_mm
+    return rotation_deg, translation_m
 
 
 class ExplorerPresenter(QObject):
@@ -362,7 +362,7 @@ class ExplorerPresenter(QObject):
                     CameraMetrics(
                         cam_id=cam_id,
                         rotation_error_deg=rotation_error,
-                        translation_error_mm=translation_error,
+                        translation_error_m=translation_error,
                         reprojection_rmse=camera_reproj_rmse,
                         n_observations=n_obs,
                     )

@@ -22,12 +22,12 @@ from caliscope.synthetic.trajectory import Trajectory
 
 
 def _make_camera_array() -> CameraArray:
-    """4-camera ring, radius 2000mm, height 500mm, facing the origin.
+    """4-camera ring, radius 2m, height 0.5m, facing the origin.
 
     Markers orbit at height 0 (their local Z-normal points along world Z).
     A camera height offset avoids a degenerate edge-on view of that plane.
     """
-    return CameraSynthesizer().add_ring(n=4, radius_mm=2000.0, height_mm=500.0).build()
+    return CameraSynthesizer().add_ring(n=4, radius=2.0, height=0.5).build()
 
 
 def _make_aruco_scene() -> tuple[MultiObjectScene, ConstraintSet, CameraArray]:
@@ -39,11 +39,11 @@ def _make_aruco_scene() -> tuple[MultiObjectScene, ConstraintSet, CameraArray]:
     }
     marker_set = ArucoMarkerSet(dictionary=cv2.aruco.DICT_4X4_50, markers=markers)
 
-    mobile_traj = Trajectory.orbital(n_frames=20, radius_mm=500.0)
+    mobile_traj = Trajectory.orbital(n_frames=20, radius=0.5)
     static_pose = SE3Pose.from_axis_angle(
         axis=np.array([0.0, 0.0, 1.0]),
         angle_rad=0.0,
-        translation=np.array([300.0, -200.0, 0.0]),
+        translation=np.array([0.3, -0.2, 0.0]),
     )
     static_traj = Trajectory.stationary(n_frames=20, pose=static_pose)
 

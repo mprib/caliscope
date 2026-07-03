@@ -49,20 +49,20 @@ class TestPlanarGrid:
 
     def test_creates_correct_number_of_points(self):
         """Grid has rows * cols points."""
-        obj = CalibrationObject.planar_grid(rows=3, cols=4, spacing_mm=10.0)
+        obj = CalibrationObject.planar_grid(rows=3, cols=4, spacing=0.01)
 
         assert obj.n_points == 12
 
     def test_points_are_coplanar_z_zero(self):
         """All grid points have Z=0."""
-        obj = CalibrationObject.planar_grid(rows=5, cols=7, spacing_mm=20.0)
+        obj = CalibrationObject.planar_grid(rows=5, cols=7, spacing=0.02)
 
         assert np.allclose(obj.points[:, 2], 0.0)
 
     def test_spacing_is_correct(self):
-        """Adjacent points are separated by spacing_mm."""
-        spacing = 25.0
-        obj = CalibrationObject.planar_grid(rows=3, cols=3, spacing_mm=spacing)
+        """Adjacent points are separated by spacing."""
+        spacing = 0.025
+        obj = CalibrationObject.planar_grid(rows=3, cols=3, spacing=spacing)
 
         # Check horizontal spacing (points 0 and 1)
         dx = obj.points[1, 0] - obj.points[0, 0]
@@ -75,10 +75,10 @@ class TestPlanarGrid:
     def test_invalid_grid_rejected(self):
         """Grid must be at least 2x2 with positive spacing."""
         with pytest.raises(ValueError, match="at least 2x2"):
-            CalibrationObject.planar_grid(rows=1, cols=5, spacing_mm=10.0)
+            CalibrationObject.planar_grid(rows=1, cols=5, spacing=0.01)
 
         with pytest.raises(ValueError, match="must be positive"):
-            CalibrationObject.planar_grid(rows=3, cols=3, spacing_mm=0.0)
+            CalibrationObject.planar_grid(rows=3, cols=3, spacing=0.0)
 
 
 class TestProperties:

@@ -48,8 +48,8 @@ def test_construction_with_default_scene(presenter: ExplorerPresenter) -> None:
 def test_set_scene_replaces_scene_and_emits(presenter: ExplorerPresenter) -> None:
     """set_scene() replaces scene and emits signal."""
     # Create a different scene with 5 frames
-    camera_array = CameraSynthesizer().add_ring(n=4, radius_mm=2000.0, height_mm=500.0).build()
-    calibration_object = CalibrationObject.planar_grid(rows=3, cols=4, spacing_mm=50.0)
+    camera_array = CameraSynthesizer().add_ring(n=4, radius=2.0, height=0.5).build()
+    calibration_object = CalibrationObject.planar_grid(rows=3, cols=4, spacing=0.05)
     trajectory = Trajectory.stationary(n_frames=5)
 
     new_scene = SyntheticScene(
@@ -178,8 +178,8 @@ def test_pipeline_failure_emits_signal(presenter: ExplorerPresenter) -> None:
     """Pipeline failure emits pipeline_failed signal."""
     # Create a minimal scene that will fail bootstrap
     # (not enough shared observations between cameras when linkages are killed)
-    camera_array = CameraSynthesizer().add_ring(n=4, radius_mm=2000.0, height_mm=500.0).build()
-    calibration_object = CalibrationObject.planar_grid(rows=2, cols=2, spacing_mm=50.0)
+    camera_array = CameraSynthesizer().add_ring(n=4, radius=2.0, height=0.5).build()
+    calibration_object = CalibrationObject.planar_grid(rows=2, cols=2, spacing=0.05)
     trajectory = Trajectory.stationary(n_frames=1)
 
     sparse_scene = SyntheticScene(

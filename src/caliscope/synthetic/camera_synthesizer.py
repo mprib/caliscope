@@ -32,8 +32,8 @@ class CameraSynthesizer:
     Example:
         array = (
             CameraSynthesizer()
-            .add_ring(n=4, radius_mm=2000, height_mm=0)
-            .add_ring(n=4, radius_mm=2000, height_mm=500, angular_offset_deg=45)
+            .add_ring(n=4, radius=2.0, height=0)
+            .add_ring(n=4, radius=2.0, height=0.5, angular_offset_deg=45)
             .drop_cam_ids(1, 5)
             .build()
         )
@@ -48,8 +48,8 @@ class CameraSynthesizer:
     def add_ring(
         self,
         n: int,
-        radius_mm: float,
-        height_mm: float = 0.0,
+        radius: float,
+        height: float = 0.0,
         facing: Literal["inward", "outward"] = "inward",
         angular_offset_deg: float = 0.0,
         roll_variation_deg: float = 0.0,
@@ -60,8 +60,8 @@ class CameraSynthesizer:
 
         Args:
             n: Number of cameras in this ring (>= 1)
-            radius_mm: Distance from world origin to each camera
-            height_mm: Z-coordinate of all cameras in this ring
+            radius: Distance from world origin to each camera (meters)
+            height: Z-coordinate of all cameras in this ring (meters)
             facing: Direction cameras point ("inward" toward origin, "outward" away)
             angular_offset_deg: Rotate the entire ring by this angle (useful for
                 staggering multiple rings)
@@ -79,18 +79,18 @@ class CameraSynthesizer:
             angle = 2 * np.pi * i / n + offset_rad
             position = np.array(
                 [
-                    radius_mm * np.cos(angle),
-                    radius_mm * np.sin(angle),
-                    height_mm,
+                    radius * np.cos(angle),
+                    radius * np.sin(angle),
+                    height,
                 ],
                 dtype=np.float64,
             )
 
             if facing == "inward":
-                target = np.array([0, 0, height_mm], dtype=np.float64)
+                target = np.array([0, 0, height], dtype=np.float64)
             else:
                 # Look away from origin at same height
-                target = 2 * position - np.array([0, 0, height_mm], dtype=np.float64)
+                target = 2 * position - np.array([0, 0, height], dtype=np.float64)
 
             roll = rng.uniform(-roll_variation_deg, roll_variation_deg) if roll_variation_deg else 0.0
             pitch = rng.uniform(-pitch_variation_deg, pitch_variation_deg) if pitch_variation_deg else 0.0
@@ -111,9 +111,9 @@ class CameraSynthesizer:
     def add_line(
         self,
         n: int,
-        spacing_mm: float,
-        distance_mm: float = 2000.0,
-        height_mm: float = 0.0,
+        spacing: float,
+        distance: float = 2.0,
+        height: float = 0.0,
         curvature: float = 0.0,
         roll_variation_deg: float = 0.0,
         pitch_variation_deg: float = 0.0,
@@ -126,9 +126,9 @@ class CameraSynthesizer:
 
         Args:
             n: Number of cameras in this line (>= 1)
-            spacing_mm: Distance between adjacent cameras
-            distance_mm: Distance from origin along -Y axis
-            height_mm: Z-coordinate of all cameras in this line
+            spacing: Distance between adjacent cameras (meters)
+            distance: Distance from origin along -Y axis (meters)
+            height: Z-coordinate of all cameras in this line (meters)
             curvature: Curve factor (0 = straight, higher = more curved toward origin)
             roll_variation_deg: Random roll within +/- this range (degrees)
             pitch_variation_deg: Random pitch within +/- this range (degrees)
@@ -138,20 +138,20 @@ class CameraSynthesizer:
             self, for method chaining
         """
         rng = np.random.default_rng(random_seed)
-        total_width = (n - 1) * spacing_mm
+        total_width = (n - 1) * spacing
         start_x = -total_width / 2
 
         for i in range(n):
-            x = start_x + i * spacing_mm
-            y = -distance_mm
+            x = start_x + i * spacing
+            y = -distance
 
             # Apply parabolic curvature
             if curvature > 0 and total_width > 0:
                 normalized_x = x / (total_width / 2)
-                y -= curvature * 500 * (normalized_x**2)
+                y -= curvature * 0.5 * (normalized_x**2)
 
-            position = np.array([x, y, height_mm], dtype=np.float64)
-            target = np.array([x, 0, height_mm], dtype=np.float64)
+            position = np.array([x, y, height], dtype=np.float64)
+            target = np.array([x, 0, height], dtype=np.float64)
 
             roll = rng.uniform(-roll_variation_deg, roll_variation_deg) if roll_variation_deg else 0.0
             pitch = rng.uniform(-pitch_variation_deg, pitch_variation_deg) if pitch_variation_deg else 0.0

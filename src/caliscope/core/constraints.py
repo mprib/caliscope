@@ -30,15 +30,11 @@ class ConstraintSet:
         cls,
         marker_set: ArucoMarkerSet,
         sigma_m: float = 0.002,
-        unit_scale: float = 1.0,
     ) -> ConstraintSet:
         """Compile distance constraints from a marker set.
 
         Emits 6 intra-marker constraints per marker (4 edges + 2 diagonals)
-        and 4 cross-marker constraints per link.
-
-        unit_scale multiplies distances and sigmas — use 1.0 for meters (production),
-        1000.0 for millimeters (synthetic framework).
+        and 4 cross-marker constraints per link. All distances in meters.
         """
         constraints: list[DistanceConstraint] = []
 
@@ -53,8 +49,8 @@ class ConstraintSet:
                             keypoint_id_a=i,
                             object_id_b=marker_id,
                             keypoint_id_b=j,
-                            distance=dist * unit_scale,
-                            sigma=sigma_m * unit_scale,
+                            distance=dist,
+                            sigma=sigma_m,
                         )
                     )
 
@@ -66,8 +62,8 @@ class ConstraintSet:
                         keypoint_id_a=i,
                         object_id_b=link.marker_b,
                         keypoint_id_b=link.corner_map[i],
-                        distance=link.separation_m * unit_scale,
-                        sigma=sigma_m * unit_scale,
+                        distance=link.separation_m,
+                        sigma=sigma_m,
                     )
                 )
 

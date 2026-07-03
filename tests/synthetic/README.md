@@ -77,12 +77,12 @@ from caliscope.synthetic import (
 
 camera_array = (
     CameraSynthesizer()
-    .add_ring(n=6, radius_mm=2500.0, height_mm=600.0)
+    .add_ring(n=6, radius=2.5, height=0.6)
     .build()
 )
 
-calibration_object = CalibrationObject.planar_grid(rows=7, cols=9, spacing_mm=40.0)
-trajectory = Trajectory.orbital(n_frames=30, radius_mm=300.0, arc_extent_deg=360.0)
+calibration_object = CalibrationObject.planar_grid(rows=7, cols=9, spacing=0.04)
+trajectory = Trajectory.orbital(n_frames=30, radius=0.3, arc_extent_deg=360.0)
 
 scene = SyntheticScene(
     camera_array=camera_array,

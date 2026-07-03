@@ -19,9 +19,9 @@ class TestConstruction:
 
     def test_valid_scene_accepted(self):
         """Create scene with valid inputs."""
-        cameras = CameraSynthesizer().add_ring(n=4, radius_mm=2000.0).build()
-        obj = CalibrationObject.planar_grid(rows=5, cols=7, spacing_mm=50.0)
-        traj = Trajectory.orbital(n_frames=10, radius_mm=500.0)
+        cameras = CameraSynthesizer().add_ring(n=4, radius=2.0).build()
+        obj = CalibrationObject.planar_grid(rows=5, cols=7, spacing=0.05)
+        traj = Trajectory.orbital(n_frames=10, radius=0.5)
 
         scene = SyntheticScene(
             camera_array=cameras,
@@ -36,9 +36,9 @@ class TestConstruction:
 
     def test_default_noise_and_seed(self):
         """Default noise sigma is 0.5, seed is 42."""
-        cameras = CameraSynthesizer().add_ring(n=4, radius_mm=2000.0).build()
-        obj = CalibrationObject.planar_grid(rows=5, cols=7, spacing_mm=50.0)
-        traj = Trajectory.orbital(n_frames=10, radius_mm=500.0)
+        cameras = CameraSynthesizer().add_ring(n=4, radius=2.0).build()
+        obj = CalibrationObject.planar_grid(rows=5, cols=7, spacing=0.05)
+        traj = Trajectory.orbital(n_frames=10, radius=0.5)
 
         scene = SyntheticScene(
             camera_array=cameras,
@@ -51,9 +51,9 @@ class TestConstruction:
 
     def test_negative_noise_sigma_rejected(self):
         """Negative pixel noise is invalid."""
-        cameras = CameraSynthesizer().add_ring(n=4, radius_mm=2000.0).build()
-        obj = CalibrationObject.planar_grid(rows=5, cols=7, spacing_mm=50.0)
-        traj = Trajectory.orbital(n_frames=10, radius_mm=500.0)
+        cameras = CameraSynthesizer().add_ring(n=4, radius=2.0).build()
+        obj = CalibrationObject.planar_grid(rows=5, cols=7, spacing=0.05)
+        traj = Trajectory.orbital(n_frames=10, radius=0.5)
 
         with pytest.raises(ValueError, match="pixel_noise_sigma must be >= 0"):
             SyntheticScene(
@@ -68,11 +68,11 @@ class TestConstruction:
         # Create ring rig and strip extrinsics
         from caliscope.synthetic.camera_synthesizer import strip_extrinsics
 
-        cameras = CameraSynthesizer().add_ring(n=4, radius_mm=2000.0).build()
+        cameras = CameraSynthesizer().add_ring(n=4, radius=2.0).build()
         cameras_no_extrinsics = strip_extrinsics(cameras)
 
-        obj = CalibrationObject.planar_grid(rows=5, cols=7, spacing_mm=50.0)
-        traj = Trajectory.orbital(n_frames=10, radius_mm=500.0)
+        obj = CalibrationObject.planar_grid(rows=5, cols=7, spacing=0.05)
+        traj = Trajectory.orbital(n_frames=10, radius=0.5)
 
         with pytest.raises(ValueError, match="All cameras must have extrinsics"):
             SyntheticScene(
@@ -87,9 +87,9 @@ class TestWorldPoints:
 
     def test_world_points_shape(self):
         """World points has n_frames * n_points rows."""
-        cameras = CameraSynthesizer().add_ring(n=4, radius_mm=2000.0).build()
-        obj = CalibrationObject.planar_grid(rows=5, cols=7, spacing_mm=50.0)
-        traj = Trajectory.orbital(n_frames=10, radius_mm=500.0)
+        cameras = CameraSynthesizer().add_ring(n=4, radius=2.0).build()
+        obj = CalibrationObject.planar_grid(rows=5, cols=7, spacing=0.05)
+        traj = Trajectory.orbital(n_frames=10, radius=0.5)
 
         scene = SyntheticScene(
             camera_array=cameras,
@@ -104,9 +104,9 @@ class TestWorldPoints:
 
     def test_world_points_columns(self):
         """World points has expected columns."""
-        cameras = CameraSynthesizer().add_ring(n=4, radius_mm=2000.0).build()
-        obj = CalibrationObject.planar_grid(rows=5, cols=7, spacing_mm=50.0)
-        traj = Trajectory.orbital(n_frames=10, radius_mm=500.0)
+        cameras = CameraSynthesizer().add_ring(n=4, radius=2.0).build()
+        obj = CalibrationObject.planar_grid(rows=5, cols=7, spacing=0.05)
+        traj = Trajectory.orbital(n_frames=10, radius=0.5)
 
         scene = SyntheticScene(
             camera_array=cameras,
@@ -124,9 +124,9 @@ class TestWorldPoints:
 
     def test_world_points_matches_trajectory(self):
         """World points at frame 0 match trajectory transformation."""
-        cameras = CameraSynthesizer().add_ring(n=4, radius_mm=2000.0).build()
-        obj = CalibrationObject.planar_grid(rows=5, cols=7, spacing_mm=50.0)
-        traj = Trajectory.orbital(n_frames=5, radius_mm=500.0, origin_frame=0)
+        cameras = CameraSynthesizer().add_ring(n=4, radius=2.0).build()
+        obj = CalibrationObject.planar_grid(rows=5, cols=7, spacing=0.05)
+        traj = Trajectory.orbital(n_frames=5, radius=0.5, origin_frame=0)
 
         scene = SyntheticScene(
             camera_array=cameras,
@@ -147,9 +147,9 @@ class TestWorldPoints:
 
     def test_world_points_all_keypoint_ids_present_per_frame(self):
         """Each frame has all point IDs."""
-        cameras = CameraSynthesizer().add_ring(n=4, radius_mm=2000.0).build()
-        obj = CalibrationObject.planar_grid(rows=5, cols=7, spacing_mm=50.0)
-        traj = Trajectory.orbital(n_frames=10, radius_mm=500.0)
+        cameras = CameraSynthesizer().add_ring(n=4, radius=2.0).build()
+        obj = CalibrationObject.planar_grid(rows=5, cols=7, spacing=0.05)
+        traj = Trajectory.orbital(n_frames=10, radius=0.5)
 
         scene = SyntheticScene(
             camera_array=cameras,
@@ -172,9 +172,9 @@ class TestImagePoints:
 
     def test_image_points_columns(self):
         """Image points have expected columns including obj_loc_x/y/z."""
-        cameras = CameraSynthesizer().add_ring(n=4, radius_mm=2000.0).build()
-        obj = CalibrationObject.planar_grid(rows=5, cols=7, spacing_mm=50.0)
-        traj = Trajectory.orbital(n_frames=10, radius_mm=500.0)
+        cameras = CameraSynthesizer().add_ring(n=4, radius=2.0).build()
+        obj = CalibrationObject.planar_grid(rows=5, cols=7, spacing=0.05)
+        traj = Trajectory.orbital(n_frames=10, radius=0.5)
 
         scene = SyntheticScene(
             camera_array=cameras,
@@ -202,9 +202,9 @@ class TestImagePoints:
 
     def test_image_points_within_bounds(self):
         """All projected points are within camera bounds."""
-        cameras = CameraSynthesizer().add_ring(n=4, radius_mm=2000.0).build()
-        obj = CalibrationObject.planar_grid(rows=5, cols=7, spacing_mm=50.0)
-        traj = Trajectory.orbital(n_frames=10, radius_mm=500.0)
+        cameras = CameraSynthesizer().add_ring(n=4, radius=2.0).build()
+        obj = CalibrationObject.planar_grid(rows=5, cols=7, spacing=0.05)
+        traj = Trajectory.orbital(n_frames=10, radius=0.5)
 
         scene = SyntheticScene(
             camera_array=cameras,
@@ -225,9 +225,9 @@ class TestImagePoints:
 
     def test_perfect_vs_noisy_differ_when_noise_nonzero(self):
         """Noisy points differ from perfect when sigma > 0."""
-        cameras = CameraSynthesizer().add_ring(n=4, radius_mm=2000.0).build()
-        obj = CalibrationObject.planar_grid(rows=5, cols=7, spacing_mm=50.0)
-        traj = Trajectory.orbital(n_frames=10, radius_mm=500.0)
+        cameras = CameraSynthesizer().add_ring(n=4, radius=2.0).build()
+        obj = CalibrationObject.planar_grid(rows=5, cols=7, spacing=0.05)
+        traj = Trajectory.orbital(n_frames=10, radius=0.5)
 
         scene = SyntheticScene(
             camera_array=cameras,
@@ -256,9 +256,9 @@ class TestImagePoints:
 
     def test_perfect_equals_noisy_when_noise_zero(self):
         """Perfect and noisy are identical when sigma = 0."""
-        cameras = CameraSynthesizer().add_ring(n=4, radius_mm=2000.0).build()
-        obj = CalibrationObject.planar_grid(rows=5, cols=7, spacing_mm=50.0)
-        traj = Trajectory.orbital(n_frames=10, radius_mm=500.0)
+        cameras = CameraSynthesizer().add_ring(n=4, radius=2.0).build()
+        obj = CalibrationObject.planar_grid(rows=5, cols=7, spacing=0.05)
+        traj = Trajectory.orbital(n_frames=10, radius=0.5)
 
         scene = SyntheticScene(
             camera_array=cameras,
@@ -285,9 +285,9 @@ class TestImagePoints:
 
     def test_obj_loc_columns_match_calibration_object(self):
         """obj_loc_x/y/z match the calibration object's local coordinates."""
-        cameras = CameraSynthesizer().add_ring(n=4, radius_mm=2000.0).build()
-        obj = CalibrationObject.planar_grid(rows=3, cols=4, spacing_mm=50.0)
-        traj = Trajectory.orbital(n_frames=5, radius_mm=500.0)
+        cameras = CameraSynthesizer().add_ring(n=4, radius=2.0).build()
+        obj = CalibrationObject.planar_grid(rows=3, cols=4, spacing=0.05)
+        traj = Trajectory.orbital(n_frames=5, radius=0.5)
 
         scene = SyntheticScene(
             camera_array=cameras,
@@ -315,9 +315,9 @@ class TestImagePoints:
 
     def test_random_seed_controls_noise(self):
         """Different random seeds produce different noise patterns."""
-        cameras = CameraSynthesizer().add_ring(n=4, radius_mm=2000.0).build()
-        obj = CalibrationObject.planar_grid(rows=5, cols=7, spacing_mm=50.0)
-        traj = Trajectory.orbital(n_frames=10, radius_mm=500.0)
+        cameras = CameraSynthesizer().add_ring(n=4, radius=2.0).build()
+        obj = CalibrationObject.planar_grid(rows=5, cols=7, spacing=0.05)
+        traj = Trajectory.orbital(n_frames=10, radius=0.5)
 
         scene1 = SyntheticScene(
             camera_array=cameras,
@@ -351,9 +351,9 @@ class TestImagePoints:
 
     def test_same_seed_produces_reproducible_noise(self):
         """Same random seed produces identical noise."""
-        cameras = CameraSynthesizer().add_ring(n=4, radius_mm=2000.0).build()
-        obj = CalibrationObject.planar_grid(rows=5, cols=7, spacing_mm=50.0)
-        traj = Trajectory.orbital(n_frames=10, radius_mm=500.0)
+        cameras = CameraSynthesizer().add_ring(n=4, radius=2.0).build()
+        obj = CalibrationObject.planar_grid(rows=5, cols=7, spacing=0.05)
+        traj = Trajectory.orbital(n_frames=10, radius=0.5)
 
         scene1 = SyntheticScene(
             camera_array=cameras,
@@ -384,9 +384,9 @@ class TestCoverageMatrix:
 
     def test_coverage_matrix_shape(self):
         """Coverage matrix is (n_cameras, n_cameras)."""
-        cameras = CameraSynthesizer().add_ring(n=4, radius_mm=2000.0).build()
-        obj = CalibrationObject.planar_grid(rows=5, cols=7, spacing_mm=50.0)
-        traj = Trajectory.orbital(n_frames=10, radius_mm=500.0)
+        cameras = CameraSynthesizer().add_ring(n=4, radius=2.0).build()
+        obj = CalibrationObject.planar_grid(rows=5, cols=7, spacing=0.05)
+        traj = Trajectory.orbital(n_frames=10, radius=0.5)
 
         scene = SyntheticScene(
             camera_array=cameras,
@@ -398,9 +398,9 @@ class TestCoverageMatrix:
 
     def test_coverage_matrix_symmetric(self):
         """Coverage matrix is symmetric."""
-        cameras = CameraSynthesizer().add_ring(n=4, radius_mm=2000.0).build()
-        obj = CalibrationObject.planar_grid(rows=5, cols=7, spacing_mm=50.0)
-        traj = Trajectory.orbital(n_frames=10, radius_mm=500.0)
+        cameras = CameraSynthesizer().add_ring(n=4, radius=2.0).build()
+        obj = CalibrationObject.planar_grid(rows=5, cols=7, spacing=0.05)
+        traj = Trajectory.orbital(n_frames=10, radius=0.5)
 
         scene = SyntheticScene(
             camera_array=cameras,
@@ -414,9 +414,9 @@ class TestCoverageMatrix:
 
     def test_coverage_matrix_diagonal_is_total_observations(self):
         """Diagonal elements are total observations per camera."""
-        cameras = CameraSynthesizer().add_ring(n=4, radius_mm=2000.0).build()
-        obj = CalibrationObject.planar_grid(rows=5, cols=7, spacing_mm=50.0)
-        traj = Trajectory.orbital(n_frames=10, radius_mm=500.0)
+        cameras = CameraSynthesizer().add_ring(n=4, radius=2.0).build()
+        obj = CalibrationObject.planar_grid(rows=5, cols=7, spacing=0.05)
+        traj = Trajectory.orbital(n_frames=10, radius=0.5)
 
         scene = SyntheticScene(
             camera_array=cameras,
@@ -433,9 +433,9 @@ class TestCoverageMatrix:
 
     def test_coverage_matrix_off_diagonal_is_shared_observations(self):
         """Off-diagonal elements count shared observations."""
-        cameras = CameraSynthesizer().add_ring(n=4, radius_mm=2000.0).build()
-        obj = CalibrationObject.planar_grid(rows=5, cols=7, spacing_mm=50.0)
-        traj = Trajectory.orbital(n_frames=10, radius_mm=500.0)
+        cameras = CameraSynthesizer().add_ring(n=4, radius=2.0).build()
+        obj = CalibrationObject.planar_grid(rows=5, cols=7, spacing=0.05)
+        traj = Trajectory.orbital(n_frames=10, radius=0.5)
 
         scene = SyntheticScene(
             camera_array=cameras,
@@ -477,9 +477,9 @@ class TestIntrinsicsOnlyCameras:
 
     def test_strips_extrinsics(self):
         """Returned cameras have no extrinsics."""
-        cameras = CameraSynthesizer().add_ring(n=4, radius_mm=2000.0).build()
-        obj = CalibrationObject.planar_grid(rows=5, cols=7, spacing_mm=50.0)
-        traj = Trajectory.orbital(n_frames=10, radius_mm=500.0)
+        cameras = CameraSynthesizer().add_ring(n=4, radius=2.0).build()
+        obj = CalibrationObject.planar_grid(rows=5, cols=7, spacing=0.05)
+        traj = Trajectory.orbital(n_frames=10, radius=0.5)
 
         scene = SyntheticScene(
             camera_array=cameras,
@@ -495,9 +495,9 @@ class TestIntrinsicsOnlyCameras:
 
     def test_preserves_intrinsics(self):
         """Returned cameras have same intrinsics."""
-        cameras = CameraSynthesizer().add_ring(n=4, radius_mm=2000.0).build()
-        obj = CalibrationObject.planar_grid(rows=5, cols=7, spacing_mm=50.0)
-        traj = Trajectory.orbital(n_frames=10, radius_mm=500.0)
+        cameras = CameraSynthesizer().add_ring(n=4, radius=2.0).build()
+        obj = CalibrationObject.planar_grid(rows=5, cols=7, spacing=0.05)
+        traj = Trajectory.orbital(n_frames=10, radius=0.5)
 
         scene = SyntheticScene(
             camera_array=cameras,
@@ -520,9 +520,9 @@ class TestApplyFilter:
 
     def test_apply_empty_filter_returns_unchanged(self):
         """Empty filter returns same points."""
-        cameras = CameraSynthesizer().add_ring(n=4, radius_mm=2000.0).build()
-        obj = CalibrationObject.planar_grid(rows=5, cols=7, spacing_mm=50.0)
-        traj = Trajectory.orbital(n_frames=10, radius_mm=500.0)
+        cameras = CameraSynthesizer().add_ring(n=4, radius=2.0).build()
+        obj = CalibrationObject.planar_grid(rows=5, cols=7, spacing=0.05)
+        traj = Trajectory.orbital(n_frames=10, radius=0.5)
 
         scene = SyntheticScene(
             camera_array=cameras,
@@ -537,9 +537,9 @@ class TestApplyFilter:
 
     def test_apply_dropped_cameras_filter(self):
         """Dropped cameras filter removes observations."""
-        cameras = CameraSynthesizer().add_ring(n=4, radius_mm=2000.0).build()
-        obj = CalibrationObject.planar_grid(rows=5, cols=7, spacing_mm=50.0)
-        traj = Trajectory.orbital(n_frames=10, radius_mm=500.0)
+        cameras = CameraSynthesizer().add_ring(n=4, radius=2.0).build()
+        obj = CalibrationObject.planar_grid(rows=5, cols=7, spacing=0.05)
+        traj = Trajectory.orbital(n_frames=10, radius=0.5)
 
         scene = SyntheticScene(
             camera_array=cameras,
@@ -558,9 +558,9 @@ class TestApplyFilter:
 
     def test_apply_killed_linkage_filter(self):
         """Killed linkage filter removes shared observations."""
-        cameras = CameraSynthesizer().add_ring(n=4, radius_mm=2000.0).build()
-        obj = CalibrationObject.planar_grid(rows=5, cols=7, spacing_mm=50.0)
-        traj = Trajectory.orbital(n_frames=10, radius_mm=500.0)
+        cameras = CameraSynthesizer().add_ring(n=4, radius=2.0).build()
+        obj = CalibrationObject.planar_grid(rows=5, cols=7, spacing=0.05)
+        traj = Trajectory.orbital(n_frames=10, radius=0.5)
 
         scene = SyntheticScene(
             camera_array=cameras,
@@ -614,9 +614,9 @@ class TestApplyFilter:
 
     def test_apply_random_dropout_reduces_observations(self):
         """Random dropout reduces number of observations."""
-        cameras = CameraSynthesizer().add_ring(n=4, radius_mm=2000.0).build()
-        obj = CalibrationObject.planar_grid(rows=5, cols=7, spacing_mm=50.0)
-        traj = Trajectory.orbital(n_frames=10, radius_mm=500.0)
+        cameras = CameraSynthesizer().add_ring(n=4, radius=2.0).build()
+        obj = CalibrationObject.planar_grid(rows=5, cols=7, spacing=0.05)
+        traj = Trajectory.orbital(n_frames=10, radius=0.5)
 
         scene = SyntheticScene(
             camera_array=cameras,

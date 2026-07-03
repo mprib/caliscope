@@ -22,11 +22,11 @@ class PoseError:
 
     Attributes:
         rotation_deg: Geodesic distance on SO(3) in degrees.
-        translation_mm: Euclidean distance between camera positions in mm.
+        translation_m: Euclidean distance between camera positions in meters.
     """
 
     rotation_deg: float
-    translation_mm: float
+    translation_m: float
 
 
 def pose_error(estimated: CameraData, ground_truth: CameraData) -> PoseError:
@@ -54,16 +54,16 @@ def pose_error(estimated: CameraData, ground_truth: CameraData) -> PoseError:
     # Translation error: Euclidean distance between camera positions
     pos_est = -estimated.rotation.T @ estimated.translation
     pos_gt = -ground_truth.rotation.T @ ground_truth.translation
-    translation_mm = float(np.linalg.norm(pos_est - pos_gt))
+    translation_m = float(np.linalg.norm(pos_est - pos_gt))
 
-    return PoseError(rotation_deg=rotation_deg, translation_mm=translation_mm)
+    return PoseError(rotation_deg=rotation_deg, translation_m=translation_m)
 
 
 def cameras_match_ground_truth(
     actual: CameraArray,
     expected: CameraArray,
     rotation_tol_deg: float = 0.5,
-    translation_tol_mm: float = 5.0,
+    translation_tol_m: float = 0.005,
     skip_ports: list[int] | None = None,
 ) -> tuple[bool, str]:
     """
@@ -92,9 +92,9 @@ def cameras_match_ground_truth(
                 f"Camera {cam_id}: rotation error {error.rotation_deg:.3f} deg > {rotation_tol_deg} deg tolerance"
             )
 
-        if error.translation_mm > translation_tol_mm:
+        if error.translation_m > translation_tol_m:
             failures.append(
-                f"Camera {cam_id}: translation error {error.translation_mm:.2f} mm > {translation_tol_mm} mm tolerance"
+                f"Camera {cam_id}: translation error {error.translation_m:.4f} m > {translation_tol_m} m tolerance"
             )
 
     if failures:

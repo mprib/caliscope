@@ -243,8 +243,8 @@ class ProjectSetupView(QWidget):
         path_label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
         layout.addWidget(path_label, stretch=1)
 
-        self._open_folder_btn = QPushButton("Open Folder")
-        self._open_folder_btn.setFixedWidth(100)
+        self._open_folder_btn = QPushButton("Open Project Folder")
+        self._open_folder_btn.setFixedWidth(170)
         layout.addWidget(self._open_folder_btn)
 
         return row
@@ -390,9 +390,7 @@ class ProjectSetupView(QWidget):
         else:
             self._extrinsic_type_combo.setCurrentIndex(1)
             self._same_as_intrinsic_check.setVisible(False)
-            self._extrinsic_stack.setCurrentIndex(_EXTRINSIC_PAGE_ARUCO)
-            self._extrinsic_save_btn.setText("Save PNG")
-            self._update_extrinsic_aruco_preview()
+            self._update_extrinsic_stack()
 
         return group
 
@@ -576,13 +574,12 @@ class ProjectSetupView(QWidget):
         target_type = self._extrinsic_type_combo.currentData()
         if target_type == "aruco":
             self._extrinsic_stack.setCurrentIndex(_EXTRINSIC_PAGE_ARUCO)
-            self._extrinsic_save_btn.setText("Save PNG")
-            self._extrinsic_save_btn.setEnabled(True)
-            self._extrinsic_save_btn.setToolTip("")
+            self._extrinsic_save_btn.setVisible(False)
             self._update_extrinsic_aruco_preview()
         else:  # "charuco"
             same_as_intrinsic = self._same_as_intrinsic_check.isChecked()
             self._extrinsic_stack.setCurrentIndex(_EXTRINSIC_PAGE_CHARUCO)
+            self._extrinsic_save_btn.setVisible(True)
             self._extrinsic_save_btn.setText("Save Board + Mirror")
 
             if same_as_intrinsic:

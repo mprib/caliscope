@@ -165,4 +165,16 @@ class ArucoMarkerSet:
             (0, 0, 0),
             label_thick,
         )
+
+        corner_scale = font_scale * 0.4
+        pad = int(font_scale * 12)
+        corner_positions = [
+            (border - pad, border - pad // 2),
+            (border + pixel_size + pad // 4, border - pad // 2),
+            (border + pixel_size + pad // 4, border + pixel_size + pad),
+            (border - pad, border + pixel_size + pad),
+        ]
+        for idx, pos in enumerate(corner_positions):
+            cv2.putText(annotated, str(idx), pos, font, corner_scale, (0, 0, 0), label_thick)
+
         return annotated

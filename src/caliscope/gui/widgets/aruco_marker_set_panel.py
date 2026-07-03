@@ -56,12 +56,20 @@ class ArucoMarkerSetPanel(QWidget):
         self._update_summary()
         layout.addWidget(self._summary_label)
 
+        # Help link
+        help_label = QLabel(
+            '<a href="https://mprib.github.io/caliscope/calibration_targets/">'
+            "How to set up multi-marker calibration</a>"
+        )
+        help_label.setOpenExternalLinks(True)
+        layout.addWidget(help_label)
+
         # Button row
         btn_row = QHBoxLayout()
 
-        open_btn = QPushButton("Open Folder")
-        open_btn.setToolTip("Open the targets directory in the file browser")
-        open_btn.clicked.connect(self._open_folder)
+        open_btn = QPushButton("Edit TOML")
+        open_btn.setToolTip("Open aruco_marker_set.toml in your text editor")
+        open_btn.clicked.connect(self._open_toml)
         btn_row.addWidget(open_btn)
 
         reload_btn = QPushButton("Reload")
@@ -70,7 +78,7 @@ class ArucoMarkerSetPanel(QWidget):
         btn_row.addWidget(reload_btn)
 
         save_btn = QPushButton("Save All PNGs")
-        save_btn.setToolTip("Save one PNG per marker to the targets directory")
+        save_btn.setToolTip("Save one PNG per marker to marker_images/ subfolder")
         save_btn.clicked.connect(self._save_all_pngs)
         btn_row.addWidget(save_btn)
 
@@ -87,8 +95,9 @@ class ArucoMarkerSetPanel(QWidget):
             lines.append(f"  ID {mid}: {size_cm:.1f} cm")
         self._summary_label.setText("<br>".join(lines))
 
-    def _open_folder(self) -> None:
-        QDesktopServices.openUrl(QUrl.fromLocalFile(str(self._targets_dir)))
+    def _open_toml(self) -> None:
+        toml_path = self._targets_dir / "aruco_marker_set.toml"
+        QDesktopServices.openUrl(QUrl.fromLocalFile(str(toml_path)))
 
     def _reload(self) -> None:
         toml_path = self._targets_dir / "aruco_marker_set.toml"
@@ -105,10 +114,12 @@ class ArucoMarkerSetPanel(QWidget):
 
     def _save_all_pngs(self) -> None:
         ms = self._marker_set
+        out_dir = self._targets_dir / "marker_images"
+        out_dir.mkdir(exist_ok=True)
         for mid, marker in ms.markers.items():
             pixel_size = int(marker.size_m * 8000)
             bgr = ms.generate_marker_image(mid, pixel_size)
-            out_path = self._targets_dir / f"marker_{mid}.png"
+            out_path = out_dir / f"marker_{mid}.png"
             cv2.imwrite(str(out_path), bgr)
             logger.info("Saved %s", out_path)
 

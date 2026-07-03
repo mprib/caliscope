@@ -16,6 +16,7 @@ from pathlib import Path
 import logging
 
 from caliscope.cameras.camera_array import CameraArray
+from caliscope.core.constraints import ConstraintSet
 from caliscope.core.point_data import ImagePoints, WorldPoints
 from caliscope.core.capture_volume import CaptureVolume
 from caliscope.persistence import PersistenceError
@@ -69,10 +70,14 @@ class CaptureVolumeRepository:
             image_points = ImagePoints.from_csv(self.image_points_path)
             world_points = WorldPoints.from_csv(self.world_points_path)
 
+            constraints_path = self.base_path / "constraints.toml"
+            constraints = ConstraintSet.from_toml(constraints_path) if constraints_path.exists() else None
+
             return CaptureVolume(
                 camera_array=camera_array,
                 image_points=image_points,
                 world_points=world_points,
+                constraints=constraints,
             )
         except FileNotFoundError as e:
             raise PersistenceError(
@@ -100,6 +105,12 @@ class CaptureVolumeRepository:
             capture_volume.camera_array.to_toml(self.camera_array_path)
             capture_volume.image_points.to_csv(self.image_points_path)
             capture_volume.world_points.to_csv(self.world_points_path)
+
+            constraints_path = self.base_path / "constraints.toml"
+            if capture_volume.constraints is not None:
+                capture_volume.constraints.to_toml(constraints_path)
+            elif constraints_path.exists():
+                constraints_path.unlink()
 
             logger.info(f"Successfully saved CaptureVolume to {self.base_path}")
         except Exception as e:

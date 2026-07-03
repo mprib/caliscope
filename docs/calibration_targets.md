@@ -8,7 +8,7 @@ Caliscope supports three types of calibration targets:
 |--------|-----------|-----------|----------------|
 | ChArUco Board | Yes | Yes | Yes |
 | Chessboard | Yes | No | No (intrinsic only) |
-| ArUco Marker | No | Yes | Yes |
+| ArUco Markers | No | Yes | Yes |
 
 ---
 
@@ -50,17 +50,105 @@ Chessboards **cannot be used for extrinsic calibration**. Unlike ChArUco boards,
 
 ---
 
-## ArUco Marker
+## ArUco Markers
 
-A single ArUco marker can be used for extrinsic calibration. This approach is particularly useful for large capture volumes where a full board would be too small to detect reliably.
+Caliscope supports extrinsic calibration with one or more ArUco markers. Multiple markers with known distances between them provide rigid body constraints that improve calibration accuracy. Markers can be mobile (carried through the volume) or static (fixed in the scene at surveyed positions).
 
-### Configuration Parameters
+This approach is particularly useful for large capture volumes where a full board would be too small to detect reliably.
 
-**ArUco Dictionary**: The marker set from which the marker ID is drawn. Each dictionary defines a set of markers varying in count and error-correction strength.
+### The `aruco_marker_set.toml` File
 
-**Marker ID**: The specific marker index within the chosen dictionary.
+The marker set is defined in a TOML file in the workspace targets directory. Here is an example with three markers and two distance constraints:
 
-**Marker Size**: The physical side length of the printed marker in centimeters, measured corner to corner. This value sets the world scale for extrinsic calibration.
+```toml
+dictionary = "DICT_4X4_100"
+
+[[markers]]
+id = 0
+size_m = 0.05
+
+[[markers]]
+id = 1
+size_m = 0.05
+
+[[markers]]
+id = 5
+size_m = 0.05
+static = true
+
+[[links]]
+marker_a = 0
+marker_b = 1
+corner_map = [0, 1, 2, 3]
+separation_m = 0.20
+
+[[links]]
+marker_a = 0
+marker_b = 5
+corner_map = [1, 0, 3, 2]
+separation_m = 0.50
+```
+
+**`dictionary`** — the OpenCV ArUco dictionary name (e.g. `"DICT_4X4_100"`, `"DICT_5X5_250"`).
+
+**`[[markers]]`** — each entry defines one marker:
+
+- `id` — the marker index within the dictionary
+- `size_m` — physical edge length in meters
+- `static` — (optional, default false) set to `true` for markers fixed in the scene. Static markers are triangulated once and held constant during optimization.
+
+**`[[links]]`** — each entry defines a rigid distance constraint between two markers:
+
+- `marker_a`, `marker_b` — the two marker IDs
+- `corner_map` — a permutation of `[0, 1, 2, 3]` describing how corners on marker A correspond to corners on marker B (see below)
+- `separation_m` — the measured distance in meters between each pair of corresponding corners
+
+### Corner Numbering
+
+Corners follow OpenCV's `detectMarkers` output order:
+
+```
+  0 ──── 1
+  │      │
+  │      │
+  3 ──── 2
+```
+
+0 = top-left, 1 = top-right, 2 = bottom-right, 3 = bottom-left. The saved marker PNGs (from "Save All PNGs") label each corner with its index for reference.
+
+### Understanding `corner_map`
+
+The `corner_map` field tells the optimizer which corners on marker A line up with which corners on marker B. It is a permutation of `[0, 1, 2, 3]`. Entry `i` says: corner `i` on marker A corresponds to corner `corner_map[i]` on marker B.
+
+**Identity `[0, 1, 2, 3]`** — corners match directly. Both markers are oriented the same way. Corner 0 on A faces corner 0 on B.
+
+**Mirrored `[1, 0, 3, 2]`** — the markers face each other (e.g. printed on opposite sides of a board). Corner 0 on A faces corner 1 on B.
+
+The `separation_m` distance is applied uniformly to all four corner pairs defined by the map. **Linked markers must be the same size** for this constraint to be geometrically accurate.
+
+### Workflow
+
+1. Create or edit `aruco_marker_set.toml` in the workspace targets directory
+2. Click "Save All PNGs" in the GUI to generate printable markers with corner labels (saved to `marker_images/` subfolder)
+3. Print the markers. Mount on rigid backing.
+4. Measure corner-to-corner distances between linked markers with calipers. Record in `[[links]]`.
+5. Place static markers in the scene if using any. Record calibration video with markers visible across cameras.
+6. Run extraction, then calibrate. Constraints are applied automatically during bundle adjustment.
+
+### Scripting API
+
+```python
+from caliscope.core.aruco_marker import ArucoMarkerSet
+from caliscope.core.constraints import ConstraintSet
+from caliscope.core.capture_volume import CaptureVolume
+
+marker_set = ArucoMarkerSet.from_toml(toml_path)
+constraints = ConstraintSet.from_marker_set(marker_set)
+capture_volume = CaptureVolume(
+    camera_array, image_points, world_points, constraints=constraints
+)
+capture_volume.optimize()
+```
 
 ### Limitations
 

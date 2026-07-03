@@ -26,6 +26,7 @@ from caliscope.repositories.calibration_targets_repository import (
     TargetRouting,
 )
 from caliscope.core.capture_volume import CaptureVolume
+from caliscope.core.constraints import ConstraintSet
 from caliscope.core.workflow_status import WorkflowStatus
 from caliscope.persistence import PersistenceError
 from caliscope.repositories.intrinsic_report_repository import IntrinsicReportRepository
@@ -563,11 +564,22 @@ class WorkspaceCoordinator(QObject):
         # Check for existing calibration (restores state on project reopen)
         existing_capture_volume = self.capture_volume
 
+        # Constraint factory reads marker set fresh from disk at calibration time
+        constraint_factory = None
+        if self.targets_repository.extrinsic_target_type == "aruco":
+            targets_repo = self.targets_repository
+
+            def _build_constraints() -> ConstraintSet:
+                return ConstraintSet.from_marker_set(targets_repo.load_aruco_marker_set())
+
+            constraint_factory = _build_constraints
+
         presenter = ExtrinsicCalibrationPresenter(
             task_manager=self.task_manager,
             camera_array=self.camera_array,
             image_points_path=image_points_path,
             existing_capture_volume=existing_capture_volume,
+            constraint_factory=constraint_factory,
             project_settings=self.settings_repository,
         )
 

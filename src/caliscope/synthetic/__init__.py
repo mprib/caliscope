@@ -10,11 +10,15 @@ from caliscope.synthetic.fixture_repository import (
     load_fixture,
     save_fixture,
 )
-from caliscope.synthetic.synthetic_scene import SyntheticScene
+from caliscope.synthetic.synthetic_scene import SceneObject, SyntheticScene
 from caliscope.synthetic.scene_factories import (
+    aruco_multi_object_scene,
+    aruco_scene,
+    cheirality_demo_scene,
     default_ring_scene,
     quick_test_scene,
     sparse_coverage_scene,
+    visibility_culling_scene,
 )
 from caliscope.synthetic.se3_pose import SE3Pose
 from caliscope.synthetic.trajectory import Trajectory
@@ -25,11 +29,16 @@ __all__ = [
     "SE3Pose",
     "Trajectory",
     "FilterConfig",
+    "SceneObject",
     "SyntheticScene",
     "compute_coverage_matrix",
+    "aruco_multi_object_scene",
+    "aruco_scene",
+    "cheirality_demo_scene",
     "default_ring_scene",
     "sparse_coverage_scene",
     "quick_test_scene",
+    "visibility_culling_scene",
     "SyntheticFixture",
     "SyntheticFixtureRepository",
     "save_fixture",

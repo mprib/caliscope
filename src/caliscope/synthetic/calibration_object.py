@@ -24,10 +24,14 @@ class CalibrationObject:
     Attributes:
         points: (N, 3) points in object-local coordinates
         keypoint_ids: (N,) unique integer identifiers for each point
+        face_normal: Unit normal in object-local frame for visibility culling.
+            When set, a camera only sees points if (camera_center - point) · normal > 0
+            in world frame. None disables culling (visible from all sides).
     """
 
     points: NDArray[np.float64]
     keypoint_ids: NDArray[np.int64]
+    face_normal: NDArray[np.float64] | None = None
 
     def __post_init__(self) -> None:
         """Validate point arrays."""
@@ -41,6 +45,13 @@ class CalibrationObject:
             raise ValueError("Point IDs must be unique")
         if len(self.points) < 4:
             raise ValueError(f"Need at least 4 points for calibration, got {len(self.points)}")
+        if self.face_normal is not None:
+            n = np.asarray(self.face_normal, dtype=np.float64)
+            if n.shape != (3,):
+                raise ValueError(f"face_normal must be shape (3,), got {n.shape}")
+            norm = float(np.linalg.norm(n))
+            if not np.isclose(norm, 1.0, atol=1e-6):
+                raise ValueError(f"face_normal must be unit length, got norm={norm}")
 
     @classmethod
     def planar_grid(

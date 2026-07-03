@@ -23,7 +23,7 @@ class TestConstruction:
         obj = CalibrationObject.planar_grid(rows=5, cols=7, spacing=0.05)
         traj = Trajectory.orbital(n_frames=10, radius=0.5)
 
-        scene = SyntheticScene(
+        scene = SyntheticScene.single(
             camera_array=cameras,
             calibration_object=obj,
             trajectory=traj,
@@ -40,7 +40,7 @@ class TestConstruction:
         obj = CalibrationObject.planar_grid(rows=5, cols=7, spacing=0.05)
         traj = Trajectory.orbital(n_frames=10, radius=0.5)
 
-        scene = SyntheticScene(
+        scene = SyntheticScene.single(
             camera_array=cameras,
             calibration_object=obj,
             trajectory=traj,
@@ -56,7 +56,7 @@ class TestConstruction:
         traj = Trajectory.orbital(n_frames=10, radius=0.5)
 
         with pytest.raises(ValueError, match="pixel_noise_sigma must be >= 0"):
-            SyntheticScene(
+            SyntheticScene.single(
                 camera_array=cameras,
                 calibration_object=obj,
                 trajectory=traj,
@@ -65,7 +65,6 @@ class TestConstruction:
 
     def test_unposed_cameras_rejected(self):
         """All cameras must have extrinsics."""
-        # Create ring rig and strip extrinsics
         from caliscope.synthetic.camera_synthesizer import strip_extrinsics
 
         cameras = CameraSynthesizer().add_ring(n=4, radius=2.0).build()
@@ -75,7 +74,7 @@ class TestConstruction:
         traj = Trajectory.orbital(n_frames=10, radius=0.5)
 
         with pytest.raises(ValueError, match="All cameras must have extrinsics"):
-            SyntheticScene(
+            SyntheticScene.single(
                 camera_array=cameras_no_extrinsics,
                 calibration_object=obj,
                 trajectory=traj,
@@ -91,7 +90,7 @@ class TestWorldPoints:
         obj = CalibrationObject.planar_grid(rows=5, cols=7, spacing=0.05)
         traj = Trajectory.orbital(n_frames=10, radius=0.5)
 
-        scene = SyntheticScene(
+        scene = SyntheticScene.single(
             camera_array=cameras,
             calibration_object=obj,
             trajectory=traj,
@@ -108,7 +107,7 @@ class TestWorldPoints:
         obj = CalibrationObject.planar_grid(rows=5, cols=7, spacing=0.05)
         traj = Trajectory.orbital(n_frames=10, radius=0.5)
 
-        scene = SyntheticScene(
+        scene = SyntheticScene.single(
             camera_array=cameras,
             calibration_object=obj,
             trajectory=traj,
@@ -128,7 +127,7 @@ class TestWorldPoints:
         obj = CalibrationObject.planar_grid(rows=5, cols=7, spacing=0.05)
         traj = Trajectory.orbital(n_frames=5, radius=0.5, origin_frame=0)
 
-        scene = SyntheticScene(
+        scene = SyntheticScene.single(
             camera_array=cameras,
             calibration_object=obj,
             trajectory=traj,
@@ -151,7 +150,7 @@ class TestWorldPoints:
         obj = CalibrationObject.planar_grid(rows=5, cols=7, spacing=0.05)
         traj = Trajectory.orbital(n_frames=10, radius=0.5)
 
-        scene = SyntheticScene(
+        scene = SyntheticScene.single(
             camera_array=cameras,
             calibration_object=obj,
             trajectory=traj,
@@ -176,7 +175,7 @@ class TestImagePoints:
         obj = CalibrationObject.planar_grid(rows=5, cols=7, spacing=0.05)
         traj = Trajectory.orbital(n_frames=10, radius=0.5)
 
-        scene = SyntheticScene(
+        scene = SyntheticScene.single(
             camera_array=cameras,
             calibration_object=obj,
             trajectory=traj,
@@ -206,7 +205,7 @@ class TestImagePoints:
         obj = CalibrationObject.planar_grid(rows=5, cols=7, spacing=0.05)
         traj = Trajectory.orbital(n_frames=10, radius=0.5)
 
-        scene = SyntheticScene(
+        scene = SyntheticScene.single(
             camera_array=cameras,
             calibration_object=obj,
             trajectory=traj,
@@ -229,7 +228,7 @@ class TestImagePoints:
         obj = CalibrationObject.planar_grid(rows=5, cols=7, spacing=0.05)
         traj = Trajectory.orbital(n_frames=10, radius=0.5)
 
-        scene = SyntheticScene(
+        scene = SyntheticScene.single(
             camera_array=cameras,
             calibration_object=obj,
             trajectory=traj,
@@ -260,7 +259,7 @@ class TestImagePoints:
         obj = CalibrationObject.planar_grid(rows=5, cols=7, spacing=0.05)
         traj = Trajectory.orbital(n_frames=10, radius=0.5)
 
-        scene = SyntheticScene(
+        scene = SyntheticScene.single(
             camera_array=cameras,
             calibration_object=obj,
             trajectory=traj,
@@ -289,7 +288,7 @@ class TestImagePoints:
         obj = CalibrationObject.planar_grid(rows=3, cols=4, spacing=0.05)
         traj = Trajectory.orbital(n_frames=5, radius=0.5)
 
-        scene = SyntheticScene(
+        scene = SyntheticScene.single(
             camera_array=cameras,
             calibration_object=obj,
             trajectory=traj,
@@ -319,7 +318,7 @@ class TestImagePoints:
         obj = CalibrationObject.planar_grid(rows=5, cols=7, spacing=0.05)
         traj = Trajectory.orbital(n_frames=10, radius=0.5)
 
-        scene1 = SyntheticScene(
+        scene1 = SyntheticScene.single(
             camera_array=cameras,
             calibration_object=obj,
             trajectory=traj,
@@ -327,7 +326,7 @@ class TestImagePoints:
             random_seed=42,
         )
 
-        scene2 = SyntheticScene(
+        scene2 = SyntheticScene.single(
             camera_array=cameras,
             calibration_object=obj,
             trajectory=traj,
@@ -355,7 +354,7 @@ class TestImagePoints:
         obj = CalibrationObject.planar_grid(rows=5, cols=7, spacing=0.05)
         traj = Trajectory.orbital(n_frames=10, radius=0.5)
 
-        scene1 = SyntheticScene(
+        scene1 = SyntheticScene.single(
             camera_array=cameras,
             calibration_object=obj,
             trajectory=traj,
@@ -363,7 +362,7 @@ class TestImagePoints:
             random_seed=42,
         )
 
-        scene2 = SyntheticScene(
+        scene2 = SyntheticScene.single(
             camera_array=cameras,
             calibration_object=obj,
             trajectory=traj,
@@ -388,7 +387,7 @@ class TestCoverageMatrix:
         obj = CalibrationObject.planar_grid(rows=5, cols=7, spacing=0.05)
         traj = Trajectory.orbital(n_frames=10, radius=0.5)
 
-        scene = SyntheticScene(
+        scene = SyntheticScene.single(
             camera_array=cameras,
             calibration_object=obj,
             trajectory=traj,
@@ -402,7 +401,7 @@ class TestCoverageMatrix:
         obj = CalibrationObject.planar_grid(rows=5, cols=7, spacing=0.05)
         traj = Trajectory.orbital(n_frames=10, radius=0.5)
 
-        scene = SyntheticScene(
+        scene = SyntheticScene.single(
             camera_array=cameras,
             calibration_object=obj,
             trajectory=traj,
@@ -418,7 +417,7 @@ class TestCoverageMatrix:
         obj = CalibrationObject.planar_grid(rows=5, cols=7, spacing=0.05)
         traj = Trajectory.orbital(n_frames=10, radius=0.5)
 
-        scene = SyntheticScene(
+        scene = SyntheticScene.single(
             camera_array=cameras,
             calibration_object=obj,
             trajectory=traj,
@@ -437,7 +436,7 @@ class TestCoverageMatrix:
         obj = CalibrationObject.planar_grid(rows=5, cols=7, spacing=0.05)
         traj = Trajectory.orbital(n_frames=10, radius=0.5)
 
-        scene = SyntheticScene(
+        scene = SyntheticScene.single(
             camera_array=cameras,
             calibration_object=obj,
             trajectory=traj,
@@ -481,7 +480,7 @@ class TestIntrinsicsOnlyCameras:
         obj = CalibrationObject.planar_grid(rows=5, cols=7, spacing=0.05)
         traj = Trajectory.orbital(n_frames=10, radius=0.5)
 
-        scene = SyntheticScene(
+        scene = SyntheticScene.single(
             camera_array=cameras,
             calibration_object=obj,
             trajectory=traj,
@@ -499,7 +498,7 @@ class TestIntrinsicsOnlyCameras:
         obj = CalibrationObject.planar_grid(rows=5, cols=7, spacing=0.05)
         traj = Trajectory.orbital(n_frames=10, radius=0.5)
 
-        scene = SyntheticScene(
+        scene = SyntheticScene.single(
             camera_array=cameras,
             calibration_object=obj,
             trajectory=traj,
@@ -524,7 +523,7 @@ class TestApplyFilter:
         obj = CalibrationObject.planar_grid(rows=5, cols=7, spacing=0.05)
         traj = Trajectory.orbital(n_frames=10, radius=0.5)
 
-        scene = SyntheticScene(
+        scene = SyntheticScene.single(
             camera_array=cameras,
             calibration_object=obj,
             trajectory=traj,
@@ -541,7 +540,7 @@ class TestApplyFilter:
         obj = CalibrationObject.planar_grid(rows=5, cols=7, spacing=0.05)
         traj = Trajectory.orbital(n_frames=10, radius=0.5)
 
-        scene = SyntheticScene(
+        scene = SyntheticScene.single(
             camera_array=cameras,
             calibration_object=obj,
             trajectory=traj,
@@ -562,7 +561,7 @@ class TestApplyFilter:
         obj = CalibrationObject.planar_grid(rows=5, cols=7, spacing=0.05)
         traj = Trajectory.orbital(n_frames=10, radius=0.5)
 
-        scene = SyntheticScene(
+        scene = SyntheticScene.single(
             camera_array=cameras,
             calibration_object=obj,
             trajectory=traj,
@@ -618,7 +617,7 @@ class TestApplyFilter:
         obj = CalibrationObject.planar_grid(rows=5, cols=7, spacing=0.05)
         traj = Trajectory.orbital(n_frames=10, radius=0.5)
 
-        scene = SyntheticScene(
+        scene = SyntheticScene.single(
             camera_array=cameras,
             calibration_object=obj,
             trajectory=traj,
@@ -634,6 +633,92 @@ class TestApplyFilter:
         # Should have roughly half the points (with some variance)
         assert n_after < n_before
         assert 0.4 * n_before < n_after < 0.6 * n_before
+
+
+class TestReproducibility:
+    """Verify unified class produces identical output for single-object scenes."""
+
+    def test_matches_pinned_baseline(self):
+        """default_ring_scene(seed=42) matches the pinned CSV fixture."""
+        from pathlib import Path
+
+        import pandas as pd
+        from caliscope.synthetic.scene_factories import default_ring_scene
+
+        scene = default_ring_scene(pixel_noise_sigma=0.5, random_seed=42)
+        df = scene.image_points_noisy.df.sort_values(["sync_index", "cam_id", "object_id", "keypoint_id"]).reset_index(
+            drop=True
+        )
+
+        baseline_path = (
+            Path(__file__).parent.parent.parent
+            / "fixtures"
+            / "synthetic"
+            / "default_ring_baseline"
+            / "image_points_noisy.csv"
+        )
+        baseline = pd.read_csv(baseline_path)
+
+        assert len(df) == len(baseline)
+        assert np.allclose(df["img_loc_x"].values, baseline["img_loc_x"].values, atol=1e-10)
+        assert np.allclose(df["img_loc_y"].values, baseline["img_loc_y"].values, atol=1e-10)
+
+
+class TestCheirality:
+    """Cheirality check: points behind the camera produce zero observations."""
+
+    def test_camera_facing_away_sees_nothing(self):
+        """Backward camera (cam 1) sees nothing; forward camera (cam 0) sees points."""
+        from caliscope.synthetic.scene_factories import cheirality_demo_scene
+
+        scene = cheirality_demo_scene()
+        df = scene.image_points_perfect.df
+
+        assert len(df[df["cam_id"] == 1]) == 0, "Backward camera should see nothing"
+        assert len(df[df["cam_id"] == 0]) > 0, "Forward camera should see points"
+
+
+class TestVisibilityCulling:
+    """Visibility culling via face_normal."""
+
+    def test_back_side_camera_sees_nothing(self):
+        """Camera behind a single-sided board sees nothing."""
+        from caliscope.synthetic.scene_factories import visibility_culling_scene
+
+        scene = visibility_culling_scene()
+        df = scene.image_points_perfect.df
+
+        assert len(df[df["cam_id"] == 0]) > 0, "Camera on normal side should see points"
+        assert len(df[df["cam_id"] == 1]) == 0, "Camera on back side should see nothing"
+
+    def test_no_face_normal_visible_from_both_sides(self):
+        """Same camera rig, but without face_normal — both cameras see points."""
+        from caliscope.synthetic.scene_factories import visibility_culling_scene
+        from caliscope.synthetic.synthetic_scene import SceneObject
+
+        base = visibility_culling_scene()
+        base_obj = base.objects[0].calibration_object
+
+        # Rebuild object without face_normal, reuse cameras
+        obj_no_normal = CalibrationObject(
+            points=base_obj.points,
+            keypoint_ids=base_obj.keypoint_ids,
+        )
+        scene = SyntheticScene(
+            camera_array=base.camera_array,
+            objects=(
+                SceneObject(
+                    object_id=0,
+                    calibration_object=obj_no_normal,
+                    trajectory=base.objects[0].trajectory,
+                ),
+            ),
+            pixel_noise_sigma=0.0,
+        )
+        df = scene.image_points_perfect.df
+
+        assert len(df[df["cam_id"] == 0]) > 0, "Camera above should see points"
+        assert len(df[df["cam_id"] == 1]) > 0, "Camera below should also see points"
 
 
 if __name__ == "__main__":

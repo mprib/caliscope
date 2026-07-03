@@ -29,7 +29,7 @@ def make_12_camera_scene() -> SyntheticScene:
     calibration_object = CalibrationObject.planar_grid(rows=5, cols=7, spacing=0.05)
     trajectory = Trajectory.stationary(n_frames=5)
 
-    return SyntheticScene(
+    return SyntheticScene.single(
         camera_array=camera_array,
         calibration_object=calibration_object,
         trajectory=trajectory,

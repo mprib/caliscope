@@ -303,8 +303,9 @@ class ExplorerPresenter(QObject):
 
             result.optimized_cameras = optimized.camera_array
             result.optimized_world_points = optimized.world_points
+            result.reprojection_rmse = optimized.reprojection_report.overall_rmse
 
-            logger.info(f"Optimization complete. RMSE: {optimized.reprojection_report.overall_rmse:.3f}px")
+            logger.info(f"Optimization complete. RMSE: {result.reprojection_rmse:.3f}px")
 
         except Exception as e:
             result.optimization_error = str(e)
@@ -316,30 +317,26 @@ class ExplorerPresenter(QObject):
 
         # Stage 3: Align
         try:
-            origin_frame = scene.trajectory.origin_frame
+            primary = scene.objects[0]
+            origin_frame = primary.trajectory.origin_frame
 
             aligned = CaptureVolume(
                 camera_array=result.optimized_cameras,
                 image_points=image_points,
                 world_points=result.optimized_world_points,
-            ).align_to_object(sync_index=origin_frame)
+            ).align_to_object(sync_index=origin_frame, object_id=primary.object_id)
 
             result.aligned_cameras = aligned.camera_array
             result.aligned_world_points = aligned.world_points
 
             logger.info("Alignment complete")
 
-            # Compute error metrics after successful alignment
             reprojection_report = optimized.reprojection_report
-            result.reprojection_rmse = reprojection_report.overall_rmse
-
-            # Compute per-camera pose errors and observation counts
             camera_metrics_list = []
             for cam_id in result.aligned_cameras.cameras:
                 cam_result = result.aligned_cameras.cameras[cam_id]
                 cam_gt = result.ground_truth_cameras.cameras[cam_id]
 
-                # After alignment, all cameras have pose data
                 assert cam_result.rotation is not None
                 assert cam_result.translation is not None
                 assert cam_gt.rotation is not None
@@ -352,10 +349,7 @@ class ExplorerPresenter(QObject):
                     cam_gt.translation,
                 )
 
-                # Count observations for this camera
                 n_obs = int((image_points.df["cam_id"] == cam_id).sum())
-
-                # Get per-camera reprojection RMSE
                 camera_reproj_rmse = reprojection_report.by_camera.get(cam_id, 0.0)
 
                 camera_metrics_list.append(

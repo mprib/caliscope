@@ -11,9 +11,7 @@ from caliscope.synthetic.explorer.presenter import (
 )
 from caliscope.synthetic.scene_factories import quick_test_scene
 from caliscope.synthetic.synthetic_scene import SyntheticScene
-from caliscope.synthetic.calibration_object import CalibrationObject
-from caliscope.synthetic.camera_synthesizer import CameraSynthesizer
-from caliscope.synthetic.trajectory import Trajectory
+from caliscope.synthetic import CalibrationObject, CameraSynthesizer, Trajectory
 from caliscope.task_manager.task_manager import TaskManager
 
 
@@ -52,7 +50,7 @@ def test_set_scene_replaces_scene_and_emits(presenter: ExplorerPresenter) -> Non
     calibration_object = CalibrationObject.planar_grid(rows=3, cols=4, spacing=0.05)
     trajectory = Trajectory.stationary(n_frames=5)
 
-    new_scene = SyntheticScene(
+    new_scene = SyntheticScene.single(
         camera_array=camera_array,
         calibration_object=calibration_object,
         trajectory=trajectory,
@@ -182,7 +180,7 @@ def test_pipeline_failure_emits_signal(presenter: ExplorerPresenter) -> None:
     calibration_object = CalibrationObject.planar_grid(rows=2, cols=2, spacing=0.05)
     trajectory = Trajectory.stationary(n_frames=1)
 
-    sparse_scene = SyntheticScene(
+    sparse_scene = SyntheticScene.single(
         camera_array=camera_array,
         calibration_object=calibration_object,
         trajectory=trajectory,

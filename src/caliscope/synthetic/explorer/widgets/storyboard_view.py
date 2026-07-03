@@ -23,10 +23,6 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-# Camera scale for synthetic scenes (mm units, ~4000mm extent)
-SYNTHETIC_CAMERA_SCALE = 0.25
-
-
 class StoryboardView(QWidget):
     """Four-panel synchronized visualization of calibration pipeline stages.
 
@@ -177,10 +173,7 @@ class StoryboardView(QWidget):
             placeholder.hide()
 
         # Create new panel
-        panel = Qt3DPlaybackWidget(
-            view_model,
-            camera_scale=SYNTHETIC_CAMERA_SCALE,
-        )
+        panel = Qt3DPlaybackWidget(view_model)
         panel.show_playback_controls(False)
         panel_layout.addWidget(panel, stretch=1)
 

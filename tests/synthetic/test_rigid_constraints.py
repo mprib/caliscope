@@ -16,7 +16,8 @@ from caliscope.core.capture_volume import CaptureVolume
 from caliscope.core.constraints import ConstraintSet
 from caliscope.core.point_data import STATIC_SYNC_INDEX
 from caliscope.synthetic.camera_synthesizer import CameraSynthesizer
-from caliscope.synthetic.multi_object_scene import MultiObjectScene, aruco_scene
+from caliscope.synthetic.scene_factories import aruco_scene
+from caliscope.synthetic.synthetic_scene import SyntheticScene
 from caliscope.synthetic.se3_pose import SE3Pose
 from caliscope.synthetic.trajectory import Trajectory
 
@@ -30,7 +31,7 @@ def _make_camera_array() -> CameraArray:
     return CameraSynthesizer().add_ring(n=4, radius=2.0, height=0.5).build()
 
 
-def _make_aruco_scene() -> tuple[MultiObjectScene, ConstraintSet, CameraArray]:
+def _make_aruco_scene() -> tuple[SyntheticScene, ConstraintSet, CameraArray]:
     """Scene with one mobile (orbiting) marker and one static marker."""
     camera_array = _make_camera_array()
     markers = {

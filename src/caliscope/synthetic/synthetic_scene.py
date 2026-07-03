@@ -1,4 +1,4 @@
-"""Complete synthetic calibration scenario combining cameras, object, and trajectory."""
+"""Complete synthetic calibration scenario combining cameras, objects, and trajectories."""
 
 from __future__ import annotations
 
@@ -11,90 +11,126 @@ import pandas as pd
 from numpy.typing import NDArray
 
 from caliscope.cameras.camera_array import CameraArray
-from caliscope.core.point_data import ImagePoints, WorldPoints
+from caliscope.core.coverage_analysis import compute_coverage_matrix
+from caliscope.core.point_data import STATIC_SYNC_INDEX, ImagePoints, WorldPoints
 from caliscope.synthetic.calibration_object import CalibrationObject
 from caliscope.synthetic.camera_synthesizer import strip_extrinsics
-from caliscope.core.coverage_analysis import compute_coverage_matrix
 from caliscope.synthetic.filter_config import FilterConfig
 from caliscope.synthetic.trajectory import Trajectory
+
+
+@dataclass(frozen=True)
+class SceneObject:
+    """A single rigid object moving through the scene, tied to a trajectory.
+
+    static=True collapses the object to a single set of world points at
+    STATIC_SYNC_INDEX, matching how CaptureVolume.bootstrap() and
+    ImagePoints.triangulate() treat static markers.
+    """
+
+    object_id: int
+    calibration_object: CalibrationObject
+    trajectory: Trajectory
+    static: bool = False
 
 
 @dataclass(frozen=True)
 class SyntheticScene:
     """Complete synthetic calibration scenario with derived data.
 
-    Combines camera rig + calibration object + trajectory to produce
-    ground truth world points and image points. All derived data is
-    computed lazily and cached.
-
-    Attributes:
-        camera_array: Fully posed cameras (ground truth extrinsics)
-        calibration_object: Rigid body with known point geometry
-        trajectory: SE3 poses of object across frames
-        pixel_noise_sigma: Standard deviation of Gaussian noise added to projections
-        random_seed: Seed for noise generation (reproducibility)
+    Supports one or many independently-moving SceneObjects sharing a
+    camera rig. All derived data is computed lazily and cached.
     """
 
     camera_array: CameraArray
-    calibration_object: CalibrationObject
-    trajectory: Trajectory
+    objects: tuple[SceneObject, ...]
     pixel_noise_sigma: float = 0.5
     random_seed: int = 42
 
     def __post_init__(self) -> None:
-        """Validate scene configuration."""
         if self.pixel_noise_sigma < 0:
             raise ValueError(f"pixel_noise_sigma must be >= 0, got {self.pixel_noise_sigma}")
 
-        # Ensure all cameras have extrinsics
         unposed = self.camera_array.unposed_cameras
         if unposed:
             raise ValueError(f"All cameras must have extrinsics. Unposed: {list(unposed.keys())}")
 
+        if not self.objects:
+            raise ValueError("At least one SceneObject required")
+
+    @classmethod
+    def single(
+        cls,
+        camera_array: CameraArray,
+        calibration_object: CalibrationObject,
+        trajectory: Trajectory,
+        pixel_noise_sigma: float = 0.5,
+        random_seed: int = 42,
+    ) -> SyntheticScene:
+        """Convenience constructor for single-object scenes."""
+        return cls(
+            camera_array=camera_array,
+            objects=(
+                SceneObject(
+                    object_id=0,
+                    calibration_object=calibration_object,
+                    trajectory=trajectory,
+                ),
+            ),
+            pixel_noise_sigma=pixel_noise_sigma,
+            random_seed=random_seed,
+        )
+
     @cached_property
     def n_frames(self) -> int:
-        """Number of frames in the trajectory."""
-        return len(self.trajectory)
+        return max(len(obj.trajectory) for obj in self.objects)
 
     @cached_property
     def n_cameras(self) -> int:
-        """Number of cameras."""
         return len(self.camera_array.cameras)
 
     @cached_property
     def world_points(self) -> WorldPoints:
-        """All object points transformed to world frame across all frames.
+        """Ground truth 3D points for every object across all frames.
 
-        Returns WorldPoints with one row per (frame, point) combination.
+        Static objects contribute a single row per keypoint at STATIC_SYNC_INDEX.
         """
         rows = []
-
-        for frame in range(self.n_frames):
-            world_coords = self.trajectory.world_points_at_frame(self.calibration_object, frame)
-
-            for i, keypoint_id in enumerate(self.calibration_object.keypoint_ids):
-                rows.append(
-                    {
-                        "sync_index": frame,
-                        "object_id": 0,
-                        "keypoint_id": int(keypoint_id),
-                        "x_coord": world_coords[i, 0],
-                        "y_coord": world_coords[i, 1],
-                        "z_coord": world_coords[i, 2],
-                        "frame_time": frame / 30.0,  # Assume 30 fps
-                    }
-                )
-
-        df = pd.DataFrame(rows)
-        return WorldPoints(df)
+        for scene_obj in self.objects:
+            if scene_obj.static:
+                world_coords = scene_obj.trajectory.world_points_at_frame(scene_obj.calibration_object, 0)
+                for i, kid in enumerate(scene_obj.calibration_object.keypoint_ids):
+                    rows.append(
+                        {
+                            "sync_index": STATIC_SYNC_INDEX,
+                            "object_id": scene_obj.object_id,
+                            "keypoint_id": int(kid),
+                            "x_coord": world_coords[i, 0],
+                            "y_coord": world_coords[i, 1],
+                            "z_coord": world_coords[i, 2],
+                            "frame_time": float("nan"),
+                        }
+                    )
+            else:
+                for frame in range(len(scene_obj.trajectory)):
+                    world_coords = scene_obj.trajectory.world_points_at_frame(scene_obj.calibration_object, frame)
+                    for i, kid in enumerate(scene_obj.calibration_object.keypoint_ids):
+                        rows.append(
+                            {
+                                "sync_index": frame,
+                                "object_id": scene_obj.object_id,
+                                "keypoint_id": int(kid),
+                                "x_coord": world_coords[i, 0],
+                                "y_coord": world_coords[i, 1],
+                                "z_coord": world_coords[i, 2],
+                                "frame_time": frame / 30.0,
+                            }
+                        )
+        return WorldPoints(pd.DataFrame(rows))
 
     @cached_property
     def image_points_perfect(self) -> ImagePoints:
-        """Perfect projections (no noise). Includes obj_loc_x/y/z columns.
-
-        Projects all world points through all cameras, filtering to those
-        that fall within image bounds.
-        """
+        """Perfect projections (no noise). Includes obj_loc_x/y/z columns."""
         return self._project_to_cameras(add_noise=False)
 
     @cached_property
@@ -103,70 +139,98 @@ class SyntheticScene:
         return self._project_to_cameras(add_noise=True)
 
     def _project_to_cameras(self, add_noise: bool) -> ImagePoints:
-        """Project world points to all cameras."""
+        """Project every object's world points to all cameras.
+
+        Static objects still project a full per-frame trajectory of image
+        observations (the collapse to a single world point happens only in
+        world_points / triangulation), matching how a real static marker is
+        seen anew in every frame.
+
+        Noise is drawn for the full projected block before visibility masking
+        so the RNG stream is deterministic regardless of which points are visible.
+        """
         rng = np.random.default_rng(self.random_seed) if add_noise else None
 
         rows = []
 
-        for frame in range(self.n_frames):
-            # Get object points in world coordinates
-            world_coords = self.trajectory.world_points_at_frame(self.calibration_object, frame)
+        for scene_obj in self.objects:
+            n_obj_frames = len(scene_obj.trajectory)
+            obj_local = scene_obj.calibration_object.points
+            face_normal_local = scene_obj.calibration_object.face_normal
 
-            # Object-local coordinates (for obj_loc columns)
-            obj_local = self.calibration_object.points
+            for frame in range(n_obj_frames):
+                world_coords = scene_obj.trajectory.world_points_at_frame(scene_obj.calibration_object, frame)
 
-            for cam_id, camera in self.camera_array.cameras.items():
-                if camera.rotation is None or camera.translation is None:
-                    continue
-                if camera.matrix is None or camera.distortions is None:
-                    continue
+                # Transform face_normal to world frame if present
+                face_normal_world = None
+                if face_normal_local is not None:
+                    R = scene_obj.trajectory.poses[frame].rotation
+                    face_normal_world = R @ face_normal_local
 
-                # Project points using OpenCV
-                projected, _ = cv2.projectPoints(
-                    world_coords.reshape(-1, 1, 3),
-                    camera.rotation,
-                    camera.translation,
-                    camera.matrix,
-                    camera.distortions,
-                )
-                projected = projected.reshape(-1, 2)
+                for cam_id, camera in self.camera_array.cameras.items():
+                    if camera.rotation is None or camera.translation is None:
+                        continue
+                    if camera.matrix is None or camera.distortions is None:
+                        continue
 
-                # Add noise if requested
-                if add_noise and rng is not None:
-                    noise = rng.normal(0, self.pixel_noise_sigma, projected.shape)
-                    projected = projected + noise
+                    projected, _ = cv2.projectPoints(
+                        world_coords.reshape(-1, 1, 3),
+                        camera.rotation,
+                        camera.translation,
+                        camera.matrix,
+                        camera.distortions,
+                    )
+                    projected = projected.reshape(-1, 2)
 
-                # Filter to points within image bounds
-                w, h = camera.size
-                for i, keypoint_id in enumerate(self.calibration_object.keypoint_ids):
-                    x, y = projected[i]
+                    # Draw noise for all points regardless of masks (RNG stream preservation)
+                    if add_noise and rng is not None:
+                        noise = rng.normal(0, self.pixel_noise_sigma, projected.shape)
+                        projected = projected + noise
 
-                    if 0 <= x < w and 0 <= y < h:
-                        rows.append(
-                            {
-                                "sync_index": frame,
-                                "cam_id": cam_id,
-                                "object_id": 0,
-                                "keypoint_id": int(keypoint_id),
-                                "img_loc_x": float(x),
-                                "img_loc_y": float(y),
-                                "obj_loc_x": obj_local[i, 0],
-                                "obj_loc_y": obj_local[i, 1],
-                                "obj_loc_z": obj_local[i, 2],
-                                "frame_time": frame / 30.0,
-                            }
-                        )
+                    # Cheirality check: only keep points in front of the camera
+                    R_cam = camera.rotation
+                    t_cam = camera.translation.reshape(3)
+                    p_cam = (R_cam @ world_coords.T).T + t_cam
+                    in_front = p_cam[:, 2] > 0
 
-        df = pd.DataFrame(rows)
-        return ImagePoints(df)
+                    # Visibility culling via face_normal
+                    if face_normal_world is not None:
+                        camera_center = -R_cam.T @ t_cam
+                        # For each point, check if camera is on the visible side
+                        view_dirs = camera_center - world_coords
+                        dots = np.einsum("ij,j->i", view_dirs, face_normal_world)
+                        visible = dots > 0
+                    else:
+                        visible = np.ones(len(world_coords), dtype=bool)
+
+                    w, h = camera.size
+                    for i, kid in enumerate(scene_obj.calibration_object.keypoint_ids):
+                        if not in_front[i] or not visible[i]:
+                            continue
+
+                        x, y = projected[i]
+
+                        if 0 <= x < w and 0 <= y < h:
+                            rows.append(
+                                {
+                                    "sync_index": frame,
+                                    "cam_id": cam_id,
+                                    "object_id": scene_obj.object_id,
+                                    "keypoint_id": int(kid),
+                                    "img_loc_x": float(x),
+                                    "img_loc_y": float(y),
+                                    "obj_loc_x": obj_local[i, 0],
+                                    "obj_loc_y": obj_local[i, 1],
+                                    "obj_loc_z": obj_local[i, 2],
+                                    "frame_time": frame / 30.0,
+                                }
+                            )
+
+        return ImagePoints(pd.DataFrame(rows))
 
     @cached_property
     def coverage_matrix(self) -> NDArray[np.int64]:
-        """(n_cameras, n_cameras) matrix of shared observation counts.
-
-        Element [i, j] is the number of (frame, point) pairs visible
-        from both camera i and camera j. Diagonal is total observations per camera.
-        """
+        """(n_cameras, n_cameras) matrix of shared observation counts."""
         cam_id_to_index = {cam_id: idx for idx, cam_id in enumerate(sorted(self.camera_array.cameras.keys()))}
         return compute_coverage_matrix(self.image_points_noisy, cam_id_to_index)
 

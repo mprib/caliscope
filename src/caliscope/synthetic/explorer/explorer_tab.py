@@ -30,9 +30,12 @@ from caliscope.synthetic.explorer.presenter import ExplorerPresenter, PipelineRe
 from caliscope.synthetic.explorer.widgets import CoverageHeatmapWidget, StoryboardView
 from caliscope.synthetic.synthetic_scene import SyntheticScene
 from caliscope.synthetic.scene_factories import (
+    aruco_multi_object_scene,
+    cheirality_demo_scene,
     default_ring_scene,
     quick_test_scene,
     sparse_coverage_scene,
+    visibility_culling_scene,
 )
 from caliscope.task_manager.task_manager import TaskManager
 
@@ -44,6 +47,9 @@ SCENE_PRESETS: dict[str, Callable[[], SyntheticScene]] = {
     "Default Ring (4 cameras, full orbit)": default_ring_scene,
     "Sparse Coverage (180° arc)": sparse_coverage_scene,
     "Quick Test (5 frames)": quick_test_scene,
+    "Cheirality Demo (forward vs backward camera)": cheirality_demo_scene,
+    "Visibility Culling (single-sided board)": visibility_culling_scene,
+    "ArUco Multi-Object (mobile + static marker)": aruco_multi_object_scene,
 }
 
 

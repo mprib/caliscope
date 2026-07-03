@@ -111,7 +111,7 @@ class ExplorerTab(QWidget):
         preset_layout = QVBoxLayout(preset_group)
 
         self._preset_combo = QComboBox()
-        self._preset_combo.addItems(SCENE_PRESETS.keys())
+        self._preset_combo.addItems(list(SCENE_PRESETS.keys()))
         preset_layout.addWidget(self._preset_combo)
 
         layout.addWidget(preset_group)
@@ -133,10 +133,10 @@ class ExplorerTab(QWidget):
 
         # Error metrics group
         self._metrics_group = QGroupBox("Error Metrics")
-        metrics_layout = QVBoxLayout(self._metrics_group)
+        self._metrics_layout = QVBoxLayout(self._metrics_group)
 
         self._rmse_label = QLabel("RMSE: --")
-        metrics_layout.addWidget(self._rmse_label)
+        self._metrics_layout.addWidget(self._rmse_label)
 
         # Per-camera error labels (will be populated dynamically)
         self._camera_error_labels: list[QLabel] = []
@@ -292,7 +292,7 @@ class ExplorerTab(QWidget):
 
     def _update_metrics_display(self, result: PipelineResult) -> None:
         """Update error metrics display with results from pipeline."""
-        metrics_layout = self._metrics_group.layout()
+        metrics_layout = self._metrics_layout
 
         # Update reprojection RMSE
         if result.reprojection_rmse is not None:

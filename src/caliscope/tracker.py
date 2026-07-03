@@ -51,22 +51,13 @@ class Tracker(ABC):
         pass
 
     @abstractmethod
-    def get_point_name(self, point_id: int) -> str:
-        """
-        Maps point_id to a name
-        Used for saving out data with sensible headers.
-        """
+    def get_point_name(self, keypoint_id: int) -> str:
+        """Maps keypoint_id to a name for data headers."""
         pass
 
     @abstractmethod
-    def scatter_draw_instructions(self, point_id: int) -> dict:
-        """
-        Maps point_id to a dictionary of parameters used to draw circles on frames for visual feedback.
-
-        As an example, the dictionary could have the form: {"radius": 5, "color": (220, 0, 0), "thickness": 3}
-        The parameters `radius`, `color`, and `thickness` are used downstream in a call to `cv2.circle`
-        to place the tracked point on the frame. See `TrackedFrame` in packets.py.
-        """
+    def scatter_draw_instructions(self, keypoint_id: int) -> dict:
+        """Maps keypoint_id to draw parameters (radius, color, thickness) for cv2.circle."""
         pass
 
     @property
@@ -79,7 +70,7 @@ class Tracker(ABC):
         OPTIONAL METHOD
         used for 2d drawing purposes elsewhere. Specify which
         points (if any) should have a line connecting them
-        {(point_id_A, point_id_B),etc...}
+        {(keypoint_id_A, keypoint_id_B),etc...}
 
         currently only implemented for charuco...
         """

@@ -188,18 +188,34 @@ def test_filter_percentile_modes(tmp_path: Path):
     # === ASSERTION 3: No orphaned 3D points ===
     # Every 3D point should have at least one observation
     per_cam_points = set(
-        zip(filtered_per_cam.world_points.df["sync_index"], filtered_per_cam.world_points.df["point_id"])
+        zip(
+            filtered_per_cam.world_points.df["sync_index"],
+            filtered_per_cam.world_points.df["object_id"],
+            filtered_per_cam.world_points.df["keypoint_id"],
+        )
     )
     per_cam_obs_keys = set(
-        zip(filtered_per_cam.image_points.df["sync_index"], filtered_per_cam.image_points.df["point_id"])
+        zip(
+            filtered_per_cam.image_points.df["sync_index"],
+            filtered_per_cam.image_points.df["object_id"],
+            filtered_per_cam.image_points.df["keypoint_id"],
+        )
     )
     assert per_cam_points.issubset(per_cam_obs_keys), "Per-camera has orphaned 3D points!"
 
     overall_points = set(
-        zip(filtered_overall.world_points.df["sync_index"], filtered_overall.world_points.df["point_id"])
+        zip(
+            filtered_overall.world_points.df["sync_index"],
+            filtered_overall.world_points.df["object_id"],
+            filtered_overall.world_points.df["keypoint_id"],
+        )
     )
     overall_obs_keys = set(
-        zip(filtered_overall.image_points.df["sync_index"], filtered_overall.image_points.df["point_id"])
+        zip(
+            filtered_overall.image_points.df["sync_index"],
+            filtered_overall.image_points.df["object_id"],
+            filtered_overall.image_points.df["keypoint_id"],
+        )
     )
     assert overall_points.issubset(overall_obs_keys), "Overall has orphaned 3D points!"
 

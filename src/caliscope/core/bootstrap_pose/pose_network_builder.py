@@ -52,7 +52,7 @@ class PoseNetworkBuilder:
         Args:
             camera_array: Camera array with intrinsic calibration
             point_data: DataFrame with 2D/3D point correspondences
-                       Required columns: sync_index, cam_id, point_id,
+                       Required columns: sync_index, cam_id, object_id, keypoint_id,
                                        img_loc_x, img_loc_y, obj_loc_x, obj_loc_y
         """
         self.camera_array: CameraArray = camera_array
@@ -60,9 +60,9 @@ class PoseNetworkBuilder:
 
         # Pipeline state
         self._camera_to_object_poses: (
-            dict[tuple[int, int], tuple[NDArray[np.float64], NDArray[np.float64], float]] | None
+            dict[tuple[int, int, int], tuple[NDArray[np.float64], NDArray[np.float64], float]] | None
         ) = None
-        self._relative_poses: dict[tuple[tuple[int, int], int], StereoPair] | None = None
+        self._relative_poses: dict[tuple[tuple[int, int], int, int], StereoPair] | None = None
         self._filtered_poses: dict[tuple[int, int], list[StereoPair]] | None = None
         self._aggregated_poses: dict[tuple[int, int], StereoPair] | None = None
         self._pnp_network: PairedPoseNetwork | None = None
@@ -210,7 +210,7 @@ def compute_camera_to_object_poses_pnp(
     min_points: int = DEFAULT_MIN_PNP_POINTS,
     pnp_flags: int = cv2.SOLVEPNP_IPPE,
     fallback_flags: int = cv2.SOLVEPNP_ITERATIVE,
-) -> dict[tuple[int, int], tuple[NDArray[np.float64], NDArray[np.float64], float]]:
+) -> dict[tuple[int, int, int], tuple[NDArray[np.float64], NDArray[np.float64], float]]:
     """
     Compute per-camera poses relative to the object coordinate frame for each sync_index.
 
@@ -222,7 +222,7 @@ def compute_camera_to_object_poses_pnp(
         fallback_flags: Fallback algorithm if primary fails (default: SOLVEPNP_ITERATIVE)
 
     Returns:
-        dict mapping (cam_id, sync_index) -> (R, t, reprojection_error)
+        dict mapping (cam_id, sync_index, object_id) -> (R, t, reprojection_error)
     """
     logger.info(f"Computing per-frame camera poses with PnP (min_points={min_points})...")
 
@@ -247,7 +247,8 @@ def compute_camera_to_object_poses_pnp(
         raise ValueError("No valid camera data found for PnP")
 
     all_undistorted = pd.concat(undistorted_data)
-    grouped = all_undistorted.groupby(["cam_id", "sync_index"])
+    # Group by object_id so keypoint_ids from different objects don't mix obj_loc frames
+    grouped = all_undistorted.groupby(["cam_id", "sync_index", "object_id"])
 
     poses = {}
     success_count = 0
@@ -257,7 +258,7 @@ def compute_camera_to_object_poses_pnp(
     K_perfect = np.identity(3)
     D_perfect = np.zeros(5)
 
-    for (cam_id, sync_index), group in grouped:
+    for (cam_id, sync_index, object_id), group in grouped:
         if len(group) < min_points:
             failure_count += 1
             continue
@@ -285,7 +286,7 @@ def compute_camera_to_object_poses_pnp(
             projected, _ = cv2.projectPoints(obj_points, rvec, tvec, K_perfect, D_perfect)
             rmse = np.sqrt(np.mean(np.sum((img_points - projected.reshape(-1, 2)) ** 2, axis=1)))
 
-            poses[(cam_id, sync_index)] = (R, t, rmse)
+            poses[(cam_id, sync_index, object_id)] = (R, t, rmse)
             success_count += 1
         else:
             failure_count += 1
@@ -299,7 +300,7 @@ def compute_camera_to_object_poses_pnp(
 
 
 def reject_outliers(
-    relative_poses: dict[tuple[tuple[int, int], int], StereoPair],
+    relative_poses: dict[tuple[tuple[int, int], int, int], StereoPair],
     threshold: float = DEFAULT_OUTLIER_THRESHOLD,
     rotation_threshold_multiplier: float | None = None,
     translation_threshold_multiplier: float | None = None,
@@ -322,9 +323,10 @@ def reject_outliers(
     rot_multiplier = rotation_threshold_multiplier if rotation_threshold_multiplier is not None else threshold
     trans_multiplier = translation_threshold_multiplier if translation_threshold_multiplier is not None else threshold
 
-    # Group poses by pair
+    # Group poses by pair (discard sync_index and object_id — all observations
+    # from the same camera pair are pooled for outlier rejection)
     poses_by_pair: dict[tuple[int, int], list[StereoPair]] = {}
-    for (pair, _sync_index), stereo_pair in relative_poses.items():
+    for (pair, _sync_index, _object_id), stereo_pair in relative_poses.items():
         poses_by_pair.setdefault(pair, []).append(stereo_pair)
 
     filtered_poses = {}
@@ -451,33 +453,33 @@ def translation_error(t1: NDArray[np.float64], t2: NDArray[np.float64]) -> dict[
 
 
 def compute_relative_poses(
-    camera_to_object_poses: dict[tuple[int, int], tuple[NDArray[np.float64], NDArray[np.float64], float]],
+    camera_to_object_poses: dict[tuple[int, int, int], tuple[NDArray[np.float64], NDArray[np.float64], float]],
     camera_array: CameraArray,
-) -> dict[tuple[tuple[int, int], int], StereoPair]:
+) -> dict[tuple[tuple[int, int], int, int], StereoPair]:
     """
-    Compute relative poses between camera pairs at each sync_index.
+    Compute relative poses between camera pairs at each (sync_index, object_id).
 
     For cameras A and B observing the same object at a sync index:
     T_B_A = T_B_obj @ T_obj_A = T_B_obj @ inv(T_A_obj)
 
     Returns:
-        dict mapping (pair, sync_index) -> StereoPair with relative pose
+        dict mapping (pair, sync_index, object_id) -> StereoPair with relative pose
     """
     logger.info("Computing relative poses between camera pairs...")
-    relative_poses: dict[tuple[tuple[int, int], int], StereoPair] = {}
+    relative_poses: dict[tuple[tuple[int, int], int, int], StereoPair] = {}
 
     cam_ids = [c for c, cam in camera_array.cameras.items() if not cam.ignore]
     pairs = [(i, j) for i, j in combinations(cam_ids, 2) if i < j]
 
     for cam_id_a, cam_id_b in pairs:
-        # Find sync indices where both cameras have poses
-        sync_a = {s for c, s in camera_to_object_poses.keys() if c == cam_id_a}
-        sync_b = {s for c, s in camera_to_object_poses.keys() if c == cam_id_b}
-        common_sync = sync_a.intersection(sync_b)
+        # Find (sync_index, object_id) tuples where both cameras have poses
+        so_a = {(s, o) for c, s, o in camera_to_object_poses.keys() if c == cam_id_a}
+        so_b = {(s, o) for c, s, o in camera_to_object_poses.keys() if c == cam_id_b}
+        common_so = so_a.intersection(so_b)
 
-        for sync_index in common_sync:
-            R_a, t_a, _ = camera_to_object_poses[(cam_id_a, sync_index)]
-            R_b, t_b, _ = camera_to_object_poses[(cam_id_b, sync_index)]
+        for sync_index, object_id in common_so:
+            R_a, t_a, _ = camera_to_object_poses[(cam_id_a, sync_index, object_id)]
+            R_b, t_b, _ = camera_to_object_poses[(cam_id_b, sync_index, object_id)]
 
             # Compute relative transformation: T_B_A = T_B_obj @ inv(T_A_obj)
             R_a_inv = R_a.T
@@ -487,7 +489,7 @@ def compute_relative_poses(
 
             # Store as StereoPair (error_score will be computed after aggregation)
             pair_key = (cam_id_a, cam_id_b)
-            relative_poses[(pair_key, sync_index)] = StereoPair(
+            relative_poses[(pair_key, sync_index, object_id)] = StereoPair(
                 primary_cam_id=cam_id_a,
                 secondary_cam_id=cam_id_b,
                 error_score=float("nan"),  # Placeholder until RMSE calculation
@@ -596,7 +598,7 @@ def _precompute_common_observations(
         data_b = df[df["cam_id"] == cam_id_b]
 
         # Merge once per pair
-        common = pd.merge(data_a, data_b, on=["sync_index", "point_id"], suffixes=("_a", "_b"))
+        common = pd.merge(data_a, data_b, on=["sync_index", "object_id", "keypoint_id"], suffixes=("_a", "_b"))
         if len(common) >= DEFAULT_MIN_PNP_POINTS:
             common_obs[(cam_id_a, cam_id_b)] = common
 

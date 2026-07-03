@@ -42,13 +42,17 @@ def test_image_points_to_world_points(tmp_path: Path):
 
     # Select common columns for comparison (charuco data has fewer points, no face-point filter needed)
     original_xyz = original_xyz.drop("Unnamed: 0", axis=1, errors="ignore")
-    common_cols = ["sync_index", "point_id", "x_coord", "y_coord", "z_coord"]
+    common_cols = ["sync_index", "object_id", "keypoint_id", "x_coord", "y_coord", "z_coord"]
     original_xyz_filtered = original_xyz[common_cols]
     xyz_recalculated_filtered = xyz_recalculated[common_cols]
 
-    # Sort both dataframes by sync_index and point_id to ensure they're aligned
-    original_xyz_filtered = original_xyz_filtered.sort_values(["sync_index", "point_id"]).reset_index(drop=True)
-    xyz_recalculated_filtered = xyz_recalculated_filtered.sort_values(["sync_index", "point_id"]).reset_index(drop=True)
+    # Sort both dataframes by sync_index, object_id, keypoint_id to ensure they're aligned
+    original_xyz_filtered = original_xyz_filtered.sort_values(["sync_index", "object_id", "keypoint_id"]).reset_index(
+        drop=True
+    )
+    xyz_recalculated_filtered = xyz_recalculated_filtered.sort_values(
+        ["sync_index", "object_id", "keypoint_id"]
+    ).reset_index(drop=True)
 
     # Make sure both filtered dataframes have the same shape
     assert original_xyz_filtered.shape == xyz_recalculated_filtered.shape, (

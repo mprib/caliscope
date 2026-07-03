@@ -44,7 +44,8 @@ class SyncPacketTriangulator:
 
         self.xyz_history = {
             "sync_index": [],
-            "point_id": [],
+            "object_id": [],
+            "keypoint_id": [],
             "x_coord": [],
             "y_coord": [],
             "z_coord": [],
@@ -80,15 +81,13 @@ class SyncPacketTriangulator:
                 )
                 # only attempt to process if data exists
                 if sync_packet.tracked_frame_count >= 2:
-                    cameras, point_ids, imgs_xy = sync_packet.triangulation_inputs
+                    cameras, object_ids, keypoint_ids, imgs_xy = sync_packet.triangulation_inputs
                     cameras = np.array(cameras)
-                    point_ids = np.array(point_ids)
+                    object_ids = np.array(object_ids)
+                    keypoint_ids = np.array(keypoint_ids)
                     imgs_xy = np.array(imgs_xy)
 
-                    # Undistort points before triangulation
-                    # This is the critical step to ensure accuracy. We process points
-                    # on a per-camera basis using the specific distortion model
-                    # for each camera.
+                    # Undistort points per camera using each camera's distortion model
                     undistorted_imgs_xy = np.zeros_like(imgs_xy)
                     unique_cameras = np.unique(cameras)
                     for cam_id in unique_cameras:
@@ -100,21 +99,17 @@ class SyncPacketTriangulator:
 
                     logger.debug("Attempting to triangulate synced frames with undistorted points")
 
-                    logger.debug(f"Cameras are {cameras} and point_ids are {point_ids}")
                     if len(unique_cameras) >= 2:
                         logger.debug(f"Points observed on cameras {unique_cameras}")
-                        point_id_xyz, points_xyz = triangulate_sync_index(
-                            self.normalized_projection_matrices, cameras, point_ids, undistorted_imgs_xy
+                        out_obj, out_kp, points_xyz = triangulate_sync_index(
+                            self.normalized_projection_matrices, cameras, object_ids, keypoint_ids, undistorted_imgs_xy
                         )
 
-                        logger.debug(
-                            f"Sync Packet {sync_packet.sync_index} | Point ID: {point_id_xyz} | xyz: {points_xyz}"
-                        )
+                        logger.debug(f"Sync Packet {sync_packet.sync_index} | {len(out_obj)} points triangulated")
 
-                        xyz_packet = XYZPacket(sync_packet.sync_index, point_id_xyz, points_xyz)
-                        logger.info(
-                            f"Placing xyz pacKet for index {sync_packet.sync_index} with {len(xyz_packet.point_ids)} points"  # noqa E501
-                        )
+                        xyz_packet = XYZPacket(sync_packet.sync_index, out_obj, out_kp, points_xyz)
+                        n = len(xyz_packet.object_ids)
+                        logger.info(f"Placing xyz packet for index {sync_packet.sync_index} with {n} points")
                         for q in self.subscribers:
                             q.put(xyz_packet)
 
@@ -128,11 +123,12 @@ class SyncPacketTriangulator:
             self.save_history()
 
     def add_packet_to_history(self, xyz_packet: XYZPacket):
-        point_count = len(xyz_packet.point_ids)
+        point_count = len(xyz_packet.object_ids)
 
         if point_count > 0:
             self.xyz_history["sync_index"].extend([xyz_packet.sync_index] * point_count)
-            self.xyz_history["point_id"].extend(xyz_packet.point_ids)
+            self.xyz_history["object_id"].extend(xyz_packet.object_ids)
+            self.xyz_history["keypoint_id"].extend(xyz_packet.keypoint_ids)
 
             xyz_array = np.array(xyz_packet.point_xyz)
             self.xyz_history["x_coord"].extend(xyz_array[:, 0].tolist())

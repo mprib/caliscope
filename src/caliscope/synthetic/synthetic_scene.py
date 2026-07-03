@@ -72,11 +72,12 @@ class SyntheticScene:
         for frame in range(self.n_frames):
             world_coords = self.trajectory.world_points_at_frame(self.calibration_object, frame)
 
-            for i, point_id in enumerate(self.calibration_object.point_ids):
+            for i, keypoint_id in enumerate(self.calibration_object.keypoint_ids):
                 rows.append(
                     {
                         "sync_index": frame,
-                        "point_id": int(point_id),
+                        "object_id": 0,
+                        "keypoint_id": int(keypoint_id),
                         "x_coord": world_coords[i, 0],
                         "y_coord": world_coords[i, 1],
                         "z_coord": world_coords[i, 2],
@@ -137,7 +138,7 @@ class SyntheticScene:
 
                 # Filter to points within image bounds
                 w, h = camera.size
-                for i, point_id in enumerate(self.calibration_object.point_ids):
+                for i, keypoint_id in enumerate(self.calibration_object.keypoint_ids):
                     x, y = projected[i]
 
                     if 0 <= x < w and 0 <= y < h:
@@ -145,7 +146,8 @@ class SyntheticScene:
                             {
                                 "sync_index": frame,
                                 "cam_id": cam_id,
-                                "point_id": int(point_id),
+                                "object_id": 0,
+                                "keypoint_id": int(keypoint_id),
                                 "img_loc_x": float(x),
                                 "img_loc_y": float(y),
                                 "obj_loc_x": obj_local[i, 0],

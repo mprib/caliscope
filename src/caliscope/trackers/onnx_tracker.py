@@ -360,40 +360,21 @@ class OnnxTracker(Tracker):
         mask = confidence >= self.card.confidence_threshold
         filtered_keypoints = keypoints[mask]
         filtered_confidence = confidence[mask]
-        point_ids = np.arange(len(confidence), dtype=np.int32)[mask]
+        keypoint_ids = np.arange(len(confidence), dtype=np.int32)[mask]
+        object_ids = np.zeros_like(keypoint_ids)
 
         return PointPacket(
-            point_id=point_ids,
+            object_id=object_ids,
+            keypoint_id=keypoint_ids,
             img_loc=filtered_keypoints,
             obj_loc=None,
             confidence=filtered_confidence,
         )
 
-    def get_point_name(self, point_id: int) -> str:
-        """Map point ID to landmark name.
+    def get_point_name(self, keypoint_id: int) -> str:
+        return self.card.keypoint_id_to_name.get(keypoint_id, str(keypoint_id))
 
-        Args:
-            point_id: Keypoint index
-
-        Returns:
-            Landmark name from model card [points] section
-        """
-        return self.card.point_id_to_name.get(point_id, str(point_id))
-
-    def scatter_draw_instructions(self, point_id: int) -> dict:
-        """Return drawing parameters for visualizing keypoints.
-
-        Returns cyan circles to distinguish from other trackers:
-        - ArUco: green
-        - Charuco: blue
-        - ONNX: cyan
-
-        Args:
-            point_id: Keypoint index (unused, all points drawn the same)
-
-        Returns:
-            Dictionary with radius, color, thickness for cv2.circle
-        """
+    def scatter_draw_instructions(self, keypoint_id: int) -> dict:
         return {
             "radius": 5,
             "color": (255, 255, 0),  # Cyan in BGR

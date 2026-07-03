@@ -444,12 +444,12 @@ class MultiCameraProcessingPresenter(QObject):
 
         # --- Incremental coverage matrix update (cheap, every call) ---
         if self._coverage_matrix is not None:
-            # Collect which cameras saw each point_id at this sync_index
-            point_cameras: dict[int, list[int]] = {}
+            # Collect which cameras saw each keypoint at this sync_index
+            point_cameras: dict[tuple[int, int], list[int]] = {}
             for cam_id, data in frame_data.items():
-                if data.points is not None and len(data.points.point_id) > 0:
-                    for pid in data.points.point_id:
-                        point_cameras.setdefault(int(pid), []).append(cam_id)
+                if data.points is not None and len(data.points.keypoint_id) > 0:
+                    for oid, kid in zip(data.points.object_id, data.points.keypoint_id):
+                        point_cameras.setdefault((int(oid), int(kid)), []).append(cam_id)
 
             # Increment pairwise counts
             for pid, cam_list in point_cameras.items():

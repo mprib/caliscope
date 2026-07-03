@@ -116,7 +116,7 @@ class TestWorldPoints:
 
         df = scene.world_points.df
         assert "sync_index" in df.columns
-        assert "point_id" in df.columns
+        assert "keypoint_id" in df.columns
         assert "x_coord" in df.columns
         assert "y_coord" in df.columns
         assert "z_coord" in df.columns
@@ -145,7 +145,7 @@ class TestWorldPoints:
 
         assert np.allclose(actual_coords, expected_coords)
 
-    def test_world_points_all_point_ids_present_per_frame(self):
+    def test_world_points_all_keypoint_ids_present_per_frame(self):
         """Each frame has all point IDs."""
         cameras = CameraSynthesizer().add_ring(n=4, radius_mm=2000.0).build()
         obj = CalibrationObject.planar_grid(rows=5, cols=7, spacing_mm=50.0)
@@ -161,10 +161,10 @@ class TestWorldPoints:
 
         for frame in range(scene.n_frames):
             frame_points = df[df["sync_index"] == frame]
-            point_ids = sorted(frame_points["point_id"].unique())
-            expected_ids = sorted(obj.point_ids)
+            actual_ids = sorted(frame_points["keypoint_id"].unique())
+            expected_ids = sorted(obj.keypoint_ids)
 
-            assert point_ids == expected_ids
+            assert actual_ids == expected_ids
 
 
 class TestImagePoints:
@@ -187,7 +187,8 @@ class TestImagePoints:
         expected_cols = [
             "sync_index",
             "cam_id",
-            "point_id",
+            "object_id",
+            "keypoint_id",
             "img_loc_x",
             "img_loc_y",
             "obj_loc_x",
@@ -241,7 +242,7 @@ class TestImagePoints:
         # Merge on key columns to compare same observations
         merged = perfect.merge(
             noisy,
-            on=["sync_index", "cam_id", "point_id"],
+            on=["sync_index", "cam_id", "object_id", "keypoint_id"],
             suffixes=("_perfect", "_noisy"),
         )
 
@@ -275,7 +276,7 @@ class TestImagePoints:
         # Merge and compare
         merged = perfect.merge(
             noisy,
-            on=["sync_index", "cam_id", "point_id"],
+            on=["sync_index", "cam_id", "object_id", "keypoint_id"],
             suffixes=("_perfect", "_noisy"),
         )
 
@@ -296,9 +297,9 @@ class TestImagePoints:
 
         df = scene.image_points_perfect.df
 
-        # Check each point_id
-        for point_id in obj.point_ids:
-            point_rows = df[df["point_id"] == point_id]
+        # Check each keypoint_id
+        for keypoint_id in obj.keypoint_ids:
+            point_rows = df[df["keypoint_id"] == keypoint_id]
 
             # All observations of this point should have same obj_loc
             obj_locs = point_rows[["obj_loc_x", "obj_loc_y", "obj_loc_z"]].values
@@ -307,7 +308,7 @@ class TestImagePoints:
             assert np.allclose(obj_locs, obj_locs[0], atol=1e-10)
 
             # Should match the object's local coordinates
-            idx = np.where(obj.point_ids == point_id)[0][0]
+            idx = np.where(obj.keypoint_ids == keypoint_id)[0][0]
             expected = obj.points[idx]
 
             assert np.allclose(obj_locs[0], expected, atol=1e-10)
@@ -338,7 +339,7 @@ class TestImagePoints:
         noisy2 = scene2.image_points_noisy.df
 
         # Merge on key columns
-        merged = noisy1.merge(noisy2, on=["sync_index", "cam_id", "point_id"], suffixes=("_1", "_2"))
+        merged = noisy1.merge(noisy2, on=["sync_index", "cam_id", "object_id", "keypoint_id"], suffixes=("_1", "_2"))
 
         # Should be different
         x_same = np.isclose(merged["img_loc_x_1"], merged["img_loc_x_2"], atol=1e-10)
@@ -370,8 +371,8 @@ class TestImagePoints:
             random_seed=42,
         )
 
-        noisy1 = scene1.image_points_noisy.df.sort_values(["sync_index", "cam_id", "point_id"])
-        noisy2 = scene2.image_points_noisy.df.sort_values(["sync_index", "cam_id", "point_id"])
+        noisy1 = scene1.image_points_noisy.df.sort_values(["sync_index", "cam_id", "object_id", "keypoint_id"])
+        noisy2 = scene2.image_points_noisy.df.sort_values(["sync_index", "cam_id", "object_id", "keypoint_id"])
 
         # Should be identical
         assert np.allclose(noisy1["img_loc_x"], noisy2["img_loc_x"], atol=1e-10)
@@ -449,17 +450,19 @@ class TestCoverageMatrix:
         cam_id_a = 0
         cam_id_b = 1
 
-        # Find shared (sync_index, point_id) pairs
+        # Find shared (sync_index, object_id, keypoint_id) tuples
         a_obs = set(
             zip(
                 df[df["cam_id"] == cam_id_a]["sync_index"],
-                df[df["cam_id"] == cam_id_a]["point_id"],
+                df[df["cam_id"] == cam_id_a]["object_id"],
+                df[df["cam_id"] == cam_id_a]["keypoint_id"],
             )
         )
         b_obs = set(
             zip(
                 df[df["cam_id"] == cam_id_b]["sync_index"],
-                df[df["cam_id"] == cam_id_b]["point_id"],
+                df[df["cam_id"] == cam_id_b]["object_id"],
+                df[df["cam_id"] == cam_id_b]["keypoint_id"],
             )
         )
 
@@ -570,13 +573,15 @@ class TestApplyFilter:
         cam0_obs = set(
             zip(
                 df_before[df_before["cam_id"] == 0]["sync_index"],
-                df_before[df_before["cam_id"] == 0]["point_id"],
+                df_before[df_before["cam_id"] == 0]["object_id"],
+                df_before[df_before["cam_id"] == 0]["keypoint_id"],
             )
         )
         cam1_obs = set(
             zip(
                 df_before[df_before["cam_id"] == 1]["sync_index"],
-                df_before[df_before["cam_id"] == 1]["point_id"],
+                df_before[df_before["cam_id"] == 1]["object_id"],
+                df_before[df_before["cam_id"] == 1]["keypoint_id"],
             )
         )
         shared_before = len(cam0_obs & cam1_obs)
@@ -590,13 +595,15 @@ class TestApplyFilter:
         cam0_obs_after = set(
             zip(
                 df_after[df_after["cam_id"] == 0]["sync_index"],
-                df_after[df_after["cam_id"] == 0]["point_id"],
+                df_after[df_after["cam_id"] == 0]["object_id"],
+                df_after[df_after["cam_id"] == 0]["keypoint_id"],
             )
         )
         cam1_obs_after = set(
             zip(
                 df_after[df_after["cam_id"] == 1]["sync_index"],
-                df_after[df_after["cam_id"] == 1]["point_id"],
+                df_after[df_after["cam_id"] == 1]["object_id"],
+                df_after[df_after["cam_id"] == 1]["keypoint_id"],
             )
         )
         shared_after = len(cam0_obs_after & cam1_obs_after)

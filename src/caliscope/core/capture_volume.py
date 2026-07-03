@@ -12,7 +12,8 @@ from typing import Literal
 import logging
 
 from caliscope.cameras.camera_array import CameraArray
-from caliscope.core.point_data import ImagePoints, WorldPoints
+from caliscope.core.constraints import ConstraintSet, ConstraintViolation, RigidityReport
+from caliscope.core.point_data import STATIC_SYNC_INDEX, ImagePoints, WorldPoints
 from caliscope.core.reprojection import (
     ErrorsXY,
     reprojection_errors,
@@ -67,6 +68,7 @@ class CaptureVolume:
     camera_array: CameraArray
     image_points: ImagePoints
     world_points: WorldPoints
+    constraints: ConstraintSet | None = None
     # Computed field: maps each image observation to its world point index (-1 if unmatched)
     img_to_obj_map: np.ndarray = field(init=False)
     # Optimization metadata: None if capture volume hasn't been optimized or was filtered post-optimization
@@ -113,10 +115,17 @@ class CaptureVolume:
     def _compute_img_to_obj_map(self) -> np.ndarray:
         """Map each image observation to its world point index. Returns -1 for unmatched."""
         world_df = self.world_points.df.reset_index().rename(columns={"index": "world_idx"})
-        mapping = world_df.set_index(["sync_index", "point_id"])["world_idx"].to_dict()
+        mapping = world_df.set_index(["sync_index", "object_id", "keypoint_id"])["world_idx"].to_dict()
+
+        static_ids = self.constraints.static_object_ids if self.constraints else frozenset()
 
         img_df = self.image_points.df
-        keys = list(zip(img_df["sync_index"], img_df["point_id"]))
+        keys = []
+        for sync_idx, obj_id, kp_id in zip(img_df["sync_index"], img_df["object_id"], img_df["keypoint_id"]):
+            if int(obj_id) in static_ids:
+                keys.append((STATIC_SYNC_INDEX, int(obj_id), int(kp_id)))
+            else:
+                keys.append((int(sync_idx), int(obj_id), int(kp_id)))
         img_to_obj_map = np.array([mapping.get(key, -1) for key in keys], dtype=np.int32)
 
         n_unmatched = np.sum(img_to_obj_map == -1)
@@ -165,7 +174,8 @@ class CaptureVolume:
             {
                 "sync_index": matched_img_df["sync_index"].values,
                 "cam_id": matched_img_df["cam_id"].values,
-                "point_id": matched_img_df["point_id"].values,
+                "object_id": matched_img_df["object_id"].values,
+                "keypoint_id": matched_img_df["keypoint_id"].values,
                 "error_x": errors_xy[:, 0],
                 "error_y": errors_xy[:, 1],
                 "euclidean_error": euclidean_error,
@@ -180,10 +190,14 @@ class CaptureVolume:
             cam_errors = euclidean_error[matched_img_df["cam_id"] == cam_id]
             by_camera[cam_id] = float(np.sqrt(np.mean(cam_errors**2))) if len(cam_errors) > 0 else 0.0
 
-        by_point_id = {}
-        for point_id in np.unique(matched_img_df["point_id"]):
-            point_errors = euclidean_error[matched_img_df["point_id"] == point_id]
-            by_point_id[point_id] = float(np.sqrt(np.mean(point_errors**2)))
+        by_point = {}
+        # Build composite key for per-point RMSE
+        point_keys = list(zip(matched_img_df["object_id"], matched_img_df["keypoint_id"]))
+        unique_keys = set(point_keys)
+        for obj_id, kp_id in unique_keys:
+            mask = (matched_img_df["object_id"].values == obj_id) & (matched_img_df["keypoint_id"].values == kp_id)
+            point_errors = euclidean_error[mask]
+            by_point[(obj_id, kp_id)] = float(np.sqrt(np.mean(point_errors**2)))
 
         # 6. Count unmatched by camera (only count for posed cameras)
         unmatched_by_camera = {}
@@ -196,7 +210,7 @@ class CaptureVolume:
         report = ReprojectionReport(
             overall_rmse=overall_rmse,
             by_camera=by_camera,
-            by_point_id=by_point_id,
+            by_point=by_point,
             n_unmatched_observations=int(n_unmatched),
             unmatched_rate=n_unmatched / n_total if n_total > 0 else 0.0,
             unmatched_by_camera=unmatched_by_camera,
@@ -221,24 +235,32 @@ class CaptureVolume:
         self.camera_array.to_toml(directory / "camera_array.toml")
         self.image_points.to_csv(directory / "image_points.csv")
         self.world_points.to_csv(directory / "world_points.csv")
+        if self.constraints is not None:
+            self.constraints.to_toml(directory / "constraints.toml")
 
     @classmethod
     def load(cls, directory: Path | str) -> CaptureVolume:
         """Load capture volume from a directory.
 
         Expects: camera_array.toml, image_points.csv, world_points.csv.
+        Optionally loads constraints.toml if present.
         """
         directory = Path(directory)
         camera_array = CameraArray.from_toml(directory / "camera_array.toml")
         image_points = ImagePoints.from_csv(directory / "image_points.csv")
         world_points = WorldPoints.from_csv(directory / "world_points.csv")
-        return cls(camera_array=camera_array, image_points=image_points, world_points=world_points)
+        constraints_path = directory / "constraints.toml"
+        constraints = ConstraintSet.from_toml(constraints_path) if constraints_path.exists() else None
+        return cls(
+            camera_array=camera_array, image_points=image_points, world_points=world_points, constraints=constraints
+        )
 
     @classmethod
     def bootstrap(
         cls,
         image_points: ImagePoints,
         camera_array: CameraArray,
+        constraints: ConstraintSet | None = None,
     ) -> CaptureVolume:
         """Bootstrap extrinsic calibration from 2D observations.
 
@@ -287,9 +309,10 @@ class CaptureVolume:
         cameras = deepcopy(camera_array)
         pose_network = build_paired_pose_network(image_points, cameras)
         pose_network.apply_to(cameras)
-        world_points = image_points.triangulate(cameras)
+        static_ids = constraints.static_object_ids if constraints else frozenset()
+        world_points = image_points.triangulate(cameras, static_object_ids=static_ids)
 
-        return cls(camera_array=cameras, image_points=image_points, world_points=world_points)
+        return cls(camera_array=cameras, image_points=image_points, world_points=world_points, constraints=constraints)
 
     def optimize(
         self,
@@ -297,14 +320,14 @@ class CaptureVolume:
         max_nfev: int = 1000,
         verbose: int = 0,
         strict: bool = True,
+        use_constraints: bool = True,
+        pixel_sigma: float = 1.0,
     ) -> CaptureVolume:
-        """
-        Perform bundle adjustment optimization on this CaptureVolume.
+        """Perform bundle adjustment optimization on this CaptureVolume.
 
         Returns a NEW CaptureVolume with optimized camera parameters and 3D points.
         The original remains unchanged (immutable pattern).
         """
-        # Extract static data once - filter to matched observations from posed cameras
         matched_mask = self.img_to_obj_map >= 0
         posed_cam_ids = set(self.camera_array.posed_cam_id_to_index.keys())
         posed_mask: np.ndarray = self.image_points.df["cam_id"].isin(posed_cam_ids).to_numpy()
@@ -319,19 +342,47 @@ class CaptureVolume:
         image_coords: ImageCoords = matched_img_df[["img_loc_x", "img_loc_y"]].values
         image_to_world_indices = self.img_to_obj_map[combined_mask]
 
-        # Initial parameters from current state
         initial_params = self._get_vectorized_params()
 
-        # Get sparsity pattern for Jacobian
-        sparsity_pattern = self._get_sparsity_pattern(camera_indices, image_to_world_indices)
+        # Build constraint arrays if available
+        constraint_pairs = None
+        constraint_distances = None
+        constraint_weights = None
 
-        # Perform optimization
-        logger.info(f"Beginning bundle adjustment on {len(image_coords)} observations")
+        if use_constraints and self.constraints is not None:
+            arrays = self._build_constraint_arrays()
+            if arrays is not None:
+                constraint_pairs, constraint_distances, constraint_sigmas = arrays
+                # w = (pixel_sigma / f_median) / sigma_c
+                # A sigma_c-sized violation costs the same as a pixel_sigma-sized
+                # reprojection error. Collapses to 1/sigma_c under Phase 2 whitened residuals.
+                # posed_cameras guarantees matrix is not None
+                focal_lengths = [
+                    cam.matrix[0, 0] for cam in self.camera_array.posed_cameras.values() if cam.matrix is not None
+                ]
+                f_median = float(np.median(focal_lengths))
+                constraint_weights = (pixel_sigma / f_median) / constraint_sigmas
+                n_c = len(constraint_pairs)
+                logger.info(f"Adding {n_c} constraint rows (f_median={f_median:.0f}, pixel_sigma={pixel_sigma})")
+
+        sparsity_pattern = self._get_sparsity_pattern(camera_indices, image_to_world_indices, constraint_pairs)
+
+        n_obs = len(image_coords)
+        logger.info(f"Beginning bundle adjustment on {n_obs} observations")
         result = least_squares(
             bundle_residuals,
             initial_params,
-            args=(self.camera_array, camera_indices, image_coords, image_to_world_indices, True),
-            jac_sparsity=sparsity_pattern,  # Now using sparse Jacobian
+            args=(
+                self.camera_array,
+                camera_indices,
+                image_coords,
+                image_to_world_indices,
+                True,
+                constraint_pairs,
+                constraint_distances,
+                constraint_weights,
+            ),
+            jac_sparsity=sparsity_pattern,
             verbose=verbose,
             x_scale="jac",
             loss="linear",
@@ -340,9 +391,8 @@ class CaptureVolume:
             method="trf",
         )
 
-        # Capture optimization status
         termination_reason = _SCIPY_STATUS_REASONS.get(result.status, f"unknown_{result.status}")
-        converged = result.status in (1, 2, 3, 4)  # Any gtol/ftol/xtol convergence
+        converged = result.status in (1, 2, 3, 4)
 
         optimization_status = OptimizationStatus(
             converged=converged,
@@ -359,19 +409,15 @@ class CaptureVolume:
                 f"Pass strict=False to suppress this error and inspect the result."
             )
 
-        # Create new capture volume with optimized parameters
         new_camera_array = deepcopy(self.camera_array)
         new_camera_array.update_extrinsic_params(result.x)
 
-        # Extract optimized 3D points
         n_cams = len(self.camera_array.posed_cameras)
         n_cam_params = 6
         optimized_points = result.x[n_cams * n_cam_params :].reshape((-1, 3))
 
-        # Create new world points with optimized coordinates
         new_world_df = self.world_points.df.copy()
-        matched_obj_unique = np.unique(image_to_world_indices)
-        new_world_df.loc[matched_obj_unique, ["x_coord", "y_coord", "z_coord"]] = optimized_points
+        new_world_df[["x_coord", "y_coord", "z_coord"]] = optimized_points
 
         new_world_points = WorldPoints(new_world_df)
 
@@ -379,6 +425,7 @@ class CaptureVolume:
             camera_array=new_camera_array,
             image_points=self.image_points,
             world_points=new_world_points,
+            constraints=self.constraints,
             _optimization_status=optimization_status,
         )
 
@@ -386,46 +433,44 @@ class CaptureVolume:
         self,
         camera_indices: NDArray[np.int16],
         obj_indices: NDArray[np.int32],
+        constraint_pairs: NDArray[np.int32] | None = None,
     ) -> lil_matrix:
-        """
-        Generate sparsity pattern for Jacobian matrix.
+        """Generate sparsity pattern for Jacobian matrix.
 
-        Each observation contributes 2 residuals (x_error, y_error).
-        Each residual depends on:
-        - 6 camera parameters (rotation + translation)
-        - 3 point parameters (x, y, z)
-
-        Args:
-            camera_indices: (n_observations,) array mapping observations to cameras
-            obj_indices: (n_observations,) array mapping observations to 3D points
-
-        Returns:
-            sparsity: lil_matrix of shape (n_residuals, n_params)
+        Reprojection rows: each depends on 6 camera params + 3 point params.
+        Constraint rows: each depends on 6 point params (3 per endpoint),
+        no camera params.
         """
         n_observations = len(camera_indices)
         n_cameras = len(self.camera_array.posed_cameras)
         n_points = len(self.world_points.points)
 
-        # Jacobian dimensions: 2 residuals per observation
-        n_residuals = n_observations * 2
+        n_constraints = len(constraint_pairs) if constraint_pairs is not None else 0
+        n_residuals = n_observations * 2 + n_constraints
         n_params = n_cameras * 6 + n_points * 3
 
         sparsity = lil_matrix((n_residuals, n_params), dtype=int)
 
-        # Observation indices (0 to n_observations-1)
         obs_idx = np.arange(n_observations)
 
-        # Camera parameter dependencies (first 6 params per camera)
         for cam_param in range(6):
             param_col = camera_indices * 6 + cam_param
-            sparsity[2 * obs_idx, param_col] = 1  # x residual depends on camera param
-            sparsity[2 * obs_idx + 1, param_col] = 1  # y residual depends on camera param
+            sparsity[2 * obs_idx, param_col] = 1
+            sparsity[2 * obs_idx + 1, param_col] = 1
 
-        # Point parameter dependencies (3 params per point, after camera params)
         for point_param in range(3):
             param_col = n_cameras * 6 + obj_indices * 3 + point_param
-            sparsity[2 * obs_idx, param_col] = 1  # x residual depends on point param
-            sparsity[2 * obs_idx + 1, param_col] = 1  # y residual depends on point param
+            sparsity[2 * obs_idx, param_col] = 1
+            sparsity[2 * obs_idx + 1, param_col] = 1
+
+        if constraint_pairs is not None:
+            c_idx = np.arange(n_constraints)
+            row_offset = n_observations * 2
+            for coord in range(3):
+                col_a = n_cameras * 6 + constraint_pairs[:, 0] * 3 + coord
+                col_b = n_cameras * 6 + constraint_pairs[:, 1] * 3 + coord
+                sparsity[row_offset + c_idx, col_a] = 1
+                sparsity[row_offset + c_idx, col_b] = 1
 
         return sparsity
 
@@ -440,6 +485,142 @@ class CaptureVolume:
         points_3d = self.world_points.points  # (n_points, 3)
 
         return np.concatenate([camera_params.ravel(), points_3d.ravel()])
+
+    def _build_constraint_arrays(
+        self,
+    ) -> tuple[NDArray[np.int32], NDArray[np.float64], NDArray[np.float64]] | None:
+        """Build constraint arrays for the BA from self.constraints.
+
+        Returns (pair_indices (n_c, 2), distances (n_c,), sigmas (n_c,))
+        where pair_indices are row indices into world_points.df.
+        Returns None if no constraints or no valid instances.
+        """
+        if self.constraints is None or not self.constraints.distances:
+            return None
+
+        from collections import defaultdict
+
+        world_df = self.world_points.df
+        static_ids = self.constraints.static_object_ids
+
+        # (object_id, keypoint_id) -> {sync_index: row_idx}
+        point_lookup: dict[tuple[int, int], dict[int, int]] = defaultdict(dict)
+        for row_idx, (si, oid, kid) in enumerate(
+            zip(world_df["sync_index"], world_df["object_id"], world_df["keypoint_id"])
+        ):
+            point_lookup[(int(oid), int(kid))][int(si)] = row_idx
+
+        pairs: list[list[int]] = []
+        dists: list[float] = []
+        sigmas: list[float] = []
+
+        for dc in self.constraints.distances:
+            key_a = (dc.object_id_a, dc.keypoint_id_a)
+            key_b = (dc.object_id_b, dc.keypoint_id_b)
+            a_static = dc.object_id_a in static_ids
+            b_static = dc.object_id_b in static_ids
+
+            if a_static != b_static:
+                continue
+
+            syncs_a = point_lookup.get(key_a, {})
+            syncs_b = point_lookup.get(key_b, {})
+
+            if a_static:
+                # Both static: one instance at STATIC_SYNC_INDEX
+                if STATIC_SYNC_INDEX in syncs_a and STATIC_SYNC_INDEX in syncs_b:
+                    pairs.append([syncs_a[STATIC_SYNC_INDEX], syncs_b[STATIC_SYNC_INDEX]])
+                    dists.append(dc.distance)
+                    sigmas.append(dc.sigma)
+            else:
+                # Both mobile: one instance per shared sync_index
+                shared = syncs_a.keys() & syncs_b.keys()
+                for si in shared:
+                    if si == STATIC_SYNC_INDEX:
+                        continue
+                    pairs.append([syncs_a[si], syncs_b[si]])
+                    dists.append(dc.distance)
+                    sigmas.append(dc.sigma)
+
+        if not pairs:
+            return None
+
+        return (
+            np.array(pairs, dtype=np.int32),
+            np.array(dists, dtype=np.float64),
+            np.array(sigmas, dtype=np.float64),
+        )
+
+    def rigidity_report(self) -> RigidityReport:
+        """Measure constraint violations against current world points.
+
+        Pure measurement, no optimization. Valid on any CaptureVolume with
+        constraints, before or after optimize().
+        """
+        if self.constraints is None or not self.constraints.distances:
+            return RigidityReport(violations=())
+
+        from collections import defaultdict
+
+        world_df = self.world_points.df
+        static_ids = self.constraints.static_object_ids
+        coords = self.world_points.points
+
+        point_lookup: dict[tuple[int, int], dict[int, int]] = defaultdict(dict)
+        for row_idx, (si, oid, kid) in enumerate(
+            zip(world_df["sync_index"], world_df["object_id"], world_df["keypoint_id"])
+        ):
+            point_lookup[(int(oid), int(kid))][int(si)] = row_idx
+
+        violations: list[ConstraintViolation] = []
+
+        for dc in self.constraints.distances:
+            key_a = (dc.object_id_a, dc.keypoint_id_a)
+            key_b = (dc.object_id_b, dc.keypoint_id_b)
+            a_static = dc.object_id_a in static_ids
+            b_static = dc.object_id_b in static_ids
+
+            if a_static != b_static:
+                continue
+
+            syncs_a = point_lookup.get(key_a, {})
+            syncs_b = point_lookup.get(key_b, {})
+
+            if a_static:
+                if STATIC_SYNC_INDEX in syncs_a and STATIC_SYNC_INDEX in syncs_b:
+                    actual = float(
+                        np.linalg.norm(coords[syncs_a[STATIC_SYNC_INDEX]] - coords[syncs_b[STATIC_SYNC_INDEX]])
+                    )
+                    violations.append(
+                        ConstraintViolation(
+                            object_id_a=dc.object_id_a,
+                            keypoint_id_a=dc.keypoint_id_a,
+                            object_id_b=dc.object_id_b,
+                            keypoint_id_b=dc.keypoint_id_b,
+                            sync_index=STATIC_SYNC_INDEX,
+                            expected=dc.distance,
+                            actual=actual,
+                        )
+                    )
+            else:
+                shared = syncs_a.keys() & syncs_b.keys()
+                for si in shared:
+                    if si == STATIC_SYNC_INDEX:
+                        continue
+                    actual = float(np.linalg.norm(coords[syncs_a[si]] - coords[syncs_b[si]]))
+                    violations.append(
+                        ConstraintViolation(
+                            object_id_a=dc.object_id_a,
+                            keypoint_id_a=dc.keypoint_id_a,
+                            object_id_b=dc.object_id_b,
+                            keypoint_id_b=dc.keypoint_id_b,
+                            sync_index=si,
+                            expected=dc.distance,
+                            actual=actual,
+                        )
+                    )
+
+        return RigidityReport(violations=tuple(violations))
 
     def _filter_by_reprojection_thresholds(self, thresholds: dict[int, float], min_per_camera: int) -> CaptureVolume:
         """
@@ -483,15 +664,30 @@ class CaptureVolume:
                     keep_mask[camera_idx] = raw_errors.loc[camera_idx, "euclidean_error"] <= threshold_to_add  # type: ignore[index, operator]
 
         # Get keys of observations to keep
-        keep_keys = raw_errors[keep_mask][["sync_index", "cam_id", "point_id"]]
+        keep_keys = raw_errors[keep_mask][["sync_index", "cam_id", "object_id", "keypoint_id"]]
 
         # Filter image points by merging with keep keys
-        filtered_img_df = self.image_points.df.merge(keep_keys, on=["sync_index", "cam_id", "point_id"], how="inner")
+        filtered_img_df = self.image_points.df.merge(
+            keep_keys, on=["sync_index", "cam_id", "object_id", "keypoint_id"], how="inner"
+        )
         filtered_image_points = ImagePoints(filtered_img_df)
 
         # Prune orphaned world points (3D points with no observations)
-        remaining_3d_keys = filtered_img_df[["sync_index", "point_id"]].drop_duplicates()
-        filtered_world_df = self.world_points.df.merge(remaining_3d_keys, on=["sync_index", "point_id"], how="inner")
+        remaining_3d_keys = filtered_img_df[["sync_index", "object_id", "keypoint_id"]].drop_duplicates()
+        filtered_world_df = self.world_points.df.merge(
+            remaining_3d_keys, on=["sync_index", "object_id", "keypoint_id"], how="inner"
+        )
+
+        # Preserve static world points that still have observations in filtered image points.
+        # Static points live at STATIC_SYNC_INDEX but their observations carry real sync_indices,
+        # so the merge above drops them. Re-attach any static rows whose (object_id, keypoint_id)
+        # still appears in the filtered observations.
+        static_world_df = self.world_points.df[self.world_points.df["sync_index"] == STATIC_SYNC_INDEX]
+        if not static_world_df.empty:
+            static_obs_keys = filtered_img_df[["object_id", "keypoint_id"]].drop_duplicates()
+            static_to_keep = static_world_df.merge(static_obs_keys, on=["object_id", "keypoint_id"], how="inner")
+            if not static_to_keep.empty:
+                filtered_world_df = pd.concat([filtered_world_df, static_to_keep], ignore_index=True)
 
         filtered_world_points = WorldPoints(filtered_world_df)
 
@@ -499,6 +695,7 @@ class CaptureVolume:
             camera_array=self.camera_array,
             image_points=filtered_image_points,
             world_points=filtered_world_points,
+            constraints=self.constraints,
         )
 
     def filter_by_absolute_error(self, max_pixels: float, min_per_camera: int = 10) -> CaptureVolume:
@@ -574,70 +771,62 @@ class CaptureVolume:
         return self._filter_by_reprojection_thresholds(thresholds, min_per_camera)
 
     def compute_volumetric_scale_accuracy(self) -> VolumetricScaleReport:
-        """Compute multi-frame scale accuracy across the capture volume.
+        """Compute per-marker, per-frame scale accuracy across the capture volume.
 
-        Compares triangulated world points to their corresponding ground truth
-        object positions (from obj_loc columns) at all frames where >=4 corners
-        are visible. Uses ALL pairwise distances at each frame for robust
-        statistical measurement.
+        Groups by (sync_index, object_id) so each marker's pairwise distances
+        are compared against its own local-frame geometry. Cross-marker distances
+        are never computed (each marker's obj_loc is in its own coordinate frame).
 
         Returns:
-            VolumetricScaleReport containing per-frame errors and aggregate metrics.
+            VolumetricScaleReport containing per-frame-per-object errors and aggregate metrics.
             Returns empty report if no valid frames exist (normal pre-alignment state).
         """
         img_df = self.image_points.df
         world_df = self.world_points.df
 
-        # Find sync_indices where obj_loc data exists
-        # Check if obj_loc columns are present
         obj_loc_cols = ["obj_loc_x", "obj_loc_y", "obj_loc_z"]
         if not all(col in img_df.columns for col in obj_loc_cols):
             return VolumetricScaleReport.empty()
 
-        # Filter to rows that have obj_loc x/y data (z may be NaN for planar boards)
         obj_loc_mask = ~img_df[["obj_loc_x", "obj_loc_y"]].isna().any(axis=1)
-        frames_with_obj_loc = img_df[obj_loc_mask]["sync_index"].unique()
+        img_with_obj = img_df[obj_loc_mask]
 
-        if len(frames_with_obj_loc) == 0:
+        if img_with_obj.empty:
             return VolumetricScaleReport.empty()
+
+        static_ids = self.constraints.static_object_ids if self.constraints else frozenset()
 
         frame_errors: list[FrameScaleError] = []
 
-        # Process each frame
-        for sync_index in frames_with_obj_loc:
-            img_subset = img_df[img_df["sync_index"] == sync_index]
-            world_subset = world_df[world_df["sync_index"] == sync_index]
+        for (sync_index_raw, object_id_raw), img_group in img_with_obj.groupby(["sync_index", "object_id"]):
+            sync_index = int(sync_index_raw)  # type: ignore[arg-type]
+            object_id = int(object_id_raw)  # type: ignore[arg-type]
 
-            if img_subset.empty or world_subset.empty:
+            # Static markers: world points live at STATIC_SYNC_INDEX
+            world_si = STATIC_SYNC_INDEX if object_id in static_ids else sync_index
+            world_subset = world_df[(world_df["sync_index"] == world_si) & (world_df["object_id"] == object_id)]
+
+            if world_subset.empty:
                 continue
 
-            # Get unique point_ids with obj_loc data (drop duplicates from multi-camera observations)
-            obj_points_df = img_subset[["point_id", "obj_loc_x", "obj_loc_y", "obj_loc_z"]].drop_duplicates(
-                subset=["point_id"]
-            )
+            obj_points_df = img_group[
+                ["object_id", "keypoint_id", "obj_loc_x", "obj_loc_y", "obj_loc_z"]
+            ].drop_duplicates(subset=["object_id", "keypoint_id"])
 
-            # Merge world points with object locations by point_id
-            merged = world_subset.merge(obj_points_df, on="point_id", how="inner")
+            merged = world_subset.merge(obj_points_df, on=["object_id", "keypoint_id"], how="inner")
 
-            # Handle planar objects (z=0 or NaN)
             if merged["obj_loc_z"].isna().all():
                 merged = merged.copy()
                 merged["obj_loc_z"] = 0.0
 
-            # Filter out any remaining NaN values
             valid_mask = ~merged[["obj_loc_x", "obj_loc_y", "obj_loc_z"]].isna().any(axis=1)
             merged = merged[valid_mask]
 
-            # Skip frames with <4 corners (spec's minimum threshold)
-            if len(merged) < 4:
+            if len(merged) < 3:
                 continue
 
-            # Count cameras contributing at this frame
-            n_cameras_contributing = int(
-                img_subset[img_subset["point_id"].isin(merged["point_id"])]["cam_id"].nunique()
-            )
+            n_cameras_contributing = int(img_group["cam_id"].nunique())
 
-            # Extract arrays for scale accuracy computation
             world_points = merged[["x_coord", "y_coord", "z_coord"]].to_numpy()
             object_points = merged[["obj_loc_x", "obj_loc_y", "obj_loc_z"]].to_numpy()
 
@@ -645,87 +834,107 @@ class CaptureVolume:
                 frame_error = compute_frame_scale_error(
                     world_points=world_points,
                     object_points=object_points,
-                    sync_index=int(sync_index),
+                    sync_index=sync_index,
+                    object_id=object_id,
                     n_cameras_contributing=n_cameras_contributing,
                 )
                 frame_errors.append(frame_error)
             except ValueError as e:
-                # Log but don't fail — some frames may have degenerate geometry
-                logger.debug(f"Skipping sync_index {sync_index} due to error: {e}")
+                logger.debug(f"Skipping sync_index {sync_index} object_id {object_id}: {e}")
                 continue
 
-        # Return report (empty if no valid frames)
         return VolumetricScaleReport(frame_errors=tuple(frame_errors))
 
-    def align_to_object(self, sync_index: int) -> "CaptureVolume":
+    def align_to_object(
+        self,
+        sync_index: int | None,
+        object_id: int | None = None,
+    ) -> "CaptureVolume":
+        """Align the capture volume to a marker's local coordinate frame.
+
+        The resulting world frame places the marker's center at the origin,
+        X along the top edge (TL->TR), Y up the left edge (BL->TL),
+        Z normal to the marker face (right-handed). A ground marker
+        face-up yields a Z-up world.
+
+        sync_index=None is valid only for static markers (world points at
+        STATIC_SYNC_INDEX). Raises for non-static markers.
         """
-        Align the capture volume to real-world units using object point correspondences.
-
-        Uses the 3D points triangulated at the given sync_index and their
-        corresponding ground truth object positions (from obj_loc columns) to
-        estimate a similarity transform that scales the reconstruction to real-world units.
-
-        Note:
-            Object coordinates (obj_loc_*) must be in real-world units (typically meters).
-            For Charuco boards, this requires defining the board with square_length in meters.
-
-        For planar Charuco boards, obj_loc_z may be missing and will be treated as 0.
-        The obj_loc coordinates must be in the target units (typically meters).
-
-        Args:
-            sync_index: Frame index where object is visible and has obj_loc data
-
-        Returns:
-            New CaptureVolume with cameras and world points in object coordinate units
-
-        Raises:
-            ValueError: If insufficient valid correspondences (< 3 points) or missing data
-        """
-        # Extract data at sync_index
         img_df = self.image_points.df
         world_df = self.world_points.df
+        static_ids = self.constraints.static_object_ids if self.constraints else frozenset()
 
-        img_subset = img_df[img_df["sync_index"] == sync_index]
-        world_subset = world_df[world_df["sync_index"] == sync_index]
+        # Resolve sync_index for static markers
+        if sync_index is None:
+            if object_id is None:
+                raise ValueError("sync_index=None requires an explicit object_id")
+            if object_id not in static_ids:
+                raise ValueError(
+                    f"sync_index=None is only valid for static markers, but object_id={object_id} is not static"
+                )
+
+        # Select image observations at this frame
+        img_subset = img_df[img_df["sync_index"] == sync_index] if sync_index is not None else img_df
 
         if img_subset.empty:
-            raise ValueError(f"No image observations at sync_index {sync_index}")
-        if world_subset.empty:
-            raise ValueError(f"No world points at sync_index {sync_index}")
+            raise ValueError(f"No image observations at sync_index={sync_index}")
 
-        # Merge on point_id to find correspondences
+        # If object_id not specified, infer or require single-object
+        if object_id is None:
+            unique_objects = img_subset["object_id"].unique()
+            if len(unique_objects) > 1:
+                raise ValueError(
+                    f"Multiple markers present at sync_index {sync_index}; "
+                    f"specify object_id (available: {sorted(unique_objects)})"
+                )
+            object_id = int(unique_objects[0])
+
+        # Static markers have world points at STATIC_SYNC_INDEX regardless of
+        # which sync_index the caller asked for
+        world_si = STATIC_SYNC_INDEX if object_id in static_ids else (sync_index if sync_index is not None else 0)
+
+        # Filter to specified object, deduplicate obj_loc for the merge
+        img_subset = img_subset[img_subset["object_id"] == object_id]
+        obj_points_df = img_subset[["object_id", "keypoint_id", "obj_loc_x", "obj_loc_y", "obj_loc_z"]].drop_duplicates(
+            subset=["object_id", "keypoint_id"]
+        )
+
+        world_subset = world_df[(world_df["sync_index"] == world_si) & (world_df["object_id"] == object_id)]
+
+        if img_subset.empty:
+            raise ValueError(f"No image observations for object_id={object_id} at sync_index={sync_index}")
+        if world_subset.empty:
+            raise ValueError(f"No world points for object_id={object_id} at sync_index={world_si}")
+
+        # Merge on (object_id, keypoint_id) to find correspondences
         merged = pd.merge(
-            world_subset[["point_id", "x_coord", "y_coord", "z_coord"]],
-            img_subset[["point_id", "obj_loc_x", "obj_loc_y", "obj_loc_z"]],
-            on="point_id",
+            world_subset[["object_id", "keypoint_id", "x_coord", "y_coord", "z_coord"]],
+            obj_points_df,
+            on=["object_id", "keypoint_id"],
             how="inner",
         )
 
-        if len(merged) < 3:
-            raise ValueError(f"Need at least 3 point correspondences at sync_index {sync_index}, got {len(merged)}")
-
-        # Handle missing obj_loc_z (planar boards)
         if merged["obj_loc_z"].isna().all():
             logger.info("obj_loc_z is all NaN, assuming planar board with z=0")
             merged["obj_loc_z"] = 0.0
 
-        # Filter out any rows with NaN object coordinates
         obj_cols = ["obj_loc_x", "obj_loc_y", "obj_loc_z"]
         valid_mask = ~merged[obj_cols].isna().any(axis=1)
         merged = merged[valid_mask]
 
         if len(merged) < 3:
-            raise ValueError(
-                f"Need at least 3 valid point correspondences at sync_index {sync_index}, "
-                f"got {len(merged)} after filtering NaN values"
-            )
+            raise ValueError(f"Need at least 3 valid correspondences for object_id={object_id}, got {len(merged)}")
 
-        # Prepare source (triangulated) and target (object) points
         source_points = merged[["x_coord", "y_coord", "z_coord"]].values.astype(np.float64)
         target_points = merged[obj_cols].values.astype(np.float64)
 
-        # Estimate and apply transform
         transform = estimate_similarity_transform(source_points, target_points)
+
+        if self.constraints is not None and abs(transform.scale - 1.0) > 0.02:
+            logger.warning(
+                f"Scale deviation on constrained volume: {transform.scale:.4f} "
+                f"(expected ~1.0). The BA could not reconcile constraints with pixel evidence."
+            )
 
         logger.info(
             f"Estimated alignment: scale={transform.scale:.6f}, "
@@ -738,6 +947,7 @@ class CaptureVolume:
             camera_array=new_camera_array,
             image_points=self.image_points,
             world_points=new_world_points,
+            constraints=self.constraints,
             _optimization_status=self._optimization_status,
         )
 
@@ -814,6 +1024,7 @@ class CaptureVolume:
             camera_array=new_camera_array,
             image_points=self.image_points,
             world_points=new_world_points,
+            constraints=self.constraints,
             _optimization_status=self._optimization_status,
         )
 

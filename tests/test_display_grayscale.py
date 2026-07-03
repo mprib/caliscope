@@ -10,11 +10,12 @@ def test_frame_with_points_grayscale_produces_visible_circles():
     gray[:] = 128  # mid-gray background
 
     points = PointPacket(
-        point_id=np.array([0], dtype=np.int32),
+        object_id=np.array([0], dtype=np.int32),
+        keypoint_id=np.array([0], dtype=np.int32),
         img_loc=np.array([[320.0, 240.0]], dtype=np.float64),
     )
 
-    def draw_instructions(point_id):
+    def draw_instructions(keypoint_id):
         return {"radius": 10, "color": (0, 0, 220), "thickness": -1}
 
     tracked = TrackedFrame(

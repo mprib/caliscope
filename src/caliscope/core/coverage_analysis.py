@@ -96,7 +96,7 @@ def compute_coverage_matrix(
 
     The coverage matrix is an (n_cameras, n_cameras) symmetric matrix where:
     - Diagonal [i, i]: Total observations from camera i
-    - Off-diagonal [i, j]: Count of (sync_index, point_id) pairs seen by BOTH cameras
+    - Off-diagonal [i, j]: Count of (sync_index, object_id, keypoint_id) tuples seen by BOTH cameras
 
     Args:
         image_points: ImagePoints to analyze
@@ -109,8 +109,8 @@ def compute_coverage_matrix(
     n_cameras = len(cam_id_to_index)
     coverage = np.zeros((n_cameras, n_cameras), dtype=np.int64)
 
-    # Group by (sync_index, point_id) to find which cameras see each point
-    grouped = df.groupby(["sync_index", "point_id"])["cam_id"].apply(set)
+    # Group by (sync_index, object_id, keypoint_id) to find which cameras see each point
+    grouped = df.groupby(["sync_index", "object_id", "keypoint_id"])["cam_id"].apply(set)
 
     for cam_ids in grouped:
         cam_id_list = sorted(cam_ids)

@@ -118,7 +118,7 @@ def test_detection_finds_all_corners(tracker: ChessboardTracker) -> None:
     assert frame is not None
     packet = tracker.get_points(frame)
 
-    assert len(packet.point_id) == 54, "Should detect all 54 corners (6*9)"
+    assert len(packet.keypoint_id) == 54, "Should detect all 54 corners (6*9)"
     assert packet.img_loc.shape == (54, 2)
     assert packet.obj_loc.shape == (54, 3)
 
@@ -133,7 +133,7 @@ def test_no_board_returns_empty_packet(tracker: ChessboardTracker) -> None:
     assert frame is not None
     packet = tracker.get_points(frame)
 
-    assert len(packet.point_id) == 0
+    assert len(packet.keypoint_id) == 0
     assert packet.img_loc.shape == (0, 2)
     assert packet.obj_loc.shape == (0, 3)
 
@@ -155,16 +155,16 @@ def test_cross_camera_consistency(tracker: ChessboardTracker) -> None:
         if frame is None:
             continue
         packet = tracker.get_points(frame)
-        if len(packet.point_id) > 0:
+        if len(packet.keypoint_id) > 0:
             packets.append((path, packet))
 
     if len(packets) < 2:
         pytest.skip("Need at least 2 successful detections for comparison")
 
-    reference_ids = packets[0][1].point_id
+    reference_ids = packets[0][1].keypoint_id
     for path, packet in packets[1:]:
         np.testing.assert_array_equal(
-            packet.point_id,
+            packet.keypoint_id,
             reference_ids,
             err_msg=f"Corner ordering mismatch: {packets[0][0]} vs {path}",
         )
@@ -187,10 +187,10 @@ if __name__ == "__main__":
     packet = tracker_.get_points(frame)
 
     annotated = frame.copy()
-    for pid, loc in zip(packet.point_id, packet.img_loc):
+    for pid, loc in zip(packet.keypoint_id, packet.img_loc):
         x, y = int(loc[0]), int(loc[1])
         cv2.circle(annotated, (x, y), 5, (0, 220, 0), 2)
         cv2.putText(annotated, str(pid), (x + 5, y - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.3, (0, 220, 0), 1)
 
     cv2.imwrite(str(debug_dir / "chessboard_detection.jpg"), annotated)
-    print(f"Detected {len(packet.point_id)} corners, saved to {debug_dir}")
+    print(f"Detected {len(packet.keypoint_id)} corners, saved to {debug_dir}")

@@ -65,13 +65,13 @@ def test_reprojection_report_generation(tmp_path: Path):
         assert 0.0 <= report.by_camera[cam_id] < 10.0
 
     # Per-point metrics
-    assert len(report.by_point_id) > 0, "Should have point-level metrics"
-    for point_id, rmse in report.by_point_id.items():
+    assert len(report.by_point) > 0, "Should have point-level metrics"
+    for (object_id, keypoint_id), rmse in report.by_point.items():
         assert 0.0 <= rmse < 10.0
 
     # Raw errors DataFrame structure
     assert len(report.raw_errors) == report.n_observations_matched
-    expected_columns = ["sync_index", "cam_id", "point_id", "error_x", "error_y", "euclidean_error"]
+    expected_columns = ["sync_index", "cam_id", "object_id", "keypoint_id", "error_x", "error_y", "euclidean_error"]
     assert list(report.raw_errors.columns) == expected_columns
 
     # Verify error calculations are consistent

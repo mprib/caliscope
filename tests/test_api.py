@@ -197,7 +197,8 @@ def test_calibrate_intrinsics_missing_objloc():
         {
             "sync_index": [0, 0],
             "cam_id": [0, 0],
-            "point_id": [0, 1],
+            "object_id": [0, 0],
+            "keypoint_id": [0, 1],
             "img_loc_x": [100.0, 200.0],
             "img_loc_y": [150.0, 250.0],
             "obj_loc_x": [np.nan, np.nan],

@@ -16,7 +16,7 @@ from scipy.spatial.distance import pdist
 
 @dataclass(frozen=True)
 class FrameScaleError:
-    """Per-frame scale accuracy comparing triangulated to ground truth distances.
+    """Per-frame, per-object scale accuracy comparing triangulated to ground truth distances.
 
     Sign convention: positive error = measured distance is larger than true distance
     (reconstruction is systematically too large). Computed as (measured - true).
@@ -25,6 +25,7 @@ class FrameScaleError:
     """
 
     sync_index: int
+    object_id: int
     distance_rmse_mm: float
     distance_mean_signed_error_mm: float  # mean(measured - true) * 1000; separates bias from noise
     distance_max_error_mm: float  # max abs error; detects individual bad triangulations
@@ -129,6 +130,7 @@ def compute_frame_scale_error(
     world_points: np.ndarray,
     object_points: np.ndarray,
     sync_index: int,
+    object_id: int,
     n_cameras_contributing: int,
 ) -> FrameScaleError:
     """Compare triangulated inter-point distances to known ground truth at a single frame.
@@ -179,6 +181,7 @@ def compute_frame_scale_error(
 
     return FrameScaleError(
         sync_index=sync_index,
+        object_id=object_id,
         distance_rmse_mm=rmse_mm,
         distance_mean_signed_error_mm=mean_signed_error_mm,
         distance_max_error_mm=max_error_mm,

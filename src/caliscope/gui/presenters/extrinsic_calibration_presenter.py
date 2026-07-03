@@ -11,6 +11,7 @@ This prevents state/reality divergence.
 from __future__ import annotations
 
 import logging
+from collections.abc import Callable
 from copy import deepcopy
 from dataclasses import dataclass
 from enum import Enum, auto
@@ -21,12 +22,10 @@ import numpy as np
 from PySide6.QtCore import QObject, Qt, Signal
 
 from caliscope.cameras.camera_array import CameraArray
-from caliscope.core.bootstrap_pose.build_paired_pose_network import (
-    build_paired_pose_network,
-)
 from caliscope.core.coverage_analysis import compute_coverage_matrix
 from caliscope.core.point_data import ImagePoints
 from caliscope.core.capture_volume import CaptureVolume
+from caliscope.core.constraints import ConstraintSet
 from caliscope.repositories.project_settings_repository import ProjectSettingsRepository
 from caliscope.task_manager.cancellation import CancellationToken
 from caliscope.task_manager.task_handle import TaskHandle
@@ -148,6 +147,7 @@ class ExtrinsicCalibrationPresenter(QObject):
         camera_array: CameraArray,
         image_points_path: Path,
         existing_capture_volume: CaptureVolume | None = None,
+        constraint_factory: Callable[[], ConstraintSet | None] | None = None,
         project_settings: ProjectSettingsRepository | None = None,
         parent: QObject | None = None,
     ) -> None:
@@ -159,6 +159,7 @@ class ExtrinsicCalibrationPresenter(QObject):
             image_points_path: Path to image_points.csv from Phase 3
             existing_capture_volume: Pre-loaded CaptureVolume for restoring calibrated state.
                 If provided, presenter starts in CALIBRATED state with visualization ready.
+            constraint_factory: Called at calibration time to get current constraints from disk.
             project_settings: Repository for persisting 3D view appearance settings.
             parent: Optional Qt parent
         """
@@ -167,6 +168,7 @@ class ExtrinsicCalibrationPresenter(QObject):
         self._task_manager = task_manager
         self._camera_array = camera_array
         self._image_points_path = image_points_path
+        self._constraint_factory = constraint_factory
         self._project_settings = project_settings
 
         # Processing state (managed internally)
@@ -305,18 +307,10 @@ class ExtrinsicCalibrationPresenter(QObject):
         if token.is_cancelled:
             raise InterruptedError("Calibration cancelled")
 
-        handle.report_progress(15, "Bootstrapping camera poses")
-        pose_network = build_paired_pose_network(image_points, camera_array, method="pnp")
-        pose_network.apply_to(camera_array)
+        constraints = self._constraint_factory() if self._constraint_factory else None
 
-        if token.is_cancelled:
-            raise InterruptedError("Calibration cancelled")
-
-        handle.report_progress(30, "Triangulating 3D points")
-        world_points = image_points.triangulate(camera_array)
-
-        handle.report_progress(40, "Building capture volume")
-        capture_volume = CaptureVolume(camera_array, image_points, world_points)
+        handle.report_progress(15, "Bootstrapping camera poses and triangulating")
+        capture_volume = CaptureVolume.bootstrap(image_points, camera_array, constraints=constraints)
 
         if token.is_cancelled:
             raise InterruptedError("Calibration cancelled")

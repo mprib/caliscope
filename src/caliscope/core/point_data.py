@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 import logging
+from collections.abc import Iterable
 from pathlib import Path
 from time import time
 import numpy as np
@@ -13,6 +14,8 @@ from caliscope.cameras.camera_array import CameraArray
 from dataclasses import dataclass
 
 logger = logging.getLogger(__name__)
+
+STATIC_SYNC_INDEX = -1
 
 
 #####################################################################################
@@ -31,50 +34,50 @@ logger = logging.getLogger(__name__)
 def triangulate_sync_index(
     projection_matrices: dict[int, np.ndarray],
     camera_ids: np.ndarray,
-    point_ids: np.ndarray,
+    object_ids: np.ndarray,
+    keypoint_ids: np.ndarray,
     img_xy: np.ndarray,
-) -> tuple[np.ndarray, np.ndarray]:
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """Triangulate 2D observations to 3D points for a single sync index.
 
-    Groups observations by the exact set of observing cameras, then runs one
-    batched np.linalg.svd call per camera-set group.
-
-    Used by SyncPacketTriangulator for real-time triangulation of individual
-    sync packets. For bulk triangulation of entire datasets, use
-    triangulate_image_points() instead.
+    Groups observations by (object_id, keypoint_id), then runs batched SVD
+    per camera-set group. Returns (object_ids, keypoint_ids, xyz).
     """
-    if len(point_ids) < 2:
-        return np.array([], dtype=np.int64), np.zeros((0, 3))
+    if len(keypoint_ids) < 2:
+        return np.array([], dtype=np.int64), np.array([], dtype=np.int64), np.zeros((0, 3))
 
-    # Group observations by point_id
-    sort_idx = np.argsort(point_ids)
-    sorted_pids = point_ids[sort_idx]
+    # Group observations by (object_id, keypoint_id) composite key
+    sort_idx = np.lexsort((keypoint_ids, object_ids))
+    sorted_obj = object_ids[sort_idx]
+    sorted_kp = keypoint_ids[sort_idx]
     sorted_cams = camera_ids[sort_idx]
     sorted_xy = img_xy[sort_idx]
 
-    # Find group boundaries (where point_id changes)
-    breaks = np.where(np.diff(sorted_pids) != 0)[0] + 1
-    groups_pids = np.split(sorted_pids, breaks)
+    # Find group boundaries (where either object_id or keypoint_id changes)
+    breaks = np.where((np.diff(sorted_obj) != 0) | (np.diff(sorted_kp) != 0))[0] + 1
+    groups_obj = np.split(sorted_obj, breaks)
+    groups_kp = np.split(sorted_kp, breaks)
     groups_cams = np.split(sorted_cams, breaks)
     groups_xy = np.split(sorted_xy, breaks)
 
     # Filter to groups with 2+ observations (need at least 2 views to triangulate)
-    valid = [(p[0], c, xy) for p, c, xy in zip(groups_pids, groups_cams, groups_xy) if len(c) > 1]
+    valid = [(o[0], k[0], c, xy) for o, k, c, xy in zip(groups_obj, groups_kp, groups_cams, groups_xy) if len(c) > 1]
 
     if not valid:
-        return np.array([], dtype=np.int64), np.zeros((0, 3))
+        return np.array([], dtype=np.int64), np.array([], dtype=np.int64), np.zeros((0, 3))
 
     # Group by exact camera set: points seen by the same cameras share
     # identical A-matrix structure (same projection matrix rows).
     # CRITICAL: sort xy to match the sorted camera order so that
     # xy[j] corresponds to cam_key[j]'s projection matrix.
-    by_cam_set: dict[tuple[int, ...], list[tuple[int, np.ndarray]]] = defaultdict(list)
-    for pid, cams, xy in valid:
+    by_cam_set: dict[tuple[int, ...], list[tuple[int, int, np.ndarray]]] = defaultdict(list)
+    for oid, kid, cams, xy in valid:
         sort_order = np.argsort(cams)
         cam_key = tuple(cams[sort_order])
-        by_cam_set[cam_key].append((pid, xy[sort_order]))
+        by_cam_set[cam_key].append((oid, kid, xy[sort_order]))
 
-    result_pids: list[np.ndarray] = []
+    result_obj: list[np.ndarray] = []
+    result_kp: list[np.ndarray] = []
     result_xyz: list[np.ndarray] = []
 
     for cam_key, entries in by_cam_set.items():
@@ -90,8 +93,9 @@ def triangulate_sync_index(
             P_row1[j] = P[1]
             P_row2[j] = P[2]
 
-        batch_pids = np.array([e[0] for e in entries], dtype=np.int64)
-        batch_xy = np.array([e[1] for e in entries])  # (n_points, n_cams, 2)
+        batch_obj = np.array([e[0] for e in entries], dtype=np.int64)
+        batch_kp = np.array([e[1] for e in entries], dtype=np.int64)
+        batch_xy = np.array([e[2] for e in entries])  # (n_points, n_cams, 2)
 
         x = batch_xy[:, :, 0]  # (n_points, n_cams)
         y = batch_xy[:, :, 1]
@@ -107,74 +111,77 @@ def triangulate_sync_index(
         xyzw = vh[:, -1, :]
         xyz = xyzw[:, :3] / xyzw[:, 3:4]
 
-        result_pids.append(batch_pids)
+        result_obj.append(batch_obj)
+        result_kp.append(batch_kp)
         result_xyz.append(xyz)
 
-    return np.concatenate(result_pids), np.vstack(result_xyz)
+    return np.concatenate(result_obj), np.concatenate(result_kp), np.vstack(result_xyz)
 
 
 def triangulate_image_points(
     projection_matrices: dict[int, np.ndarray],
     sync_indices: np.ndarray,
     camera_ids: np.ndarray,
-    point_ids: np.ndarray,
+    object_ids: np.ndarray,
+    keypoint_ids: np.ndarray,
     img_xy: np.ndarray,
-) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     """Triangulate all 2D observations across all sync indices in bulk.
 
-    Instead of looping over sync indices, this function:
-      1. Treats (sync_index, point_id) as a composite key for each unique 3D point
-      2. Groups ALL observations by the exact set of observing cameras
-      3. Runs one batched np.linalg.svd call per camera-set group
-
-    For a dataset of thousands of frames, this typically collapses to 5-15 SVD
-    calls total (one per unique combination of cameras that co-observe points).
+    Groups by (sync_index, object_id, keypoint_id) composite key, batches SVD
+    by camera set. Returns (sync_indices, object_ids, keypoint_ids, xyz).
     """
-    n_obs = len(point_ids)
+    n_obs = len(keypoint_ids)
     if n_obs < 2:
         return (
+            np.array([], dtype=np.int64),
             np.array([], dtype=np.int64),
             np.array([], dtype=np.int64),
             np.zeros((0, 3)),
         )
 
-    # Sort by (sync_index, point_id) to find unique 3D points
-    sort_idx = np.lexsort((point_ids, sync_indices))
+    # Sort by (sync_index, object_id, keypoint_id) to find unique 3D points
+    sort_idx = np.lexsort((keypoint_ids, object_ids, sync_indices))
     s_sync = sync_indices[sort_idx]
-    s_pid = point_ids[sort_idx]
+    s_obj = object_ids[sort_idx]
+    s_kp = keypoint_ids[sort_idx]
     s_cam = camera_ids[sort_idx]
     s_xy = img_xy[sort_idx]
 
-    # Find where (sync_index, point_id) changes
+    # Find where any component of the composite key changes
     diff_sync = np.diff(s_sync) != 0
-    diff_pid = np.diff(s_pid) != 0
-    breaks = np.where(diff_sync | diff_pid)[0] + 1
+    diff_obj = np.diff(s_obj) != 0
+    diff_kp = np.diff(s_kp) != 0
+    breaks = np.where(diff_sync | diff_obj | diff_kp)[0] + 1
 
     grp_sync = np.split(s_sync, breaks)
-    grp_pid = np.split(s_pid, breaks)
+    grp_obj = np.split(s_obj, breaks)
+    grp_kp = np.split(s_kp, breaks)
     grp_cam = np.split(s_cam, breaks)
     grp_xy = np.split(s_xy, breaks)
 
     # Group by exact camera set
-    by_cam_set: dict[tuple[int, ...], list[tuple[int, int, np.ndarray]]] = defaultdict(list)
+    by_cam_set: dict[tuple[int, ...], list[tuple[int, int, int, np.ndarray]]] = defaultdict(list)
 
-    for gs, gp, gc, gxy in zip(grp_sync, grp_pid, grp_cam, grp_xy):
+    for gs, go, gk, gc, gxy in zip(grp_sync, grp_obj, grp_kp, grp_cam, grp_xy):
         if len(gc) < 2:
             continue
         # CRITICAL: sort xy to match the sorted camera order
         sort_order = np.argsort(gc)
         cam_key = tuple(gc[sort_order])
-        by_cam_set[cam_key].append((gs[0], gp[0], gxy[sort_order]))
+        by_cam_set[cam_key].append((gs[0], go[0], gk[0], gxy[sort_order]))
 
     if not by_cam_set:
         return (
+            np.array([], dtype=np.int64),
             np.array([], dtype=np.int64),
             np.array([], dtype=np.int64),
             np.zeros((0, 3)),
         )
 
     result_sync: list[np.ndarray] = []
-    result_pid: list[np.ndarray] = []
+    result_obj: list[np.ndarray] = []
+    result_kp: list[np.ndarray] = []
     result_xyz: list[np.ndarray] = []
 
     for cam_key, entries in by_cam_set.items():
@@ -191,8 +198,9 @@ def triangulate_image_points(
             P_row2[j] = P[2]
 
         batch_sync = np.array([e[0] for e in entries], dtype=np.int64)
-        batch_pid = np.array([e[1] for e in entries], dtype=np.int64)
-        batch_xy = np.array([e[2] for e in entries])  # (n_points, n_cams, 2)
+        batch_obj = np.array([e[1] for e in entries], dtype=np.int64)
+        batch_kp = np.array([e[2] for e in entries], dtype=np.int64)
+        batch_xy = np.array([e[3] for e in entries])  # (n_points, n_cams, 2)
 
         x = batch_xy[:, :, 0]
         y = batch_xy[:, :, 1]
@@ -209,12 +217,14 @@ def triangulate_image_points(
         xyz = xyzw[:, :3] / xyzw[:, 3:4]
 
         result_sync.append(batch_sync)
-        result_pid.append(batch_pid)
+        result_obj.append(batch_obj)
+        result_kp.append(batch_kp)
         result_xyz.append(xyz)
 
     return (
         np.concatenate(result_sync),
-        np.concatenate(result_pid),
+        np.concatenate(result_obj),
+        np.concatenate(result_kp),
         np.vstack(result_xyz),
     )
 
@@ -246,7 +256,8 @@ def _undistort_batch(xy_df: pd.DataFrame, camera_array: CameraArray) -> pd.DataF
 IMAGE_POINT_COLUMNS: dict[str, dict] = {
     "sync_index": {"dtype": "int", "nullable": False},
     "cam_id": {"dtype": "int", "nullable": False},
-    "point_id": {"dtype": "int", "nullable": False},
+    "object_id": {"dtype": "int", "nullable": False},
+    "keypoint_id": {"dtype": "int", "nullable": False},
     "img_loc_x": {"dtype": "float", "nullable": False},
     "img_loc_y": {"dtype": "float", "nullable": False},
     "obj_loc_x": {"dtype": "float", "nullable": True},
@@ -256,7 +267,8 @@ IMAGE_POINT_COLUMNS: dict[str, dict] = {
 
 WORLD_POINT_COLUMNS: dict[str, dict] = {
     "sync_index": {"dtype": "int", "nullable": False},
-    "point_id": {"dtype": "int", "nullable": False},
+    "object_id": {"dtype": "int", "nullable": False},
+    "keypoint_id": {"dtype": "int", "nullable": False},
     "x_coord": {"dtype": "float", "nullable": False},
     "y_coord": {"dtype": "float", "nullable": False},
     "z_coord": {"dtype": "float", "nullable": False},
@@ -328,7 +340,7 @@ class ImagePoints:
         self._df = _validate_dataframe(df, IMAGE_POINT_COLUMNS, "ImagePoints")
 
         # Warn about duplicate keys that could cause incorrect triangulation
-        key_cols = ["sync_index", "cam_id", "point_id"]
+        key_cols = ["sync_index", "cam_id", "object_id", "keypoint_id"]
         dupes = self._df.duplicated(subset=key_cols)
         if dupes.any():
             n = int(dupes.sum())
@@ -365,7 +377,7 @@ class ImagePoints:
         index_key = "sync_index"
         last_cam_id = -1
         base_df = self.df
-        for (cam_id, point_id), group in base_df.groupby(["cam_id", "point_id"]):
+        for (cam_id, object_id, keypoint_id), group in base_df.groupby(["cam_id", "object_id", "keypoint_id"]):
             if last_cam_id != cam_id:
                 logger.info(
                     f"Gap filling for (x,y) data from cam_id {cam_id}. "
@@ -375,8 +387,9 @@ class ImagePoints:
             group = group.sort_values(index_key)
             all_frames = pd.DataFrame({index_key: np.arange(group[index_key].min(), group[index_key].max() + 1)})
             all_frames["cam_id"] = int(cam_id)  # type: ignore[arg-type]
-            all_frames["point_id"] = int(point_id)  # type: ignore[arg-type]
-            merged = pd.merge(all_frames, group, on=["cam_id", "point_id", index_key], how="left")
+            all_frames["object_id"] = int(object_id)  # type: ignore[arg-type]
+            all_frames["keypoint_id"] = int(keypoint_id)  # type: ignore[arg-type]
+            merged = pd.merge(all_frames, group, on=["cam_id", "object_id", "keypoint_id", index_key], how="left")
             merged["gap_size"] = (
                 merged["img_loc_x"].isnull().astype(int).groupby((merged["img_loc_x"].notnull()).cumsum()).cumsum()
             )
@@ -388,8 +401,30 @@ class ImagePoints:
         logger.info("(x,y) gap filling complete")
         return ImagePoints(xy_filled.dropna(subset=["img_loc_x"]))
 
-    def triangulate(self, camera_array: CameraArray) -> WorldPoints:
-        """Triangulates 2D points to create 3D points using the provided CameraArray."""
+    def filter_to_objects(self, object_ids: Iterable[int]) -> ImagePoints:
+        """Return a copy containing only rows whose object_id is in object_ids."""
+        valid = set(object_ids)
+        mask = self._df["object_id"].isin(valid)
+        dropped = self._df[~mask]
+        if len(dropped) > 0:
+            dropped_ids = sorted(dropped["object_id"].unique())
+            for oid in dropped_ids:
+                n = int((dropped["object_id"] == oid).sum())
+                logger.info(f"filter_to_objects: dropped object_id={oid} ({n} rows)")
+        return ImagePoints(self._df[mask].copy())
+
+    def triangulate(
+        self,
+        camera_array: CameraArray,
+        static_object_ids: frozenset[int] = frozenset(),
+    ) -> WorldPoints:
+        """Triangulates 2D points to create 3D points using the provided CameraArray.
+
+        Observations whose object_id is in static_object_ids are treated as a single
+        rigid object across all frames: their sync_index is ignored and all observations
+        of a given (object_id, keypoint_id) are triangulated together into one 3D point,
+        stored under STATIC_SYNC_INDEX.
+        """
         xy_df = self.df
         if xy_df.empty:
             return WorldPoints(pd.DataFrame(columns=list(WORLD_POINT_COLUMNS.keys())))
@@ -421,47 +456,104 @@ class ImagePoints:
         logger.info("Beginning bulk triangulation across all sync indices...")
         start = time()
 
-        # Extract arrays for bulk triangulation
-        sync_arr = valid_data["sync_index"].to_numpy()
-        cam_arr = valid_data["cam_id"].to_numpy()
-        pid_arr = valid_data["point_id"].to_numpy()
-        xy_arr = np.column_stack(
-            [
-                valid_data["img_loc_undistort_x"].to_numpy(),
-                valid_data["img_loc_undistort_y"].to_numpy(),
-            ]
-        )
+        result_parts: list[pd.DataFrame] = []
 
-        # One call triangulates everything
-        out_sync, out_pid, out_xyz = triangulate_image_points(
-            normalized_projection_matrices,
-            sync_arr,
-            cam_arr,
-            pid_arr,
-            xy_arr,
-        )
+        if static_object_ids:
+            static_mask = valid_data["object_id"].isin(static_object_ids)
+            mobile_data = valid_data[~static_mask]
+            static_data = valid_data[static_mask]
+        else:
+            mobile_data = valid_data
+            static_data = valid_data.iloc[0:0]
+
+        if not mobile_data.empty:
+            sync_arr = mobile_data["sync_index"].to_numpy()
+            cam_arr = mobile_data["cam_id"].to_numpy()
+            obj_arr = mobile_data["object_id"].to_numpy()
+            kp_arr = mobile_data["keypoint_id"].to_numpy()
+            xy_arr = np.column_stack(
+                [
+                    mobile_data["img_loc_undistort_x"].to_numpy(),
+                    mobile_data["img_loc_undistort_y"].to_numpy(),
+                ]
+            )
+
+            out_sync, out_obj, out_kp, out_xyz = triangulate_image_points(
+                normalized_projection_matrices,
+                sync_arr,
+                cam_arr,
+                obj_arr,
+                kp_arr,
+                xy_arr,
+            )
+
+            if len(out_kp) > 0:
+                out_frame_times = frame_times.reindex(out_sync).to_numpy()
+                result_parts.append(
+                    pd.DataFrame(
+                        {
+                            "sync_index": out_sync,
+                            "object_id": out_obj,
+                            "keypoint_id": out_kp,
+                            "x_coord": out_xyz[:, 0],
+                            "y_coord": out_xyz[:, 1],
+                            "z_coord": out_xyz[:, 2],
+                            "frame_time": out_frame_times,
+                        }
+                    )
+                )
+
+        if not static_data.empty:
+            # Remap sync_index to the sentinel so all observations of each
+            # (object_id, keypoint_id) group into a single triangulation.
+            sync_arr = np.full(len(static_data), STATIC_SYNC_INDEX, dtype=np.int64)
+            cam_arr = static_data["cam_id"].to_numpy()
+            obj_arr = static_data["object_id"].to_numpy()
+            kp_arr = static_data["keypoint_id"].to_numpy()
+            xy_arr = np.column_stack(
+                [
+                    static_data["img_loc_undistort_x"].to_numpy(),
+                    static_data["img_loc_undistort_y"].to_numpy(),
+                ]
+            )
+
+            out_sync, out_obj, out_kp, out_xyz = triangulate_image_points(
+                normalized_projection_matrices,
+                sync_arr,
+                cam_arr,
+                obj_arr,
+                kp_arr,
+                xy_arr,
+            )
+
+            if len(out_kp) > 0:
+                logger.info(f"Triangulated {len(out_kp)} static world points from {len(static_data)} observations")
+                result_parts.append(
+                    pd.DataFrame(
+                        {
+                            "sync_index": out_sync,
+                            "object_id": out_obj,
+                            "keypoint_id": out_kp,
+                            "x_coord": out_xyz[:, 0],
+                            "y_coord": out_xyz[:, 1],
+                            "z_coord": out_xyz[:, 2],
+                            "frame_time": np.full(len(out_kp), np.nan),
+                        }
+                    )
+                )
 
         elapsed = time() - start
-        logger.info(
-            f"Triangulation complete: {len(out_pid)} points from "
-            f"{len(np.unique(out_sync))} sync indices in {elapsed:.2f}s"
-        )
 
-        if len(out_pid) == 0:
+        if not result_parts:
+            logger.info(f"Triangulation complete: 0 points in {elapsed:.2f}s")
             return WorldPoints(pd.DataFrame(columns=list(WORLD_POINT_COLUMNS.keys())))
 
-        # Build DataFrame directly from arrays
-        out_frame_times = frame_times.reindex(out_sync).to_numpy()
-
-        xyz_df = pd.DataFrame(
-            {
-                "sync_index": out_sync,
-                "point_id": out_pid,
-                "x_coord": out_xyz[:, 0],
-                "y_coord": out_xyz[:, 1],
-                "z_coord": out_xyz[:, 2],
-                "frame_time": out_frame_times,
-            }
+        xyz_df = pd.concat(result_parts, ignore_index=True)
+        n_static = int((xyz_df["sync_index"] == STATIC_SYNC_INDEX).sum())
+        n_mobile_sync = xyz_df.loc[xyz_df["sync_index"] != STATIC_SYNC_INDEX, "sync_index"].nunique()
+        logger.info(
+            f"Triangulation complete: {len(xyz_df)} points from "
+            f"{n_mobile_sync} sync indices (+{n_static} static) in {elapsed:.2f}s"
         )
 
         return WorldPoints(xyz_df)
@@ -481,7 +573,7 @@ class WorldPoints:
         object.__setattr__(self, "_df", validated)
 
         # Warn about duplicate keys that could cause incorrect results
-        key_cols = ["sync_index", "point_id"]
+        key_cols = ["sync_index", "object_id", "keypoint_id"]
         dupes = self._df.duplicated(subset=key_cols)
         if dupes.any():
             n = int(dupes.sum())
@@ -490,9 +582,14 @@ class WorldPoints:
                 f"Duplicates may cause incorrect results."
             )
 
-        # calculate start and stop index
-        min_index = int(self._df["sync_index"].min())
-        max_index = int(self._df["sync_index"].max())
+        # calculate start and stop index, excluding static points (sentinel sync_index)
+        non_static = self._df["sync_index"] != STATIC_SYNC_INDEX
+        if non_static.any():
+            min_index = int(self._df.loc[non_static, "sync_index"].min())
+            max_index = int(self._df.loc[non_static, "sync_index"].max())
+        else:
+            min_index = 0
+            max_index = 0
         object.__setattr__(self, "min_index", min_index)
         object.__setattr__(self, "max_index", max_index)
 
@@ -511,13 +608,14 @@ class WorldPoints:
         xyz_filled = pd.DataFrame()
         base_df = self.df
 
-        for point_id, group in base_df.groupby("point_id"):
+        for (object_id, keypoint_id), group in base_df.groupby(["object_id", "keypoint_id"]):
             group = group.sort_values("sync_index")
             all_frames = pd.DataFrame(
                 {"sync_index": np.arange(group["sync_index"].min(), group["sync_index"].max() + 1)}
             )
-            all_frames["point_id"] = point_id
-            merged = pd.merge(all_frames, group, on=["point_id", "sync_index"], how="left")
+            all_frames["object_id"] = int(object_id)  # type: ignore[arg-type]
+            all_frames["keypoint_id"] = int(keypoint_id)  # type: ignore[arg-type]
+            merged = pd.merge(all_frames, group, on=["object_id", "keypoint_id", "sync_index"], how="left")
 
             # Calculate gap size
             merged["gap_size"] = (
@@ -542,7 +640,7 @@ class WorldPoints:
         base_df = self.df
         xyz_filtered = base_df.copy()
 
-        for point_id, group in base_df.groupby("point_id"):
+        for (object_id, keypoint_id), group in base_df.groupby(["object_id", "keypoint_id"]):
             if group.shape[0] > 3 * order:
                 xyz_filtered.loc[group.index, "x_coord"] = filtfilt(b, a, group["x_coord"])
                 xyz_filtered.loc[group.index, "y_coord"] = filtfilt(b, a, group["y_coord"])
@@ -555,7 +653,7 @@ class WorldPoints:
     def from_csv(cls, path: str | Path) -> WorldPoints:
         """Load WorldPoints from a CSV file.
 
-        Expected columns: sync_index, point_id, x_coord, y_coord, z_coord
+        Expected columns: sync_index, object_id, keypoint_id, x_coord, y_coord, z_coord
         Optional: frame_time (nullable)
         """
         df = pd.read_csv(path)

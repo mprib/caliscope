@@ -173,7 +173,7 @@ class CameraThumbnailCard(QFrame):
 
         Radius scales with frame size so dots remain visible after thumbnail scaling.
         """
-        if len(points.point_id) == 0:
+        if len(points.keypoint_id) == 0:
             return frame
 
         # Scale radius with frame size (use smaller dimension for consistency)

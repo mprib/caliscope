@@ -23,21 +23,21 @@ class CalibrationObject:
 
     Attributes:
         points: (N, 3) points in object-local coordinates
-        point_ids: (N,) unique integer identifiers for each point
+        keypoint_ids: (N,) unique integer identifiers for each point
     """
 
     points: NDArray[np.float64]
-    point_ids: NDArray[np.int64]
+    keypoint_ids: NDArray[np.int64]
 
     def __post_init__(self) -> None:
         """Validate point arrays."""
         if self.points.ndim != 2 or self.points.shape[1] != 3:
             raise ValueError(f"Points must be (N, 3), got shape {self.points.shape}")
-        if self.point_ids.ndim != 1:
-            raise ValueError(f"Point IDs must be 1D, got shape {self.point_ids.shape}")
-        if len(self.points) != len(self.point_ids):
-            raise ValueError(f"Points and IDs must have same length: {len(self.points)} vs {len(self.point_ids)}")
-        if len(self.point_ids) != len(np.unique(self.point_ids)):
+        if self.keypoint_ids.ndim != 1:
+            raise ValueError(f"Point IDs must be 1D, got shape {self.keypoint_ids.shape}")
+        if len(self.points) != len(self.keypoint_ids):
+            raise ValueError(f"Points and IDs must have same length: {len(self.points)} vs {len(self.keypoint_ids)}")
+        if len(self.keypoint_ids) != len(np.unique(self.keypoint_ids)):
             raise ValueError("Point IDs must be unique")
         if len(self.points) < 4:
             raise ValueError(f"Need at least 4 points for calibration, got {len(self.points)}")
@@ -75,7 +75,7 @@ class CalibrationObject:
 
         n_points = rows * cols
         points = np.zeros((n_points, 3), dtype=np.float64)
-        point_ids = np.zeros(n_points, dtype=np.int64)
+        keypoint_ids = np.zeros(n_points, dtype=np.int64)
 
         for row in range(rows):
             for col in range(cols):
@@ -83,36 +83,36 @@ class CalibrationObject:
                 points[idx, 0] = col * spacing_mm
                 points[idx, 1] = row * spacing_mm
                 points[idx, 2] = 0.0
-                point_ids[idx] = idx
+                keypoint_ids[idx] = idx
 
         if origin == "center":
             centroid = points.mean(axis=0)
             points = points - centroid
 
-        return cls(points=points, point_ids=point_ids)
+        return cls(points=points, keypoint_ids=keypoint_ids)
 
     @classmethod
     def from_points(
         cls,
         points: NDArray[np.float64],
-        point_ids: NDArray[np.int64] | None = None,
+        keypoint_ids: NDArray[np.int64] | None = None,
     ) -> CalibrationObject:
         """Create from arbitrary point cloud.
 
         Args:
             points: (N, 3) array of 3D points
-            point_ids: (N,) array of unique IDs. If None, auto-generates 0..N-1
+            keypoint_ids: (N,) array of unique IDs. If None, auto-generates 0..N-1
 
         Returns:
             CalibrationObject with the provided points
         """
         points = np.asarray(points, dtype=np.float64)
-        if point_ids is None:
-            point_ids = np.arange(len(points), dtype=np.int64)
+        if keypoint_ids is None:
+            keypoint_ids = np.arange(len(points), dtype=np.int64)
         else:
-            point_ids = np.asarray(point_ids, dtype=np.int64)
+            keypoint_ids = np.asarray(keypoint_ids, dtype=np.int64)
 
-        return cls(points=points, point_ids=point_ids)
+        return cls(points=points, keypoint_ids=keypoint_ids)
 
     @property
     def n_points(self) -> int:

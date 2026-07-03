@@ -1,38 +1,74 @@
-"""Main tab widget for the Synthetic Calibration Explorer.
+"""Synthetic Calibration Explorer — interactive testbed for the calibration pipeline.
 
-Composes all explorer components:
-- StoryboardView: 4-panel synchronized 3D visualization
-- CoverageHeatmapWidget: Clickable camera pair matrix
-- Preset dropdown and Run button for MVP
+PURPOSE
+  Run the full calibration pipeline (bootstrap → optimize → align) on synthetic
+  scenes with known ground truth, and see exactly how well the pipeline recovers
+  camera poses. Every number in the UI is checkable against ground truth because
+  the scene generated the data.
 
-Layout uses QSplitter for resizable left sidebar and main visualization area.
+WHAT YOU CAN EXPLORE
+  - Scene geometry: how camera placement, board shape, and trajectory affect
+    calibration accuracy (Default Ring vs Sparse Coverage vs Chain-Linked).
+  - Lens profiles: WEBCAM vs MACHINE_VISION vs IDEAL, and how distortion
+    coefficients propagate through the pipeline.
+  - Intrinsic sensitivity: the "Perturbed Intrinsics" presets feed wrong focal
+    lengths into the pipeline and show the resulting extrinsic degradation.
+    Worse intrinsics → worse extrinsics, visible in the error metrics.
+  - Visibility and cheirality: single-sided boards, backward cameras, and
+    how the projection model handles edge cases.
+
+LAYOUT
+  Left sidebar: preset selector, Run Pipeline button, camera intrinsics table,
+  coverage heatmap, per-camera error metrics (rotation/translation/RMSE).
+
+  Main area: 4-panel storyboard (ground truth, bootstrapped, optimized, aligned)
+  with a frame slider for scrubbing through the trajectory.
+
+INTRINSICS TABLE
+  Shows per-camera focal length and Brown-Conrady distortion coefficients.
+  For perturbed presets, columns split into "truth" (what generated the data)
+  and "input" (what the pipeline sees). Perturbed values render in red.
+
+ADDING A PRESET
+  1. Write a factory in scene_factories.py returning SyntheticScene
+  2. Add a ScenePreset entry to SCENE_PRESETS below
+  3. For intrinsic perturbation experiments, set the perturbation field
 """
 
 from __future__ import annotations
 
 import logging
 from collections.abc import Callable
+from dataclasses import dataclass
 
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QComboBox,
     QGroupBox,
     QHBoxLayout,
+    QHeaderView,
     QLabel,
     QPushButton,
+    QScrollArea,
     QSlider,
     QSplitter,
+    QTableWidget,
+    QTableWidgetItem,
     QVBoxLayout,
     QWidget,
 )
 
+from caliscope.cameras.camera_array import CameraArray
+from caliscope.synthetic.camera_synthesizer import IntrinsicPerturbation
 from caliscope.synthetic.explorer.presenter import ExplorerPresenter, PipelineResult
 from caliscope.synthetic.explorer.widgets import CoverageHeatmapWidget, StoryboardView
 from caliscope.synthetic.synthetic_scene import SyntheticScene
 from caliscope.synthetic.scene_factories import (
     aruco_multi_object_scene,
+    charuco_target_scene,
     cheirality_demo_scene,
     default_ring_scene,
+    machine_vision_scene,
     quick_test_scene,
     sparse_coverage_scene,
     visibility_culling_scene,
@@ -42,14 +78,33 @@ from caliscope.task_manager.task_manager import TaskManager
 logger = logging.getLogger(__name__)
 
 
-# Preset scene factories available in the dropdown
-SCENE_PRESETS: dict[str, Callable[[], SyntheticScene]] = {
-    "Default Ring (4 cameras, full orbit)": default_ring_scene,
-    "Sparse Coverage (180° arc)": sparse_coverage_scene,
-    "Quick Test (5 frames)": quick_test_scene,
-    "Cheirality Demo (forward vs backward camera)": cheirality_demo_scene,
-    "Visibility Culling (single-sided board)": visibility_culling_scene,
-    "ArUco Multi-Object (mobile + static marker)": aruco_multi_object_scene,
+@dataclass(frozen=True)
+class ScenePreset:
+    factory: Callable[[], SyntheticScene]
+    perturbation: IntrinsicPerturbation | None = None
+
+
+def _preset(factory: Callable[[], SyntheticScene]) -> ScenePreset:
+    return ScenePreset(factory=factory)
+
+
+SCENE_PRESETS: dict[str, ScenePreset] = {
+    "Default Ring (4 cameras, full orbit)": _preset(default_ring_scene),
+    "Sparse Coverage (180° arc)": _preset(sparse_coverage_scene),
+    "Quick Test (5 frames)": _preset(quick_test_scene),
+    "Cheirality Demo (forward vs backward camera)": _preset(cheirality_demo_scene),
+    "Visibility Culling (single-sided board)": _preset(visibility_culling_scene),
+    "ArUco Multi-Object (mobile + static marker)": _preset(aruco_multi_object_scene),
+    "Charuco Target (double-sided board)": _preset(charuco_target_scene),
+    "Machine Vision Lens (KITTI-class barrel)": _preset(machine_vision_scene),
+    "Perturbed Intrinsics (3% focal error)": ScenePreset(
+        factory=default_ring_scene,
+        perturbation=IntrinsicPerturbation(f_scale=1.03),
+    ),
+    "Perturbed Intrinsics (10% focal error)": ScenePreset(
+        factory=default_ring_scene,
+        perturbation=IntrinsicPerturbation(f_scale=1.10),
+    ),
 }
 
 
@@ -92,18 +147,22 @@ class ExplorerTab(QWidget):
         splitter = QSplitter(Qt.Orientation.Horizontal)
         main_layout.addWidget(splitter)
 
-        # Left sidebar
+        # Left sidebar (scrollable)
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         sidebar = self._create_sidebar()
-        splitter.addWidget(sidebar)
+        scroll.setWidget(sidebar)
+        splitter.addWidget(scroll)
 
         # Main visualization area
         main_area = self._create_main_area()
         splitter.addWidget(main_area)
 
-        # Set initial splitter sizes (sidebar ~300px, main area gets the rest)
-        splitter.setSizes([300, 900])
-        splitter.setStretchFactor(0, 0)  # Sidebar doesn't stretch
-        splitter.setStretchFactor(1, 1)  # Main area stretches
+        # Set initial splitter sizes (sidebar ~350px, main area gets the rest)
+        splitter.setSizes([350, 850])
+        splitter.setStretchFactor(0, 0)
+        splitter.setStretchFactor(1, 1)
 
     def _create_sidebar(self) -> QWidget:
         """Create the left sidebar with controls."""
@@ -128,6 +187,19 @@ class ExplorerTab(QWidget):
         self._run_button.setStyleSheet("QPushButton { font-weight: bold; font-size: 14px; }")
         layout.addWidget(self._run_button)
 
+        # Camera intrinsics group
+        intrinsics_group = QGroupBox("Camera Intrinsics")
+        intrinsics_layout = QVBoxLayout(intrinsics_group)
+
+        self._intrinsics_table = QTableWidget()
+        self._intrinsics_table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
+        self._intrinsics_table.setSelectionMode(QTableWidget.SelectionMode.NoSelection)
+        self._intrinsics_table.setStyleSheet("font-family: monospace; font-size: 12px;")
+        self._intrinsics_table.verticalHeader().setDefaultSectionSize(22)
+        intrinsics_layout.addWidget(self._intrinsics_table)
+
+        layout.addWidget(intrinsics_group)
+
         # Coverage heatmap group
         coverage_group = QGroupBox("Coverage Matrix")
         coverage_layout = QVBoxLayout(coverage_group)
@@ -144,7 +216,6 @@ class ExplorerTab(QWidget):
         self._rmse_label = QLabel("RMSE: --")
         self._metrics_layout.addWidget(self._rmse_label)
 
-        # Per-camera error labels (will be populated dynamically)
         self._camera_error_labels: list[QLabel] = []
 
         layout.addWidget(self._metrics_group)
@@ -154,7 +225,6 @@ class ExplorerTab(QWidget):
         self._status_label.setStyleSheet("color: #888; font-style: italic;")
         layout.addWidget(self._status_label)
 
-        # Stretch at bottom to push controls up
         layout.addStretch()
 
         return sidebar
@@ -179,7 +249,7 @@ class ExplorerTab(QWidget):
 
         self._frame_slider = QSlider(Qt.Orientation.Horizontal)
         self._frame_slider.setMinimum(0)
-        self._frame_slider.setMaximum(0)  # Updated when scene loads
+        self._frame_slider.setMaximum(0)
         self._frame_slider.setEnabled(False)
         slider_layout.addWidget(self._frame_slider, stretch=1)
 
@@ -193,12 +263,10 @@ class ExplorerTab(QWidget):
 
     def _connect_signals(self) -> None:
         """Wire up signal connections between UI and presenter."""
-        # UI -> Presenter
         self._preset_combo.currentIndexChanged.connect(self._on_preset_changed)
         self._run_button.clicked.connect(self._presenter.run_pipeline)
         self._frame_slider.valueChanged.connect(self._presenter.set_frame)
 
-        # Presenter -> UI
         self._presenter.scene_changed.connect(self._on_scene_changed)
         self._presenter.filter_changed.connect(self._on_filter_changed)
         self._presenter.pipeline_started.connect(self._on_pipeline_started)
@@ -210,16 +278,15 @@ class ExplorerTab(QWidget):
         """Handle preset selection change."""
         preset_names = list(SCENE_PRESETS.keys())
         if 0 <= index < len(preset_names):
-            scene_factory = SCENE_PRESETS[preset_names[index]]
-            self._presenter.set_scene(scene_factory())
+            preset = SCENE_PRESETS[preset_names[index]]
+            self._presenter.set_scene(preset.factory(), preset.perturbation)
             self._status_label.setText("Ready")
             self._status_label.setStyleSheet("color: #888; font-style: italic;")
 
-    def _on_scene_changed(self, scene) -> None:
+    def _on_scene_changed(self, scene: SyntheticScene) -> None:
         """Handle scene rebuild from presenter."""
         self._storyboard.set_scene(scene)
 
-        # Update frame slider range
         n_frames = scene.n_frames
         self._frame_slider.blockSignals(True)
         self._frame_slider.setMaximum(max(0, n_frames - 1))
@@ -228,6 +295,78 @@ class ExplorerTab(QWidget):
         self._frame_slider.blockSignals(False)
 
         self._update_frame_display(0, n_frames)
+        self._update_intrinsics_table(scene.camera_array, self._presenter.perturbation)
+        self._reset_metrics()
+
+    def _update_intrinsics_table(
+        self,
+        camera_array: CameraArray,
+        perturbation: IntrinsicPerturbation | None,
+    ) -> None:
+        """Populate the intrinsics table from the camera array."""
+        cam_ids = sorted(camera_array.cameras.keys())
+        n_cams = len(cam_ids)
+
+        columns = ["cam", "f", "k1", "k2", "p1", "p2", "k3"]
+        if perturbation is not None:
+            columns = ["cam", "f (truth)", "f (input)", "k1 (truth)", "k1 (input)", "k2", "p1", "p2", "k3"]
+
+        table = self._intrinsics_table
+        table.setRowCount(n_cams)
+        table.setColumnCount(len(columns))
+        table.setHorizontalHeaderLabels(columns)
+
+        for row, cam_id in enumerate(cam_ids):
+            cam = camera_array.cameras[cam_id]
+            matrix = cam.matrix
+            dist = cam.distortions
+
+            if matrix is None or dist is None:
+                continue
+
+            f_truth = matrix[0, 0]
+            k1_truth = dist[0]
+
+            col = 0
+            table.setItem(row, col, QTableWidgetItem(str(cam_id)))
+            col += 1
+
+            if perturbation is not None:
+                f_input = f_truth * perturbation.f_scale
+                k1_input = k1_truth + perturbation.k1_delta
+
+                table.setItem(row, col, QTableWidgetItem(f"{f_truth:.1f}"))
+                col += 1
+                item = QTableWidgetItem(f"{f_input:.1f}")
+                if abs(perturbation.f_scale - 1.0) > 1e-6:
+                    item.setForeground(Qt.GlobalColor.red)
+                table.setItem(row, col, item)
+                col += 1
+                table.setItem(row, col, QTableWidgetItem(f"{k1_truth:.4f}"))
+                col += 1
+                item = QTableWidgetItem(f"{k1_input:.4f}")
+                if abs(perturbation.k1_delta) > 1e-6:
+                    item.setForeground(Qt.GlobalColor.red)
+                table.setItem(row, col, item)
+                col += 1
+            else:
+                table.setItem(row, col, QTableWidgetItem(f"{f_truth:.1f}"))
+                col += 1
+                table.setItem(row, col, QTableWidgetItem(f"{k1_truth:.4f}"))
+                col += 1
+
+            table.setItem(row, col, QTableWidgetItem(f"{dist[1]:.4f}"))
+            col += 1
+            table.setItem(row, col, QTableWidgetItem(f"{dist[2]:.4f}"))
+            col += 1
+            table.setItem(row, col, QTableWidgetItem(f"{dist[3]:.4f}"))
+            col += 1
+            table.setItem(row, col, QTableWidgetItem(f"{dist[4]:.4f}"))
+
+        header = table.horizontalHeader()
+        assert header is not None
+        header.setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
+        table.setMaximumHeight(22 * n_cams + table.horizontalHeader().height() + 4)
 
     def _on_filter_changed(self, coverage) -> None:
         """Handle filter/coverage matrix update from presenter."""
@@ -246,13 +385,9 @@ class ExplorerTab(QWidget):
         self._run_button.setEnabled(True)
         self._run_button.setText("Run Pipeline")
 
-        # Update storyboard with results
         self._storyboard.set_result(result)
-
-        # Update error metrics display
         self._update_metrics_display(result)
 
-        # Update status based on result
         errors = []
         if result.bootstrap_error:
             errors.append(f"Bootstrap: {result.bootstrap_error}")
@@ -281,38 +416,39 @@ class ExplorerTab(QWidget):
 
     def _on_frame_changed(self, frame: int) -> None:
         """Handle frame navigation from presenter."""
-        # Update slider without triggering signal back to presenter
         self._frame_slider.blockSignals(True)
         self._frame_slider.setValue(frame)
         self._frame_slider.blockSignals(False)
 
-        # Update storyboard
         self._storyboard.set_frame(frame)
-
-        # Update display
         self._update_frame_display(frame, self._presenter.n_frames)
 
     def _update_frame_display(self, frame: int, total: int) -> None:
         """Update the frame number display."""
         self._frame_display.setText(f"{frame + 1} / {total}")
 
+    def _reset_metrics(self) -> None:
+        """Clear error metrics when a new scenario is selected."""
+        self._rmse_label.setText("RMSE: --")
+        for label in self._camera_error_labels:
+            self._metrics_layout.removeWidget(label)
+            label.deleteLater()
+        self._camera_error_labels.clear()
+
     def _update_metrics_display(self, result: PipelineResult) -> None:
         """Update error metrics display with results from pipeline."""
         metrics_layout = self._metrics_layout
 
-        # Update reprojection RMSE
         if result.reprojection_rmse is not None:
             self._rmse_label.setText(f"RMSE: {result.reprojection_rmse:.3f} px")
         else:
             self._rmse_label.setText("RMSE: --")
 
-        # Clear existing camera error labels
         for label in self._camera_error_labels:
             metrics_layout.removeWidget(label)
             label.deleteLater()
         self._camera_error_labels.clear()
 
-        # Add camera error labels
         if result.camera_metrics:
             for metrics in result.camera_metrics:
                 label_text = (

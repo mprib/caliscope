@@ -19,6 +19,7 @@ from caliscope.core.bootstrap_pose.build_paired_pose_network import (
 )
 from caliscope.synthetic.synthetic_scene import SyntheticScene
 from caliscope.synthetic.scene_factories import default_ring_scene
+from caliscope.synthetic.camera_synthesizer import IntrinsicPerturbation, perturb_intrinsics
 from caliscope.synthetic.filter_config import FilterConfig
 from caliscope.core.coverage_analysis import compute_coverage_matrix
 from caliscope.task_manager.task_manager import TaskManager
@@ -144,6 +145,7 @@ class ExplorerPresenter(QObject):
 
         # State
         self._scene: SyntheticScene = scene if scene is not None else default_ring_scene()
+        self._perturbation: IntrinsicPerturbation | None = None
         self._filter_config = FilterConfig()
         self._filtered_image_points: ImagePoints | None = None
         self._result: PipelineResult | None = None
@@ -187,9 +189,18 @@ class ExplorerPresenter(QObject):
 
     # --- Scene Management ---
 
-    def set_scene(self, scene: SyntheticScene) -> None:
+    @property
+    def perturbation(self) -> IntrinsicPerturbation | None:
+        return self._perturbation
+
+    def set_scene(
+        self,
+        scene: SyntheticScene,
+        perturbation: IntrinsicPerturbation | None = None,
+    ) -> None:
         """Replace the synthetic scene and reset state."""
         self._scene = scene
+        self._perturbation = perturbation
         self._filter_config = FilterConfig()
         self._result = None
         self._current_frame = 0
@@ -233,9 +244,10 @@ class ExplorerPresenter(QObject):
         # Capture current state for closure
         scene = self._scene
         filtered_points = self._filtered_image_points
+        perturbation = self._perturbation
 
         def pipeline_worker(token: CancellationToken, handle: TaskHandle) -> PipelineResult:
-            return self._execute_pipeline(scene, filtered_points, token)
+            return self._execute_pipeline(scene, filtered_points, token, perturbation)
 
         self._pipeline_task = self._task_manager.submit(
             pipeline_worker,
@@ -253,6 +265,7 @@ class ExplorerPresenter(QObject):
         scene: SyntheticScene,
         image_points: ImagePoints,
         token: CancellationToken,
+        perturbation: IntrinsicPerturbation | None = None,
     ) -> PipelineResult:
         """Execute pipeline stages. Runs in background thread."""
         result = PipelineResult(
@@ -263,6 +276,8 @@ class ExplorerPresenter(QObject):
         # Stage 1: Bootstrap
         try:
             intrinsics_only = scene.intrinsics_only_cameras()
+            if perturbation is not None:
+                intrinsics_only = perturb_intrinsics(intrinsics_only, perturbation)
 
             # Build pose network from stereo pairs
             pose_network = build_paired_pose_network(

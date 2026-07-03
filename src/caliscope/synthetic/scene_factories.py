@@ -6,7 +6,8 @@ from caliscope.cameras.camera_array import CameraArray, CameraData
 from caliscope.core.aruco_marker import ArucoMarkerSet
 from caliscope.core.constraints import ConstraintSet
 from caliscope.synthetic.calibration_object import CalibrationObject
-from caliscope.synthetic.camera_synthesizer import CameraSynthesizer
+from caliscope.synthetic.camera_synthesizer import CameraSynthesizer, MACHINE_VISION
+from caliscope.synthetic.target_factories import double_sided_charuco_board
 from caliscope.synthetic.se3_pose import SE3Pose
 from caliscope.synthetic.synthetic_scene import SceneObject, SyntheticScene
 from caliscope.synthetic.trajectory import Trajectory
@@ -76,6 +77,52 @@ def quick_test_scene(
         radius=0.2,
         arc_extent_deg=180.0,
         tumble_rate=0.5,
+    )
+
+    return SyntheticScene.single(
+        camera_array=camera_array,
+        calibration_object=calibration_object,
+        trajectory=trajectory,
+        pixel_noise_sigma=pixel_noise_sigma,
+        random_seed=random_seed,
+    )
+
+
+def machine_vision_scene(
+    pixel_noise_sigma: float = 0.5,
+    random_seed: int = 42,
+) -> SyntheticScene:
+    """4-camera ring with MACHINE_VISION lens profile (KITTI-class barrel distortion)."""
+    camera_array = CameraSynthesizer().add_ring(n=4, radius=2.0, height=0.5, lens=MACHINE_VISION).build()
+    calibration_object = CalibrationObject.planar_grid(rows=5, cols=7, spacing=0.05)
+    trajectory = Trajectory.orbital(
+        n_frames=20,
+        radius=0.2,
+        arc_extent_deg=360.0,
+        tumble_rate=1.0,
+    )
+
+    return SyntheticScene.single(
+        camera_array=camera_array,
+        calibration_object=calibration_object,
+        trajectory=trajectory,
+        pixel_noise_sigma=pixel_noise_sigma,
+        random_seed=random_seed,
+    )
+
+
+def charuco_target_scene(
+    pixel_noise_sigma: float = 0.5,
+    random_seed: int = 42,
+) -> SyntheticScene:
+    """4-camera ring with a double-sided charuco board (visible from both sides)."""
+    camera_array = CameraSynthesizer().add_ring(n=4, radius=2.0, height=0.5).build()
+    calibration_object = double_sided_charuco_board(rows=5, cols=7, square_size=0.05)
+    trajectory = Trajectory.orbital(
+        n_frames=20,
+        radius=0.2,
+        arc_extent_deg=360.0,
+        tumble_rate=1.0,
     )
 
     return SyntheticScene.single(
@@ -225,6 +272,7 @@ def aruco_scene(
     camera_array: CameraArray,
     pixel_noise_sigma: float = 0.5,
     random_seed: int = 42,
+    single_sided: bool = False,
 ) -> tuple[SyntheticScene, ConstraintSet]:
     """Build a SyntheticScene and matching ConstraintSet from an ArucoMarkerSet.
 
@@ -234,7 +282,11 @@ def aruco_scene(
     for marker_id, marker in marker_set.markers.items():
         if marker_id not in trajectories:
             continue
-        cal_obj = CalibrationObject.from_points(marker.corners)
+        cal_obj = CalibrationObject(
+            points=np.asarray(marker.corners, dtype=np.float64),
+            keypoint_ids=np.arange(len(marker.corners), dtype=np.int64),
+            face_normal=np.array([0.0, 0.0, 1.0]) if single_sided else None,
+        )
         objects.append(
             SceneObject(
                 object_id=marker_id,

@@ -26,12 +26,16 @@ logger = logging.getLogger(__name__)
 class StoryboardView(QWidget):
     """Four-panel synchronized visualization of calibration pipeline stages.
 
-    Layout:
-    +------------------+------------------+
-    |  GROUND TRUTH    |   BOOTSTRAPPED   |
-    +------------------+------------------+
-    |    OPTIMIZED     |     ALIGNED      |
-    +------------------+------------------+
+    Layout (stacked vertically for laptop screens):
+    +--------------------------------------+
+    |           GROUND TRUTH               |
+    +--------------------------------------+
+    |           BOOTSTRAPPED               |
+    +--------------------------------------+
+    |            OPTIMIZED                 |
+    +--------------------------------------+
+    |             ALIGNED                  |
+    +--------------------------------------+
 
     All panels have synchronized camera rotation/pan/zoom.
     Frame navigation is controlled externally via set_frame().
@@ -59,20 +63,18 @@ class StoryboardView(QWidget):
 
         panel_configs = [
             ("ground_truth", "GROUND TRUTH", 0, 0),
-            ("bootstrapped", "BOOTSTRAPPED", 0, 1),
-            ("optimized", "OPTIMIZED", 1, 0),
-            ("aligned", "ALIGNED", 1, 1),
+            ("bootstrapped", "BOOTSTRAPPED", 1, 0),
+            ("optimized", "OPTIMIZED", 2, 0),
+            ("aligned", "ALIGNED", 3, 0),
         ]
 
         for key, title, row, col in panel_configs:
             panel = self._create_panel(key, title)
             layout.addWidget(panel, row, col)
 
-        # Equal stretch for all cells
-        layout.setRowStretch(0, 1)
-        layout.setRowStretch(1, 1)
+        for r in range(4):
+            layout.setRowStretch(r, 1)
         layout.setColumnStretch(0, 1)
-        layout.setColumnStretch(1, 1)
 
     def _create_panel(self, key: str, title: str) -> QWidget:
         """Create a labeled panel placeholder."""

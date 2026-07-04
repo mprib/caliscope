@@ -31,15 +31,19 @@ import numpy as np
 
 from caliscope.core.scale_accuracy import VolumetricScaleReport
 from caliscope.gui.presenters.extrinsic_calibration_presenter import (
+    CalibrationReportData,
     ExtrinsicCalibrationPresenter,
     ExtrinsicCalibrationState,
     QualityPanelData,
 )
-from caliscope.gui.theme import Styles
+from caliscope.gui.theme import Colors, Styles
 from caliscope.gui.view_models.playback_view_model import PlaybackViewModel
+from caliscope.gui.widgets.calibration_report_dialog import CalibrationReportDialog
 from caliscope.gui.widgets.coverage_heatmap import CoverageHeatmapWidget
+from caliscope.gui.widgets.lens_model_dialog import LensModelDialog
 from caliscope.gui.widgets.qt3d_playback_widget import Qt3DPlaybackWidget
 from caliscope.gui.widgets.quality_panel import QualityPanel
+from caliscope.gui.widgets.rigidity_sparkline import RigiditySparkline
 from caliscope.gui.widgets.scale_detail_dialog import ScaleDetailDialog
 from caliscope.gui.widgets.scale_sparkline import ScaleSparkline
 
@@ -84,6 +88,10 @@ class ExtrinsicCalibrationView(QWidget):
         # Scale accuracy state
         self._scale_detail_dialog: ScaleDetailDialog | None = None
         self._latest_scale_report: VolumetricScaleReport | None = None
+
+        # Report state
+        self._report_data: CalibrationReportData | None = None
+        self._report_dialog: CalibrationReportDialog | None = None
 
         self._setup_ui()
         self._connect_signals()
@@ -170,11 +178,35 @@ class ExtrinsicCalibrationView(QWidget):
         rotation_row = self._create_rotation_row()
         cal_layout.addWidget(rotation_row)
 
-        # Row 4: Sparkline + expand button
+        # Row 4a: Scale accuracy sparkline + expand button
         sparkline_row = self._create_sparkline_row()
         cal_layout.addWidget(sparkline_row)
 
-        # Row 5: Quality panel
+        # Row 4b: Rigidity sparkline (hidden until data available)
+        self._rigidity_sparkline_row = QWidget()
+        rig_row_layout = QHBoxLayout(self._rigidity_sparkline_row)
+        rig_row_layout.setContentsMargins(0, 0, 0, 0)
+        rig_row_layout.setSpacing(8)
+        rig_label = QLabel("Rigidity")
+        rig_label.setStyleSheet(f"color: {Colors.TEXT_MUTED}; font-size: 10px;")
+        rig_label.setFixedWidth(48)
+        rig_row_layout.addWidget(rig_label)
+        self._rigidity_sparkline = RigiditySparkline()
+        self._rigidity_sparkline.frame_clicked.connect(self._on_sparkline_frame_clicked)
+        rig_row_layout.addWidget(self._rigidity_sparkline, stretch=1)
+        self._rigidity_sparkline_row.hide()
+        cal_layout.addWidget(self._rigidity_sparkline_row)
+
+        # Row 5: Quality panel with report button
+        quality_header = QHBoxLayout()
+        quality_header.setContentsMargins(0, 0, 0, 0)
+        self._view_report_btn = QPushButton("View Report…")
+        self._view_report_btn.setStyleSheet(Styles.GHOST_BUTTON)
+        self._view_report_btn.setVisible(False)
+        quality_header.addStretch()
+        quality_header.addWidget(self._view_report_btn)
+        cal_layout.addLayout(quality_header)
+
         self._quality_panel = QualityPanel()
         cal_layout.addWidget(self._quality_panel)
 
@@ -335,7 +367,11 @@ class ExtrinsicCalibrationView(QWidget):
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(8)
 
-        # Sparkline (stretches to fill available space)
+        scale_label = QLabel("Scale")
+        scale_label.setStyleSheet(f"color: {Colors.TEXT_MUTED}; font-size: 10px;")
+        scale_label.setFixedWidth(48)
+        layout.addWidget(scale_label)
+
         self._sparkline = ScaleSparkline()
         layout.addWidget(self._sparkline, stretch=1)
 
@@ -405,6 +441,8 @@ class ExtrinsicCalibrationView(QWidget):
         self._presenter.volumetric_accuracy_updated.connect(self._on_volumetric_accuracy_updated)
         self._presenter.coverage_updated.connect(self._on_coverage_updated)
         self._presenter.view_model_updated.connect(self._on_view_model_updated)
+        self._presenter.calibration_report_updated.connect(self._on_report_updated)
+        self._presenter.rigidity_sparkline_updated.connect(self._on_rigidity_sparkline_updated)
 
         # View -> Presenter
         self._action_btn.clicked.connect(self._on_action_clicked)
@@ -414,6 +452,7 @@ class ExtrinsicCalibrationView(QWidget):
         self._set_origin_btn.clicked.connect(self._on_set_origin_clicked)
         self._frame_slider.valueChanged.connect(self._on_frame_slider_changed)
         self._coverage_btn.clicked.connect(self._show_coverage_dialog)
+        self._view_report_btn.clicked.connect(self._show_report_dialog)
 
         # Sparkline interactions (cursor sync happens in _on_frame_slider_changed, not direct connection)
         self._sparkline.frame_clicked.connect(self._on_sparkline_frame_clicked)
@@ -448,6 +487,15 @@ class ExtrinsicCalibrationView(QWidget):
         # controls stay visible. Only fresh calibration (capture volume cleared) hides them.
         show_calibrated = has_capture_volume or (is_running and self._presenter.capture_volume is not None)
         self._calibrated_controls.setVisible(show_calibrated)
+
+        # Report button: visible when report data exists, disabled during re-opt
+        has_report = self._report_data is not None
+        # Fresh recalibration clears report data
+        if is_running and self._presenter.capture_volume is None:
+            self._report_data = None
+            has_report = False
+        self._view_report_btn.setVisible(has_report)
+        self._view_report_btn.setEnabled(has_report and not is_running)
 
         # Controls enabled when calibrated and not running
         # During filter re-opt, controls are visible but disabled
@@ -565,6 +613,7 @@ class ExtrinsicCalibrationView(QWidget):
             self._viz_widget.set_sync_index(actual_sync_index)
         self._presenter.set_sync_index(actual_sync_index)
         self._sparkline.set_cursor(actual_sync_index)
+        self._rigidity_sparkline.set_cursor(actual_sync_index)
         if self._scale_detail_dialog is not None:
             self._scale_detail_dialog.set_cursor(actual_sync_index)
         self._update_frame_display()
@@ -620,6 +669,43 @@ class ExtrinsicCalibrationView(QWidget):
 
         self._scale_detail_dialog.show()
         self._scale_detail_dialog.raise_()
+
+    def _on_rigidity_sparkline_updated(self, per_frame_pct: dict[int, float]) -> None:
+        """Handle per-frame rigidity data from presenter."""
+        if per_frame_pct:
+            self._rigidity_sparkline.set_data(per_frame_pct)
+            self._rigidity_sparkline_row.show()
+        else:
+            self._rigidity_sparkline_row.hide()
+
+    def _on_report_updated(self, data: CalibrationReportData) -> None:
+        """Handle calibration report data from presenter."""
+        self._report_data = data
+        self._view_report_btn.setVisible(True)
+        self._view_report_btn.setEnabled(True)
+
+    def _show_report_dialog(self) -> None:
+        """Show the calibration report dialog."""
+        if self._report_data is None:
+            return
+
+        self._report_dialog = CalibrationReportDialog(self._report_data, self)
+        self._report_dialog.view_lens_model_requested.connect(self._show_lens_model_dialog)
+        self._report_dialog.show()
+        self._report_dialog.raise_()
+
+    def _show_lens_model_dialog(self, cam_id: int) -> None:
+        """Show lens model visualization for a specific camera."""
+        if self._report_data is None:
+            return
+
+        dialog = LensModelDialog(
+            cameras=self._report_data.cameras,
+            extrinsic_dir=self._report_data.extrinsic_dir,
+            initial_cam_id=cam_id,
+            parent=self,
+        )
+        dialog.show()
 
     def _on_coverage_updated(self, coverage: np.ndarray, labels: list[str]) -> None:
         """Handle coverage data update from presenter."""
@@ -702,6 +788,7 @@ class ExtrinsicCalibrationView(QWidget):
         if n_frames > 0:
             actual_sync_index = int(self._valid_sync_indices[self._frame_slider.value()])
             self._sparkline.set_cursor(actual_sync_index)
+            self._rigidity_sparkline.set_cursor(actual_sync_index)
             if self._scale_detail_dialog is not None:
                 self._scale_detail_dialog.set_cursor(actual_sync_index)
 

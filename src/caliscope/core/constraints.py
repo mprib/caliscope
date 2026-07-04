@@ -141,6 +141,13 @@ class RigidityReport:
         return float(np.sqrt(np.mean(errors**2)) * 1000.0)
 
     @cached_property
+    def relative_rmse_pct(self) -> float:
+        if not self.violations:
+            return 0.0
+        rel_errors = np.array([(v.actual - v.expected) / v.expected for v in self.violations])
+        return float(np.sqrt(np.mean(rel_errors**2)) * 100.0)
+
+    @cached_property
     def max_violation_mm(self) -> float:
         if not self.violations:
             return 0.0
@@ -153,3 +160,21 @@ class RigidityReport:
             for oid in set((v.object_id_a, v.object_id_b)):
                 by_obj.setdefault(oid, []).append(v.actual - v.expected)
         return {oid: float(np.sqrt(np.mean(np.array(errs) ** 2)) * 1000.0) for oid, errs in by_obj.items()}
+
+    @cached_property
+    def per_object_relative_rmse_pct(self) -> dict[int, float]:
+        by_obj: dict[int, list[float]] = {}
+        for v in self.violations:
+            rel = (v.actual - v.expected) / v.expected if v.expected != 0 else 0.0
+            for oid in set((v.object_id_a, v.object_id_b)):
+                by_obj.setdefault(oid, []).append(rel)
+        return {oid: float(np.sqrt(np.mean(np.array(errs) ** 2)) * 100.0) for oid, errs in by_obj.items()}
+
+    @cached_property
+    def per_frame_relative_rmse_pct(self) -> dict[int, float]:
+        """Relative RMSE % grouped by sync_index."""
+        by_frame: dict[int, list[float]] = {}
+        for v in self.violations:
+            rel = (v.actual - v.expected) / v.expected if v.expected != 0 else 0.0
+            by_frame.setdefault(v.sync_index, []).append(rel)
+        return {si: float(np.sqrt(np.mean(np.array(errs) ** 2)) * 100.0) for si, errs in by_frame.items()}

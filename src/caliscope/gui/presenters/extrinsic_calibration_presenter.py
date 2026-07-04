@@ -21,7 +21,7 @@ from typing import Literal
 import numpy as np
 from PySide6.QtCore import QObject, Qt, Signal
 
-from caliscope.cameras.camera_array import CameraArray
+from caliscope.cameras.camera_array import CameraArray, CameraData
 from caliscope.core.calibrate_extrinsics import (
     ExtrinsicCalibrationResult,
     calibrate_extrinsics,
@@ -108,6 +108,49 @@ class QualityPanelData:
     # Filter preview for UI
     filter_preview: FilterPreviewData | None
 
+    # Rigidity metrics (None when no constraints)
+    rigidity_rmse_mm: float | None = None
+    rigidity_pct: float | None = None
+
+
+@dataclass(frozen=True)
+class IntrinsicReportRow:
+    cam_id: int
+    f: float
+    k1: float
+    k2: float
+    source: str  # "provided" or "estimated"
+
+
+@dataclass(frozen=True)
+class CameraDetailRow:
+    cam_id: int
+    depth_ratio: float
+
+
+@dataclass(frozen=True)
+class MarkerRigidityRow:
+    object_id: int
+    is_static: bool
+    relative_error_pct: float
+
+
+@dataclass(frozen=True)
+class CalibrationReportData:
+    overall_rmse: float
+    n_observations: int
+    converged: bool
+    warnings: list[str]
+    intrinsic_rows: list[IntrinsicReportRow]
+    camera_detail_rows: list[CameraDetailRow]
+    marker_rigidity_rows: list[MarkerRigidityRow]
+    rigidity_relative_pct: float | None  # relative RMSE %
+    rigidity_rmse_mm: float | None
+    n_constraints: int
+    dropped_static_markers: tuple[int, ...]
+    cameras: dict[int, CameraData]
+    extrinsic_dir: Path
+
 
 class ExtrinsicCalibrationPresenter(QObject):
     """Presenter for extrinsic calibration workflow.
@@ -145,6 +188,8 @@ class ExtrinsicCalibrationPresenter(QObject):
     coverage_updated = Signal(object, object)  # (coverage_matrix, cam_id_labels)
     capture_volume_changed = Signal(object)  # CaptureVolume
     calibration_result_updated = Signal(object)  # ExtrinsicCalibrationResult
+    calibration_report_updated = Signal(object)  # CalibrationReportData
+    rigidity_sparkline_updated = Signal(object)  # dict[int, float] — per-frame relative RMSE %
     view_model_updated = Signal(object)  # PlaybackViewModel
 
     def __init__(
@@ -254,8 +299,9 @@ class ExtrinsicCalibrationPresenter(QObject):
             logger.warning("Cannot run calibration: already running")
             return
 
-        # Clear existing capture volume to allow re-calibration from CALIBRATED state
+        # Clear existing state to allow re-calibration from CALIBRATED state
         self._capture_volume = None
+        self._calibration_result = None
 
         # Capture for closure - deepcopy camera_array since bootstrap mutates it
         image_points_path = self._image_points_path
@@ -526,6 +572,8 @@ class ExtrinsicCalibrationPresenter(QObject):
         self._refresh_volumetric_accuracy()
         self.capture_volume_changed.emit(capture_volume)
         self.calibration_result_updated.emit(result)
+        self._emit_report(result)
+        self._emit_rigidity_sparkline()
 
     def _on_reoptimization_completed(self, capture_volume: CaptureVolume) -> None:
         """Handle successful filter re-optimization completion."""
@@ -541,9 +589,12 @@ class ExtrinsicCalibrationPresenter(QObject):
         self._refresh_volumetric_accuracy()
         self.capture_volume_changed.emit(capture_volume)
 
+        self._emit_rigidity_sparkline()
+
         if self._calibration_result is not None:
             self._calibration_result = refresh_result(self._calibration_result, capture_volume)
             self.calibration_result_updated.emit(self._calibration_result)
+            self._emit_report(self._calibration_result)
 
     def _on_calibration_failed(self, exc_type: str, message: str) -> None:
         """Handle calibration failure."""
@@ -567,6 +618,171 @@ class ExtrinsicCalibrationPresenter(QObject):
         logger.debug(f"State changed to {current_state}")
         self.state_changed.emit(current_state)
 
+    def _build_report_data(self, result: ExtrinsicCalibrationResult) -> CalibrationReportData:
+        """Build display model from calibration result."""
+        cv = result.capture_volume
+        status = cv.optimization_status
+
+        # Warnings
+        warnings: list[str] = []
+        if status and not status.converged:
+            warnings.append("Optimization did not converge")
+        for bw in result.bound_warnings:
+            warnings.append(f"Camera {bw.cam_id}: {bw.parameter} hit {bw.bound} bound at {bw.value:.1f}")
+        if result.dropped_static_markers:
+            ids_str = ", ".join(str(m) for m in result.dropped_static_markers)
+            warnings.append(
+                f"Markers {ids_str} labeled static but showed too much positional "
+                f"variance — removed from static constraint set"
+            )
+
+        # Intrinsic rows with source tag
+        intrinsic_rows: list[IntrinsicReportRow] = []
+        for est in result.intrinsic_estimates:
+            source = "estimated" if est.cam_id in result.synthesized_cam_ids else "provided"
+            intrinsic_rows.append(
+                IntrinsicReportRow(
+                    cam_id=est.cam_id,
+                    f=est.f_recovered,
+                    k1=est.k1_recovered,
+                    k2=est.k2_recovered,
+                    source=source,
+                )
+            )
+
+        # Per-camera depth ratio
+        camera_detail_rows = [
+            CameraDetailRow(cam_id=cid, depth_ratio=dr) for cid, dr in sorted(result.depth_ratios.items())
+        ]
+
+        # Rigidity
+        rigidity_relative_pct: float | None = None
+        rigidity_rmse_mm: float | None = None
+        n_constraints = 0
+        marker_rigidity_rows: list[MarkerRigidityRow] = []
+
+        constraints = cv.constraints
+        if constraints is not None and constraints.distances:
+            rig_report = cv.rigidity_report()
+            rigidity_rmse_mm = rig_report.rmse_mm
+            rigidity_relative_pct = rig_report.relative_rmse_pct
+            n_constraints = len(constraints.distances)
+
+            per_obj_rel = rig_report.per_object_relative_rmse_pct
+            for oid in sorted(per_obj_rel.keys()):
+                marker_rigidity_rows.append(
+                    MarkerRigidityRow(
+                        object_id=oid,
+                        is_static=oid in constraints.static_object_ids,
+                        relative_error_pct=per_obj_rel[oid],
+                    )
+                )
+
+        # Camera data for lens visualization
+        cameras = {cam.cam_id: cam for cam in cv.camera_array.cameras.values()}
+
+        # Extrinsic dir: image_points_path is .../extrinsic/TRACKER/image_points.csv
+        extrinsic_dir = self._image_points_path.parent.parent
+
+        report = cv.reprojection_report
+
+        return CalibrationReportData(
+            overall_rmse=report.overall_rmse,
+            n_observations=report.n_observations_matched,
+            converged=status.converged if status else False,
+            warnings=warnings,
+            intrinsic_rows=intrinsic_rows,
+            camera_detail_rows=camera_detail_rows,
+            marker_rigidity_rows=marker_rigidity_rows,
+            rigidity_relative_pct=rigidity_relative_pct,
+            rigidity_rmse_mm=rigidity_rmse_mm,
+            n_constraints=n_constraints,
+            dropped_static_markers=result.dropped_static_markers,
+            cameras=cameras,
+            extrinsic_dir=extrinsic_dir,
+        )
+
+    def _emit_report(self, result: ExtrinsicCalibrationResult) -> None:
+        """Build and emit calibration report data."""
+        report_data = self._build_report_data(result)
+        self.calibration_report_updated.emit(report_data)
+
+    def _build_report_from_capture_volume(self) -> CalibrationReportData | None:
+        """Build a partial report from just the capture volume (no ExtrinsicCalibrationResult)."""
+        if self._capture_volume is None:
+            return None
+
+        cv = self._capture_volume
+        status = cv.optimization_status
+        report = cv.reprojection_report
+
+        warnings: list[str] = []
+        if status and not status.converged:
+            warnings.append("Optimization did not converge")
+
+        intrinsic_rows = [
+            IntrinsicReportRow(
+                cam_id=cam.cam_id,
+                f=float(cam.matrix[0, 0]),
+                k1=float(cam.distortions[0]),
+                k2=float(cam.distortions[1]),
+                source="unknown",
+            )
+            for cam in sorted(cv.camera_array.cameras.values(), key=lambda c: c.cam_id)
+            if cam.matrix is not None and cam.distortions is not None
+        ]
+
+        rigidity_relative_pct: float | None = None
+        rigidity_rmse_mm: float | None = None
+        n_constraints = 0
+        marker_rigidity_rows: list[MarkerRigidityRow] = []
+
+        constraints = cv.constraints
+        if constraints is not None and constraints.distances:
+            rig_report = cv.rigidity_report()
+            rigidity_rmse_mm = rig_report.rmse_mm
+            rigidity_relative_pct = rig_report.relative_rmse_pct
+            n_constraints = len(constraints.distances)
+
+            per_obj_rel = rig_report.per_object_relative_rmse_pct
+            for oid in sorted(per_obj_rel.keys()):
+                marker_rigidity_rows.append(
+                    MarkerRigidityRow(
+                        object_id=oid,
+                        is_static=oid in constraints.static_object_ids,
+                        relative_error_pct=per_obj_rel[oid],
+                    )
+                )
+
+        cameras = {cam.cam_id: cam for cam in cv.camera_array.cameras.values()}
+        extrinsic_dir = self._image_points_path.parent.parent
+
+        return CalibrationReportData(
+            overall_rmse=report.overall_rmse,
+            n_observations=report.n_observations_matched,
+            converged=status.converged if status else False,
+            warnings=warnings,
+            intrinsic_rows=intrinsic_rows,
+            camera_detail_rows=[],
+            marker_rigidity_rows=marker_rigidity_rows,
+            rigidity_relative_pct=rigidity_relative_pct,
+            rigidity_rmse_mm=rigidity_rmse_mm,
+            n_constraints=n_constraints,
+            dropped_static_markers=(),
+            cameras=cameras,
+            extrinsic_dir=extrinsic_dir,
+        )
+
+    def _emit_rigidity_sparkline(self) -> None:
+        """Emit per-frame rigidity data for sparkline visualization."""
+        if self._capture_volume is None:
+            return
+        constraints = self._capture_volume.constraints
+        if constraints is None or not constraints.distances:
+            return
+        rig_report = self._capture_volume.rigidity_report()
+        self.rigidity_sparkline_updated.emit(rig_report.per_frame_relative_rmse_pct)
+
     def _refresh_quality_panel(self) -> None:
         """Build and emit quality panel data from current capture volume."""
         if self._capture_volume is None:
@@ -582,6 +798,15 @@ class ExtrinsicCalibrationPresenter(QObject):
             rmse = report.by_camera[cam_id]
             camera_rows.append((cam_id, n_obs, rmse))
 
+        # Rigidity metrics (only when constraints exist)
+        rigidity_rmse_mm: float | None = None
+        rigidity_pct: float | None = None
+        constraints = self._capture_volume.constraints
+        if constraints is not None and constraints.distances:
+            rig_report = self._capture_volume.rigidity_report()
+            rigidity_rmse_mm = rig_report.rmse_mm
+            rigidity_pct = rig_report.relative_rmse_pct
+
         quality_data = QualityPanelData(
             overall_rmse=report.overall_rmse,
             n_observations=report.n_observations_matched,
@@ -590,6 +815,8 @@ class ExtrinsicCalibrationPresenter(QObject):
             converged=status.converged if status else False,
             iterations=status.iterations if status else 0,
             filter_preview=None,  # Populated on demand via get_filter_preview()
+            rigidity_rmse_mm=rigidity_rmse_mm,
+            rigidity_pct=rigidity_pct,
         )
 
         self.quality_updated.emit(quality_data)
@@ -660,6 +887,14 @@ class ExtrinsicCalibrationPresenter(QObject):
             self._refresh_coverage()  # Use capture volume's coverage (may differ after filtering)
             self._refresh_view_model()
             self._refresh_volumetric_accuracy()
+            self._emit_rigidity_sparkline()
+
+            if self._calibration_result is not None:
+                self._emit_report(self._calibration_result)
+            else:
+                partial = self._build_report_from_capture_volume()
+                if partial is not None:
+                    self.calibration_report_updated.emit(partial)
 
     def emit_initial_coverage(self) -> None:
         """Deprecated: Use emit_initial_state() instead."""
@@ -767,8 +1002,10 @@ class ExtrinsicCalibrationPresenter(QObject):
         self._refresh_quality_panel()
         self._refresh_view_model()
         self._refresh_volumetric_accuracy()
+        self._emit_rigidity_sparkline()
         self.capture_volume_changed.emit(capture_volume)
 
         if self._calibration_result is not None:
             self._calibration_result = refresh_result(self._calibration_result, capture_volume)
             self.calibration_result_updated.emit(self._calibration_result)
+            self._emit_report(self._calibration_result)

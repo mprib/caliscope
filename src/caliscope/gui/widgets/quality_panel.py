@@ -38,10 +38,16 @@ class QualityPanel(QWidget):
         self._setup_ui()
 
     def _setup_ui(self) -> None:
-        """Build the widget layout with three horizontal sections."""
-        layout = QHBoxLayout(self)
-        layout.setContentsMargins(0, 8, 0, 8)
-        layout.setSpacing(24)  # Generous spacing between sections
+        """Build the widget layout with three horizontal sections + rigidity line."""
+        outer = QVBoxLayout(self)
+        outer.setContentsMargins(0, 8, 0, 8)
+        outer.setSpacing(4)
+
+        # Main 3-section row
+        row_widget = QWidget()
+        layout = QHBoxLayout(row_widget)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(24)
 
         # Section 1: Reprojection Error (global metrics)
         reproj_section = QWidget()
@@ -140,6 +146,14 @@ class QualityPanel(QWidget):
         camera_layout.addWidget(self._table)
         layout.addWidget(camera_section, stretch=2)  # Table gets more space
 
+        outer.addWidget(row_widget)
+
+        # Rigidity summary line (below the 3-section row, hidden until populated)
+        self._rigidity_label = QLabel()
+        self._rigidity_label.setStyleSheet("color: #ccc; font-size: 12px; padding-left: 2px;")
+        self._rigidity_label.hide()
+        outer.addWidget(self._rigidity_label)
+
     def set_reprojection_data(self, data: QualityPanelData) -> None:
         """Update reprojection error section with new data.
 
@@ -168,6 +182,13 @@ class QualityPanel(QWidget):
             self._table.setItem(row, 0, cam_id_item)
             self._table.setItem(row, 1, obs_item)
             self._table.setItem(row, 2, rmse_item)
+
+        # Rigidity summary line
+        if data.rigidity_pct is not None:
+            self._rigidity_label.setText(f"Rigidity: {data.rigidity_pct:.1f}% relative RMSE")
+            self._rigidity_label.show()
+        else:
+            self._rigidity_label.hide()
 
     def set_volumetric_accuracy(self, report: VolumetricScaleReport | None) -> None:
         """Update scale accuracy section with volumetric report.
@@ -206,3 +227,4 @@ class QualityPanel(QWidget):
         self._scale_bias_frames_label.setText("(set origin to compute)")
 
         self._table.setRowCount(0)
+        self._rigidity_label.hide()

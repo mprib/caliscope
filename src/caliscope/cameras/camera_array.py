@@ -260,6 +260,10 @@ class CameraData:
         """Blind-guess intrinsics from resolution: f = width/2, principal point at center, zero distortion."""
         from caliscope.exceptions import CalibrationError
 
+        if self.size is None:
+            raise CalibrationError(
+                f"Camera {self.cam_id} has no resolution data. Load video metadata before synthesizing intrinsics."
+            )
         if self.fisheye:
             raise CalibrationError(
                 f"Camera {self.cam_id} is fisheye; blind intrinsics are not supported "

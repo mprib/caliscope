@@ -527,7 +527,7 @@ class ExtrinsicCalibrationPresenter(QObject):
         self.capture_volume_changed.emit(capture_volume)
         self.calibration_result_updated.emit(result)
 
-    def _on_capture_volume_optimized(self, capture_volume: CaptureVolume) -> None:
+    def _on_reoptimization_completed(self, capture_volume: CaptureVolume) -> None:
         """Handle successful filter re-optimization completion."""
         logger.info(f"Re-optimization complete. RMSE: {capture_volume.reprojection_report.overall_rmse:.3f}px")
 
@@ -734,7 +734,7 @@ class ExtrinsicCalibrationPresenter(QObject):
         self._task_handle = self._task_manager.submit(worker, name="Optimize capture volume", auto_start=False)
         # Use QueuedConnection - TaskHandle signals emitted from worker threads
         self._task_handle.completed.connect(
-            self._on_capture_volume_optimized,
+            self._on_reoptimization_completed,
             Qt.ConnectionType.QueuedConnection,
         )
         self._task_handle.failed.connect(
@@ -768,3 +768,7 @@ class ExtrinsicCalibrationPresenter(QObject):
         self._refresh_view_model()
         self._refresh_volumetric_accuracy()
         self.capture_volume_changed.emit(capture_volume)
+
+        if self._calibration_result is not None:
+            self._calibration_result = refresh_result(self._calibration_result, capture_volume)
+            self.calibration_result_updated.emit(self._calibration_result)

@@ -1,7 +1,10 @@
 """D7 experiments: joint intrinsic+extrinsic bundle adjustment.
 
 Sparsity oracle, E1 (f recovery), E2 (k1 recovery), E3 (constraints as
-metric anchor), E4 (negative control), E5b (outlier contamination drift).
+metric anchor), E4 (negative control), E5b (outlier contamination drift),
+E6 (wand scene with blind f guess).
+
+Ported from experimental_ba to the production CaptureVolume.optimize() API.
 """
 
 from __future__ import annotations
@@ -9,14 +12,10 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
+from caliscope.core.bundle_parameterization import BundleParameterization
 from caliscope.core.capture_volume import CaptureVolume
+from caliscope.core.reprojection import joint_residuals
 from caliscope.synthetic.camera_synthesizer import IntrinsicPerturbation, perturb_intrinsics
-from caliscope.synthetic.experimental_ba import (
-    N_CAM_PARAMS,
-    _joint_residuals,
-    _joint_sparsity_pattern,
-    optimize_with_free_intrinsics,
-)
 from caliscope.synthetic.scene_factories import intrinsic_perturbation_scene
 from tests.synthetic.assertions import align_to_ground_truth, pose_error
 
@@ -34,7 +33,11 @@ def _bootstrap_from_scene(scene, constraints=None, perturbation=None):
 
 
 class TestSparsityOracle:
-    """Every zero in the sparsity pattern must be a true zero partial derivative."""
+    """Every zero in the sparsity pattern must be a true zero partial derivative.
+
+    Includes one locked camera (fisheye=False, refine=False for cam 0) to
+    cover variable-width blocks.
+    """
 
     def test_joint_sparsity_zeros_match_true_jacobian(self) -> None:
         scene = intrinsic_perturbation_scene()
@@ -53,50 +56,14 @@ class TestSparsityOracle:
         image_coords = matched_img_df[["img_loc_x", "img_loc_y"]].values
         obj_indices = cv.img_to_obj_map[combined_mask]
 
-        import cv2
-
-        n_cams = len(cv.camera_array.posed_cameras)
-        cam_ids_by_index = sorted(
-            cv.camera_array.posed_cam_id_to_index,
-            key=lambda cid: cv.camera_array.posed_cam_id_to_index[cid],
+        parameterization = BundleParameterization.from_camera_array(
+            cv.camera_array, n_points=len(cv.world_points.points), refine_intrinsics=True
         )
-
-        cx_cy = np.zeros((n_cams, 2))
-        dist_tail = np.zeros((n_cams, 3))
-        f_initial = np.zeros(n_cams)
-        camera_params = np.zeros((n_cams, N_CAM_PARAMS))
-
-        for idx, cam_id in enumerate(cam_ids_by_index):
-            cam = cv.camera_array.cameras[cam_id]
-            assert cam.matrix is not None and cam.distortions is not None
-            assert cam.rotation is not None and cam.translation is not None
-            rvec = cv2.Rodrigues(cam.rotation)[0].ravel()
-            camera_params[idx, 0:3] = rvec
-            camera_params[idx, 3:6] = cam.translation
-            camera_params[idx, 6] = cam.matrix[0, 0]
-            camera_params[idx, 7] = cam.distortions[0]
-            camera_params[idx, 8] = cam.distortions[1]
-            cx_cy[idx] = cam.matrix[0, 2], cam.matrix[1, 2]
-            dist_tail[idx] = cam.distortions[2:5]
-            f_initial[idx] = cam.matrix[0, 0]
-
-        points_3d = cv.world_points.points
-        x0 = np.concatenate([camera_params.ravel(), points_3d.ravel()])
-
-        n_points = len(points_3d)
-        sparsity = _joint_sparsity_pattern(camera_indices, obj_indices, n_cams, n_points)
+        x0 = parameterization.pack(cv.camera_array, cv.world_points.points)
+        sparsity = parameterization.sparsity(camera_indices, obj_indices, 0, None)
 
         def residual_fn(x):
-            return _joint_residuals(
-                x,
-                n_cams,
-                camera_indices,
-                image_coords,
-                obj_indices,
-                cx_cy,
-                dist_tail,
-                f_initial,
-            )
+            return joint_residuals(x, parameterization, camera_indices, image_coords, obj_indices)
 
         f0 = residual_fn(x0)
         eps = 1e-7
@@ -120,31 +87,33 @@ class TestE1FocalLengthRecovery:
         perturbation = IntrinsicPerturbation(f_scale=1.03)
         cv = _bootstrap_from_scene(scene, perturbation=perturbation)
 
-        result = optimize_with_free_intrinsics(cv)
+        optimized = cv.optimize(refine_intrinsics=True)
 
-        assert result.converged
-        assert not result.hit_bounds
+        assert optimized.optimization_status is not None
+        assert optimized.optimization_status.converged
+        assert len(optimized.optimization_status.bound_warnings) == 0
 
-        for est in result.intrinsic_estimates:
-            cam = scene.camera_array.cameras[est.cam_id]
+        for cam_id, cam in optimized.camera_array.posed_cameras.items():
+            true_cam = scene.camera_array.cameras[cam_id]
+            assert true_cam.matrix is not None
+            assert true_cam.distortions is not None
             assert cam.matrix is not None
             assert cam.distortions is not None
-            f_true = float(cam.matrix[0, 0])
-            k2_true = float(cam.distortions[1])
-            f_error_pct = abs(est.f_recovered - f_true) / f_true * 100
-            k2_error = abs(est.k2_recovered - k2_true)
+            f_true = float(true_cam.matrix[0, 0])
+            f_recovered = float(cam.matrix[0, 0])
+            k2_true = float(true_cam.distortions[1])
+            k2_recovered = float(cam.distortions[1])
+            f_error_pct = abs(f_recovered - f_true) / f_true * 100
+            k2_error = abs(k2_recovered - k2_true)
             assert f_error_pct < 1.0, (
-                f"Cam {est.cam_id}: f error {f_error_pct:.2f}% >= 1% "
-                f"(true={f_true:.1f}, recovered={est.f_recovered:.1f})"
+                f"Cam {cam_id}: f error {f_error_pct:.2f}% >= 1% (true={f_true:.1f}, recovered={f_recovered:.1f})"
             )
-            # k1 and k2 trade along a correlation ridge — individual
-            # coefficients shift while total radial distortion is preserved.
             assert k2_error < 0.03, (
-                f"Cam {est.cam_id}: |k2_recovered - k2_true| = {k2_error:.4f} >= 0.03 "
-                f"(true={k2_true:.4f}, recovered={est.k2_recovered:.4f})"
+                f"Cam {cam_id}: |k2_recovered - k2_true| = {k2_error:.4f} >= 0.03 "
+                f"(true={k2_true:.4f}, recovered={k2_recovered:.4f})"
             )
 
-        aligned = align_to_ground_truth(result.capture_volume, scene)
+        aligned = align_to_ground_truth(optimized, scene)
         for cam_id in scene.camera_array.cameras:
             err = pose_error(aligned.camera_array.cameras[cam_id], scene.camera_array.cameras[cam_id])
             assert err.rotation_deg < 1.0, f"Cam {cam_id}: rotation {err.rotation_deg:.3f} deg"
@@ -152,34 +121,32 @@ class TestE1FocalLengthRecovery:
 
 
 class TestE2K1Recovery:
-    """E2: Perturb k1 by 0.02, run joint BA, assert recovery within 0.02.
-
-    Tolerance widened from 0.01 to 0.02: with k2 free, k1 and k2 trade
-    along a correlation ridge. Individual coefficient accuracy decreases
-    while total radial distortion correction is preserved.
-    """
+    """E2: Perturb k1 by 0.02, run joint BA, assert recovery within 0.02."""
 
     def test_k1_recovery(self) -> None:
         scene = intrinsic_perturbation_scene()
         perturbation = IntrinsicPerturbation(k1_delta=0.02)
         cv = _bootstrap_from_scene(scene, perturbation=perturbation)
 
-        result = optimize_with_free_intrinsics(cv)
+        optimized = cv.optimize(refine_intrinsics=True)
 
-        assert result.converged
-        assert not result.hit_bounds
+        assert optimized.optimization_status is not None
+        assert optimized.optimization_status.converged
+        assert len(optimized.optimization_status.bound_warnings) == 0
 
-        for est in result.intrinsic_estimates:
-            cam = scene.camera_array.cameras[est.cam_id]
+        for cam_id, cam in optimized.camera_array.posed_cameras.items():
+            true_cam = scene.camera_array.cameras[cam_id]
+            assert true_cam.distortions is not None
             assert cam.distortions is not None
-            k1_true = float(cam.distortions[0])
-            k1_error = abs(est.k1_recovered - k1_true)
+            k1_true = float(true_cam.distortions[0])
+            k1_recovered = float(cam.distortions[0])
+            k1_error = abs(k1_recovered - k1_true)
             assert k1_error < 0.02, (
-                f"Cam {est.cam_id}: |k1_recovered - k1_true| = {k1_error:.4f} >= 0.02 "
-                f"(true={k1_true:.4f}, recovered={est.k1_recovered:.4f})"
+                f"Cam {cam_id}: |k1_recovered - k1_true| = {k1_error:.4f} >= 0.02 "
+                f"(true={k1_true:.4f}, recovered={k1_recovered:.4f})"
             )
 
-        aligned = align_to_ground_truth(result.capture_volume, scene)
+        aligned = align_to_ground_truth(optimized, scene)
         for cam_id in scene.camera_array.cameras:
             err = pose_error(aligned.camera_array.cameras[cam_id], scene.camera_array.cameras[cam_id])
             assert err.rotation_deg < 1.0, f"Cam {cam_id}: rotation {err.rotation_deg:.3f} deg"
@@ -194,41 +161,42 @@ class TestE2bCombinedPerturbation:
         perturbation = IntrinsicPerturbation(f_scale=1.03, k1_delta=0.02, k2_delta=0.05)
         cv = _bootstrap_from_scene(scene, perturbation=perturbation)
 
-        result = optimize_with_free_intrinsics(cv)
+        optimized = cv.optimize(refine_intrinsics=True)
 
-        assert result.converged
-        assert not result.hit_bounds
+        assert optimized.optimization_status is not None
+        assert optimized.optimization_status.converged
+        assert len(optimized.optimization_status.bound_warnings) == 0
 
-        for est in result.intrinsic_estimates:
-            cam = scene.camera_array.cameras[est.cam_id]
+        for cam_id, cam in optimized.camera_array.posed_cameras.items():
+            true_cam = scene.camera_array.cameras[cam_id]
+            assert true_cam.matrix is not None
+            assert true_cam.distortions is not None
             assert cam.matrix is not None
             assert cam.distortions is not None
-            f_true = float(cam.matrix[0, 0])
-            k1_true = float(cam.distortions[0])
-            k2_true = float(cam.distortions[1])
-            f_error_pct = abs(est.f_recovered - f_true) / f_true * 100
-            k1_error = abs(est.k1_recovered - k1_true)
-            k2_error = abs(est.k2_recovered - k2_true)
+            f_true = float(true_cam.matrix[0, 0])
+            k1_true = float(true_cam.distortions[0])
+            k2_true = float(true_cam.distortions[1])
+            f_recovered = float(cam.matrix[0, 0])
+            k1_recovered = float(cam.distortions[0])
+            k2_recovered = float(cam.distortions[1])
+            f_error_pct = abs(f_recovered - f_true) / f_true * 100
+            k1_error = abs(k1_recovered - k1_true)
+            k2_error = abs(k2_recovered - k2_true)
             assert f_error_pct < 1.0, (
-                f"Cam {est.cam_id}: f error {f_error_pct:.2f}% (true={f_true:.1f}, recovered={est.f_recovered:.1f})"
+                f"Cam {cam_id}: f error {f_error_pct:.2f}% (true={f_true:.1f}, recovered={f_recovered:.1f})"
             )
             assert k1_error < 0.02, (
-                f"Cam {est.cam_id}: k1 error {k1_error:.4f} (true={k1_true:.4f}, recovered={est.k1_recovered:.4f})"
+                f"Cam {cam_id}: k1 error {k1_error:.4f} (true={k1_true:.4f}, recovered={k1_recovered:.4f})"
             )
             assert k2_error < 0.03, (
-                f"Cam {est.cam_id}: k2 error {k2_error:.4f} (true={k2_true:.4f}, recovered={est.k2_recovered:.4f})"
+                f"Cam {cam_id}: k2 error {k2_error:.4f} (true={k2_true:.4f}, recovered={k2_recovered:.4f})"
             )
 
 
 class TestE3ConstraintsAsMetricAnchor:
-    """E3: 2x2 — {clean, corrupted} x {constrained, unconstrained}.
-
-    Clean pair: constrained f error <= unconstrained f error.
-    Corrupted pair: characterization only (journal, no assertion).
-    """
+    """E3: constrained f error <= unconstrained f error (with 2x margin)."""
 
     def test_clean_constrained_improves_f(self) -> None:
-        """Use the charuco scene with known-distance constraints between board corners."""
         from caliscope.core.constraints import ConstraintSet, DistanceConstraint
 
         scene = intrinsic_perturbation_scene()
@@ -247,43 +215,34 @@ class TestE3ConstraintsAsMetricAnchor:
         cv_unconstrained = _bootstrap_from_scene(scene, perturbation=perturbation)
         cv_constrained = _bootstrap_from_scene(scene, constraints=constraints, perturbation=perturbation)
 
-        result_unconstrained = optimize_with_free_intrinsics(cv_unconstrained, use_constraints=False)
-        result_constrained = optimize_with_free_intrinsics(cv_constrained, use_constraints=True)
+        opt_u = cv_unconstrained.optimize(refine_intrinsics=True, use_constraints=False)
+        opt_c = cv_constrained.optimize(refine_intrinsics=True, use_constraints=True)
 
-        assert result_unconstrained.converged
-        assert result_constrained.converged
+        assert opt_u.optimization_status is not None and opt_u.optimization_status.converged
+        assert opt_c.optimization_status is not None and opt_c.optimization_status.converged
 
-        for est_c, est_u in zip(
-            result_constrained.intrinsic_estimates,
-            result_unconstrained.intrinsic_estimates,
-        ):
-            cam = scene.camera_array.cameras[est_c.cam_id]
-            assert cam.matrix is not None
-            f_true = float(cam.matrix[0, 0])
-            err_c = abs(est_c.f_recovered - f_true) / f_true
-            err_u = abs(est_u.f_recovered - f_true) / f_true
-            # Both should recover well; constraints must not degrade recovery.
-            # On a scene with good depth variation, both achieve < 0.1%, so
-            # the comparison tests noise. A 2x margin captures "no degradation".
+        for cam_id in scene.camera_array.posed_cameras:
+            true_cam = scene.camera_array.cameras[cam_id]
+            assert true_cam.matrix is not None
+            f_true = float(true_cam.matrix[0, 0])
+            f_c = float(opt_c.camera_array.cameras[cam_id].matrix[0, 0])  # type: ignore[index]
+            f_u = float(opt_u.camera_array.cameras[cam_id].matrix[0, 0])  # type: ignore[index]
+            err_c = abs(f_c - f_true) / f_true
+            err_u = abs(f_u - f_true) / f_true
             assert err_c <= max(err_u * 2.0, 0.005), (
-                f"Cam {est_c.cam_id}: constrained f error {err_c:.4f} > "
+                f"Cam {cam_id}: constrained f error {err_c:.4f} > "
                 f"2x unconstrained {err_u:.4f} — constraints degraded f recovery"
             )
 
 
 class TestE4NegativeControl:
-    """E4: Small board far from cameras, stationary. Joint BA should NOT recover f.
-
-    A large board near cameras gives partial f-observability through angular
-    span alone (corners span depth relative to camera). Use a tiny board at
-    distance ~3m where all corners sit at nearly the same depth.
-    """
+    """E4: Small board far from cameras, stationary. Joint BA should NOT recover f."""
 
     def test_stationary_f_not_recovered(self) -> None:
-        from caliscope.synthetic.camera_synthesizer import CameraSynthesizer
         from caliscope.synthetic.calibration_object import CalibrationObject
-        from caliscope.synthetic.trajectory import Trajectory
+        from caliscope.synthetic.camera_synthesizer import CameraSynthesizer
         from caliscope.synthetic.synthetic_scene import SyntheticScene
+        from caliscope.synthetic.trajectory import Trajectory
 
         camera_array = CameraSynthesizer().add_ring(n=4, radius=3.0, height=0.3).build()
         calibration_object = CalibrationObject.planar_grid(rows=3, cols=4, spacing=0.03)
@@ -299,24 +258,29 @@ class TestE4NegativeControl:
         perturbation = IntrinsicPerturbation(f_scale=1.03)
         cv = _bootstrap_from_scene(scene, perturbation=perturbation)
 
-        result = optimize_with_free_intrinsics(cv, strict=False)
+        optimized = cv.optimize(refine_intrinsics=True, strict=False)
 
-        if not result.converged:
+        if optimized.optimization_status is None or not optimized.optimization_status.converged:
             return
 
-        # At least half the cameras should fail to recover f
         poor_recoveries = 0
-        for est in result.intrinsic_estimates:
-            cam = scene.camera_array.cameras[est.cam_id]
+        for cam_id, cam in optimized.camera_array.posed_cameras.items():
+            true_cam = scene.camera_array.cameras[cam_id]
+            assert true_cam.matrix is not None
             assert cam.matrix is not None
-            f_true = float(cam.matrix[0, 0])
-            injected_error = abs(est.f_initial - f_true) / f_true
-            recovered_error = abs(est.f_recovered - f_true) / f_true
-            if recovered_error > 0.5 * injected_error or result.hit_bounds:
+            f_true = float(true_cam.matrix[0, 0])
+            f_recovered = float(cam.matrix[0, 0])
+            # The initial (perturbed) f
+            f_initial = f_true * 1.03
+            injected_error = abs(f_initial - f_true) / f_true
+            recovered_error = abs(f_recovered - f_true) / f_true
+            has_warnings = len(optimized.optimization_status.bound_warnings) > 0
+            if recovered_error > 0.5 * injected_error or has_warnings:
                 poor_recoveries += 1
 
-        assert poor_recoveries >= len(result.intrinsic_estimates) // 2, (
-            f"Only {poor_recoveries}/{len(result.intrinsic_estimates)} cameras failed to recover f. "
+        n_cams = len(optimized.camera_array.posed_cameras)
+        assert poor_recoveries >= n_cams // 2, (
+            f"Only {poor_recoveries}/{n_cams} cameras failed to recover f. "
             f"A stationary small board at distance should not resolve focal length."
         )
 
@@ -324,9 +288,7 @@ class TestE4NegativeControl:
 class TestE5bOutlierContaminationDrift:
     """E5b: Joint BA on corrupted scene with correct intrinsics.
 
-    Uses the intrinsic_perturbation_scene (good depth variation) with injected
-    outliers. With f well-constrained by geometry, outlier contamination
-    should not drag f more than 3% from truth.
+    Outlier contamination should not drag f more than 3% from truth.
     """
 
     def test_contamination_f_drift(self) -> None:
@@ -338,19 +300,21 @@ class TestE5bOutlierContaminationDrift:
 
         intrinsics_only = scene.intrinsics_only_cameras()
         cv = CaptureVolume.bootstrap(corrupted, intrinsics_only)
-        result = optimize_with_free_intrinsics(cv, strict=False)
+        optimized = cv.optimize(refine_intrinsics=True, strict=False)
 
-        if not result.converged:
+        if optimized.optimization_status is None or not optimized.optimization_status.converged:
             pytest.skip("Joint BA on corrupted data did not converge")
 
-        for est in result.intrinsic_estimates:
-            cam = scene.camera_array.cameras[est.cam_id]
+        for cam_id, cam in optimized.camera_array.posed_cameras.items():
+            true_cam = scene.camera_array.cameras[cam_id]
+            assert true_cam.matrix is not None
             assert cam.matrix is not None
-            f_true = float(cam.matrix[0, 0])
-            drift_pct = abs(est.f_recovered - f_true) / f_true * 100
+            f_true = float(true_cam.matrix[0, 0])
+            f_recovered = float(cam.matrix[0, 0])
+            drift_pct = abs(f_recovered - f_true) / f_true * 100
             assert drift_pct < 3.0, (
-                f"Cam {est.cam_id}: f drifted {drift_pct:.2f}% from truth under outlier contamination "
-                f"(true={f_true:.1f}, recovered={est.f_recovered:.1f})"
+                f"Cam {cam_id}: f drifted {drift_pct:.2f}% from truth under outlier contamination "
+                f"(true={f_true:.1f}, recovered={f_recovered:.1f})"
             )
 
 
@@ -374,22 +338,23 @@ class TestE6WandScene:
         cameras = perturb_intrinsics(scene.intrinsics_only_cameras(), perturbation)
         cv = CaptureVolume.bootstrap(scene.image_points_noisy, cameras, constraints=constraints)
 
-        result = optimize_with_free_intrinsics(cv)
+        optimized = cv.optimize(refine_intrinsics=True)
 
-        assert result.converged
-        assert not result.hit_bounds
+        assert optimized.optimization_status is not None
+        assert optimized.optimization_status.converged
+        assert len(optimized.optimization_status.bound_warnings) == 0
 
-        for est in result.intrinsic_estimates:
-            cam = scene.camera_array.cameras[est.cam_id]
+        for cam_id, cam in optimized.camera_array.posed_cameras.items():
+            true_cam = scene.camera_array.cameras[cam_id]
+            assert true_cam.matrix is not None
+            assert true_cam.distortions is not None
             assert cam.matrix is not None
-            assert cam.distortions is not None
-            f_true = float(cam.matrix[0, 0])
-            f_err = abs(est.f_recovered - f_true) / f_true * 100
-            assert f_err < 1.0, f"Cam {est.cam_id}: f error {f_err:.2f}%"
+            f_true = float(true_cam.matrix[0, 0])
+            f_recovered = float(cam.matrix[0, 0])
+            f_err = abs(f_recovered - f_true) / f_true * 100
+            assert f_err < 1.0, f"Cam {cam_id}: f error {f_err:.2f}%"
 
-        import numpy as np
-
-        report = result.capture_volume.rigidity_report()
+        report = optimized.rigidity_report()
         assert report.violations, "No rigidity violations computed"
         errors_mm = [abs(v.actual - v.expected) * 1000 for v in report.violations]
         rig_rmse = float(np.sqrt(np.mean(np.array(errors_mm) ** 2)))

@@ -500,6 +500,7 @@ def wand_scene(
     scene, _constraints = wand_scene_with_constraints(
         pixel_noise_sigma=pixel_noise_sigma,
         random_seed=random_seed,
+        include_static=True,
     )
     return scene
 
@@ -507,12 +508,14 @@ def wand_scene(
 def wand_scene_with_constraints(
     pixel_noise_sigma: float = 0.5,
     random_seed: int = 42,
+    include_static: bool = True,
 ) -> tuple[SyntheticScene, ConstraintSet]:
     """Product-workflow scene with constraints for joint BA experiments.
 
     Two 30cm ArUco markers on a rigid wand (50cm separation), diagonal
-    trajectory with depth variation. No static markers — static marker
-    triangulation has a known issue with sparse 4-corner observations.
+    trajectory with depth variation. Optionally includes two static wall
+    markers. Static markers have a known triangulation issue with noisy
+    4-corner observations — set include_static=False to exclude them.
     """
     import cv2
     from caliscope.core.aruco_marker import ArucoMarker, ArucoMarkerSet, MarkerLink
@@ -520,10 +523,16 @@ def wand_scene_with_constraints(
     camera_array = CameraSynthesizer().add_ring(n=4, radius=1.2, height=0.3).build()
 
     wand_separation = 0.50
-    markers = {
+    markers: dict[int, ArucoMarker] = {
         0: ArucoMarker(0, 0.30),
         1: ArucoMarker(1, 0.30),
     }
+    if include_static:
+        markers[2] = ArucoMarker(2, 0.30, static=True)
+        markers[3] = ArucoMarker(3, 0.30, static=True)
+        markers[4] = ArucoMarker(4, 0.30, static=True)
+        markers[5] = ArucoMarker(5, 0.30, static=True)
+
     link = MarkerLink(marker_a=0, marker_b=1, corner_map=(0, 1, 2, 3), separation_m=wand_separation)
     marker_set = ArucoMarkerSet(dictionary=cv2.aruco.DICT_4X4_50, markers=markers, links=(link,))
 
@@ -540,15 +549,34 @@ def wand_scene_with_constraints(
         angle_rad=0.0,
         translation=np.array([wand_separation, 0.0, 0.0]),
     )
-    offset_poses = tuple(p.compose(wand_offset) for p in wand_base_trajectory.poses)
+    offset_poses = tuple(wand_offset.compose(p) for p in wand_base_trajectory.poses)
     wand_tip_trajectory = Trajectory(
         poses=offset_poses,
         origin_frame=wand_base_trajectory.origin_frame,
     )
 
+    trajectories: dict[int, Trajectory] = {
+        0: wand_base_trajectory,
+        1: wand_tip_trajectory,
+    }
+    if include_static:
+        # 4 static markers on the floor between cameras, facing upward
+        static_radius = 1.0
+        n_frames = 40
+        for i, marker_id in enumerate([2, 3, 4, 5]):
+            angle = np.radians(45 + 90 * i)
+            pos = np.array([static_radius * np.cos(angle), static_radius * np.sin(angle), 0.0])
+            # Markers lie flat on the floor (no rotation = face up along +Z)
+            static_pose = SE3Pose.from_axis_angle(
+                axis=np.array([0.0, 0.0, 1.0]),
+                angle_rad=angle,
+                translation=pos,
+            )
+            trajectories[marker_id] = Trajectory.stationary(n_frames=n_frames, pose=static_pose)
+
     return aruco_scene(
         marker_set=marker_set,
-        trajectories={0: wand_base_trajectory, 1: wand_tip_trajectory},
+        trajectories=trajectories,
         camera_array=camera_array,
         pixel_noise_sigma=pixel_noise_sigma,
         random_seed=random_seed,

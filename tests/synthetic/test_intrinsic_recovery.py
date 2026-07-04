@@ -364,7 +364,7 @@ class TestE6WandScene:
     def test_wand_blind_f_recovery(self) -> None:
         from caliscope.synthetic.scene_factories import wand_scene_with_constraints
 
-        scene, constraints = wand_scene_with_constraints()
+        scene, constraints = wand_scene_with_constraints(include_static=False)
         true_f = 1394.6
         perturbation = IntrinsicPerturbation(
             f_scale=960.0 / true_f,

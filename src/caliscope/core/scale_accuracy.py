@@ -152,6 +152,20 @@ class VolumetricScaleReport:
         return {si: float(np.sqrt(sse / pairs) * 100) for si, (sse, pairs) in by_frame.items() if pairs > 0}
 
     @cached_property
+    def per_frame_rmse_mm(self) -> dict[int, float]:
+        """Pooled distance RMSE (mm) grouped by sync_index. Excludes static markers (STATIC_SYNC_INDEX)."""
+        from caliscope.core.point_data import STATIC_SYNC_INDEX
+
+        by_frame: dict[int, tuple[float, int]] = {}
+        for fe in self.frame_errors:
+            if fe.sync_index == STATIC_SYNC_INDEX:
+                continue
+            sse, pairs = by_frame.get(fe.sync_index, (0.0, 0))
+            by_frame[fe.sync_index] = (sse + fe.sum_squared_errors_m2, pairs + fe.n_distance_pairs)
+
+        return {si: float(np.sqrt(sse / pairs) * 1000) for si, (sse, pairs) in by_frame.items() if pairs > 0}
+
+    @cached_property
     def per_object_relative_rmse_pct(self) -> dict[int, float]:
         """Pooled relative RMSE % grouped by object_id. Includes static markers."""
         by_object: dict[int, tuple[float, int]] = {}

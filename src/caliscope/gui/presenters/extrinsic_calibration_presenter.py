@@ -297,6 +297,13 @@ class ExtrinsicCalibrationPresenter(QObject):
         if self._project_settings is not None:
             self._project_settings.set_refine_intrinsics(enabled)
 
+    @property
+    def current_origin_object_id(self) -> int | None:
+        """Currently persisted origin marker id, or None if no origin has been set."""
+        if self._project_settings is None:
+            return None
+        return self._project_settings.get_origin_object_id()
+
     # -------------------------------------------------------------------------
     # Calibration Workflow (Implemented in 4.2)
     # -------------------------------------------------------------------------

@@ -9,6 +9,7 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING
 
+from PySide6.QtCore import Signal
 from PySide6.QtWidgets import QVBoxLayout, QWidget
 
 from caliscope.gui.presenters.extrinsic_calibration_presenter import (
@@ -34,6 +35,8 @@ class ExtrinsicCalibrationTab(QWidget):
     - cleanup() must be called before tab is destroyed
     """
 
+    navigation_requested = Signal(str)  # Tab name, bubbled up from the view
+
     def __init__(self, coordinator: WorkspaceCoordinator) -> None:
         super().__init__()
         self._coordinator = coordinator
@@ -53,6 +56,7 @@ class ExtrinsicCalibrationTab(QWidget):
         # Create view with presenter
         self._view = ExtrinsicCalibrationView(self._presenter)
         layout.addWidget(self._view)
+        self._view.navigation_requested.connect(self.navigation_requested)
 
         # Wire presenter signals to coordinator
         self._connect_signals()

@@ -180,7 +180,7 @@ class WorkspaceCoordinator(QObject):
 
     @property
     def capture_volume_tab_enabled(self) -> bool:
-        """Whether Capture Volume tab should be enabled.
+        """Whether Calibrate tab should be enabled.
 
         Requires: 2D extraction complete AND all cameras have resolution.
         """

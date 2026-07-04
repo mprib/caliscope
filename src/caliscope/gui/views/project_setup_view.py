@@ -414,7 +414,7 @@ class ProjectSetupView(QWidget):
         self._extraction_row.navigation_requested.connect(self.tab_navigation_requested)
         layout.addWidget(self._extraction_row)
 
-        self._extrinsic_row = WorkflowStepRow("Extrinsic Calibration", "Capture Volume")
+        self._extrinsic_row = WorkflowStepRow("Extrinsic Calibration", "Calibrate")
         self._extrinsic_row.navigation_requested.connect(self.tab_navigation_requested)
         layout.addWidget(self._extrinsic_row)
 

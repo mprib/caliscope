@@ -354,6 +354,48 @@ class TestE5bOutlierContaminationDrift:
             )
 
 
+class TestE6WandScene:
+    """E6: Joint BA on wand scene (2 linked ArUco markers, blind f guess).
+
+    Tests the actual product workflow: f = image_width/2, k1=0, k2=0.
+    Recovery should match the charuco floor for f, with rigidity < 1mm.
+    """
+
+    def test_wand_blind_f_recovery(self) -> None:
+        from caliscope.synthetic.scene_factories import wand_scene_with_constraints
+
+        scene, constraints = wand_scene_with_constraints()
+        true_f = 1394.6
+        perturbation = IntrinsicPerturbation(
+            f_scale=960.0 / true_f,
+            k1_delta=-0.115,
+            k2_delta=0.219,
+        )
+        cameras = perturb_intrinsics(scene.intrinsics_only_cameras(), perturbation)
+        cv = CaptureVolume.bootstrap(scene.image_points_noisy, cameras, constraints=constraints)
+
+        result = optimize_with_free_intrinsics(cv)
+
+        assert result.converged
+        assert not result.hit_bounds
+
+        for est in result.intrinsic_estimates:
+            cam = scene.camera_array.cameras[est.cam_id]
+            assert cam.matrix is not None
+            assert cam.distortions is not None
+            f_true = float(cam.matrix[0, 0])
+            f_err = abs(est.f_recovered - f_true) / f_true * 100
+            assert f_err < 1.0, f"Cam {est.cam_id}: f error {f_err:.2f}%"
+
+        import numpy as np
+
+        report = result.capture_volume.rigidity_report()
+        assert report.violations, "No rigidity violations computed"
+        errors_mm = [abs(v.actual - v.expected) * 1000 for v in report.violations]
+        rig_rmse = float(np.sqrt(np.mean(np.array(errors_mm) ** 2)))
+        assert rig_rmse < 1.0, f"Rigidity RMSE {rig_rmse:.3f}mm >= 1.0mm"
+
+
 if __name__ == "__main__":
     from pathlib import Path
 
@@ -386,4 +428,8 @@ if __name__ == "__main__":
 
     print("E5b: outlier contamination drift...")
     TestE5bOutlierContaminationDrift().test_contamination_f_drift()
+    print("  PASSED")
+
+    print("E6: wand blind f recovery...")
+    TestE6WandScene().test_wand_blind_f_recovery()
     print("  PASSED")

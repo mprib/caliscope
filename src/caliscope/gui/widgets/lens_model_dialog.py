@@ -80,12 +80,14 @@ class LensModelDialog(QDialog):
         self,
         cameras: dict[int, CameraData],
         extrinsic_dir: Path,
+        depth_ratios: dict[int, float | None] | None = None,
         initial_cam_id: int | None = None,
         parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent)
         self._cameras = cameras
         self._extrinsic_dir = extrinsic_dir
+        self._depth_ratios = depth_ratios or {}
         self.setWindowTitle("Lens Model Visualization")
         self.setModal(False)
         self.setMinimumSize(700, 400)
@@ -112,6 +114,14 @@ class LensModelDialog(QDialog):
         top_row.addWidget(self._source_combo)
         top_row.addStretch()
         layout.addLayout(top_row)
+
+        # Depth ratio info row
+        info_row = QHBoxLayout()
+        self._depth_ratio_label = QLabel("Depth ratio: —")
+        self._depth_ratio_label.setStyleSheet("color: #888; font-size: 11px;")
+        info_row.addWidget(self._depth_ratio_label)
+        info_row.addStretch()
+        layout.addLayout(info_row)
 
         # Image labels side by side
         images_row = QHBoxLayout()
@@ -159,6 +169,17 @@ class LensModelDialog(QDialog):
 
         camera = self._cameras[cam_id]
         w, h = camera.size
+
+        depth_ratio = self._depth_ratios.get(cam_id)
+        if depth_ratio is not None:
+            self._depth_ratio_label.setText(f"Depth ratio: {depth_ratio:.2f}×")
+            self._depth_ratio_label.setToolTip(
+                "Ratio of furthest to nearest triangulated 3D points (95th/5th percentile Z-depth). "
+                "High values (>10×) may indicate poor conditioning for this camera's intrinsic estimation."
+            )
+        else:
+            self._depth_ratio_label.setText("Depth ratio: —")
+            self._depth_ratio_label.setToolTip("")
 
         use_real = self._source_combo.currentIndex() == 0
         if use_real:

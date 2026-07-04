@@ -67,13 +67,58 @@ The 4 corners are close together, and triangulation is poorly conditioned.
 30cm markers subtend ~350px (18% of width) and work reliably.
 A 30cm ArUco is approximately letter-paper size — practical for printing.
 
+## Experiment 3: Full Scene (Wand + 4 Static Floor Markers)
+
+After fixing static marker placement (floor, between cameras at 45/135/225/315 degrees,
+facing upward), the full scene works and outperforms both wand-only and the 70-corner charuco.
+
+Blind f guess (f=960, k1=0, k2=0):
+
+| sigma | conv | bounds | f err% | k1 err | k2 err | rot (deg) | trans (m) | rig RMSE (mm) |
+|-------|------|--------|--------|--------|--------|-----------|-----------|---------------|
+| 0.5 | Y | ok | 0.11 | 0.006 | 0.008 | 0.016 | 0.001 | 0.36 |
+| 1.0 | Y | ok | 0.21 | 0.011 | 0.015 | 0.032 | 0.001 | 0.72 |
+| 2.0 | Y | ok | 0.41 | 0.023 | 0.031 | 0.063 | 0.003 | 1.44 |
+| 3.0 | Y | ok | 0.62 | 0.034 | 0.047 | 0.095 | 0.004 | 2.16 |
+
+Comparison at sigma=0.5:
+
+| Scene | f err% | rot (deg) | rigidity (mm) |
+|-------|--------|-----------|---------------|
+| Charuco (70 corners) | 0.25 | 0.039 | — |
+| Wand only (8 corners) | 0.39 | 0.088 | 0.39 |
+| Wand + 4 static (24 corners) | 0.11 | 0.016 | 0.36 |
+
+Static markers anchor the geometry. The full ArUco scene (24 corners total) outperforms the
+70-corner charuco on f recovery and pose accuracy.
+
+## Static Marker Placement
+
+Initial experiment used arbitrary positions at odd angles. This caused a single corner to
+triangulate 2m from its siblings, poisoning the BA. At zero noise, the solver ignores the
+garbage — the problem is noise × bad initialization, not bad initialization alone.
+
+Floor markers between cameras (facing upward) triangulate cleanly. The key is placement
+relative to cameras: markers should be visible from multiple cameras with good stereo baseline.
+
+## Rigid Body Composition Bug
+
+The original compose order `p.compose(wand_offset)` applied the offset in world space.
+Both markers rotated identically but their displacement was fixed along world X, making
+them look like synchronized propellers instead of a rigid stick.
+
+Fix: `wand_offset.compose(p)` applies the offset in the wand's local frame. Verified:
+constant 50cm corner-to-corner distance, identical orientation at every frame.
+
 ## Conclusions
 
-1. **The wand workflow works.** Joint BA on 2 linked ArUco markers recovers {f, k1, k2} from a blind guess, with sub-0.4mm rigidity precision at 0.5px noise.
-2. **"Skip intrinsic calibration" is viable.** f = image_width/2, k1=0, k2=0 is a safe starting point.
-3. **Marker size matters.** 30cm markers at ~1m distance are the minimum for reliable triangulation. 10cm markers are too small.
-4. **Static markers need investigation.** The sync_index=-1 triangulation path produces bad results for 4-corner markers. This is a separate bug from the joint BA solver.
-5. **Rigidity precision scales linearly with detection noise.** At 3px noise (realistic ArUco), rigidity RMSE is 2.4mm. At 0.5px, it's 0.4mm.
+1. **The full product workflow works.** Wand + static floor markers, blind f guess, sub-0.4mm rigidity at 0.5px noise.
+2. **Static markers improve accuracy dramatically.** f recovery 3.5x better, pose error 5x better than wand-only.
+3. **The ArUco scene outperforms charuco.** 24 well-placed ArUco corners beat 70 charuco corners.
+4. **"Skip intrinsic calibration" is viable.** f = image_width/2, k1=0, k2=0 is a safe starting point.
+5. **Marker size matters.** 30cm markers at ~1m distance are the minimum. 10cm is too small.
+6. **Static marker placement matters.** Floor, between cameras, facing up. Not floating at arbitrary angles.
+7. **Rigidity precision scales linearly with detection noise.** 0.5px → 0.36mm, 3px → 2.16mm.
 
 ## Files
 

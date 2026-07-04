@@ -325,10 +325,14 @@ class CaptureVolume:
         loss: str = "linear",
         f_scale: float = 1.0,
     ) -> CaptureVolume:
-        """Bundle adjustment via pixel-space residuals with optional intrinsic refinement.
+        """Bundle adjustment via pixel-space residuals.
 
-        refine_intrinsics=False reproduces the old fixed-intrinsics solve (in pixel space).
-        refine_intrinsics=True jointly optimizes per-camera focal scale and k1/k2.
+        Extrinsics-only by default. Pass refine_intrinsics=True for joint
+        intrinsic recovery (the production calibration workflow does).
+
+        Free intrinsics converge slowly when depth variation is poor or
+        constraints are absent — f and scale are coupled without a metric
+        anchor. The depth-ratio metric characterizes this risk.
         """
         from caliscope.core.bundle_parameterization import BundleParameterization
 

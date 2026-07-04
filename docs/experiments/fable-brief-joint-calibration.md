@@ -6,6 +6,24 @@ Prepared: 2026-07-04.
 Epic branch: `epic/joint-calibration`.
 Prior art survey: `specs/joint-intrinsic-extrinsic-ba-roadmap.md`.
 
+## A Note on Creative Latitude
+
+This brief presents experiment results and poses architecture questions.
+It is not a locked-down spec.
+Fable has creative latitude on UI design, workflow structure, and quality presentation.
+If something in this brief seems wrong or suboptimal, push back — the author trusts Fable's taste and expects Fable to improve on these proposals where it sees opportunity.
+
+## Who This Is For
+
+The #971 feature request comes from outdoor track-and-field biomechanics researchers.
+10-meter capture volumes.
+Cameras mounted 3+ meters high for jump analysis.
+Wind makes large charuco boards impractical outdoors.
+They need to calibrate quickly, with small portable markers, across a volume too large for a single board to cover.
+
+This is the hardest calibration use case Caliscope serves.
+The joint solver makes it tractable.
+
 ## The Finding
 
 Intrinsic calibration is no longer a required step.
@@ -14,8 +32,37 @@ The joint bundle adjustment solver recovers focal length and radial distortion f
 On real outdoor footage with 1-meter ArUco markers, starting from a 40% wrong focal length guess and zero distortion knowledge, the solver achieved 5.8mm rigidity precision on known marker geometry.
 That is 0.58% of the marker size.
 
-The user prints markers, places some on the ground, waves a wand through the volume, and presses calibrate.
-No charuco board, no intrinsic calibration video, no careful procedure.
+For comparison, the same cameras with charuco-calibrated intrinsics and fixed-intrinsic BA achieved 15.4mm rigidity before optimization.
+The joint solver improved that to 4.6mm — better than the charuco-calibrated starting point.
+This suggests the joint solver doesn't just match charuco quality; it may exceed it on the same cameras.
+
+### Why this matters: before and after
+
+D7 characterization on synthetic data with a 3% focal length error:
+
+| Metric | Fixed-intrinsics BA | Joint BA |
+|--------|-------------------|----------|
+| Translation error | 14.2mm | 1.3mm |
+| Rotation error | 0.80° | 0.03° |
+| f recovery | not attempted | < 0.22% error |
+
+The fixed-intrinsic solver has no way to correct a wrong focal length.
+The joint solver absorbs it.
+
+## The Core Insight: Depth Variation Makes f Observable
+
+Focal length and camera-to-scene distance are coupled in the projection equation.
+A 10% increase in f with a 10% increase in depth produces nearly identical projections for a distant planar target at fixed depth.
+Moving markers at varying depths break this coupling because the f-distance ambiguity produces different predictions for near versus far observations.
+
+This is why moving markers are essential.
+Static markers alone gave 17-19mm rigidity on the real data.
+Adding moving markers dropped it to 4.6-5.8mm.
+Scene geometry — specifically depth variation — is the primary defense for f observability, not solver sophistication or robust loss functions.
+
+A lateral-only trajectory (constant depth) cannot resolve f.
+The wand must sweep through depth, not just side to side.
+The system should report a depth-ratio metric and warn (softly, no hard gate) when depth variation is insufficient.
 
 ## What Was Proved
 
@@ -61,7 +108,11 @@ Results at 0.5px noise, blind f guess:
 
 The ArUco wand+static scene outperforms the 70-corner charuco on f recovery and pose accuracy.
 Static markers anchor the geometry.
-Moving markers provide depth variation that makes f observable.
+Moving markers provide the depth variation that makes f observable.
+
+Below ~20 corners, constraints are essential.
+A single ArUco (4 corners) without constraints drifts to 2.7mm; with constraints it matches the 70-corner charuco floor at 1.3mm.
+Constraints are not optional for the ArUco workflow.
 
 Key findings during development:
 - Marker size matters: 30cm markers at ~1m camera distance are the practical minimum. 10cm is too small for reliable triangulation.
@@ -83,6 +134,9 @@ Cameras had prior charuco-calibrated intrinsics (f ≈ 3050-3400px).
 
 The solver converges from a 37-44% wrong blind guess on real data.
 Moving markers are essential for f observability — static-only achieves 17-19mm versus 4.6-5.8mm with moving markers included.
+
+The joint solver moved f by 10-40px from the charuco-calibrated values and improved rigidity from 15.4mm to 4.6mm.
+This suggests the joint solver found a better intrinsic solution than the separate charuco calibration — adapted to the specific observation geometry.
 
 ## What the User Experience Could Be
 
@@ -113,82 +167,146 @@ The separate intrinsic calibration step is eliminated.
 
 The calibration produced intrinsics (f, k1, k2) and extrinsics (camera poses) simultaneously.
 The user needs to trust the result without understanding the math.
-Possible quality indicators:
+
+**Traffic-light summary.**
+Before any detail, a one-line verdict: "Calibration quality: Good (5.8mm on 1.0m markers, 0.58%)" with green/yellow/red color coding based on rigidity as a percentage of marker size.
+The casual user reads this and stops.
+The expert clicks through to the details below.
 
 **Distortion visualization.**
-Show the undistorted image next to the raw image, or overlay a distortion grid.
-The recovered k1 and k2 define the lens model — the user can see whether the correction looks right.
-This replaces the intrinsic calibration report (which showed reprojection error on charuco corners).
+Two tiers.
+MVP: a synthetic distortion grid rendered purely from the recovered f/k1/k2 coefficients — concentric circles showing barrel/pincushion correction.
+No video frames needed, lightweight, can go in the quality panel.
+Follow-up: a dialog that grabs a frame from each extrinsic video and shows raw versus undistorted side-by-side.
 
 **Rigidity report.**
 The solver knows the true distances between marker corners (they're the constraints).
 After optimization, measure how well the triangulated 3D corners match those known distances.
-Show per-marker rigidity RMSE, maybe per-frame.
-A small number (sub-1% of marker size) means the calibration is good.
+Show per-marker rigidity RMSE.
+Note: rigidity validates shape preservation. Absolute scale is validated separately through the known marker dimensions.
+
+One visualization idea: a 3D viewer showing the idealized marker geometry overlaid on the recovered geometry, scrubbable across frames or with all frames superimposed.
+This is a nice-to-have, not a requirement — Fable should decide if the complexity is justified.
 
 **Recovered intrinsics table.**
 Show per-camera focal length and distortion coefficients.
-If the user did provide intrinsics (optional), show the delta — how much the solver adjusted them.
+If the user provided intrinsics (optional), show the delta — how much the solver adjusted them.
+A contextual note like "Focal length recovered: 3048px (typical for this sensor)" helps users who skipped intrinsic calibration understand what they got.
 
-**3D scene view.**
-The existing storyboard/3D viewer can show camera positions and triangulated marker corners.
-The user can visually confirm the cameras are where they expect.
+**Trajectory quality indicator.**
+Report the depth ratio (max depth / min depth) across frames.
+Warn softly if depth variation is insufficient for f observability.
+No hard gate — just a note in the quality report.
 
 ## Architecture Decisions for Fable
 
 These are the questions the spec needs to answer.
 
-### 1. How does `experimental_ba.py` become production code?
+### 1. One residual function, not two
 
 The current production `CaptureVolume.optimize()` uses normalized-coordinate residuals with fixed intrinsics (pre-undistort, project with identity K).
 The experimental optimizer uses pixel-space residuals with free intrinsics (cv2.projectPoints with trial f/k1/k2).
 
-Options:
-- Replace the production residual function entirely (pixel-space everywhere)
-- Keep both and dispatch based on a flag
-- Refactor to a shared structure with pluggable residual functions
+There is currently zero shared code between the two paths.
+The pixel-space approach subsumes the normalized approach (fix f/k1/k2 at their initial values and it's equivalent).
 
-The pixel-space approach is strictly more general.
-The normalized approach is a special case (f=1, k=0, pre-undistorted).
+The spec should commit to the pixel-space residual as the single production path.
+The normalized-coordinate path becomes dead code.
+This is the single most important architectural decision.
 
-### 2. Which intrinsic parameters are free?
+### 2. Intrinsic write-back is the central integration point
+
+The experimental optimizer recovers f/k1/k2 but does not write them back to `CameraData.matrix` or `CameraData.distortions`.
+Every downstream consumer — undistortion, reprojection reports, reconstruction — reads intrinsics from `CameraData`.
+If the joint solver refines f from 1920 to 3050 but `CameraData.matrix[0,0]` still says 1920, everything downstream is wrong.
+
+The spec must define:
+- When the write-back happens (after optimization? after filter + re-optimize?)
+- Whether `CameraData` grows new fields or overwrites `matrix`/`distortions`
+- How cx/cy and p1/p2/k3 (held fixed by the solver) are preserved in the written model
+- How `CameraArray.update_extrinsic_params()` (currently hardcoded to 6 params per camera) adapts to 9 params
+
+### 3. Default intrinsics synthesis
+
+`CaptureVolume.bootstrap()` requires intrinsics for PnP pose estimation — it raises `CalibrationError` if `matrix is None`.
+For the "no intrinsic calibration" workflow, the system must synthesize a guess camera matrix before bootstrap.
+
+The spec should define where this happens.
+Options: a `CameraData.with_default_intrinsics(width, height)` factory, a fallback in `bootstrap()`, or GUI-level synthesis when extrinsic videos are loaded.
+Camera resolution comes from the extrinsic video headers (PyAV can read this without decoding).
+
+### 4. Which intrinsic parameters are free?
 
 Currently proven: f (single focal length, fx=fy), k1, k2.
 Not yet tested: separate fx/fy, principal point (cx, cy), tangential distortion (p1, p2), k3.
 
-Recommendation: start with {f, k1, k2} as proven. Consider cx/cy later if users report asymmetric lens issues. Keep p1, p2, k3 fixed — they require dense image coverage to observe, which ArUco markers don't provide.
+Recommendation: start with {f, k1, k2} as proven.
+Consider cx/cy later if users report asymmetric lens issues.
+Keep p1, p2, k3 fixed — they require dense image coverage to observe, which ArUco markers don't provide.
+Cameras with significant tangential distortion (p1/p2) may see worse results than the synthetic predictions suggest.
 
-### 3. Fisheye support
-
-The current solver uses `cv2.projectPoints` (Brown-Conrady polynomial model).
-Fisheye lenses need `cv2.fisheye.projectPoints` (equidistant model).
-`CameraData.fisheye` boolean already exists.
-Per-camera dispatch in the residual function is straightforward.
-
-Recommendation: implement as a follow-on task. The architecture supports it by construction. Backlog task `fisheye-joint-ba` is filed.
-
-### 4. When should intrinsics be freed vs fixed?
+### 5. When should intrinsics be freed vs fixed?
 
 If the user provides intrinsics (from a prior calibration or import), should the solver refine them or hold them fixed?
 
-Recommendation: always refine by default. The solver can only improve or match the input. Show the delta so the user knows what changed. Provide a "lock intrinsics" option for users who trust their calibration.
+Recommendation: refine by default.
+Refinement adapts intrinsics to the specific observation geometry, which usually improves calibration quality, but may diverge from intrinsics optimized over dense charuco coverage.
+The Phase 1d real data showed the solver improving on charuco-calibrated intrinsics.
+Show the delta so the user knows what changed.
+Provide an easy-to-find "lock intrinsics" option for users who trust their calibration.
 
-### 5. Backward compatibility
+### 6. Charuco constraints are a prerequisite, not backlog
 
-Existing charuco-based projects must continue to work. The joint solver should be the default for new calibrations, with charuco projects using the same solver but with charuco-derived constraints instead of ArUco constraints.
+`ConstraintSet.from_charuco_board()` is required for backward compatibility.
+Without it, existing charuco projects must either use the old optimizer (two code paths permanently) or run the joint solver without constraints (loses the rigidity enforcement that makes it work well).
 
-The `ConstraintSet.from_charuco_board()` factory (backlog task `unified-scale-via-constraints`) would make both paths use the same constraint mechanism.
+The factory is small — charuco geometry is well-defined.
+It should be a Phase 3 prerequisite, not a backlog item.
 
-### 6. GUI changes
+### 7. Filter-then-re-optimize with free intrinsics
 
-The intrinsic calibration tab becomes optional. If the user has intrinsic videos, they can calibrate them (for better starting intrinsics). If not, the system uses f = image_width/2.
+The production pipeline does: optimize → filter 2.5% worst → optimize again.
+With the joint solver, the second pass should also refine intrinsics.
+Should the bounds tighten on the second pass?
+The first pass recovers approximate f/k1/k2; tighter bounds around those values would improve stability.
 
-The extrinsic calibration tab gains:
-- Recovered intrinsics display (f, k1, k2 per camera, delta from input if applicable)
-- Rigidity report (per-marker RMSE)
-- Distortion visualization (optional, could be a separate tab or panel)
+### 8. What happens when bounds are hit?
 
-The "cameras must have intrinsics" gate on the extrinsic tab relaxes to "cameras must have a resolution" (to compute f = width/2).
+`JointOptimizationResult.hit_bounds` is tracked but the system doesn't act on it.
+Options:
+- Warn the user ("focal length recovery hit solver bounds — consider providing intrinsic calibration")
+- Auto-widen bounds and re-run
+- Fall back to fixed-intrinsic optimization
+
+This is a UX decision with architecture implications.
+
+### 9. Fisheye support
+
+The current solver uses `cv2.projectPoints` (Brown-Conrady polynomial model).
+Fisheye lenses (>120° FOV) need `cv2.fisheye.projectPoints` (equidistant model).
+`CameraData.fisheye` boolean already exists.
+
+The API dispatch is simple but the models use fundamentally different distortion parameterizations.
+The {f, k1, k2} parameter set means different things in each model.
+Bounds, initial guesses, and convergence basins are all different.
+A mixed rig (some standard, some fisheye) needs per-camera parameter interpretation in bound setup, intrinsic extraction, and UI display.
+
+Recommendation: implement as a follow-on task. Backlog task `fisheye-joint-ba` is filed.
+
+### 10. GUI tab structure
+
+The intrinsic calibration tab becomes optional.
+The existing tab-gating logic (`all_intrinsics_calibrated()`) must change.
+
+The recommended approach: keep all tabs, relax the intrinsic gate from "required" to "optional enhancement."
+The `StepStatus.AVAILABLE` indicator (blue) already exists and means "available but not required."
+The extrinsic tab gate changes from "cameras must have intrinsics" to "cameras must have a resolution" (derived from extrinsic video headers).
+
+### Assumptions and Risks Not Yet Tested
+
+- **2-camera configurations**: untested. The minimum camera count for bootstrap is 2, but convergence basin and accuracy are uncharacterized below 3 cameras.
+- **Rolling shutter**: not modeled. Consumer cameras have ~33ms full-frame readout. At moderate wand speeds this is probably below ArUco detection noise, but it's an unverified assumption.
+- **Degenerate camera arrangements**: near-collinear cameras or very narrow baselines relative to scene depth are untested.
 
 ## Reference Documents
 
@@ -204,3 +322,6 @@ The "cameras must have intrinsics" gate on the extrinsic tab relaxes to "cameras
 | Wand scene factory | `src/caliscope/synthetic/scene_factories.py` |
 | D7 session journal | `journal/2026-07-03.md` (session 9) |
 | Session 2 journal | `journal/2026-07-04-s2.md` |
+| CV engineer review | Adversarial review, 2026-07-04 (session notes) |
+| UX review | Adversarial review, 2026-07-04 (session notes) |
+| Senior dev review | Adversarial review, 2026-07-04 (session notes) |

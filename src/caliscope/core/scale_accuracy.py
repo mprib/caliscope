@@ -37,6 +37,7 @@ class FrameScaleError:
     n_distance_pairs: int
     n_cameras_contributing: int  # cameras that observed corners at this frame
     sum_squared_errors_m2: float  # sum of (measured - true)^2 in meters^2; enables correct pooled RMSE
+    sum_squared_relative_errors: float  # sum of ((measured - true) / D_ref)^2; D_ref is per-object nominal diagonal
     centroid: tuple[float, float, float]  # mean of triangulated world points (post-alignment), NOT obj_loc
 
 
@@ -49,6 +50,7 @@ class VolumetricScaleReport:
     """
 
     frame_errors: tuple[FrameScaleError, ...]  # immutable sequence
+    static_object_ids: frozenset[int] = frozenset()
 
     @cached_property
     def pooled_rmse_mm(self) -> float:
@@ -120,6 +122,67 @@ class VolumetricScaleReport:
         if not self.frame_errors:
             return 0
         return max(fe.sync_index for fe in self.frame_errors)
+
+    @cached_property
+    def pooled_relative_rmse_pct(self) -> float:
+        """True pooled relative RMSE across all frames: sqrt(total_sse_rel / total_pairs) * 100."""
+        if not self.frame_errors:
+            return 0.0
+
+        total_sse_rel = sum(fe.sum_squared_relative_errors for fe in self.frame_errors)
+        total_pairs = sum(fe.n_distance_pairs for fe in self.frame_errors)
+
+        if total_pairs == 0:
+            return 0.0
+
+        return float(np.sqrt(total_sse_rel / total_pairs) * 100)
+
+    @cached_property
+    def per_frame_relative_rmse_pct(self) -> dict[int, float]:
+        """Pooled relative RMSE % grouped by sync_index. Excludes static markers (STATIC_SYNC_INDEX)."""
+        from caliscope.core.point_data import STATIC_SYNC_INDEX
+
+        by_frame: dict[int, tuple[float, int]] = {}
+        for fe in self.frame_errors:
+            if fe.sync_index == STATIC_SYNC_INDEX:
+                continue
+            sse, pairs = by_frame.get(fe.sync_index, (0.0, 0))
+            by_frame[fe.sync_index] = (sse + fe.sum_squared_relative_errors, pairs + fe.n_distance_pairs)
+
+        return {si: float(np.sqrt(sse / pairs) * 100) for si, (sse, pairs) in by_frame.items() if pairs > 0}
+
+    @cached_property
+    def per_object_relative_rmse_pct(self) -> dict[int, float]:
+        """Pooled relative RMSE % grouped by object_id. Includes static markers."""
+        by_object: dict[int, tuple[float, int]] = {}
+        for fe in self.frame_errors:
+            sse, pairs = by_object.get(fe.object_id, (0.0, 0))
+            by_object[fe.object_id] = (sse + fe.sum_squared_relative_errors, pairs + fe.n_distance_pairs)
+
+        return {oid: float(np.sqrt(sse / pairs) * 100) for oid, (sse, pairs) in by_object.items() if pairs > 0}
+
+    @cached_property
+    def split_relative_rmse_pct(self) -> tuple[float | None, float | None]:
+        """Pooled relative RMSE % split into (moving, static) using static_object_ids.
+
+        A side with no contributing pairs returns None.
+        """
+        moving_sse = 0.0
+        moving_pairs = 0
+        static_sse = 0.0
+        static_pairs = 0
+
+        for fe in self.frame_errors:
+            if fe.object_id in self.static_object_ids:
+                static_sse += fe.sum_squared_relative_errors
+                static_pairs += fe.n_distance_pairs
+            else:
+                moving_sse += fe.sum_squared_relative_errors
+                moving_pairs += fe.n_distance_pairs
+
+        moving_pct = float(np.sqrt(moving_sse / moving_pairs) * 100) if moving_pairs > 0 else None
+        static_pct = float(np.sqrt(static_sse / static_pairs) * 100) if static_pairs > 0 else None
+        return (moving_pct, static_pct)
 
     @classmethod
     def empty(cls) -> VolumetricScaleReport:
@@ -210,6 +273,11 @@ def compute_frame_scale_error(
     max_error_mm = float(np.max(abs_errors)) * 1000
     sum_squared_errors_m2 = float(np.sum(distance_errors**2))  # in meters^2
 
+    # Per-object normalization: one D_ref (nominal diagonal) shared by all pairs of this object.
+    # Per-pair normalization would inflate short pairs, since triangulation error is ~constant in mm.
+    D_ref = float(np.max(true_distances))
+    sum_squared_relative_errors = sum_squared_errors_m2 / (D_ref**2) if D_ref > 0 else 0.0
+
     return FrameScaleError(
         sync_index=sync_index,
         object_id=object_id,
@@ -220,5 +288,6 @@ def compute_frame_scale_error(
         n_distance_pairs=len(distance_errors),
         n_cameras_contributing=n_cameras_contributing,
         sum_squared_errors_m2=sum_squared_errors_m2,
+        sum_squared_relative_errors=sum_squared_relative_errors,
         centroid=centroid,
     )

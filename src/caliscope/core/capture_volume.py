@@ -794,7 +794,10 @@ class CaptureVolume:
                 logger.debug(f"Skipping sync_index {sync_index} object_id {object_id}: {e}")
                 continue
 
-        return VolumetricScaleReport(frame_errors=tuple(frame_errors))
+        return VolumetricScaleReport(
+            frame_errors=tuple(frame_errors),
+            static_object_ids=self.constraints.static_object_ids if self.constraints else frozenset(),
+        )
 
     def align_to_object(
         self,

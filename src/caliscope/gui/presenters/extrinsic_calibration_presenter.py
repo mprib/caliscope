@@ -774,14 +774,9 @@ class ExtrinsicCalibrationPresenter(QObject):
         )
 
     def _emit_rigidity_sparkline(self) -> None:
-        """Emit per-frame rigidity data for sparkline visualization."""
-        if self._capture_volume is None:
-            return
-        constraints = self._capture_volume.constraints
-        if constraints is None or not constraints.distances:
-            return
-        rig_report = self._capture_volume.rigidity_report()
-        self.rigidity_sparkline_updated.emit(rig_report.per_frame_relative_rmse_pct)
+        # Disabled: per_frame_relative_rmse_pct removed from RigidityReport (Task 1).
+        # This method and its signal are deleted in Task 3 (presenter overhaul).
+        pass
 
     def _refresh_quality_panel(self) -> None:
         """Build and emit quality panel data from current capture volume."""

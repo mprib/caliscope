@@ -62,7 +62,7 @@ class TestSparsityOracle:
         )
 
         cx_cy = np.zeros((n_cams, 2))
-        dist_tail = np.zeros((n_cams, 4))
+        dist_tail = np.zeros((n_cams, 3))
         f_initial = np.zeros(n_cams)
         camera_params = np.zeros((n_cams, N_CAM_PARAMS))
 
@@ -75,8 +75,9 @@ class TestSparsityOracle:
             camera_params[idx, 3:6] = cam.translation
             camera_params[idx, 6] = cam.matrix[0, 0]
             camera_params[idx, 7] = cam.distortions[0]
+            camera_params[idx, 8] = cam.distortions[1]
             cx_cy[idx] = cam.matrix[0, 2], cam.matrix[1, 2]
-            dist_tail[idx] = cam.distortions[1:5]
+            dist_tail[idx] = cam.distortions[2:5]
             f_initial[idx] = cam.matrix[0, 0]
 
         points_3d = cv.world_points.points
@@ -127,11 +128,20 @@ class TestE1FocalLengthRecovery:
         for est in result.intrinsic_estimates:
             cam = scene.camera_array.cameras[est.cam_id]
             assert cam.matrix is not None
+            assert cam.distortions is not None
             f_true = float(cam.matrix[0, 0])
+            k2_true = float(cam.distortions[1])
             f_error_pct = abs(est.f_recovered - f_true) / f_true * 100
+            k2_error = abs(est.k2_recovered - k2_true)
             assert f_error_pct < 1.0, (
                 f"Cam {est.cam_id}: f error {f_error_pct:.2f}% >= 1% "
                 f"(true={f_true:.1f}, recovered={est.f_recovered:.1f})"
+            )
+            # k1 and k2 trade along a correlation ridge — individual
+            # coefficients shift while total radial distortion is preserved.
+            assert k2_error < 0.03, (
+                f"Cam {est.cam_id}: |k2_recovered - k2_true| = {k2_error:.4f} >= 0.03 "
+                f"(true={k2_true:.4f}, recovered={est.k2_recovered:.4f})"
             )
 
         aligned = align_to_ground_truth(result.capture_volume, scene)
@@ -142,7 +152,12 @@ class TestE1FocalLengthRecovery:
 
 
 class TestE2K1Recovery:
-    """E2: Perturb k1 by 0.02, run joint BA, assert recovery within 0.01."""
+    """E2: Perturb k1 by 0.02, run joint BA, assert recovery within 0.02.
+
+    Tolerance widened from 0.01 to 0.02: with k2 free, k1 and k2 trade
+    along a correlation ridge. Individual coefficient accuracy decreases
+    while total radial distortion correction is preserved.
+    """
 
     def test_k1_recovery(self) -> None:
         scene = intrinsic_perturbation_scene()
@@ -159,8 +174,8 @@ class TestE2K1Recovery:
             assert cam.distortions is not None
             k1_true = float(cam.distortions[0])
             k1_error = abs(est.k1_recovered - k1_true)
-            assert k1_error < 0.01, (
-                f"Cam {est.cam_id}: |k1_recovered - k1_true| = {k1_error:.4f} >= 0.01 "
+            assert k1_error < 0.02, (
+                f"Cam {est.cam_id}: |k1_recovered - k1_true| = {k1_error:.4f} >= 0.02 "
                 f"(true={k1_true:.4f}, recovered={est.k1_recovered:.4f})"
             )
 
@@ -169,6 +184,40 @@ class TestE2K1Recovery:
             err = pose_error(aligned.camera_array.cameras[cam_id], scene.camera_array.cameras[cam_id])
             assert err.rotation_deg < 1.0, f"Cam {cam_id}: rotation {err.rotation_deg:.3f} deg"
             assert err.translation_m < 0.02, f"Cam {cam_id}: translation {err.translation_m:.4f} m"
+
+
+class TestE2bCombinedPerturbation:
+    """E2b: Perturb f, k1, and k2 together, assert joint recovery."""
+
+    def test_combined_f_k1_k2_recovery(self) -> None:
+        scene = intrinsic_perturbation_scene()
+        perturbation = IntrinsicPerturbation(f_scale=1.03, k1_delta=0.02, k2_delta=0.05)
+        cv = _bootstrap_from_scene(scene, perturbation=perturbation)
+
+        result = optimize_with_free_intrinsics(cv)
+
+        assert result.converged
+        assert not result.hit_bounds
+
+        for est in result.intrinsic_estimates:
+            cam = scene.camera_array.cameras[est.cam_id]
+            assert cam.matrix is not None
+            assert cam.distortions is not None
+            f_true = float(cam.matrix[0, 0])
+            k1_true = float(cam.distortions[0])
+            k2_true = float(cam.distortions[1])
+            f_error_pct = abs(est.f_recovered - f_true) / f_true * 100
+            k1_error = abs(est.k1_recovered - k1_true)
+            k2_error = abs(est.k2_recovered - k2_true)
+            assert f_error_pct < 1.0, (
+                f"Cam {est.cam_id}: f error {f_error_pct:.2f}% (true={f_true:.1f}, recovered={est.f_recovered:.1f})"
+            )
+            assert k1_error < 0.02, (
+                f"Cam {est.cam_id}: k1 error {k1_error:.4f} (true={k1_true:.4f}, recovered={est.k1_recovered:.4f})"
+            )
+            assert k2_error < 0.03, (
+                f"Cam {est.cam_id}: k2 error {k2_error:.4f} (true={k2_true:.4f}, recovered={est.k2_recovered:.4f})"
+            )
 
 
 class TestE3ConstraintsAsMetricAnchor:
@@ -321,6 +370,10 @@ if __name__ == "__main__":
 
     print("E2: k1 recovery...")
     TestE2K1Recovery().test_k1_recovery()
+    print("  PASSED")
+
+    print("E2b: combined f+k1+k2 recovery...")
+    TestE2bCombinedPerturbation().test_combined_f_k1_k2_recovery()
     print("  PASSED")
 
     print("E3: constraints as metric anchor...")

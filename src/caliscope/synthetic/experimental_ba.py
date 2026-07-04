@@ -30,7 +30,7 @@ from caliscope.core.reprojection import (
 
 logger = logging.getLogger(__name__)
 
-N_CAM_PARAMS = 8  # rvec(3) + tvec(3) + f(1) + k1(1)
+N_CAM_PARAMS = 9  # rvec(3) + tvec(3) + f(1) + k1(1) + k2(1)
 
 _SCIPY_STATUS_REASONS = {
     -1: "improper_input",
@@ -47,8 +47,10 @@ class IntrinsicEstimate:
     cam_id: int
     f_recovered: float
     k1_recovered: float
+    k2_recovered: float
     f_initial: float
     k1_initial: float
+    k2_initial: float
 
 
 @dataclass(frozen=True)
@@ -190,10 +192,10 @@ def _joint_residuals(
     constraint_distances: NDArray[np.float64] | None = None,
     constraint_weights: NDArray[np.float64] | None = None,
 ) -> NDArray[np.float64]:
-    """Pixel-space reprojection residuals with free per-camera f and k1.
+    """Pixel-space reprojection residuals with free per-camera f, k1, and k2.
 
     Unlike bundle_residuals (normalized coordinates, fixed intrinsics), this
-    projects with cv2.projectPoints using each camera's trial f/k1 and its
+    projects with cv2.projectPoints using each camera's trial f/k1/k2 and its
     fixed cx, cy, and remaining distortion terms. Residuals are scaled by
     1/f_initial (the camera's starting focal length, not the trial value) so
     the weighting is stable across solver iterations and comparable across
@@ -214,10 +216,11 @@ def _joint_residuals(
         tvec = camera_params[cam_idx, 3:6]
         f = camera_params[cam_idx, 6]
         k1 = camera_params[cam_idx, 7]
+        k2 = camera_params[cam_idx, 8]
         cx, cy = cx_cy[cam_idx]
 
         cam_matrix = np.array([[f, 0.0, cx], [0.0, f, cy], [0.0, 0.0, 1.0]])
-        dist_coeffs = np.array([k1, *dist_tail[cam_idx]])
+        dist_coeffs = np.array([k1, k2, *dist_tail[cam_idx]])
 
         cam_world_coords = world_coords[cam_mask].reshape(-1, 1, 3)
         cam_observed = image_coords[cam_mask]
@@ -244,10 +247,10 @@ def _joint_sparsity_pattern(
     n_points: int,
     constraint_pairs: NDArray[np.int32] | None = None,
 ) -> lil_matrix:
-    """Sparsity for the 8-param-per-camera joint BA Jacobian.
+    """Sparsity for the 9-param-per-camera joint BA Jacobian.
 
-    Reprojection rows depend on all 8 camera params (rvec, tvec, f, k1) plus
-    3 point params. Constraint rows depend only on 6 point params.
+    Reprojection rows depend on all 9 camera params (rvec, tvec, f, k1, k2)
+    plus 3 point params. Constraint rows depend only on 6 point params.
     """
     n_observations = len(camera_indices)
     n_constraints = len(constraint_pairs) if constraint_pairs is not None else 0
@@ -289,13 +292,13 @@ def optimize_with_free_intrinsics(
     use_constraints: bool = True,
     pixel_sigma: float = 1.0,
 ) -> JointOptimizationResult:
-    """Joint BA optimizing extrinsics plus per-camera focal length and k1.
+    """Joint BA optimizing extrinsics plus per-camera f, k1, and k2.
 
-    8 params per camera: [rvec(3), tvec(3), f, k1]. Residuals are computed
-    in pixel space via cv2.projectPoints (see _joint_residuals), not the
-    normalized-coordinate bundle_residuals used by production optimize().
-    f and k1 are bounded to [0.5, 2.0]x initial and [-1.0, 1.0] respectively
-    to keep the solver on a physically plausible manifold.
+    9 params per camera: [rvec(3), tvec(3), f, k1, k2]. Residuals are
+    computed in pixel space via cv2.projectPoints (see _joint_residuals),
+    not the normalized-coordinate bundle_residuals used by production
+    optimize(). f bounded to [0.5, 2.0]x initial, k1 to [-1, 1],
+    k2 to [-2, 2].
     """
     camera_array = capture_volume.camera_array
     posed_cam_id_to_index = camera_array.posed_cam_id_to_index
@@ -317,9 +320,10 @@ def optimize_with_free_intrinsics(
     obj_indices = capture_volume.img_to_obj_map[combined_mask]
 
     cx_cy = np.zeros((n_cams, 2))
-    dist_tail = np.zeros((n_cams, 4))  # k2, p1, p2, k3 (fixed)
+    dist_tail = np.zeros((n_cams, 3))  # p1, p2, k3 (fixed)
     f_initial = np.zeros(n_cams)
     k1_initial = np.zeros(n_cams)
+    k2_initial = np.zeros(n_cams)
     camera_params = np.zeros((n_cams, N_CAM_PARAMS))
 
     for idx, cam_id in enumerate(cam_ids_by_index):
@@ -330,16 +334,19 @@ def optimize_with_free_intrinsics(
         rvec = cv2.Rodrigues(cam.rotation)[0].ravel()
         f = float(cam.matrix[0, 0])
         k1 = float(cam.distortions[0])
+        k2 = float(cam.distortions[1])
 
         camera_params[idx, 0:3] = rvec
         camera_params[idx, 3:6] = cam.translation
         camera_params[idx, 6] = f
         camera_params[idx, 7] = k1
+        camera_params[idx, 8] = k2
 
         cx_cy[idx] = cam.matrix[0, 2], cam.matrix[1, 2]
-        dist_tail[idx] = cam.distortions[1:5]
+        dist_tail[idx] = cam.distortions[2:5]
         f_initial[idx] = f
         k1_initial[idx] = k1
+        k2_initial[idx] = k2
 
     points_3d = capture_volume.world_points.points
     initial_params = np.concatenate([camera_params.ravel(), points_3d.ravel()])
@@ -367,6 +374,8 @@ def optimize_with_free_intrinsics(
         upper_bounds[idx * N_CAM_PARAMS + 6] = 2.0 * f
         lower_bounds[idx * N_CAM_PARAMS + 7] = -1.0
         upper_bounds[idx * N_CAM_PARAMS + 7] = 1.0
+        lower_bounds[idx * N_CAM_PARAMS + 8] = -2.0
+        upper_bounds[idx * N_CAM_PARAMS + 8] = 2.0
 
     n_obs = len(image_coords)
     logger.info(f"Beginning joint bundle adjustment on {n_obs} observations, {n_cams} cameras")
@@ -411,12 +420,16 @@ def optimize_with_free_intrinsics(
     for idx, cam_id in enumerate(cam_ids_by_index):
         f_rec = float(result.x[idx * N_CAM_PARAMS + 6])
         k1_rec = float(result.x[idx * N_CAM_PARAMS + 7])
+        k2_rec = float(result.x[idx * N_CAM_PARAMS + 8])
 
         f_lo, f_hi = lower_bounds[idx * N_CAM_PARAMS + 6], upper_bounds[idx * N_CAM_PARAMS + 6]
         k1_lo, k1_hi = lower_bounds[idx * N_CAM_PARAMS + 7], upper_bounds[idx * N_CAM_PARAMS + 7]
+        k2_lo, k2_hi = lower_bounds[idx * N_CAM_PARAMS + 8], upper_bounds[idx * N_CAM_PARAMS + 8]
         if abs(f_rec - f_lo) <= 0.01 * abs(f_lo) or abs(f_rec - f_hi) <= 0.01 * abs(f_hi):
             hit_bounds = True
         if abs(k1_rec - k1_lo) <= 0.01 or abs(k1_rec - k1_hi) <= 0.01:
+            hit_bounds = True
+        if abs(k2_rec - k2_lo) <= 0.01 or abs(k2_rec - k2_hi) <= 0.01:
             hit_bounds = True
 
         intrinsic_estimates.append(
@@ -424,8 +437,10 @@ def optimize_with_free_intrinsics(
                 cam_id=cam_id,
                 f_recovered=f_rec,
                 k1_recovered=k1_rec,
+                k2_recovered=k2_rec,
                 f_initial=float(f_initial[idx]),
                 k1_initial=float(k1_initial[idx]),
+                k2_initial=float(k2_initial[idx]),
             )
         )
 

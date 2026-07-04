@@ -42,6 +42,7 @@ MACHINE_VISION = LensProfile(
 class IntrinsicPerturbation:
     f_scale: float = 1.0
     k1_delta: float = 0.0
+    k2_delta: float = 0.0
 
 
 def perturb_intrinsics(
@@ -68,6 +69,7 @@ def perturb_intrinsics(
             matrix[0, 0] *= p.f_scale
             matrix[1, 1] *= p.f_scale
             distortions[0] += p.k1_delta
+            distortions[1] += p.k2_delta
 
         cameras[cam_id] = CameraData(
             cam_id=cam.cam_id,

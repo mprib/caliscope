@@ -260,12 +260,15 @@ The Phase 1d real data showed the solver improving on charuco-calibrated intrins
 Show the delta so the user knows what changed.
 Provide an easy-to-find "lock intrinsics" option for users who trust their calibration.
 
-### 6. Charuco constraints (nice-to-have)
+### 6. Charuco as a first-class target
 
-`ConstraintSet.from_charuco_board()` would let charuco-based calibration use the same constraint mechanism as ArUco.
-Charuco geometry is well-defined, so the factory is small.
-This is not a blocker — the project is at 0.8 and breaking changes are acceptable.
-Charuco users can still calibrate; they just won't get the constraint-based rigidity enforcement until this lands.
+Charuco boards give better subpixel corner refinement than plain ArUco.
+Serious users will prefer them for precision work.
+Both targets should feed into the same joint solver.
+
+`ConstraintSet.from_charuco_board()` gives charuco users the same rigidity enforcement and joint intrinsic recovery that ArUco users get.
+Same solver, same quality reporting, different target geometry.
+The factory is small — charuco geometry is well-defined.
 
 ### 7. Filter-then-re-optimize with free intrinsics
 

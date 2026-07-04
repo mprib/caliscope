@@ -19,6 +19,7 @@ from caliscope.core.bootstrap_pose.build_paired_pose_network import (
 )
 from caliscope.synthetic.synthetic_scene import SyntheticScene
 from caliscope.synthetic.scene_factories import default_ring_scene
+from caliscope.synthetic.camera_synthesizer import IntrinsicPerturbation, perturb_intrinsics
 from caliscope.synthetic.filter_config import FilterConfig
 from caliscope.core.coverage_analysis import compute_coverage_matrix
 from caliscope.task_manager.task_manager import TaskManager
@@ -71,7 +72,7 @@ class CameraMetrics:
 
     cam_id: int
     rotation_error_deg: float
-    translation_error_mm: float
+    translation_error_m: float
     reprojection_rmse: float
     n_observations: int
 
@@ -82,7 +83,7 @@ def _compute_pose_error(
     ground_truth_rotation: np.ndarray,
     ground_truth_translation: np.ndarray,
 ) -> tuple[float, float]:
-    """Compute rotation error (degrees) and translation error (mm).
+    """Compute rotation error (degrees) and translation error (meters).
 
     Rotation error uses geodesic distance on SO(3) via Rodrigues.
     Translation error is Euclidean distance between camera positions.
@@ -97,9 +98,9 @@ def _compute_pose_error(
     # Translation error: Euclidean distance between camera positions
     pos_est = -estimated_rotation.T @ estimated_translation
     pos_gt = -ground_truth_rotation.T @ ground_truth_translation
-    translation_mm = float(np.linalg.norm(pos_est - pos_gt))
+    translation_m = float(np.linalg.norm(pos_est - pos_gt))
 
-    return rotation_deg, translation_mm
+    return rotation_deg, translation_m
 
 
 class ExplorerPresenter(QObject):
@@ -144,6 +145,7 @@ class ExplorerPresenter(QObject):
 
         # State
         self._scene: SyntheticScene = scene if scene is not None else default_ring_scene()
+        self._perturbation: IntrinsicPerturbation | None = None
         self._filter_config = FilterConfig()
         self._filtered_image_points: ImagePoints | None = None
         self._result: PipelineResult | None = None
@@ -187,9 +189,18 @@ class ExplorerPresenter(QObject):
 
     # --- Scene Management ---
 
-    def set_scene(self, scene: SyntheticScene) -> None:
+    @property
+    def perturbation(self) -> IntrinsicPerturbation | None:
+        return self._perturbation
+
+    def set_scene(
+        self,
+        scene: SyntheticScene,
+        perturbation: IntrinsicPerturbation | None = None,
+    ) -> None:
         """Replace the synthetic scene and reset state."""
         self._scene = scene
+        self._perturbation = perturbation
         self._filter_config = FilterConfig()
         self._result = None
         self._current_frame = 0
@@ -233,9 +244,10 @@ class ExplorerPresenter(QObject):
         # Capture current state for closure
         scene = self._scene
         filtered_points = self._filtered_image_points
+        perturbation = self._perturbation
 
         def pipeline_worker(token: CancellationToken, handle: TaskHandle) -> PipelineResult:
-            return self._execute_pipeline(scene, filtered_points, token)
+            return self._execute_pipeline(scene, filtered_points, token, perturbation)
 
         self._pipeline_task = self._task_manager.submit(
             pipeline_worker,
@@ -253,6 +265,7 @@ class ExplorerPresenter(QObject):
         scene: SyntheticScene,
         image_points: ImagePoints,
         token: CancellationToken,
+        perturbation: IntrinsicPerturbation | None = None,
     ) -> PipelineResult:
         """Execute pipeline stages. Runs in background thread."""
         result = PipelineResult(
@@ -263,6 +276,8 @@ class ExplorerPresenter(QObject):
         # Stage 1: Bootstrap
         try:
             intrinsics_only = scene.intrinsics_only_cameras()
+            if perturbation is not None:
+                intrinsics_only = perturb_intrinsics(intrinsics_only, perturbation)
 
             # Build pose network from stereo pairs
             pose_network = build_paired_pose_network(
@@ -303,8 +318,9 @@ class ExplorerPresenter(QObject):
 
             result.optimized_cameras = optimized.camera_array
             result.optimized_world_points = optimized.world_points
+            result.reprojection_rmse = optimized.reprojection_report.overall_rmse
 
-            logger.info(f"Optimization complete. RMSE: {optimized.reprojection_report.overall_rmse:.3f}px")
+            logger.info(f"Optimization complete. RMSE: {result.reprojection_rmse:.3f}px")
 
         except Exception as e:
             result.optimization_error = str(e)
@@ -316,30 +332,26 @@ class ExplorerPresenter(QObject):
 
         # Stage 3: Align
         try:
-            origin_frame = scene.trajectory.origin_frame
+            primary = scene.objects[0]
+            origin_frame = primary.trajectory.origin_frame
 
             aligned = CaptureVolume(
                 camera_array=result.optimized_cameras,
                 image_points=image_points,
                 world_points=result.optimized_world_points,
-            ).align_to_object(sync_index=origin_frame)
+            ).align_to_object(sync_index=origin_frame, object_id=primary.object_id)
 
             result.aligned_cameras = aligned.camera_array
             result.aligned_world_points = aligned.world_points
 
             logger.info("Alignment complete")
 
-            # Compute error metrics after successful alignment
             reprojection_report = optimized.reprojection_report
-            result.reprojection_rmse = reprojection_report.overall_rmse
-
-            # Compute per-camera pose errors and observation counts
             camera_metrics_list = []
             for cam_id in result.aligned_cameras.cameras:
                 cam_result = result.aligned_cameras.cameras[cam_id]
                 cam_gt = result.ground_truth_cameras.cameras[cam_id]
 
-                # After alignment, all cameras have pose data
                 assert cam_result.rotation is not None
                 assert cam_result.translation is not None
                 assert cam_gt.rotation is not None
@@ -352,17 +364,14 @@ class ExplorerPresenter(QObject):
                     cam_gt.translation,
                 )
 
-                # Count observations for this camera
                 n_obs = int((image_points.df["cam_id"] == cam_id).sum())
-
-                # Get per-camera reprojection RMSE
                 camera_reproj_rmse = reprojection_report.by_camera.get(cam_id, 0.0)
 
                 camera_metrics_list.append(
                     CameraMetrics(
                         cam_id=cam_id,
                         rotation_error_deg=rotation_error,
-                        translation_error_mm=translation_error,
+                        translation_error_m=translation_error,
                         reprojection_rmse=camera_reproj_rmse,
                         n_observations=n_obs,
                     )

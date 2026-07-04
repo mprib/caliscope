@@ -18,16 +18,20 @@ class CalibrationObject:
     - Non-planar objects (future: markerless calibration)
     - Canonical face/body models (future: PnP-based bootstrapping)
 
-    Points are in object-local coordinates (mm). When combined with a
+    Points are in object-local coordinates (meters). When combined with a
     trajectory, these are transformed to world coordinates per frame.
 
     Attributes:
         points: (N, 3) points in object-local coordinates
         keypoint_ids: (N,) unique integer identifiers for each point
+        face_normal: Unit normal in object-local frame for visibility culling.
+            When set, a camera only sees points if (camera_center - point) · normal > 0
+            in world frame. None disables culling (visible from all sides).
     """
 
     points: NDArray[np.float64]
     keypoint_ids: NDArray[np.int64]
+    face_normal: NDArray[np.float64] | None = None
 
     def __post_init__(self) -> None:
         """Validate point arrays."""
@@ -41,13 +45,20 @@ class CalibrationObject:
             raise ValueError("Point IDs must be unique")
         if len(self.points) < 4:
             raise ValueError(f"Need at least 4 points for calibration, got {len(self.points)}")
+        if self.face_normal is not None:
+            n = np.asarray(self.face_normal, dtype=np.float64)
+            if n.shape != (3,):
+                raise ValueError(f"face_normal must be shape (3,), got {n.shape}")
+            norm = float(np.linalg.norm(n))
+            if not np.isclose(norm, 1.0, atol=1e-6):
+                raise ValueError(f"face_normal must be unit length, got norm={norm}")
 
     @classmethod
     def planar_grid(
         cls,
         rows: int,
         cols: int,
-        spacing_mm: float,
+        spacing: float,
         origin: str = "corner",
     ) -> CalibrationObject:
         """Create rectangular planar grid (charuco-like).
@@ -57,7 +68,7 @@ class CalibrationObject:
         Args:
             rows: Number of rows in the grid
             cols: Number of columns in the grid
-            spacing_mm: Distance between adjacent grid points
+            spacing: Distance between adjacent grid points (meters)
             origin: Where to place local origin
                 - "corner": Origin at (0, 0), grid extends in +X and +Y
                 - "center": Origin at grid centroid
@@ -70,8 +81,8 @@ class CalibrationObject:
         """
         if rows < 2 or cols < 2:
             raise ValueError(f"Grid must be at least 2x2, got {rows}x{cols}")
-        if spacing_mm <= 0:
-            raise ValueError(f"Spacing must be positive, got {spacing_mm}")
+        if spacing <= 0:
+            raise ValueError(f"Spacing must be positive, got {spacing}")
 
         n_points = rows * cols
         points = np.zeros((n_points, 3), dtype=np.float64)
@@ -80,8 +91,8 @@ class CalibrationObject:
         for row in range(rows):
             for col in range(cols):
                 idx = row * cols + col
-                points[idx, 0] = col * spacing_mm
-                points[idx, 1] = row * spacing_mm
+                points[idx, 0] = col * spacing
+                points[idx, 1] = row * spacing
                 points[idx, 2] = 0.0
                 keypoint_ids[idx] = idx
 

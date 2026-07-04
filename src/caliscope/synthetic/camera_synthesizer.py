@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Literal
 
 import numpy as np
@@ -10,6 +10,89 @@ from numpy.typing import NDArray
 
 from caliscope.cameras.camera_array import CameraArray, CameraData
 from caliscope.synthetic.se3_pose import SE3Pose
+
+
+@dataclass(frozen=True)
+class LensProfile:
+    focal_px: float
+    distortions: NDArray[np.float64]
+    resolution: tuple[int, int] = (1920, 1080)
+
+
+# Measured Logitech C920, ~69 deg HFOV
+WEBCAM = LensProfile(
+    focal_px=1394.6,
+    distortions=np.array([0.115, -0.219, 0.0012, 0.0086, 0.113], dtype=np.float64),
+)
+
+# Zero distortion, short focal length — for experiments needing clean ground truth
+IDEAL = LensProfile(
+    focal_px=800.0,
+    distortions=np.zeros(5, dtype=np.float64),
+)
+
+# KITTI-class barrel lens, ~82 deg HFOV
+MACHINE_VISION = LensProfile(
+    focal_px=1100.0,
+    distortions=np.array([-0.37, 0.15, 0.0, 0.0, 0.0], dtype=np.float64),
+)
+
+
+@dataclass(frozen=True)
+class IntrinsicPerturbation:
+    f_scale: float = 1.0
+    k1_delta: float = 0.0
+
+
+def perturb_intrinsics(
+    camera_array: CameraArray,
+    perturbation: IntrinsicPerturbation | dict[int, IntrinsicPerturbation],
+) -> CameraArray:
+    """Deep-copied CameraArray with perturbed matrix/distortions.
+
+    A single perturbation applies to every camera; a dict keys by cam_id
+    (cameras absent from the dict are copied unperturbed).
+    """
+    cameras: dict[int, CameraData] = {}
+
+    for cam_id, cam in camera_array.cameras.items():
+        matrix = cam.matrix.copy() if cam.matrix is not None else None
+        distortions = cam.distortions.copy() if cam.distortions is not None else None
+
+        if isinstance(perturbation, dict):
+            p = perturbation.get(cam_id)
+        else:
+            p = perturbation
+
+        if p is not None and matrix is not None and distortions is not None:
+            matrix[0, 0] *= p.f_scale
+            matrix[1, 1] *= p.f_scale
+            distortions[0] += p.k1_delta
+
+        cameras[cam_id] = CameraData(
+            cam_id=cam.cam_id,
+            size=cam.size,
+            rotation_count=cam.rotation_count,
+            error=cam.error,
+            matrix=matrix,
+            distortions=distortions,
+            exposure=cam.exposure,
+            grid_count=cam.grid_count,
+            ignore=cam.ignore,
+            fisheye=cam.fisheye,
+            translation=cam.translation.copy() if cam.translation is not None else None,
+            rotation=cam.rotation.copy() if cam.rotation is not None else None,
+        )
+
+    return CameraArray(cameras=cameras)
+
+
+def _build_matrix(lens: LensProfile) -> NDArray[np.float64]:
+    w, h = lens.resolution
+    return np.array(
+        [[lens.focal_px, 0, w / 2.0], [0, lens.focal_px, h / 2.0], [0, 0, 1]],
+        dtype=np.float64,
+    )
 
 
 @dataclass
@@ -21,6 +104,7 @@ class _CameraSpec:
     target: NDArray[np.float64]
     roll_deg: float = 0.0
     pitch_deg: float = 0.0
+    lens: LensProfile = field(default_factory=lambda: WEBCAM)
 
 
 class CameraSynthesizer:
@@ -32,8 +116,8 @@ class CameraSynthesizer:
     Example:
         array = (
             CameraSynthesizer()
-            .add_ring(n=4, radius_mm=2000, height_mm=0)
-            .add_ring(n=4, radius_mm=2000, height_mm=500, angular_offset_deg=45)
+            .add_ring(n=4, radius=2.0, height=0)
+            .add_ring(n=4, radius=2.0, height=0.5, angular_offset_deg=45)
             .drop_cam_ids(1, 5)
             .build()
         )
@@ -48,26 +132,28 @@ class CameraSynthesizer:
     def add_ring(
         self,
         n: int,
-        radius_mm: float,
-        height_mm: float = 0.0,
+        radius: float,
+        height: float = 0.0,
         facing: Literal["inward", "outward"] = "inward",
         angular_offset_deg: float = 0.0,
         roll_variation_deg: float = 0.0,
         pitch_variation_deg: float = 0.0,
         random_seed: int = 42,
+        lens: LensProfile = WEBCAM,
     ) -> CameraSynthesizer:
         """Add a ring of cameras at specified height.
 
         Args:
             n: Number of cameras in this ring (>= 1)
-            radius_mm: Distance from world origin to each camera
-            height_mm: Z-coordinate of all cameras in this ring
+            radius: Distance from world origin to each camera (meters)
+            height: Z-coordinate of all cameras in this ring (meters)
             facing: Direction cameras point ("inward" toward origin, "outward" away)
             angular_offset_deg: Rotate the entire ring by this angle (useful for
                 staggering multiple rings)
             roll_variation_deg: Random roll within +/- this range (degrees)
             pitch_variation_deg: Random pitch within +/- this range (degrees)
             random_seed: Seed for reproducible random orientation variation
+            lens: Lens profile for intrinsics (focal length, distortion, resolution)
 
         Returns:
             self, for method chaining
@@ -79,18 +165,18 @@ class CameraSynthesizer:
             angle = 2 * np.pi * i / n + offset_rad
             position = np.array(
                 [
-                    radius_mm * np.cos(angle),
-                    radius_mm * np.sin(angle),
-                    height_mm,
+                    radius * np.cos(angle),
+                    radius * np.sin(angle),
+                    height,
                 ],
                 dtype=np.float64,
             )
 
             if facing == "inward":
-                target = np.array([0, 0, height_mm], dtype=np.float64)
+                target = np.array([0, 0, height], dtype=np.float64)
             else:
                 # Look away from origin at same height
-                target = 2 * position - np.array([0, 0, height_mm], dtype=np.float64)
+                target = 2 * position - np.array([0, 0, height], dtype=np.float64)
 
             roll = rng.uniform(-roll_variation_deg, roll_variation_deg) if roll_variation_deg else 0.0
             pitch = rng.uniform(-pitch_variation_deg, pitch_variation_deg) if pitch_variation_deg else 0.0
@@ -102,6 +188,7 @@ class CameraSynthesizer:
                     target=target,
                     roll_deg=roll,
                     pitch_deg=pitch,
+                    lens=lens,
                 )
             )
             self._next_cam_id += 1
@@ -111,13 +198,14 @@ class CameraSynthesizer:
     def add_line(
         self,
         n: int,
-        spacing_mm: float,
-        distance_mm: float = 2000.0,
-        height_mm: float = 0.0,
+        spacing: float,
+        distance: float = 2.0,
+        height: float = 0.0,
         curvature: float = 0.0,
         roll_variation_deg: float = 0.0,
         pitch_variation_deg: float = 0.0,
         random_seed: int = 42,
+        lens: LensProfile = WEBCAM,
     ) -> CameraSynthesizer:
         """Add a line of cameras.
 
@@ -126,32 +214,33 @@ class CameraSynthesizer:
 
         Args:
             n: Number of cameras in this line (>= 1)
-            spacing_mm: Distance between adjacent cameras
-            distance_mm: Distance from origin along -Y axis
-            height_mm: Z-coordinate of all cameras in this line
+            spacing: Distance between adjacent cameras (meters)
+            distance: Distance from origin along -Y axis (meters)
+            height: Z-coordinate of all cameras in this line (meters)
             curvature: Curve factor (0 = straight, higher = more curved toward origin)
             roll_variation_deg: Random roll within +/- this range (degrees)
             pitch_variation_deg: Random pitch within +/- this range (degrees)
             random_seed: Seed for reproducible random orientation variation
+            lens: Lens profile for intrinsics (focal length, distortion, resolution)
 
         Returns:
             self, for method chaining
         """
         rng = np.random.default_rng(random_seed)
-        total_width = (n - 1) * spacing_mm
+        total_width = (n - 1) * spacing
         start_x = -total_width / 2
 
         for i in range(n):
-            x = start_x + i * spacing_mm
-            y = -distance_mm
+            x = start_x + i * spacing
+            y = -distance
 
             # Apply parabolic curvature
             if curvature > 0 and total_width > 0:
                 normalized_x = x / (total_width / 2)
-                y -= curvature * 500 * (normalized_x**2)
+                y -= curvature * 0.5 * (normalized_x**2)
 
-            position = np.array([x, y, height_mm], dtype=np.float64)
-            target = np.array([x, 0, height_mm], dtype=np.float64)
+            position = np.array([x, y, height], dtype=np.float64)
+            target = np.array([x, 0, height], dtype=np.float64)
 
             roll = rng.uniform(-roll_variation_deg, roll_variation_deg) if roll_variation_deg else 0.0
             pitch = rng.uniform(-pitch_variation_deg, pitch_variation_deg) if pitch_variation_deg else 0.0
@@ -163,6 +252,7 @@ class CameraSynthesizer:
                     target=target,
                     roll_deg=roll,
                     pitch_deg=pitch,
+                    lens=lens,
                 )
             )
             self._next_cam_id += 1
@@ -213,9 +303,9 @@ class CameraSynthesizer:
 
             cameras[spec.cam_id] = CameraData(
                 cam_id=spec.cam_id,
-                size=(1920, 1080),
-                matrix=_default_matrix(),
-                distortions=np.zeros(5, dtype=np.float64),
+                size=spec.lens.resolution,
+                matrix=_build_matrix(spec.lens),
+                distortions=spec.lens.distortions.copy(),
                 rotation=rotation,
                 translation=translation,
             )
@@ -227,18 +317,6 @@ class CameraSynthesizer:
             )
 
         return CameraArray(cameras=cameras)
-
-
-def _default_matrix() -> NDArray[np.float64]:
-    """Default camera matrix: 1920x1080, f=800px, principal point at center."""
-    return np.array(
-        [
-            [800, 0, 960],
-            [0, 800, 540],
-            [0, 0, 1],
-        ],
-        dtype=np.float64,
-    )
 
 
 def strip_extrinsics(camera_array: CameraArray) -> CameraArray:

@@ -105,7 +105,7 @@ class TestLookAt:
 
     def test_camera_at_positive_x_facing_origin(self):
         """Camera at +X looking at origin."""
-        position = np.array([1000, 0, 0], dtype=np.float64)
+        position = np.array([1.0, 0, 0], dtype=np.float64)
         target = np.array([0, 0, 0], dtype=np.float64)
 
         pose = SE3Pose.look_at(position, target)

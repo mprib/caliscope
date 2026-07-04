@@ -391,6 +391,97 @@ def outlier_scene(
     return scene, corrupted, indices
 
 
+def intrinsic_perturbation_scene(
+    pixel_noise_sigma: float = 0.5,
+    random_seed: int = 42,
+) -> SyntheticScene:
+    """4-camera ring with a large charuco board on a near-to-far diagonal trajectory.
+
+    Depth variation and image-periphery coverage make focal length jointly
+    observable with extrinsics, for testing joint intrinsic+extrinsic bundle
+    adjustment. Trajectory suitability is checked against three premise floors
+    (periphery coverage, per-camera depth range, per-camera observation spread)
+    so a future trajectory edit that breaks the scene's usefulness fails loudly
+    instead of silently.
+    """
+    camera_array = CameraSynthesizer().add_ring(n=4, radius=1.2, height=0.3).build()
+    calibration_object = double_sided_charuco_board(rows=7, cols=10, square_size=0.04)
+    trajectory = Trajectory.linear(
+        n_frames=40,
+        start=np.array([0.7, -0.7, -0.3]),
+        end=np.array([-0.7, 0.7, 3.5]),
+        tumble_rate=2.0,
+        origin_frame=0,
+    )
+
+    scene = SyntheticScene.single(
+        camera_array=camera_array,
+        calibration_object=calibration_object,
+        trajectory=trajectory,
+        pixel_noise_sigma=pixel_noise_sigma,
+        random_seed=random_seed,
+    )
+
+    _check_intrinsic_perturbation_premises(scene)
+    return scene
+
+
+def _check_intrinsic_perturbation_premises(scene: SyntheticScene) -> None:
+    """Verify the scene has enough depth/periphery variation for focal length to be observable.
+
+    Raises ValueError with details if any floor is violated, so a change to the
+    trajectory parameters that erodes scene suitability is caught immediately.
+    """
+    image_df = scene.image_points_noisy.df
+    world_df = scene.world_points.df
+    merged = image_df.merge(world_df, on=["sync_index", "object_id", "keypoint_id"], how="inner")
+
+    if merged.empty:
+        raise ValueError("intrinsic_perturbation_scene: no observations generated")
+
+    total_peripheral = 0
+    total_observations = 0
+
+    for cam_id, camera in scene.camera_array.cameras.items():
+        cam_obs = merged[merged["cam_id"] == cam_id]
+        if cam_obs.empty:
+            raise ValueError(f"intrinsic_perturbation_scene: cam {cam_id} has no observations")
+
+        w, h = camera.size
+        half_diag = 0.5 * np.sqrt(w**2 + h**2)
+        dx = cam_obs["img_loc_x"].to_numpy() - w / 2.0
+        dy = cam_obs["img_loc_y"].to_numpy() - h / 2.0
+        dist_from_center = np.sqrt(dx**2 + dy**2)
+        peripheral = dist_from_center > 0.6 * half_diag
+        total_peripheral += int(peripheral.sum())
+        total_observations += len(cam_obs)
+
+        assert camera.rotation is not None and camera.translation is not None
+        world_pts = cam_obs[["x_coord", "y_coord", "z_coord"]].to_numpy()
+        depths = ((camera.rotation @ world_pts.T).T + camera.translation)[:, 2]
+        depth_ratio = depths.max() / depths.min()
+        if depth_ratio < 2.0:
+            raise ValueError(
+                f"intrinsic_perturbation_scene: cam {cam_id} depth ratio {depth_ratio:.2f} < 2.0 floor "
+                f"(min={depths.min():.2f}m, max={depths.max():.2f}m)"
+            )
+
+        x_span = cam_obs["img_loc_x"].max() - cam_obs["img_loc_x"].min()
+        y_span = cam_obs["img_loc_y"].max() - cam_obs["img_loc_y"].min()
+        if x_span < 0.25 * w:
+            raise ValueError(
+                f"intrinsic_perturbation_scene: cam {cam_id} x-spread {x_span:.1f}px < 25% of width ({0.25 * w:.1f}px)"
+            )
+        if y_span < 0.25 * h:
+            raise ValueError(
+                f"intrinsic_perturbation_scene: cam {cam_id} y-spread {y_span:.1f}px < 25% of height ({0.25 * h:.1f}px)"
+            )
+
+    peripheral_fraction = total_peripheral / total_observations
+    if peripheral_fraction < 0.20:
+        raise ValueError(f"intrinsic_perturbation_scene: periphery coverage {peripheral_fraction:.1%} < 20% floor")
+
+
 def large_ring_scene(
     pixel_noise_sigma: float = 0.5,
     random_seed: int = 42,

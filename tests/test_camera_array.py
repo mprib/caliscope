@@ -167,44 +167,31 @@ def test_missing_extrinsics(tmp_path: Path):
     assert set(camera_array.posed_cameras.keys()) == {1, 2, 3, 6}
     assert list(camera_array.unposed_cameras.keys()) == [4, 5]
 
-    # when creating extrinsic parameters shouldn't have camera 5.
-    extrinsic_params = camera_array.get_extrinsic_params()
-    assert extrinsic_params is not None, "Extrinsic parameters should not be None"
-
-    # Now the assertion that fails
-    assert extrinsic_params.shape == (4, 6), "Shape should be (4 posed cameras, 6 params)"
-
     # camera 5 should not be in the index used for optimization parameter mapping
     assert 5 not in camera_array.posed_cam_id_to_index
     assert 4 not in camera_array.posed_cam_id_to_index
 
-    # Verify that the order of cameras in the extrinsic_params array is correct
-    logger.info("Verifying order of extrinsic parameters vector...")
-    for cam_id, index in camera_array.posed_cam_id_to_index.items():
-        expected_params = camera_array.cameras[cam_id].extrinsics_to_vector()
-        actual_params = extrinsic_params[index]
-        np.testing.assert_array_equal(
-            actual_params, expected_params, err_msg=f"Parameter mismatch for cam_id {cam_id} at index {index}"
-        )
+    # BundleParameterization pack/unpack round-trip leaves unposed cameras untouched
+    from copy import deepcopy
 
-    # should be able to extract params from complete extrinsics vector and map back to individual cam params
-    # This round-trip test confirms the mapping from vector -> cameras works correctly
+    from caliscope.core.bundle_parameterization import BundleParameterization
 
-    # 1. Simulate a small change from an optimization step
-    new_params = extrinsic_params + 0.01
+    n_points = 10
+    parameterization = BundleParameterization.from_camera_array(
+        camera_array, n_points=n_points, refine_intrinsics=False
+    )
+    points = np.zeros((n_points, 3))
+    x = parameterization.pack(camera_array, points)
 
-    # 2. Update the camera array with the new parameters
-    camera_array.update_extrinsic_params(new_params)
+    # Perturb all params slightly
+    x += 0.01
 
-    # 3. Verify the update worked correctly on the posed cameras
-    updated_params = camera_array.get_extrinsic_params()
-    assert updated_params is not None
-    np.testing.assert_allclose(updated_params, new_params, atol=1e-6)
+    copy_array = deepcopy(camera_array)
+    parameterization.unpack_into(copy_array, x)
 
-    # 4. Verify the unposed camera was untouched
-    unposed_cam = camera_array.cameras[5]
-    assert unposed_cam.rotation is None, "Unposed camera rotation should remain None"
-    assert unposed_cam.translation is None, "Unposed camera translation should remain None"
+    # Unposed cameras must remain untouched
+    assert copy_array.cameras[5].rotation is None, "Unposed camera rotation should remain None"
+    assert copy_array.cameras[5].translation is None, "Unposed camera translation should remain None"
 
 
 if __name__ == "__main__":

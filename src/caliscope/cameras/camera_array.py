@@ -14,7 +14,6 @@ import rtoml
 from numpy.typing import NDArray
 
 logger = logging.getLogger(__name__)
-CAMERA_PARAM_COUNT = 6
 
 
 @dataclass
@@ -334,45 +333,6 @@ class CameraArray:
             cameras[cam_id] = CameraData(cam_id=cam_id, size=size)
         return cls(cameras)
 
-    def get_extrinsic_params(self) -> NDArray | None:
-        """
-        Builds the extrinsic parameter vector for all *posed* cameras.
-        Returns None if no cameras are posed and not ignored.
-        """
-        # The index_cam_id property already filters for posed and non-ignored cameras
-        ordered_cam_ids = self.posed_index_to_cam_id.keys()
-
-        if not ordered_cam_ids:
-            return None
-
-        # Build the params in the order defined by index_cam_id
-        params_list = []
-        for index in sorted(ordered_cam_ids):
-            cam_id = self.posed_index_to_cam_id[index]
-            cam = self.cameras[cam_id]
-            params_list.append(cam.extrinsics_to_vector())
-
-        return np.vstack(params_list)
-
-    def update_extrinsic_params(self, least_sq_result_x: NDArray) -> None:
-        """Updates extrinsic parameters from an optimization result vector."""
-        indices_to_update = self.posed_index_to_cam_id
-        n_cameras = len(indices_to_update)
-
-        if n_cameras == 0:
-            logger.warning("Tried to update extrinsics, but no posed cameras were found to update.")
-            return
-
-        n_cam_param = 6  # 6 DoF
-        flat_camera_params = least_sq_result_x[0 : n_cameras * n_cam_param]
-        new_camera_params = flat_camera_params.reshape(n_cameras, n_cam_param)
-
-        for index, cam_vec in enumerate(new_camera_params):
-            cam_id = indices_to_update[index]
-            # When updating, we modify the original camera object in self.cameras
-            self.cameras[cam_id].extrinsics_from_vector(cam_vec)
-
-    # Note: I've updated the docstrings on these to be more precise
     def all_extrinsics_calibrated(self) -> bool:
         """Checks if ALL cameras in the array have a pose."""
         if not self.cameras:

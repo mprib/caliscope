@@ -278,6 +278,25 @@ class ExtrinsicCalibrationPresenter(QObject):
         """Current frame index for 3D visualization."""
         return self._current_sync_index
 
+    @property
+    def intrinsics_available(self) -> bool:
+        """Whether all active cameras have intrinsic calibration."""
+        return all(cam.matrix is not None for cam in self._camera_array.cameras.values())
+
+    @property
+    def refine_intrinsics(self) -> bool:
+        """Current refine-intrinsics setting. Forced True when any camera lacks intrinsics."""
+        if not self.intrinsics_available:
+            return True
+        if self._project_settings is not None:
+            return self._project_settings.get_refine_intrinsics()
+        return True
+
+    def set_refine_intrinsics(self, enabled: bool) -> None:
+        """Persist the refine-intrinsics toggle."""
+        if self._project_settings is not None:
+            self._project_settings.set_refine_intrinsics(enabled)
+
     # -------------------------------------------------------------------------
     # Calibration Workflow (Implemented in 4.2)
     # -------------------------------------------------------------------------
@@ -305,7 +324,7 @@ class ExtrinsicCalibrationPresenter(QObject):
         image_points_path = self._image_points_path
         camera_array = deepcopy(self._camera_array)
 
-        self._refine_intrinsics = True
+        self._refine_intrinsics = self.refine_intrinsics
 
         def worker(token: CancellationToken, handle: TaskHandle) -> ExtrinsicCalibrationResult:
             return self._execute_calibration(image_points_path, camera_array, token, handle)
@@ -448,19 +467,60 @@ class ExtrinsicCalibrationPresenter(QObject):
         logger.info(f"Rotated coordinate frame {degrees}° around {axis}-axis")
         self._update_capture_volume(rotated)
 
-    def align_to_origin(self, sync_index: int) -> None:
-        """Set world origin to board position at sync_index.
+    def align_to_origin(self, object_id: int, sync_index: int | None) -> None:
+        """Set world origin to a marker's position.
 
         Args:
-            sync_index: Frame index where board position defines origin
+            object_id: Marker/object whose local frame defines the new origin
+            sync_index: Frame index where the marker's position defines the origin,
+                or None to use a static marker's fixed pose
         """
         if self._capture_volume is None:
             return
 
-        aligned = self._capture_volume.align_to_object(sync_index)
-        logger.info(f"Aligned world origin to object at sync_index={sync_index}")
+        aligned = self._capture_volume.align_to_object(sync_index=sync_index, object_id=object_id)
+        logger.info(
+            f"Aligned world origin to object_id={object_id} "
+            f"at sync_index={sync_index if sync_index is not None else 'static'}"
+        )
+
+        if self._project_settings is not None:
+            self._project_settings.set_origin_object_id(object_id)
+            self._project_settings.set_origin_sync_index(sync_index)
 
         self._update_capture_volume(aligned)
+
+    def get_origin_options(self) -> list[OriginOption]:
+        """Return available origin markers from the calibrated volume, static markers first."""
+        if self._capture_volume is None:
+            return []
+
+        wp_df = self._capture_volume.world_points.df
+        object_ids = sorted(int(oid) for oid in wp_df["object_id"].unique())
+
+        constraints = self._capture_volume.constraints
+        static_ids = constraints.static_object_ids if constraints else frozenset()
+
+        options: list[OriginOption] = []
+        for oid in object_ids:
+            if oid in static_ids:
+                options.append(OriginOption(object_id=oid, label=f"marker {oid} (static)", is_static=True))
+        for oid in object_ids:
+            if oid not in static_ids:
+                if not constraints and len(object_ids) == 1:
+                    options.append(OriginOption(object_id=oid, label="board", is_static=False))
+                else:
+                    options.append(OriginOption(object_id=oid, label=f"marker {oid}", is_static=False))
+
+        return options
+
+    def is_object_visible_at(self, object_id: int, sync_index: int) -> bool:
+        """Check whether the given object has a triangulated world point at the given sync_index."""
+        if self._capture_volume is None:
+            return False
+        wp_df = self._capture_volume.world_points.df
+        mask = (wp_df["object_id"] == object_id) & (wp_df["sync_index"] == sync_index)
+        return bool(mask.any())
 
     # -------------------------------------------------------------------------
     # View Control (Implemented in 4.3)
@@ -940,7 +1000,7 @@ class ExtrinsicCalibrationPresenter(QObject):
             logger.warning("Cannot start optimization: task already running")
             return
 
-        refine = self._refine_intrinsics
+        refine = self.refine_intrinsics
 
         def worker(token: CancellationToken, handle: TaskHandle) -> CaptureVolume:
             handle.report_progress(10, "Running optimization")

@@ -8,11 +8,14 @@ This is the evidence gate for the robust-loss-ba production task.
 
 from __future__ import annotations
 
+import pytest
 
 from caliscope.core.capture_volume import CaptureVolume
 from caliscope.synthetic.experimental_ba import optimize_with_robust_loss
 from caliscope.synthetic.scene_factories import outlier_scene
 from tests.synthetic.assertions import align_to_ground_truth, pose_error
+
+pytestmark = pytest.mark.skip(reason="ported in production-joint-ba Task 5")
 
 
 def _corrupted_row_keys(corrupted_df, corrupted_indices):

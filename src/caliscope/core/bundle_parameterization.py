@@ -179,8 +179,9 @@ class BundleParameterization:
             K = np.array([[block.fx_initial, 0.0, block.cx], [0.0, block.fy_initial, block.cy], [0.0, 0.0, 1.0]])
             dist = np.array(block.dist_fixed)
         else:
+            # Locked Brown-Conrady: reconstruct full [k1, k2, p1, p2, k3]
             K = np.array([[block.fx_initial, 0.0, block.cx], [0.0, block.fy_initial, block.cy], [0.0, 0.0, 1.0]])
-            dist = np.array(block.dist_fixed)
+            dist = np.array([block.k1_initial, block.k2_initial, *block.dist_fixed])
 
         return rvec, tvec, K, dist
 

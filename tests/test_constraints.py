@@ -262,10 +262,11 @@ def test_build_constraint_arrays_mobile_marker():
     assert len(sigmas) == 18
 
 
-def test_bundle_residuals_with_constraints():
-    """bundle_residuals appends constraint rows after reprojection rows."""
-    from caliscope.core.reprojection import bundle_residuals
+def test_joint_residuals_with_constraints():
+    """joint_residuals appends constraint rows after reprojection rows."""
     from caliscope.cameras.camera_array import CameraArray, CameraData
+    from caliscope.core.bundle_parameterization import BundleParameterization
+    from caliscope.core.reprojection import joint_residuals
 
     cam = CameraData(
         cam_id=0,
@@ -277,16 +278,16 @@ def test_bundle_residuals_with_constraints():
     )
     ca = CameraArray(cameras={0: cam})
 
-    # 2 points, 2 observations
+    parameterization = BundleParameterization.from_camera_array(ca, n_points=2, refine_intrinsics=False)
     points = np.array([[0.0, 0.0, 0.0], [1.0, 0.0, 0.0]])
-    params = np.concatenate([np.array([0, 0, 0, 0, 0, 5.0]), points.ravel()])
+    params = parameterization.pack(ca, points)
 
     camera_indices = np.array([0, 0], dtype=np.int16)
     image_coords = np.array([[200.0, 200.0], [240.0, 200.0]])
     obj_indices = np.array([0, 1], dtype=np.int32)
 
     # Without constraints
-    res_no = bundle_residuals(params, ca, camera_indices, image_coords, obj_indices)
+    res_no = joint_residuals(params, parameterization, camera_indices, image_coords, obj_indices)
     assert len(res_no) == 4  # 2 obs × 2
 
     # With constraints: one distance constraint between points 0 and 1
@@ -294,9 +295,9 @@ def test_bundle_residuals_with_constraints():
     c_dists = np.array([1.0])
     c_weights = np.array([0.5])
 
-    res_yes = bundle_residuals(
+    res_yes = joint_residuals(
         params,
-        ca,
+        parameterization,
         camera_indices,
         image_coords,
         obj_indices,

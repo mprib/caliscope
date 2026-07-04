@@ -1,12 +1,15 @@
 """Factory functions for common synthetic calibration scenes."""
 
 import numpy as np
+from numpy.typing import NDArray
 
 from caliscope.cameras.camera_array import CameraArray, CameraData
 from caliscope.core.aruco_marker import ArucoMarkerSet
 from caliscope.core.constraints import ConstraintSet
+from caliscope.core.point_data import ImagePoints
 from caliscope.synthetic.calibration_object import CalibrationObject
 from caliscope.synthetic.camera_synthesizer import CameraSynthesizer, MACHINE_VISION
+from caliscope.synthetic.outliers import OutlierConfig, inject_outliers
 from caliscope.synthetic.target_factories import double_sided_charuco_board
 from caliscope.synthetic.se3_pose import SE3Pose
 from caliscope.synthetic.synthetic_scene import SceneObject, SyntheticScene
@@ -304,3 +307,108 @@ def aruco_scene(
     )
     constraints = ConstraintSet.from_marker_set(marker_set)
     return scene, constraints
+
+
+def chain_scene(
+    pixel_noise_sigma: float = 0.5,
+    random_seed: int = 42,
+) -> SyntheticScene:
+    """6 cameras in a line with neighbors-only FOV overlap.
+
+    WEBCAM lens (~69 deg HFOV) at distance=1.5m gives half-width ~1.03m.
+    Spacing=1.5m means adjacent cameras overlap (~0.56m) but next-nearest
+    cameras do not (2*1.03 - 3.0 < 0). Double-sided board so orientation
+    never starves an end camera. Height=0.5m avoids coplanar degeneracy.
+    """
+    camera_array = CameraSynthesizer().add_line(n=6, spacing=1.5, distance=1.5, height=0.5).build()
+    calibration_object = double_sided_charuco_board(rows=5, cols=7, square_size=0.05)
+    trajectory = Trajectory.linear(
+        n_frames=90,
+        start=np.array([-4.5, 0.0, 0.0]),
+        end=np.array([4.5, 0.0, 0.0]),
+        tumble_rate=0.3,
+        origin_frame=45,
+    )
+
+    return SyntheticScene.single(
+        camera_array=camera_array,
+        calibration_object=calibration_object,
+        trajectory=trajectory,
+        pixel_noise_sigma=pixel_noise_sigma,
+        random_seed=random_seed,
+    )
+
+
+def narrow_baseline_scene(
+    spacing: float = 0.1,
+    distance: float = 5.0,
+    pixel_noise_sigma: float = 0.5,
+    random_seed: int = 42,
+) -> SyntheticScene:
+    """Two cameras with configurable baseline viewing a distant board.
+
+    Default: 0.1m baseline, board at 5m. Use spacing=2.0 for wide control.
+    Height=0.5m avoids coplanar degeneracy (board at z=0 projecting as a
+    horizontal line when cameras are also at z=0).
+    """
+    camera_array = CameraSynthesizer().add_line(n=2, spacing=spacing, distance=distance, height=0.5).build()
+    calibration_object = double_sided_charuco_board(rows=5, cols=7, square_size=0.1)
+    trajectory = Trajectory.linear(
+        n_frames=20,
+        start=np.array([-0.3, 0.0, 0.0]),
+        end=np.array([0.3, 0.0, 0.0]),
+        tumble_rate=1.0,
+    )
+
+    return SyntheticScene.single(
+        camera_array=camera_array,
+        calibration_object=calibration_object,
+        trajectory=trajectory,
+        pixel_noise_sigma=pixel_noise_sigma,
+        random_seed=random_seed,
+    )
+
+
+def outlier_scene(
+    outlier_fraction: float = 0.05,
+    pixel_noise_sigma: float = 0.5,
+    random_seed: int = 42,
+) -> tuple[SyntheticScene, ImagePoints, NDArray[np.int64]]:
+    """Default ring scene with injected outliers.
+
+    Returns (scene, corrupted_image_points, corrupted_indices).
+    """
+    scene = default_ring_scene(
+        pixel_noise_sigma=pixel_noise_sigma,
+        random_seed=random_seed,
+    )
+    config = OutlierConfig(
+        fraction=outlier_fraction,
+        magnitude_range=(10.0, 50.0),
+        random_seed=random_seed,
+    )
+    corrupted, indices = inject_outliers(scene.image_points_noisy, config)
+    return scene, corrupted, indices
+
+
+def large_ring_scene(
+    pixel_noise_sigma: float = 0.5,
+    random_seed: int = 42,
+) -> SyntheticScene:
+    """15-camera ring for stress testing."""
+    camera_array = CameraSynthesizer().add_ring(n=15, radius=2.5, height=0.5).build()
+    calibration_object = CalibrationObject.planar_grid(rows=5, cols=7, spacing=0.05)
+    trajectory = Trajectory.orbital(
+        n_frames=200,
+        radius=0.2,
+        arc_extent_deg=360.0,
+        tumble_rate=1.0,
+    )
+
+    return SyntheticScene.single(
+        camera_array=camera_array,
+        calibration_object=calibration_object,
+        trajectory=trajectory,
+        pixel_noise_sigma=pixel_noise_sigma,
+        random_seed=random_seed,
+    )

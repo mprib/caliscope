@@ -9,6 +9,10 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from functools import cached_property
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from caliscope.core.capture_volume import CaptureVolume
 
 import numpy as np
 from scipy.spatial.distance import pdist
@@ -124,6 +128,33 @@ class VolumetricScaleReport:
         Not an error — normal pre-alignment state.
         """
         return cls(frame_errors=())
+
+
+def compute_depth_ratios(capture_volume: "CaptureVolume") -> dict[int, float]:
+    """Per cam_id: p95(z)/p5(z) of moving world points in that camera's frame.
+
+    Excludes STATIC_SYNC_INDEX rows and non-positive depths. Cameras with < 2
+    valid depths map to float('nan').
+    """
+    from caliscope.core.point_data import STATIC_SYNC_INDEX
+
+    world_df = capture_volume.world_points.df
+    moving = world_df[world_df["sync_index"] != STATIC_SYNC_INDEX]
+    if moving.empty:
+        return {cam_id: float("nan") for cam_id in capture_volume.camera_array.posed_cameras}
+
+    pts = moving[["x_coord", "y_coord", "z_coord"]].to_numpy()
+
+    ratios: dict[int, float] = {}
+    for cam_id, cam in capture_volume.camera_array.posed_cameras.items():
+        assert cam.rotation is not None and cam.translation is not None
+        z = (cam.rotation @ pts.T).T[:, 2] + cam.translation[2]
+        z = z[z > 0]
+        if len(z) < 2:
+            ratios[cam_id] = float("nan")
+        else:
+            ratios[cam_id] = float(np.percentile(z, 95) / np.percentile(z, 5))
+    return ratios
 
 
 def compute_frame_scale_error(

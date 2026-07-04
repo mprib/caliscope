@@ -22,6 +22,11 @@ import numpy as np
 from PySide6.QtCore import QObject, Qt, Signal
 
 from caliscope.cameras.camera_array import CameraArray
+from caliscope.core.calibrate_extrinsics import (
+    ExtrinsicCalibrationResult,
+    calibrate_extrinsics,
+    refresh_result,
+)
 from caliscope.core.coverage_analysis import compute_coverage_matrix
 from caliscope.core.point_data import ImagePoints
 from caliscope.core.capture_volume import CaptureVolume
@@ -139,6 +144,7 @@ class ExtrinsicCalibrationPresenter(QObject):
     volumetric_accuracy_updated = Signal(object)  # VolumetricScaleReport
     coverage_updated = Signal(object, object)  # (coverage_matrix, cam_id_labels)
     capture_volume_changed = Signal(object)  # CaptureVolume
+    calibration_result_updated = Signal(object)  # ExtrinsicCalibrationResult
     view_model_updated = Signal(object)  # PlaybackViewModel
 
     def __init__(
@@ -173,6 +179,8 @@ class ExtrinsicCalibrationPresenter(QObject):
 
         # Processing state (managed internally)
         self._capture_volume: CaptureVolume | None = existing_capture_volume
+        self._calibration_result: ExtrinsicCalibrationResult | None = None
+        self._refine_intrinsics: bool = True
         self._task_handle: TaskHandle | None = None
 
         # Pre-loaded image points for initial coverage display
@@ -253,7 +261,9 @@ class ExtrinsicCalibrationPresenter(QObject):
         image_points_path = self._image_points_path
         camera_array = deepcopy(self._camera_array)
 
-        def worker(token: CancellationToken, handle: TaskHandle) -> CaptureVolume:
+        self._refine_intrinsics = True
+
+        def worker(token: CancellationToken, handle: TaskHandle) -> ExtrinsicCalibrationResult:
             return self._execute_calibration(image_points_path, camera_array, token, handle)
 
         self._task_handle = self._task_manager.submit(
@@ -265,7 +275,7 @@ class ExtrinsicCalibrationPresenter(QObject):
         # Without explicit QueuedConnection, Qt uses DirectConnection (sender/receiver both
         # have main thread affinity), causing slots to run in the worker thread.
         self._task_handle.completed.connect(
-            self._on_capture_volume_optimized,
+            self._on_calibration_completed,
             Qt.ConnectionType.QueuedConnection,
         )
         self._task_handle.failed.connect(
@@ -290,50 +300,19 @@ class ExtrinsicCalibrationPresenter(QObject):
         camera_array: CameraArray,
         token: CancellationToken,
         handle: TaskHandle,
-    ) -> CaptureVolume:
-        """Execute full calibration pipeline. Runs in background thread.
-
-        Stages:
-        1. Load ImagePoints from CSV
-        2. Bootstrap camera poses via stereo pair network
-        3. Triangulate initial 3D world points
-        4. Run bundle adjustment optimization
-        5. Filter worst 2.5% of observations
-        6. Final optimization pass
-        """
-        handle.report_progress(5, "Loading image points")
+    ) -> ExtrinsicCalibrationResult:
+        """Execute full calibration pipeline. Runs in background thread."""
         image_points = ImagePoints.from_csv(image_points_path)
-
-        if token.is_cancelled:
-            raise InterruptedError("Calibration cancelled")
-
         constraints = self._constraint_factory() if self._constraint_factory else None
 
-        handle.report_progress(15, "Bootstrapping camera poses and triangulating")
-        capture_volume = CaptureVolume.bootstrap(image_points, camera_array, constraints=constraints)
-
-        if token.is_cancelled:
-            raise InterruptedError("Calibration cancelled")
-
-        handle.report_progress(50, "Running initial optimization")
-        optimized = capture_volume.optimize(ftol=1e-8, verbose=0)
-        logger.info(f"Initial optimization RMSE: {optimized.reprojection_report.overall_rmse:.3f}px")
-
-        if token.is_cancelled:
-            raise InterruptedError("Calibration cancelled")
-
-        handle.report_progress(75, "Filtering outliers (2.5%)")
-        filtered = optimized.filter_by_percentile_error(2.5)
-
-        if token.is_cancelled:
-            raise InterruptedError("Calibration cancelled")
-
-        handle.report_progress(85, "Final optimization")
-        final = filtered.optimize(ftol=1e-8, verbose=0)
-        logger.info(f"Final optimization RMSE: {final.reprojection_report.overall_rmse:.3f}px")
-
-        handle.report_progress(100, "Complete")
-        return final
+        return calibrate_extrinsics(
+            image_points,
+            camera_array,
+            constraints,
+            refine_intrinsics=self._refine_intrinsics,
+            cancellation_token=token,
+            progress=lambda pct, msg: handle.report_progress(pct, msg),
+        )
 
     # -------------------------------------------------------------------------
     # Filtering Operations (Implemented in 4.3)
@@ -527,14 +506,15 @@ class ExtrinsicCalibrationPresenter(QObject):
     # Private: Task Callbacks
     # -------------------------------------------------------------------------
 
-    def _on_capture_volume_optimized(self, capture_volume: CaptureVolume) -> None:
-        """Handle successful calibration/optimization completion."""
+    def _on_calibration_completed(self, result: ExtrinsicCalibrationResult) -> None:
+        """Handle successful full calibration completion."""
+        capture_volume = result.capture_volume
         logger.info(f"Calibration complete. RMSE: {capture_volume.reprojection_report.overall_rmse:.3f}px")
 
+        self._calibration_result = result
         self._capture_volume = capture_volume
         self._task_handle = None
 
-        # Set initial sync index to first available frame
         sync_indices = capture_volume.unique_sync_indices
         if len(sync_indices) > 0:
             self._current_sync_index = int(sync_indices[0])
@@ -545,6 +525,25 @@ class ExtrinsicCalibrationPresenter(QObject):
         self._refresh_view_model()
         self._refresh_volumetric_accuracy()
         self.capture_volume_changed.emit(capture_volume)
+        self.calibration_result_updated.emit(result)
+
+    def _on_capture_volume_optimized(self, capture_volume: CaptureVolume) -> None:
+        """Handle successful filter re-optimization completion."""
+        logger.info(f"Re-optimization complete. RMSE: {capture_volume.reprojection_report.overall_rmse:.3f}px")
+
+        self._capture_volume = capture_volume
+        self._task_handle = None
+
+        self._emit_state_changed()
+        self._refresh_quality_panel()
+        self._refresh_coverage()
+        self._refresh_view_model()
+        self._refresh_volumetric_accuracy()
+        self.capture_volume_changed.emit(capture_volume)
+
+        if self._calibration_result is not None:
+            self._calibration_result = refresh_result(self._calibration_result, capture_volume)
+            self.calibration_result_updated.emit(self._calibration_result)
 
     def _on_calibration_failed(self, exc_type: str, message: str) -> None:
         """Handle calibration failure."""
@@ -723,9 +722,11 @@ class ExtrinsicCalibrationPresenter(QObject):
             logger.warning("Cannot start optimization: task already running")
             return
 
+        refine = self._refine_intrinsics
+
         def worker(token: CancellationToken, handle: TaskHandle) -> CaptureVolume:
             handle.report_progress(10, "Running optimization")
-            optimized = capture_volume.optimize(ftol=1e-8, verbose=0)
+            optimized = capture_volume.optimize(ftol=1e-8, verbose=0, refine_intrinsics=refine)
             handle.report_progress(100, "Complete")
             logger.info(f"Post-filter optimization RMSE: {optimized.reprojection_report.overall_rmse:.3f}px")
             return optimized

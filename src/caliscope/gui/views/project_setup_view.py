@@ -797,6 +797,11 @@ class ProjectSetupView(QWidget):
 
         if step_status == StepStatus.COMPLETE:
             detail = f"{status.camera_count}/{status.camera_count} cameras calibrated"
+        elif step_status == StepStatus.AVAILABLE:
+            detail = (
+                "Optional — the joint calibration recovers focal length and "
+                "distortion on its own. Run this for fisheye cameras or a dense lens model."
+            )
         elif step_status == StepStatus.INCOMPLETE:
             calibrated_count = status.camera_count - len(status.cameras_needing_calibration)
             detail = f"{calibrated_count}/{status.camera_count} cameras calibrated"
@@ -825,8 +830,8 @@ class ProjectSetupView(QWidget):
         elif step_status == StepStatus.INCOMPLETE:
             detail = "Ready to process"
         else:
-            if not status.intrinsic_calibration_complete:
-                detail = "Waiting for intrinsic calibration"
+            if not status.cameras_have_resolution:
+                detail = "Waiting for camera resolution data"
             elif status.extrinsic_videos_missing:
                 cam_labels = ", ".join(str(p) for p in status.extrinsic_videos_missing[:3])
                 if len(status.extrinsic_videos_missing) > 3:

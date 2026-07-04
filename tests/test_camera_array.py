@@ -4,13 +4,15 @@ import logging
 from pathlib import Path
 
 import numpy as np
+import pytest
 
 from caliscope import __root__
+from caliscope.cameras.camera_array import CameraArray, CameraData
 from caliscope.core.bootstrap_pose.build_paired_pose_network import build_paired_pose_network
 from caliscope.core.bootstrap_pose.paired_pose_network import PairedPoseNetwork
-from caliscope.helper import copy_contents_to_clean_dest
 from caliscope.core.point_data import ImagePoints
-from caliscope.cameras.camera_array import CameraArray
+from caliscope.exceptions import CalibrationError
+from caliscope.helper import copy_contents_to_clean_dest
 
 logger = logging.getLogger(__name__)
 
@@ -194,6 +196,49 @@ def test_missing_extrinsics(tmp_path: Path):
     assert copy_array.cameras[5].translation is None, "Unposed camera translation should remain None"
 
 
+class TestSynthesizeDefaultIntrinsics:
+    def test_produces_expected_matrix_and_zeros(self):
+        cam = CameraData(cam_id=0, size=(1920, 1080))
+        cam.synthesize_default_intrinsics()
+
+        assert cam.matrix is not None
+        assert cam.distortions is not None
+        np.testing.assert_array_equal(
+            cam.matrix,
+            np.array([[960.0, 0.0, 960.0], [0.0, 960.0, 540.0], [0.0, 0.0, 1.0]]),
+        )
+        np.testing.assert_array_equal(cam.distortions, np.zeros(5))
+
+    def test_fisheye_raises(self):
+        cam = CameraData(cam_id=0, size=(1920, 1080), fisheye=True)
+        with pytest.raises(CalibrationError, match="fisheye"):
+            cam.synthesize_default_intrinsics()
+
+
+class TestAllCamerasHaveResolution:
+    def test_empty_array_returns_false(self):
+        arr = CameraArray({})
+        assert arr.all_cameras_have_resolution() is False
+
+    def test_true_with_sized_cameras(self):
+        arr = CameraArray(
+            {
+                0: CameraData(cam_id=0, size=(1920, 1080)),
+                1: CameraData(cam_id=1, size=(1920, 1080)),
+            }
+        )
+        assert arr.all_cameras_have_resolution() is True
+
+    def test_ignores_ignored_cameras(self):
+        arr = CameraArray(
+            {
+                0: CameraData(cam_id=0, size=(1920, 1080)),
+                1: CameraData(cam_id=1, size=(1920, 1080), ignore=True),
+            }
+        )
+        assert arr.all_cameras_have_resolution() is True
+
+
 if __name__ == "__main__":
     from caliscope.logger import setup_logging
 
@@ -202,4 +247,3 @@ if __name__ == "__main__":
     temp_path = Path(__file__).parent / "debug"
     test_missing_extrinsics(temp_path)
     print("end")
-    # test_deterministic_consistency()

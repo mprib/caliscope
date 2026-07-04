@@ -256,6 +256,20 @@ class CameraData:
         self.translation = None
         self.rotation = None
 
+    def synthesize_default_intrinsics(self) -> None:
+        """Blind-guess intrinsics from resolution: f = width/2, principal point at center, zero distortion."""
+        from caliscope.exceptions import CalibrationError
+
+        if self.fisheye:
+            raise CalibrationError(
+                f"Camera {self.cam_id} is fisheye; blind intrinsics are not supported "
+                f"for the equidistant model. Run intrinsic calibration for this camera."
+            )
+        w, h = self.size
+        f = w / 2.0
+        self.matrix = np.array([[f, 0.0, w / 2.0], [0.0, f, h / 2.0], [0.0, 0.0, 1.0]])
+        self.distortions = np.zeros(5)
+
 
 @dataclass
 class CameraArray:
@@ -342,6 +356,11 @@ class CameraArray:
     def all_intrinsics_calibrated(self) -> bool:
         """Checks if ALL cameras in the array have intrinsic data."""
         return all(cam.matrix is not None and cam.distortions is not None for cam in self.cameras.values())
+
+    def all_cameras_have_resolution(self) -> bool:
+        """True when there is at least one non-ignored camera and every non-ignored camera has a size."""
+        active = [cam for cam in self.cameras.values() if not cam.ignore]
+        return len(active) > 0 and all(cam.size is not None for cam in active)
 
     @property
     def normalized_projection_matrices(self) -> dict[int, np.ndarray]:

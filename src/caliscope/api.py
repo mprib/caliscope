@@ -18,6 +18,12 @@ Quick start (pre-calibrated cameras):
     volume = CaptureVolume.bootstrap(points, cameras).optimize()
     volume.save("capture_volume")
 
+Or use the one-call extrinsic calibration pipeline (synthesizes blind
+intrinsics for uncalibrated cameras, runs joint BA with intrinsic recovery):
+
+    result = calibrate_extrinsics(points, cameras, constraints)
+    result.capture_volume.save("capture_volume")
+
 Pass ``progress=None`` to any extraction function to suppress progress output.
 
 All spatial coordinates are in meters when using Charuco-based calibration.
@@ -31,6 +37,10 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, Generator
 
 from caliscope.cameras.camera_array import CameraArray, CameraData
+from caliscope.core.calibrate_extrinsics import (
+    ExtrinsicCalibrationResult,
+    calibrate_extrinsics,
+)
 from caliscope.core.calibrate_intrinsics import (
     IntrinsicCalibrationOutput,
     IntrinsicCalibrationReport,
@@ -79,10 +89,12 @@ __all__ = [
     # Result types
     "IntrinsicCalibrationOutput",
     "IntrinsicCalibrationReport",
+    "ExtrinsicCalibrationResult",
     # Functions
     "extract_image_points",
     "extract_image_points_multicam",
     "calibrate_intrinsics",
+    "calibrate_extrinsics",
     # Exceptions
     "CalibrationError",
 ]

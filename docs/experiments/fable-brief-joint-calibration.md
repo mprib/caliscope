@@ -13,28 +13,33 @@ It is not a locked-down spec.
 Fable has creative latitude on UI design, workflow structure, and quality presentation.
 If something in this brief seems wrong or suboptimal, push back — the author trusts Fable's taste and expects Fable to improve on these proposals where it sees opportunity.
 
-## Who This Is For
+## Background: How We Got Here
 
-The #971 feature request comes from outdoor track-and-field biomechanics researchers.
-10-meter capture volumes.
-Cameras mounted 3+ meters high for jump analysis.
-Wind makes large charuco boards impractical outdoors.
-They need to calibrate quickly, with small portable markers, across a volume too large for a single board to cover.
+For #971, we built multi-ArUco calibration with static markers and rigidity constraints.
+The constraint system locks world scale through known inter-corner distances.
+Static markers anchor the scene geometry.
+Moving markers provide coverage across the capture volume.
 
-This is the hardest calibration use case Caliscope serves.
-The joint solver makes it tractable.
+The rigidity precision on #971 data wasn't where we wanted it.
+Suspicion: the intrinsic calibration (separate charuco step) was the weak link.
+Imperfect intrinsics get baked into the extrinsic solve with no way to correct them.
+
+So Fable dispatched us on a research mission: can the bundle adjustment recover intrinsics jointly with extrinsics?
+If so, we eliminate a source of error and simplify the workflow.
+
+We discovered something stronger than expected.
+Not only can the solver recover intrinsics — it doesn't even need a prior intrinsic calibration.
+A blind guess (f = image_width/2, k1=0, k2=0) is sufficient.
+The solver recovers focal length and distortion from the observation geometry alone.
 
 ## The Finding
 
-Intrinsic calibration is no longer a required step.
-The joint bundle adjustment solver recovers focal length and radial distortion from a blind guess (f = image_width/2, k1=0, k2=0) while simultaneously solving camera poses and 3D point positions.
-
-On real outdoor footage with 1-meter ArUco markers, starting from a 40% wrong focal length guess and zero distortion knowledge, the solver achieved 5.8mm rigidity precision on known marker geometry.
+On the #971 real data, starting from a 40% wrong focal length guess and zero distortion knowledge, the solver achieved 5.8mm rigidity precision on 1-meter markers.
 That is 0.58% of the marker size.
 
-For comparison, the same cameras with charuco-calibrated intrinsics and fixed-intrinsic BA achieved 15.4mm rigidity before optimization.
+With charuco-calibrated intrinsics, the same data achieved 15.4mm rigidity before optimization.
 The joint solver improved that to 4.6mm — better than the charuco-calibrated starting point.
-This suggests the joint solver doesn't just match charuco quality; it may exceed it on the same cameras.
+The joint solver found a better intrinsic solution than the separate charuco calibration.
 
 ### Why this matters: before and after
 
@@ -255,13 +260,12 @@ The Phase 1d real data showed the solver improving on charuco-calibrated intrins
 Show the delta so the user knows what changed.
 Provide an easy-to-find "lock intrinsics" option for users who trust their calibration.
 
-### 6. Charuco constraints are a prerequisite, not backlog
+### 6. Charuco constraints (nice-to-have)
 
-`ConstraintSet.from_charuco_board()` is required for backward compatibility.
-Without it, existing charuco projects must either use the old optimizer (two code paths permanently) or run the joint solver without constraints (loses the rigidity enforcement that makes it work well).
-
-The factory is small — charuco geometry is well-defined.
-It should be a Phase 3 prerequisite, not a backlog item.
+`ConstraintSet.from_charuco_board()` would let charuco-based calibration use the same constraint mechanism as ArUco.
+Charuco geometry is well-defined, so the factory is small.
+This is not a blocker — the project is at 0.8 and breaking changes are acceptable.
+Charuco users can still calibrate; they just won't get the constraint-based rigidity enforcement until this lands.
 
 ### 7. Filter-then-re-optimize with free intrinsics
 
@@ -301,6 +305,13 @@ The existing tab-gating logic (`all_intrinsics_calibrated()`) must change.
 The recommended approach: keep all tabs, relax the intrinsic gate from "required" to "optional enhancement."
 The `StepStatus.AVAILABLE` indicator (blue) already exists and means "available but not required."
 The extrinsic tab gate changes from "cameras must have intrinsics" to "cameras must have a resolution" (derived from extrinsic video headers).
+
+### 11. Rigidity-based outlier filtering
+
+A prior finding: the current reprojection-error filter achieves only ~68% precision/recall on 5% contamination because BA absorbs outliers into camera poses.
+Constraint violations are pose-independent and see the damage BA hides.
+A composite score (reprojection error + constraint violation) may separate outliers more cleanly.
+This is an open question worth exploring during implementation — the constraint infrastructure is already in place.
 
 ### Assumptions and Risks Not Yet Tested
 

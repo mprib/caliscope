@@ -38,9 +38,10 @@ CAMERA_COLUMN_TOOLTIPS = {
 
 MARKER_COLUMN_TOOLTIPS = {
     1: "Whether this marker was treated as fixed (static) or mobile during calibration",
-    2: "Relative distance error as percentage of the marker's largest diagonal",
-    3: "Absolute distance error in millimeters",
-    4: "Number of point-to-point distances measured",
+    2: "Root mean square reprojection error in pixels for this marker's points",
+    3: "Relative distance error as percentage of the marker's largest diagonal",
+    4: "Absolute distance error in millimeters",
+    5: "Number of point-to-point distances measured",
 }
 
 
@@ -134,10 +135,13 @@ class CalibrationQualityTabs(QWidget):
     def _update_summary_tab(self, data: CalibrationQualityData) -> None:
         self._rmse_label.setText(f"{data.overall_rmse_px:.2f} px")
 
-        converge_text = "converged" if data.converged else "did not converge"
-        self._meta_label.setText(
-            f"{data.n_observations:,} observations · {converge_text} ({data.iterations} iterations)"
-        )
+        if data.converged is None:
+            meta_suffix = ""
+        elif data.converged:
+            meta_suffix = f" · converged ({data.iterations} iterations)"
+        else:
+            meta_suffix = f" · did not converge ({data.iterations} iterations)"
+        self._meta_label.setText(f"{data.n_observations:,} observations{meta_suffix}")
 
         if data.distance_error_pct is not None:
             mm_suffix = f" ({data.distance_error_mm:.1f} mm RMSE)" if data.distance_error_mm is not None else ""
@@ -227,22 +231,41 @@ class CalibrationQualityTabs(QWidget):
 
         return tab
 
+    @staticmethod
+    def _format_with_delta(value: float, delta: float | None, fmt: str, delta_fmt: str) -> tuple[str, str]:
+        """Format a value with optional delta suffix and tooltip."""
+        base = format(value, fmt)
+        if delta is None:
+            return base, ""
+        sign = "+" if delta >= 0 else ""
+        return (
+            f"{base} (Δ{sign}{format(delta, delta_fmt)})",
+            f"Provided: {format(value - delta, fmt)}, Δ{sign}{format(delta, delta_fmt)}",
+        )
+
     def _update_cameras_tab(self, data: CalibrationQualityData) -> None:
         rows = data.camera_rows
         self._camera_table.setRowCount(len(rows))
         for row_idx, row in enumerate(rows):
-            cell_values = [
-                (f"Cam {row.cam_id}", Qt.AlignmentFlag.AlignCenter),
-                (f"{row.n_observations:,}", Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter),
-                (f"{row.rmse_px:.1f}", Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter),
-                (f"{row.f_px:.0f}", Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter),
-                (f"{row.k1:.3f}", Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter),
-                (f"{row.k2:.3f}", Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter),
-                (row.source, Qt.AlignmentFlag.AlignCenter),
+            f_text, f_tip = self._format_with_delta(row.f_px, row.delta_f, ".0f", ".1f")
+            k1_text, k1_tip = self._format_with_delta(row.k1, row.delta_k1, ".3f", ".4f")
+            k2_text, k2_tip = self._format_with_delta(row.k2, row.delta_k2, ".3f", ".4f")
+
+            align_r = Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter
+            cell_values: list[tuple[str, Qt.AlignmentFlag, str]] = [
+                (f"Cam {row.cam_id}", Qt.AlignmentFlag.AlignCenter, ""),
+                (f"{row.n_observations:,}", align_r, ""),
+                (f"{row.rmse_px:.1f}", align_r, ""),
+                (f_text, align_r, f_tip),
+                (k1_text, align_r, k1_tip),
+                (k2_text, align_r, k2_tip),
+                (row.source, Qt.AlignmentFlag.AlignCenter, ""),
             ]
-            for col, (text, align) in enumerate(cell_values):
+            for col, (text, align, tip) in enumerate(cell_values):
                 item = QTableWidgetItem(text)
                 item.setTextAlignment(align)
+                if tip:
+                    item.setToolTip(tip)
                 self._camera_table.setItem(row_idx, col, item)
 
             lens_btn = QPushButton("Lens…")
@@ -262,7 +285,7 @@ class CalibrationQualityTabs(QWidget):
         layout.setSpacing(8)
 
         self._marker_table = QTableWidget()
-        columns = ["Marker", "Type", "Distance error (% of size)", "RMSE (mm)", "Pairs"]
+        columns = ["Marker", "Type", "RMSE (px)", "Distance error (% of size)", "RMSE (mm)", "Pairs"]
         self._marker_table.setColumnCount(len(columns))
         self._marker_table.setHorizontalHeaderLabels(columns)
         self._marker_table.verticalHeader().setVisible(False)
@@ -296,6 +319,7 @@ class CalibrationQualityTabs(QWidget):
             cell_values = [
                 (str(row.object_id), Qt.AlignmentFlag.AlignCenter),
                 ("static" if row.is_static else "moving", Qt.AlignmentFlag.AlignCenter),
+                (f"{row.reprojection_rmse_px:.1f}", Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter),
                 (f"{row.relative_rmse_pct:.1f}", Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter),
                 (f"{row.rmse_mm:.0f}", Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter),
                 (str(row.n_pairs), Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter),

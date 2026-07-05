@@ -96,14 +96,18 @@ class CameraQualityRow:
     f_px: float
     k1: float
     k2: float
-    source: str  # "provided (locked)" | "provided (refined)" | "estimated" | "—"
+    source: str  # "refined" | "locked" | "estimated" | "—"
     depth_ratio: float | None
+    delta_f: float | None  # final - initial, None when source is estimated/unknown
+    delta_k1: float | None
+    delta_k2: float | None
 
 
 @dataclass(frozen=True)
 class MarkerQualityRow:
     object_id: int
     is_static: bool
+    reprojection_rmse_px: float
     relative_rmse_pct: float
     rmse_mm: float
     n_pairs: int
@@ -120,7 +124,7 @@ class CalibrationQualityData:
     overall_rmse_px: float
     n_observations: int
     n_world_points: int
-    converged: bool
+    converged: bool | None  # None = status unknown (session restore)
     iterations: int
     distance_error_pct: float | None  # VolumetricScaleReport.pooled_relative_rmse_pct, None when no pairs
     distance_error_mm: float | None  # VolumetricScaleReport.pooled_rmse_mm
@@ -729,14 +733,19 @@ class ExtrinsicCalibrationPresenter(QObject):
             k1 = float(cam.distortions[0]) if cam is not None and cam.distortions is not None else 0.0
             k2 = float(cam.distortions[1]) if cam is not None and cam.distortions is not None else 0.0
 
+            delta_f: float | None = None
+            delta_k1: float | None = None
+            delta_k2: float | None = None
             if result is None:
                 source = "—"
             elif cam_id in synthesized_ids:
                 source = "estimated"
             elif cam_id in anchors:
-                f_initial, _, _ = anchors[cam_id]
-                tolerance = max(1.0, abs(f_initial)) * 1e-6
-                source = "provided (refined)" if abs(f_px - f_initial) > tolerance else "provided (locked)"
+                source = "refined" if self._refine_intrinsics else "locked"
+                f_init, k1_init, k2_init = anchors[cam_id]
+                delta_f = f_px - f_init
+                delta_k1 = k1 - k1_init
+                delta_k2 = k2 - k2_init
             else:
                 source = "—"
 
@@ -753,12 +762,15 @@ class ExtrinsicCalibrationPresenter(QObject):
                     k2=k2,
                     source=source,
                     depth_ratio=depth_ratio,
+                    delta_f=delta_f,
+                    delta_k1=delta_k1,
+                    delta_k2=delta_k2,
                 )
             )
         return rows
 
     def _build_marker_rows(self, scale_report: VolumetricScaleReport) -> list[MarkerQualityRow]:
-        """Build per-marker quality rows from pooled scale accuracy metrics."""
+        """Build per-marker quality rows from pooled scale accuracy and reprojection metrics."""
         if not scale_report.frame_errors:
             return []
 
@@ -769,6 +781,15 @@ class ExtrinsicCalibrationPresenter(QObject):
             sse_by_object[fe.object_id] = sse_by_object.get(fe.object_id, 0.0) + fe.sum_squared_errors_m2
             pairs_by_object[fe.object_id] = pairs_by_object.get(fe.object_id, 0) + fe.n_distance_pairs
 
+        # Per-object reprojection RMSE from raw errors
+        reproj_by_object: dict[int, float] = {}
+        if self._capture_volume is not None:
+            raw = self._capture_volume.reprojection_report.raw_errors
+            for oid_key, group in raw.groupby("object_id"):
+                oid_int = int(str(oid_key))
+                errors = np.asarray(group["euclidean_error"], dtype=np.float64)
+                reproj_by_object[oid_int] = float(np.sqrt(np.mean(errors**2)))
+
         rows: list[MarkerQualityRow] = []
         for object_id in sorted(per_object_pct.keys()):
             pairs = pairs_by_object.get(object_id, 0)
@@ -777,6 +798,7 @@ class ExtrinsicCalibrationPresenter(QObject):
                 MarkerQualityRow(
                     object_id=object_id,
                     is_static=object_id in scale_report.static_object_ids,
+                    reprojection_rmse_px=reproj_by_object.get(object_id, 0.0),
                     relative_rmse_pct=per_object_pct[object_id],
                     rmse_mm=rmse_mm,
                     n_pairs=pairs,
@@ -832,7 +854,7 @@ class ExtrinsicCalibrationPresenter(QObject):
             overall_rmse_px=report.overall_rmse,
             n_observations=report.n_observations_matched,
             n_world_points=report.n_points,
-            converged=status.converged if status else False,
+            converged=status.converged if status else None,
             iterations=status.iterations if status else 0,
             distance_error_pct=scale_report.pooled_relative_rmse_pct if has_pairs else None,
             distance_error_mm=scale_report.pooled_rmse_mm if has_pairs else None,

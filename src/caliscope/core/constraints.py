@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from functools import cached_property
 from pathlib import Path
+from typing import Literal
 
 import numpy as np
 import rtoml
@@ -185,6 +186,9 @@ class ConstraintViolation:
     sync_index: int
     expected: float
     actual: float
+    # "centroid" violations have no single corner to name; keypoint_id_a and
+    # keypoint_id_b are set to -1 for them.
+    kind: Literal["corner", "centroid"] = "corner"
 
 
 @dataclass(frozen=True)

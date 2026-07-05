@@ -16,7 +16,7 @@ from dataclasses import dataclass
 from caliscope.cameras.camera_array import CameraArray
 from caliscope.core.bundle_parameterization import BoundWarning, IntrinsicEstimate
 from caliscope.core.capture_volume import CaptureVolume
-from caliscope.core.constraints import ConstraintSet
+from caliscope.core.constraints import ConstraintSet, RigidityReport
 from caliscope.core.point_data import ImagePoints
 from caliscope.core.scale_accuracy import compute_depth_ratios
 from caliscope.task_manager.cancellation import CancellationToken
@@ -104,7 +104,12 @@ def calibrate_extrinsics(
     dropped_markers: list[int] = []
     if constraints is not None and constraints.static_object_ids:
         report = capture_volume.rigidity_report()
-        obj_rmse = report.per_object_rmse_mm
+        # Gate on intra-marker rigidity only. per_object_rmse_mm attributes
+        # cross-object violations (e.g. a static-static center link's) to both
+        # endpoints, which would conflate tape-measure disagreement with "did
+        # this marker move". Filter to intra-marker violations before aggregating.
+        intra_violations = tuple(v for v in report.violations if v.object_id_a == v.object_id_b)
+        obj_rmse = RigidityReport(violations=intra_violations).per_object_rmse_mm
 
         for obj_id in sorted(constraints.static_object_ids):
             rmse = obj_rmse.get(obj_id, 0.0)
@@ -126,8 +131,17 @@ def calibrate_extrinsics(
                 for d in constraints.distances
                 if d.object_id_a not in dropped_set and d.object_id_b not in dropped_set
             )
+            filtered_centroids = tuple(
+                c
+                for c in constraints.centroid_distances
+                if c.object_id_a not in dropped_set and c.object_id_b not in dropped_set
+            )
             filtered_statics = constraints.static_object_ids - frozenset(dropped_set)
-            constraints = ConstraintSet(distances=filtered_distances, static_object_ids=filtered_statics)
+            constraints = ConstraintSet(
+                distances=filtered_distances,
+                static_object_ids=filtered_statics,
+                centroid_distances=filtered_centroids,
+            )
 
             _progress(20, "Re-bootstrapping after dropping markers")
             cameras = deepcopy(camera_array)

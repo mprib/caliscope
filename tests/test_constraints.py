@@ -14,6 +14,23 @@ from caliscope.core.constraints import (
 from caliscope.core.point_data import STATIC_SYNC_INDEX, WorldPoints
 
 
+def _identity_cam_array():
+    """A single camera at z=+5 looking down -Z, no distortion. Enough to satisfy
+    CaptureVolume geometry checks in constraint-focused tests.
+    """
+    from caliscope.cameras.camera_array import CameraArray, CameraData
+
+    cam = CameraData(
+        cam_id=0,
+        size=(400, 400),
+        matrix=np.array([[200, 0, 200], [0, 200, 200], [0, 0, 1]], dtype=np.float64),
+        distortions=np.zeros(5),
+        rotation=np.eye(3),
+        translation=np.array([0.0, 0.0, 5.0]),
+    )
+    return CameraArray(cameras={0: cam})
+
+
 def test_constraint_set_from_single_marker():
     markers = {0: ArucoMarker(0, 1.0)}
     ms = ArucoMarkerSet(dictionary=cv2.aruco.DICT_4X4_50, markers=markers)
@@ -368,11 +385,15 @@ def test_build_constraint_arrays_mobile_marker():
 
     result = cv._build_constraint_arrays()
     assert result is not None
-    pairs, dists, sigmas = result
+    groups_a, groups_b, dists, sigmas = result
     # 6 constraints × 3 frames = 18 instances
-    assert len(pairs) == 18
+    assert groups_a.shape == (18, 4)
+    assert groups_b.shape == (18, 4)
     assert len(dists) == 18
     assert len(sigmas) == 18
+    # Corner endpoints are one row index repeated 4x (mean recovers the point exactly)
+    assert np.all(groups_a[:, 0:1] == groups_a)
+    assert np.all(groups_b[:, 0:1] == groups_b)
 
 
 def test_joint_residuals_with_constraints():
@@ -403,8 +424,10 @@ def test_joint_residuals_with_constraints():
     res_no = joint_residuals(params, parameterization, camera_indices, image_coords, obj_indices)
     assert len(res_no) == 4  # 2 obs × 2
 
-    # With constraints: one distance constraint between points 0 and 1
-    c_pairs = np.array([[0, 1]], dtype=np.int32)
+    # With constraints: one corner distance constraint between points 0 and 1.
+    # Corner endpoints are width-4 groups of one repeated row index.
+    c_groups_a = np.array([[0, 0, 0, 0]], dtype=np.int32)
+    c_groups_b = np.array([[1, 1, 1, 1]], dtype=np.int32)
     c_dists = np.array([1.0])
     c_weights = np.array([0.5])
 
@@ -414,7 +437,8 @@ def test_joint_residuals_with_constraints():
         camera_indices,
         image_coords,
         obj_indices,
-        constraint_pairs=c_pairs,
+        constraint_groups_a=c_groups_a,
+        constraint_groups_b=c_groups_b,
         constraint_distances=c_dists,
         constraint_weights=c_weights,
     )
@@ -532,3 +556,366 @@ def test_rigidity_report_no_longer_has_per_frame_relative_rmse_pct():
     assert report.max_violation_mm > 0.0
     assert set(report.per_object_rmse_mm.keys()) == {0, 1}
     assert set(report.per_object_relative_rmse_pct.keys()) == {0, 1}
+
+
+# -- Endpoint groups: corner exact-equality + centroid path --
+
+
+def _build_parameterization(ca, n_points):
+    from caliscope.core.bundle_parameterization import BundleParameterization
+
+    return BundleParameterization.from_camera_array(ca, n_points=n_points, refine_intrinsics=False)
+
+
+def test_joint_residuals_corner_group_exact_equality():
+    """A corner endpoint is one row index repeated 4x. The mean of four identical
+    rows is bitwise-identical to the row (verified in review), so the grouped
+    residual EXACTLY equals the pre-groups single-index residual — assert ==.
+    """
+    from caliscope.core.reprojection import joint_residuals
+
+    ca = _identity_cam_array()
+    parameterization = _build_parameterization(ca, n_points=2)
+    points = np.array([[0.1, 0.2, 0.3], [1.4, -0.5, 0.7]])
+    params = parameterization.pack(ca, points)
+
+    camera_indices = np.array([0, 0], dtype=np.int16)
+    image_coords = np.array([[200.0, 200.0], [240.0, 200.0]])
+    obj_indices = np.array([0, 1], dtype=np.int32)
+
+    c_dists = np.array([1.0])
+    c_weights = np.array([0.5])
+    groups_a = np.array([[0, 0, 0, 0]], dtype=np.int32)
+    groups_b = np.array([[1, 1, 1, 1]], dtype=np.int32)
+
+    res = joint_residuals(
+        params,
+        parameterization,
+        camera_indices,
+        image_coords,
+        obj_indices,
+        constraint_groups_a=groups_a,
+        constraint_groups_b=groups_b,
+        constraint_distances=c_dists,
+        constraint_weights=c_weights,
+    )
+
+    # Pre-groups reference: single-index difference, no averaging.
+    expected = (np.linalg.norm(points[0] - points[1]) - c_dists[0]) * c_weights[0]
+    assert res[-1] == expected  # exact, not approx
+
+
+def test_joint_residuals_centroid_zero_at_exact_geometry():
+    """A centroid endpoint averages a marker's four corner rows. When the two
+    centroids sit exactly the declared distance apart, the residual is zero.
+    """
+    from caliscope.core.reprojection import joint_residuals
+
+    ca = _identity_cam_array()
+    # Marker 0 corners → centroid (0,0,0); marker 1 corners → centroid (2,0,0).
+    pts = np.array(
+        [
+            [-0.5, 0.5, 0.0],
+            [0.5, 0.5, 0.0],
+            [0.5, -0.5, 0.0],
+            [-0.5, -0.5, 0.0],
+            [1.5, 0.5, 0.0],
+            [2.5, 0.5, 0.0],
+            [2.5, -0.5, 0.0],
+            [1.5, -0.5, 0.0],
+        ]
+    )
+    parameterization = _build_parameterization(ca, n_points=8)
+    params = parameterization.pack(ca, pts)
+
+    camera_indices = np.zeros(8, dtype=np.int16)
+    image_coords = np.tile(np.array([200.0, 200.0]), (8, 1))
+    obj_indices = np.arange(8, dtype=np.int32)
+
+    groups_a = np.array([[0, 1, 2, 3]], dtype=np.int32)
+    groups_b = np.array([[4, 5, 6, 7]], dtype=np.int32)
+    c_dists = np.array([2.0])
+    c_weights = np.array([1.0])
+
+    res = joint_residuals(
+        params,
+        parameterization,
+        camera_indices,
+        image_coords,
+        obj_indices,
+        constraint_groups_a=groups_a,
+        constraint_groups_b=groups_b,
+        constraint_distances=c_dists,
+        constraint_weights=c_weights,
+    )
+    assert res[-1] == pytest.approx(0.0, abs=1e-12)
+
+
+def _two_marker_world_and_image(centroid_b_x: float, sync_indices=(0,)):
+    """Two 4-corner markers per sync_index. Marker 0 centroid at origin, marker 1
+    centroid at (centroid_b_x, 0, 0). Returns (world_df, img_df).
+    """
+    corner_offsets = [(-0.5, 0.5), (0.5, 0.5), (0.5, -0.5), (-0.5, -0.5)]
+    world_rows = []
+    img_rows = []
+    for si in sync_indices:
+        for obj_id, cx in ((0, 0.0), (1, centroid_b_x)):
+            for kid, (dx, dy) in enumerate(corner_offsets):
+                world_rows.append(
+                    {
+                        "sync_index": si,
+                        "object_id": obj_id,
+                        "keypoint_id": kid,
+                        "x_coord": cx + dx,
+                        "y_coord": dy,
+                        "z_coord": 0.0,
+                        "frame_time": float(si) * 0.1,
+                    }
+                )
+                img_rows.append(
+                    {
+                        "sync_index": si,
+                        "cam_id": 0,
+                        "object_id": obj_id,
+                        "keypoint_id": kid,
+                        "img_loc_x": 200.0 + cx * 10 + dx,
+                        "img_loc_y": 200.0 + dy,
+                    }
+                )
+    return pd.DataFrame(world_rows), pd.DataFrame(img_rows)
+
+
+def test_rigidity_report_centroid_violation_hand_computed():
+    """A centroid constraint whose actual centroid separation differs from the
+    declared distance produces one centroid-kind violation with the hand-computed
+    magnitude and keypoint ids of -1 (no single corner to name).
+    """
+    from caliscope.core.point_data import ImagePoints
+    from caliscope.core.capture_volume import CaptureVolume
+
+    # Marker 1 centroid actually at x=2.0; declare the distance as 1.5.
+    world_df, img_df = _two_marker_world_and_image(centroid_b_x=2.0)
+    cs = ConstraintSet(
+        distances=(),
+        static_object_ids=frozenset(),
+        centroid_distances=(CentroidDistanceConstraint(object_id_a=0, object_id_b=1, distance=1.5, sigma=0.005),),
+    )
+    cv = CaptureVolume(
+        camera_array=_identity_cam_array(),
+        image_points=ImagePoints(img_df),
+        world_points=WorldPoints(world_df),
+        constraints=cs,
+    )
+
+    report = cv.rigidity_report()
+    assert len(report.violations) == 1
+    v = report.violations[0]
+    assert v.kind == "centroid"
+    assert v.keypoint_id_a == -1
+    assert v.keypoint_id_b == -1
+    assert v.object_id_a == 0
+    assert v.object_id_b == 1
+    assert v.expected == pytest.approx(1.5)
+    assert v.actual == pytest.approx(2.0)
+
+
+def test_build_constraint_arrays_centroid_fires_only_with_all_8_corners():
+    """A centroid constraint fires only in sync_indices where all eight corner
+    rows (four per marker) are present.
+    """
+    from caliscope.core.point_data import ImagePoints
+    from caliscope.core.capture_volume import CaptureVolume
+
+    # Two frames' worth of geometry; then remove one corner of marker 1 in sync 1.
+    world_df, img_df = _two_marker_world_and_image(centroid_b_x=2.0, sync_indices=(0, 1))
+    drop = (world_df["sync_index"] == 1) & (world_df["object_id"] == 1) & (world_df["keypoint_id"] == 3)
+    world_df = world_df[~drop].reset_index(drop=True)
+    img_drop = (img_df["sync_index"] == 1) & (img_df["object_id"] == 1) & (img_df["keypoint_id"] == 3)
+    img_df = img_df[~img_drop].reset_index(drop=True)
+
+    cs = ConstraintSet(
+        distances=(),
+        static_object_ids=frozenset(),
+        centroid_distances=(CentroidDistanceConstraint(object_id_a=0, object_id_b=1, distance=2.0, sigma=0.005),),
+    )
+    cv = CaptureVolume(
+        camera_array=_identity_cam_array(),
+        image_points=ImagePoints(img_df),
+        world_points=WorldPoints(world_df),
+        constraints=cs,
+    )
+
+    result = cv._build_constraint_arrays()
+    assert result is not None
+    groups_a, groups_b, dists, sigmas = result
+    # Only sync 0 has all 8 corners → exactly one centroid instance.
+    assert groups_a.shape == (1, 4)
+    assert groups_b.shape == (1, 4)
+    assert len(dists) == 1
+
+
+def test_build_constraint_arrays_static_static_centroid_fires_once():
+    """A centroid link between two static markers fires exactly once, at
+    STATIC_SYNC_INDEX, when all eight static corner rows exist.
+    """
+    from caliscope.core.point_data import ImagePoints
+    from caliscope.core.capture_volume import CaptureVolume
+
+    corner_offsets = [(-0.5, 0.5), (0.5, 0.5), (0.5, -0.5), (-0.5, -0.5)]
+    world_rows = []
+    for obj_id, cx in ((0, 0.0), (1, 2.0)):
+        for kid, (dx, dy) in enumerate(corner_offsets):
+            world_rows.append(
+                {
+                    "sync_index": STATIC_SYNC_INDEX,
+                    "object_id": obj_id,
+                    "keypoint_id": kid,
+                    "x_coord": cx + dx,
+                    "y_coord": dy,
+                    "z_coord": 0.0,
+                    "frame_time": np.nan,
+                }
+            )
+    # Image observations carry real sync_indices even for static markers.
+    img_rows = []
+    for si in (0, 1):
+        for obj_id, cx in ((0, 0.0), (1, 2.0)):
+            for kid, (dx, dy) in enumerate(corner_offsets):
+                img_rows.append(
+                    {
+                        "sync_index": si,
+                        "cam_id": 0,
+                        "object_id": obj_id,
+                        "keypoint_id": kid,
+                        "img_loc_x": 200.0 + cx * 10 + dx,
+                        "img_loc_y": 200.0 + dy,
+                    }
+                )
+
+    cs = ConstraintSet(
+        distances=(),
+        static_object_ids=frozenset({0, 1}),
+        centroid_distances=(CentroidDistanceConstraint(object_id_a=0, object_id_b=1, distance=2.0, sigma=0.005),),
+    )
+    cv = CaptureVolume(
+        camera_array=_identity_cam_array(),
+        image_points=ImagePoints(pd.DataFrame(img_rows)),
+        world_points=WorldPoints(pd.DataFrame(world_rows)),
+        constraints=cs,
+    )
+
+    result = cv._build_constraint_arrays()
+    assert result is not None
+    groups_a, groups_b, dists, sigmas = result
+    assert groups_a.shape == (1, 4)
+    assert len(dists) == 1
+
+
+def test_sparsity_marks_at_most_24_columns_per_constraint_row():
+    """Each constraint row marks 3 coordinate columns per distinct endpoint row:
+    a corner constraint touches 2 distinct rows (6 columns); a centroid constraint
+    touches 8 distinct rows (24 columns, the maximum).
+    """
+    ca = _identity_cam_array()
+    parameterization = _build_parameterization(ca, n_points=8)
+
+    camera_indices = np.zeros(2, dtype=np.int16)
+    obj_indices = np.array([0, 1], dtype=np.int32)
+
+    # Row 0: corner constraint (repeated indices). Row 1: centroid (8 distinct rows).
+    groups_a = np.array([[0, 0, 0, 0], [0, 1, 2, 3]], dtype=np.int32)
+    groups_b = np.array([[1, 1, 1, 1], [4, 5, 6, 7]], dtype=np.int32)
+
+    sp = parameterization.sparsity(camera_indices, obj_indices, 2, groups_a, groups_b)
+
+    n_obs = len(camera_indices)
+    corner_row = sp.getrow(n_obs * 2 + 0).toarray().sum()
+    centroid_row = sp.getrow(n_obs * 2 + 1).toarray().sum()
+    assert corner_row == 6
+    assert centroid_row == 24
+    assert corner_row <= 24 and centroid_row <= 24
+
+
+def test_static_marker_guard_gates_on_intra_only_rmse():
+    """The static-marker guard must gate on per-object RMSE computed from
+    intra-marker violations only. A static-static center-link disagreement
+    (a cross-object violation) alone must NOT trip the guard: with perfect
+    intra geometry, the intra-only RMSE stays zero even though the general
+    per_object_rmse_mm (which attributes cross-object violations to both
+    endpoints) is large.
+    """
+    from caliscope.core.point_data import ImagePoints
+    from caliscope.core.capture_volume import CaptureVolume
+
+    # Two static markers, perfect intra geometry (unit squares), but their
+    # centroids sit 2.0 apart while a static-static center link declares 0.5 —
+    # a gross tape-measure disagreement that must not drag a rigid marker down.
+    corner_offsets = [(-0.5, 0.5), (0.5, 0.5), (0.5, -0.5), (-0.5, -0.5)]
+    world_rows = []
+    for obj_id, cx in ((0, 0.0), (1, 2.0)):
+        for kid, (dx, dy) in enumerate(corner_offsets):
+            world_rows.append(
+                {
+                    "sync_index": STATIC_SYNC_INDEX,
+                    "object_id": obj_id,
+                    "keypoint_id": kid,
+                    "x_coord": cx + dx,
+                    "y_coord": dy,
+                    "z_coord": 0.0,
+                    "frame_time": np.nan,
+                }
+            )
+    img_rows = []
+    for obj_id, cx in ((0, 0.0), (1, 2.0)):
+        for kid, (dx, dy) in enumerate(corner_offsets):
+            img_rows.append(
+                {
+                    "sync_index": 0,
+                    "cam_id": 0,
+                    "object_id": obj_id,
+                    "keypoint_id": kid,
+                    "img_loc_x": 200.0 + cx * 10 + dx,
+                    "img_loc_y": 200.0 + dy,
+                }
+            )
+
+    # Perfect intra distances for a unit square (edges 1.0, diagonals sqrt(2)).
+    intra = []
+    for obj_id in (0, 1):
+        corners = np.array([(dx, dy, 0.0) for dx, dy in corner_offsets])
+        for i in range(4):
+            for j in range(i + 1, 4):
+                intra.append(
+                    DistanceConstraint(
+                        object_id_a=obj_id,
+                        keypoint_id_a=i,
+                        object_id_b=obj_id,
+                        keypoint_id_b=j,
+                        distance=float(np.linalg.norm(corners[i] - corners[j])),
+                        sigma=0.002,
+                    )
+                )
+    cs = ConstraintSet(
+        distances=tuple(intra),
+        static_object_ids=frozenset({0, 1}),
+        centroid_distances=(CentroidDistanceConstraint(object_id_a=0, object_id_b=1, distance=0.5, sigma=0.005),),
+    )
+    cv = CaptureVolume(
+        camera_array=_identity_cam_array(),
+        image_points=ImagePoints(pd.DataFrame(img_rows)),
+        world_points=WorldPoints(pd.DataFrame(world_rows)),
+        constraints=cs,
+    )
+
+    report = cv.rigidity_report()
+    max_intra_mm = np.sqrt(2) * 1000.0
+    threshold = 0.25 * max_intra_mm
+
+    # General per-object RMSE folds in the cross-link violation → trips old guard.
+    assert report.per_object_rmse_mm[0] > threshold
+
+    # Intra-only per-object RMSE (the corrected gate) stays at zero → no drop.
+    intra_violations = tuple(v for v in report.violations if v.object_id_a == v.object_id_b)
+    intra_rmse = RigidityReport(violations=intra_violations).per_object_rmse_mm.get(0, 0.0)
+    assert intra_rmse < threshold
+    assert intra_rmse == pytest.approx(0.0, abs=1e-6)

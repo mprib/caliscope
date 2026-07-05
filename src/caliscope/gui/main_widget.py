@@ -413,16 +413,15 @@ class MainWindow(QMainWindow):
             rtoml.dump(self.app_settings, f)
 
 
-def launch_main():
+def launch_main(workspace: str | None = None):
     from caliscope.gui.gc_confinement import disable, enable
-
-    # import qdarktheme
 
     app = QApplication(sys.argv)
     gc_timer = enable()  # after QApplication, before any Qt3D widgets
-    # qdarktheme.setup_theme("auto")
     window = MainWindow()
     window.show()
+    if workspace is not None:
+        window.launch_workspace(workspace)
     app.exec()
     disable(gc_timer)  # after event loop exits, restore automatic GC
 

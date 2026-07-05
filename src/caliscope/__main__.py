@@ -78,5 +78,10 @@ def CLI_parser():
     _seed_default_model_cards(MODELS_DIR)
     tracker_registry.scan_onnx_models(MODELS_DIR)
 
-    if len(sys.argv) == 1:
-        launch_main()
+    import argparse
+
+    parser = argparse.ArgumentParser(prog="caliscope")
+    parser.add_argument("--workspace", type=str, help="Path to workspace directory to open on launch")
+    args = parser.parse_args()
+
+    launch_main(workspace=args.workspace)

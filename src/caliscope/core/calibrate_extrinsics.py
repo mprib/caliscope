@@ -139,7 +139,8 @@ def calibrate_extrinsics(
     _progress(55, "Robust refinement")
     f_scale = capture_volume.pixel_f_scale(px=1.0)
     capture_volume = capture_volume.optimize(
-        refine_intrinsics=refine_intrinsics, loss="soft_l1", f_scale=f_scale
+        refine_intrinsics=refine_intrinsics, loss="soft_l1", f_scale=f_scale,
+        max_nfev=2000, ftol=1e-4, strict=False,
     )
 
     _check_cancelled()

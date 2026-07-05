@@ -84,6 +84,8 @@ class SimilarityTransform:
 def estimate_similarity_transform(
     source_points: NDArray[np.float64],
     target_points: NDArray[np.float64],
+    *,
+    rigid: bool = False,
 ) -> SimilarityTransform:
     """
     Estimate optimal similarity transform using Umeyama's algorithm.
@@ -93,6 +95,7 @@ def estimate_similarity_transform(
     Args:
         source_points: Nx3 array of points in source coordinate frame
         target_points: Nx3 array of points in target coordinate frame
+        rigid: If True, fix scale=1.0 (rotation + translation only)
 
     Returns:
         SimilarityTransform containing rotation, translation, and scale
@@ -133,8 +136,11 @@ def estimate_similarity_transform(
     rotation = Vt.T @ U.T
 
     # Compute scale
-    source_variance = np.sum(source_centered**2)
-    scale = np.sum(target_centered * (rotation @ source_centered.T).T) / source_variance
+    if rigid:
+        scale = 1.0
+    else:
+        source_variance = np.sum(source_centered**2)
+        scale = np.sum(target_centered * (rotation @ source_centered.T).T) / source_variance
 
     # Compute translation
     translation = target_centroid - scale * (rotation @ source_centroid)

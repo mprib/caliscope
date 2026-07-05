@@ -4,7 +4,7 @@ import pytest
 import cv2
 
 from caliscope.core.aruco_marker import ArucoMarker, ArucoMarkerSet, MarkerLink
-from caliscope.core.constraints import ConstraintSet
+from caliscope.core.constraints import ConstraintSet, ConstraintViolation, RigidityReport
 from caliscope.core.point_data import STATIC_SYNC_INDEX, WorldPoints
 
 
@@ -384,3 +384,38 @@ def test_filter_preserves_static_world_points():
     # All mobile world points also survive
     mobile_world = filtered.world_points.df[filtered.world_points.df["sync_index"] != STATIC_SYNC_INDEX]
     assert len(mobile_world) == 4
+
+
+def test_rigidity_report_no_longer_has_per_frame_relative_rmse_pct():
+    """per_frame_relative_rmse_pct was removed; its only consumer (rigidity sparkline) is gone.
+
+    Other RigidityReport properties must remain intact.
+    """
+    violations = (
+        ConstraintViolation(
+            object_id_a=0,
+            keypoint_id_a=0,
+            object_id_b=0,
+            keypoint_id_b=1,
+            sync_index=0,
+            expected=1.0,
+            actual=1.01,
+        ),
+        ConstraintViolation(
+            object_id_a=0,
+            keypoint_id_a=0,
+            object_id_b=1,
+            keypoint_id_b=1,
+            sync_index=1,
+            expected=2.0,
+            actual=1.98,
+        ),
+    )
+    report = RigidityReport(violations=violations)
+
+    assert not hasattr(report, "per_frame_relative_rmse_pct")
+    assert report.rmse_mm > 0.0
+    assert report.relative_rmse_pct > 0.0
+    assert report.max_violation_mm > 0.0
+    assert set(report.per_object_rmse_mm.keys()) == {0, 1}
+    assert set(report.per_object_relative_rmse_pct.keys()) == {0, 1}

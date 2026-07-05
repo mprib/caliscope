@@ -145,17 +145,18 @@ class MainWindow(QMainWindow):
             multi_camera_enabled,
         )
 
-        # Capture Volume tab - enabled based on computed property
+        # Calibrate tab - enabled based on computed property
         capture_volume_enabled = self.coordinator.capture_volume_tab_enabled
         if capture_volume_enabled:
             logger.info("Creating ExtrinsicCalibrationTab")
             self.extrinsic_calibration_tab = ExtrinsicCalibrationTab(self.coordinator)
+            self.extrinsic_calibration_tab.navigation_requested.connect(self._navigate_to_tab)
         else:
-            logger.info("Creating dummy widget for Capture Volume")
+            logger.info("Creating dummy widget for Calibrate")
             self.extrinsic_calibration_tab = QWidget()
-        self.central_tab.addTab(self.extrinsic_calibration_tab, "Capture Volume")
+        self.central_tab.addTab(self.extrinsic_calibration_tab, "Calibrate")
         self.central_tab.setTabEnabled(
-            self.find_tab_index_by_title("Capture Volume"),
+            self.find_tab_index_by_title("Calibrate"),
             capture_volume_enabled,
         )
 
@@ -201,7 +202,7 @@ class MainWindow(QMainWindow):
             self.coordinator.multi_camera_tab_enabled,
         )
         self.central_tab.setTabEnabled(
-            self.find_tab_index_by_title("Capture Volume"),
+            self.find_tab_index_by_title("Calibrate"),
             self.coordinator.capture_volume_tab_enabled,
         )
         self.central_tab.setTabEnabled(
@@ -238,15 +239,16 @@ class MainWindow(QMainWindow):
             if old:
                 old.deleteLater()
 
-        # Capture Volume tab
-        cv_idx = self.find_tab_index_by_title("Capture Volume")
+        # Calibrate tab
+        cv_idx = self.find_tab_index_by_title("Calibrate")
         if self.coordinator.capture_volume_tab_enabled and not isinstance(
             self.central_tab.widget(cv_idx), ExtrinsicCalibrationTab
         ):
             old = self.central_tab.widget(cv_idx)
             self.extrinsic_calibration_tab = ExtrinsicCalibrationTab(self.coordinator)
+            self.extrinsic_calibration_tab.navigation_requested.connect(self._navigate_to_tab)
             self.central_tab.removeTab(cv_idx)
-            self.central_tab.insertTab(cv_idx, self.extrinsic_calibration_tab, "Capture Volume")
+            self.central_tab.insertTab(cv_idx, self.extrinsic_calibration_tab, "Calibrate")
             if old:
                 old.deleteLater()
 
@@ -411,16 +413,15 @@ class MainWindow(QMainWindow):
             rtoml.dump(self.app_settings, f)
 
 
-def launch_main():
+def launch_main(workspace: str | None = None):
     from caliscope.gui.gc_confinement import disable, enable
-
-    # import qdarktheme
 
     app = QApplication(sys.argv)
     gc_timer = enable()  # after QApplication, before any Qt3D widgets
-    # qdarktheme.setup_theme("auto")
     window = MainWindow()
     window.show()
+    if workspace is not None:
+        window.launch_workspace(workspace)
     app.exec()
     disable(gc_timer)  # after event loop exits, restore automatic GC
 

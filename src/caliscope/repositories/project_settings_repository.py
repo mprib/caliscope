@@ -112,3 +112,39 @@ class ProjectSettingsRepository:
         settings = self._cache.copy()
         settings["scene_sphere_size_multiplier"] = multiplier
         self.save(settings)
+
+    def get_refine_intrinsics(self) -> bool:
+        """Get flag for refining intrinsics during extrinsic bundle adjustment (default: True)."""
+        return bool(self._cache.get("refine_intrinsics", True))
+
+    def set_refine_intrinsics(self, refine: bool) -> None:
+        """Update refine intrinsics flag and persist immediately."""
+        settings = self._cache.copy()
+        settings["refine_intrinsics"] = refine
+        self.save(settings)
+
+    def get_origin_object_id(self) -> int | None:
+        """Get selected origin marker id, or None if not set."""
+        return self._cache.get("origin_object_id")
+
+    def set_origin_object_id(self, object_id: int | None) -> None:
+        """Update selected origin marker id and persist immediately. None removes the setting."""
+        settings = self._cache.copy()
+        if object_id is None:
+            settings.pop("origin_object_id", None)
+        else:
+            settings["origin_object_id"] = object_id
+        self.save(settings)
+
+    def get_origin_sync_index(self) -> int | None:
+        """Get selected origin frame's sync index, or None for a static origin marker."""
+        return self._cache.get("origin_sync_index")
+
+    def set_origin_sync_index(self, sync_index: int | None) -> None:
+        """Update origin frame's sync index and persist immediately. None removes the setting."""
+        settings = self._cache.copy()
+        if sync_index is None:
+            settings.pop("origin_sync_index", None)
+        else:
+            settings["origin_sync_index"] = sync_index
+        self.save(settings)

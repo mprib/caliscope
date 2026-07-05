@@ -88,6 +88,7 @@ class ExtrinsicCalibrationView(QWidget):
         # Quality state (retained for lens-model/coverage dialog launches)
         self._quality_data: CalibrationQualityData | None = None
         self._coverage_data: tuple[np.ndarray, list[str]] | None = None
+        self._coverage_dialog: QDialog | None = None
 
         self._setup_ui()
         self._connect_signals()
@@ -698,6 +699,7 @@ class ExtrinsicCalibrationView(QWidget):
             initial_cam_id=cam_id,
             parent=self,
         )
+        dialog.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
         dialog.show()
 
     def _on_coverage_updated(self, coverage: np.ndarray, labels: list[str]) -> None:
@@ -709,11 +711,17 @@ class ExtrinsicCalibrationView(QWidget):
         if self._coverage_data is None:
             return
 
+        if self._coverage_dialog is not None:
+            self._coverage_dialog.raise_()
+            self._coverage_dialog.activateWindow()
+            return
+
         coverage, labels = self._coverage_data
 
         dialog = QDialog(self)
         dialog.setWindowTitle("Camera Coverage")
         dialog.setModal(False)
+        dialog.finished.connect(lambda: setattr(self, "_coverage_dialog", None))
 
         layout = QVBoxLayout(dialog)
         layout.setContentsMargins(8, 8, 8, 8)
@@ -724,6 +732,7 @@ class ExtrinsicCalibrationView(QWidget):
 
         dialog.adjustSize()
         dialog.show()
+        self._coverage_dialog = dialog
 
     def _on_capture_volume_changed(self, capture_volume: CaptureVolume) -> None:  # noqa: ARG002
         """Refresh origin combo whenever the capture volume changes (calibrate, filter, rotate, align)."""
@@ -812,6 +821,10 @@ class ExtrinsicCalibrationView(QWidget):
 
     def cleanup(self) -> None:
         """Explicit cleanup - call before destruction."""
+        if self._scale_detail_dialog is not None:
+            self._scale_detail_dialog.close()
+        if self._coverage_dialog is not None:
+            self._coverage_dialog.close()
         if self._viz_widget is not None:
             self._viz_widget.close()
             self._viz_widget = None

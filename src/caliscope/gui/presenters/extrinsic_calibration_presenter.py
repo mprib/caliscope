@@ -234,10 +234,13 @@ class ExtrinsicCalibrationPresenter(QObject):
         # Load image points for coverage display (from capture volume if available, else CSV)
         if existing_capture_volume is not None:
             self._initial_image_points = existing_capture_volume.image_points
-            # Set initial sync index from capture volume
+            # Set initial sync index, skipping STATIC_SYNC_INDEX (-1)
+            from caliscope.core.point_data import STATIC_SYNC_INDEX
+
             sync_indices = existing_capture_volume.unique_sync_indices
-            if len(sync_indices) > 0:
-                self._current_sync_index = int(sync_indices[0])
+            valid = sync_indices[sync_indices != STATIC_SYNC_INDEX]
+            if len(valid) > 0:
+                self._current_sync_index = int(valid[0])
         else:
             self._load_initial_image_points()
 
@@ -674,13 +677,17 @@ class ExtrinsicCalibrationPresenter(QObject):
         """Handle calibration failure."""
         logger.error(f"Calibration failed: {exc_type}: {message}")
         self._task_handle = None
+        self._filter_summary = None
         self._emit_state_changed()
+        self._refresh_workflow_strip()
 
     def _on_calibration_cancelled(self) -> None:
         """Handle calibration cancellation."""
         logger.info("Calibration cancelled")
         self._task_handle = None
+        self._filter_summary = None
         self._emit_state_changed()
+        self._refresh_workflow_strip()
 
     # -------------------------------------------------------------------------
     # Private: State Management

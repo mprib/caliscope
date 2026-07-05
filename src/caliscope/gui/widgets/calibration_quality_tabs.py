@@ -56,7 +56,6 @@ class CalibrationQualityTabs(QWidget):
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
-        self._markers_tab_index: int | None = None
         self._setup_ui()
 
     def _setup_ui(self) -> None:
@@ -307,11 +306,12 @@ class CalibrationQualityTabs(QWidget):
                 self._marker_table.setItem(row_idx, col, item)
 
         if rows:
-            if self._markers_tab_index is None:
-                self._markers_tab_index = self._tab_widget.addTab(self._markers_tab, "Markers")
-        elif self._markers_tab_index is not None:
-            self._tab_widget.removeTab(self._markers_tab_index)
-            self._markers_tab_index = None
+            if self._tab_widget.indexOf(self._markers_tab) == -1:
+                self._tab_widget.addTab(self._markers_tab, "Markers")
+        else:
+            idx = self._tab_widget.indexOf(self._markers_tab)
+            if idx != -1:
+                self._tab_widget.removeTab(idx)
 
     # -------------------------------------------------------------------------
     # Public API

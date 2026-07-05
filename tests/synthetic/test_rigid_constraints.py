@@ -165,7 +165,7 @@ class TestSparsityOracle:
 
         arrays = cv._build_constraint_arrays()
         assert arrays is not None
-        c_pairs, c_dists, c_sigmas = arrays
+        c_groups_a, c_groups_b, c_dists, c_sigmas = arrays
 
         focal_lengths = [cam.matrix[0, 0] for cam in cv.camera_array.posed_cameras.values() if cam.matrix is not None]
         f_median = float(np.median(focal_lengths))
@@ -175,8 +175,8 @@ class TestSparsityOracle:
             cv.camera_array, n_points=len(cv.world_points.points), refine_intrinsics=False
         )
         x0 = parameterization.pack(cv.camera_array, cv.world_points.points)
-        n_constraints = len(c_pairs)
-        sparsity = parameterization.sparsity(camera_indices, obj_indices, n_constraints, c_pairs)
+        n_constraints = len(c_groups_a)
+        sparsity = parameterization.sparsity(camera_indices, obj_indices, n_constraints, c_groups_a, c_groups_b)
 
         def residual_fn(x: np.ndarray) -> np.ndarray:
             return joint_residuals(
@@ -185,7 +185,8 @@ class TestSparsityOracle:
                 camera_indices,
                 image_coords,
                 obj_indices,
-                c_pairs,
+                c_groups_a,
+                c_groups_b,
                 c_dists,
                 c_weights,
             )

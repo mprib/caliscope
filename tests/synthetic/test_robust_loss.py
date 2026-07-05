@@ -82,7 +82,6 @@ class TestRobustLossOutliers:
         intrinsics_only = scene.intrinsics_only_cameras()
 
         cv = CaptureVolume.bootstrap(corrupted, intrinsics_only)
-        f_scale = cv.pixel_f_scale(px=1.0)
 
         # Linear baseline
         linear = cv.optimize(refine_intrinsics=False)

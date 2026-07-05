@@ -2,13 +2,17 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from functools import cached_property
+from itertools import combinations
 from pathlib import Path
-from typing import Literal
+from typing import TYPE_CHECKING, Literal
 
 import numpy as np
 import rtoml
 
 from caliscope.core.aruco_marker import ArucoMarkerSet
+
+if TYPE_CHECKING:
+    from caliscope.core.charuco import Charuco
 
 
 @dataclass(frozen=True)
@@ -111,6 +115,102 @@ class ConstraintSet:
             static_object_ids=static_ids,
             centroid_distances=tuple(centroid_constraints),
         )
+
+    @classmethod
+    def from_charuco(cls, charuco: Charuco, sigma_m: float = 0.002) -> ConstraintSet:
+        """Compile board-geometry distance constraints for BA.
+
+        object_id is 0 for every corner, matching CharucoTracker's identity
+        scheme (object_id=0, keypoint_id=chessboard corner index).
+        static_object_ids is empty — the board moves. Produces only
+        DistanceConstraints, never centroids (a charuco board has no separate
+        markers to link by centroid).
+
+        Corner ids come from `charuco.board.getChessboardCorners()`, the same
+        (N, 3) array CharucoTracker indexes by `keypoint_id`. Edges are found
+        by corner *coordinates*, not assumed index order — the same robust
+        pattern `Charuco.get_connected_points` uses — because OpenCV does not
+        guarantee any particular corner-id-to-grid-position layout.
+
+        Constraint density is a local truss (horizontal + vertical neighbor
+        edges, both diagonals of every grid cell) plus 6 global braces among
+        the 4 extreme board corners. Rationale: nearest-neighbor + diagonal
+        distances alone are invariant under a paper fold along any grid
+        line — every truss edge and cell diagonal either lies wholly within
+        one rigid half of the fold or has an endpoint on the hinge axis, so
+        every constrained *distance* is preserved even though corners move.
+        The 4-corner braces cross every interior fold line and kill those
+        modes. Full pairwise distances (~C(N,2), roughly triple the residual
+        rows for a typical board) would add no rigidity information beyond
+        what the truss + braces already pin down.
+        """
+        corners = np.asarray(charuco.board.getChessboardCorners())
+        square_length = float(charuco.board.getSquareLength())
+
+        # Quantize by rounding each coordinate to the nearest multiple of
+        # square_length. OpenCV emits these as float32, so exact equality is
+        # unsafe; unlike a fixed absolute tolerance, this scales with board
+        # size and tolerates float32 error (empirically up to ~1e-6 of a
+        # square) with wide margin below the 0.5-square ambiguity band.
+        x_keys = np.round(corners[:, 0] / square_length).astype(np.int64)
+        y_keys = np.round(corners[:, 1] / square_length).astype(np.int64)
+
+        edges: list[tuple[int, int]] = []
+
+        # Horizontal neighbors: group by row (y), sort by column (x).
+        rows: dict[int, list[tuple[int, int]]] = {}
+        for idx, y_key in enumerate(y_keys):
+            rows.setdefault(int(y_key), []).append((int(x_keys[idx]), idx))
+        for row_points in rows.values():
+            row_points.sort()
+            for (_, a), (_, b) in zip(row_points, row_points[1:]):
+                edges.append((a, b))
+
+        # Vertical neighbors: group by column (x), sort by row (y).
+        cols: dict[int, list[tuple[int, int]]] = {}
+        for idx, x_key in enumerate(x_keys):
+            cols.setdefault(int(x_key), []).append((int(y_keys[idx]), idx))
+        for col_points in cols.values():
+            col_points.sort()
+            for (_, a), (_, b) in zip(col_points, col_points[1:]):
+                edges.append((a, b))
+
+        # Cell diagonals: a corner at (x, y) with neighbors at (x+sq, y),
+        # (x, y+sq), (x+sq, y+sq) forms a grid cell; emit both diagonals.
+        coord_to_idx = {(int(xk), int(yk)): idx for idx, (xk, yk) in enumerate(zip(x_keys, y_keys))}
+        for idx, (x_key, y_key) in enumerate(zip(x_keys, y_keys)):
+            x_key, y_key = int(x_key), int(y_key)
+            right = coord_to_idx.get((x_key + 1, y_key))
+            up = coord_to_idx.get((x_key, y_key + 1))
+            diagonal = coord_to_idx.get((x_key + 1, y_key + 1))
+            if right is not None and up is not None and diagonal is not None:
+                edges.append((idx, diagonal))
+                edges.append((right, up))
+
+        # Global braces: all 6 pairwise distances among the 4 extreme corners.
+        min_x, max_x = int(x_keys.min()), int(x_keys.max())
+        min_y, max_y = int(y_keys.min()), int(y_keys.max())
+        extreme_corners = [
+            coord_to_idx[(min_x, min_y)],
+            coord_to_idx[(min_x, max_y)],
+            coord_to_idx[(max_x, min_y)],
+            coord_to_idx[(max_x, max_y)],
+        ]
+        edges.extend(combinations(extreme_corners, 2))
+
+        constraints = tuple(
+            DistanceConstraint(
+                object_id_a=0,
+                keypoint_id_a=a,
+                object_id_b=0,
+                keypoint_id_b=b,
+                distance=float(np.linalg.norm(corners[a] - corners[b])),
+                sigma=sigma_m,
+            )
+            for a, b in edges
+        )
+
+        return cls(distances=constraints, static_object_ids=frozenset(), centroid_distances=())
 
     def to_toml(self, path: Path) -> None:
         from caliscope.persistence import _safe_write_toml

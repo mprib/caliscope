@@ -4,6 +4,7 @@ import pytest
 import cv2
 
 from caliscope.core.aruco_marker import ArucoMarker, ArucoMarkerSet, DistanceLink
+from caliscope.core.charuco import Charuco
 from caliscope.core.constraints import (
     CentroidDistanceConstraint,
     ConstraintSet,
@@ -919,3 +920,97 @@ def test_static_marker_guard_gates_on_intra_only_rmse():
     intra_rmse = RigidityReport(violations=intra_violations).per_object_rmse_mm.get(0, 0.0)
     assert intra_rmse < threshold
     assert intra_rmse == pytest.approx(0.0, abs=1e-6)
+
+
+# -- ConstraintSet.from_charuco --
+
+
+def _five_by_seven_charuco() -> Charuco:
+    """5x7-square board -> 4x6 corner grid (both dims >= 3), the case the
+    count formula requires.
+    """
+    return Charuco.from_squares(columns=7, rows=5, square_size_cm=5.0)
+
+
+def test_from_charuco_constraint_count_matches_formula():
+    """R(C-1) horizontal + (R-1)C vertical + 2(R-1)(C-1) diagonals + 6 braces,
+    for an R x C corner grid with both dims >= 3 (extreme corners then don't
+    alias truss edges).
+    """
+    charuco = _five_by_seven_charuco()
+    corners = np.asarray(charuco.board.getChessboardCorners())
+    n_cols = len(set(np.round(corners[:, 0] / charuco.board.getSquareLength()).astype(int)))
+    n_rows = len(set(np.round(corners[:, 1] / charuco.board.getSquareLength()).astype(int)))
+    assert n_rows >= 3 and n_cols >= 3
+
+    cs = ConstraintSet.from_charuco(charuco)
+
+    expected = n_rows * (n_cols - 1) + (n_rows - 1) * n_cols + 2 * (n_rows - 1) * (n_cols - 1) + 6
+    assert len(cs.distances) == expected
+
+
+def test_from_charuco_all_distances_positive():
+    charuco = _five_by_seven_charuco()
+    cs = ConstraintSet.from_charuco(charuco)
+    assert len(cs.distances) > 0
+    assert all(d.distance > 0 for d in cs.distances)
+
+
+def test_from_charuco_neighbor_distances_equal_square_length():
+    """Horizontal and vertical adjacent-corner distances equal the board's
+    square_length exactly (within a tight float tolerance) — they are the
+    literal edges of the printed grid squares.
+    """
+    charuco = _five_by_seven_charuco()
+    square_length = float(charuco.board.getSquareLength())
+    cs = ConstraintSet.from_charuco(charuco)
+
+    neighbor_distances = [d.distance for d in cs.distances if d.distance == pytest.approx(square_length, abs=1e-9)]
+    # every row contributes (n_cols - 1) horizontal edges, every column (n_rows - 1)
+    # vertical edges; all of them measure exactly one square_length.
+    assert len(neighbor_distances) > 0
+    for dist in neighbor_distances:
+        assert abs(dist - square_length) < 1e-9
+
+
+def test_from_charuco_braces_present():
+    """The 4 extreme board corners (min/max x times min/max y) are all
+    pairwise braced (6 distances among them), guarding against paper-fold
+    degeneracy along interior grid lines.
+    """
+    charuco = _five_by_seven_charuco()
+    corners = np.asarray(charuco.board.getChessboardCorners())
+    xs, ys = corners[:, 0], corners[:, 1]
+
+    def _closest(target_x, target_y):
+        return int(np.argmin((xs - target_x) ** 2 + (ys - target_y) ** 2))
+
+    extreme_ids = {
+        _closest(xs.min(), ys.min()),
+        _closest(xs.min(), ys.max()),
+        _closest(xs.max(), ys.min()),
+        _closest(xs.max(), ys.max()),
+    }
+    assert len(extreme_ids) == 4
+
+    cs = ConstraintSet.from_charuco(charuco)
+    brace_pairs = {
+        frozenset((d.keypoint_id_a, d.keypoint_id_b))
+        for d in cs.distances
+        if d.keypoint_id_a in extreme_ids and d.keypoint_id_b in extreme_ids
+    }
+    # C(4, 2) = 6 pairwise braces among the 4 extreme corners.
+    assert len(brace_pairs) == 6
+
+
+def test_from_charuco_object_ids_all_zero_and_no_centroids():
+    """object_id is 0 for every corner (matching CharucoTracker's identity
+    scheme); static_object_ids is empty (the board moves); no centroid
+    constraints are ever produced from a charuco board.
+    """
+    charuco = _five_by_seven_charuco()
+    cs = ConstraintSet.from_charuco(charuco)
+
+    assert all(d.object_id_a == 0 and d.object_id_b == 0 for d in cs.distances)
+    assert cs.static_object_ids == frozenset()
+    assert cs.centroid_distances == ()

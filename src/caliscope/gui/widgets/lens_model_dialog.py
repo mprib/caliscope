@@ -155,11 +155,15 @@ class LensModelDialog(QDialog):
         self._cam_combo.currentIndexChanged.connect(self._update_images)
         self._source_combo.currentIndexChanged.connect(self._update_images)
 
-        # Set initial camera
+        # Set initial camera and load images
         if initial_cam_id is not None and initial_cam_id in self._cameras:
             idx = sorted_ids.index(initial_cam_id)
             self._cam_combo.setCurrentIndex(idx)
-        else:
+        self._update_images()
+
+    def resizeEvent(self, event) -> None:
+        super().resizeEvent(event)
+        if self._cam_combo.currentData() is not None:
             self._update_images()
 
     def _update_images(self) -> None:
@@ -192,5 +196,6 @@ class LensModelDialog(QDialog):
         visualizer = LensModelVisualizer(camera)
         undistorted = visualizer.undistort(frame)
 
-        self._before_label.setPixmap(_ndarray_to_pixmap(frame))
-        self._after_label.setPixmap(_ndarray_to_pixmap(undistorted))
+        available_width = max(self.width() // 2 - 24, 200)
+        self._before_label.setPixmap(_ndarray_to_pixmap(frame, max_width=available_width))
+        self._after_label.setPixmap(_ndarray_to_pixmap(undistorted, max_width=available_width))

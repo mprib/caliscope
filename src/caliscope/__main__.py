@@ -82,6 +82,7 @@ def CLI_parser():
 
     parser = argparse.ArgumentParser(prog="caliscope")
     parser.add_argument("--workspace", type=str, help="Path to workspace directory to open on launch")
-    args = parser.parse_args()
+    args, remaining = parser.parse_known_args()
+    sys.argv = [sys.argv[0], *remaining]
 
     launch_main(workspace=args.workspace)

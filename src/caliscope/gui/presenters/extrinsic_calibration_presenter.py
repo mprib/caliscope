@@ -330,6 +330,11 @@ class ExtrinsicCalibrationPresenter(QObject):
         self._calibration_result = None
         self._filter_summary = None
 
+        # Clear persisted origin — the old transform is invalidated by recalibration
+        if self._project_settings is not None:
+            self._project_settings.set_origin_object_id(None)
+            self._project_settings.set_origin_sync_index(None)
+
         # Capture for closure - deepcopy camera_array since bootstrap mutates it
         image_points_path = self._image_points_path
         camera_array = deepcopy(self._camera_array)

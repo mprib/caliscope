@@ -10,6 +10,7 @@ from caliscope.synthetic.camera_synthesizer import (
     LensProfile,
     perturb_intrinsics,
     strip_extrinsics,
+    strip_intrinsics,
 )
 from caliscope.core.coverage_analysis import compute_coverage_matrix
 from caliscope.synthetic.filter_config import FilterConfig
@@ -80,5 +81,6 @@ __all__ = [
     "load_fixture",
     "perturb_intrinsics",
     "strip_extrinsics",
+    "strip_intrinsics",
     "WEBCAM",
 ]

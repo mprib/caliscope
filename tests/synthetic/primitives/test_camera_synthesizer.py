@@ -3,7 +3,7 @@
 import numpy as np
 import pytest
 
-from caliscope.synthetic.camera_synthesizer import CameraSynthesizer, strip_extrinsics
+from caliscope.synthetic.camera_synthesizer import CameraSynthesizer, strip_extrinsics, strip_intrinsics
 from caliscope.synthetic.se3_pose import SE3Pose
 
 
@@ -126,6 +126,19 @@ class TestStripExtrinsics:
         assert original.cameras[0].translation is not None
         np.testing.assert_allclose(original.cameras[0].rotation, original_rotation)
         np.testing.assert_allclose(original.cameras[0].translation, original_translation)
+
+
+class TestStripIntrinsics:
+    """Tests for strip_intrinsics utility function."""
+
+    def test_removes_intrinsics_retains_size(self) -> None:
+        original = CameraSynthesizer().add_ring(n=4, radius=1.0).build()
+        stripped = strip_intrinsics(original)
+
+        for cam_id, cam in stripped.cameras.items():
+            assert cam.matrix is None
+            assert cam.distortions is None
+            assert cam.size == original.cameras[cam_id].size
 
 
 class TestSE3PoseRotations:

@@ -3,8 +3,14 @@ import pandas as pd
 import pytest
 import cv2
 
-from caliscope.core.aruco_marker import ArucoMarker, ArucoMarkerSet, MarkerLink
-from caliscope.core.constraints import ConstraintSet, ConstraintViolation, RigidityReport
+from caliscope.core.aruco_marker import ArucoMarker, ArucoMarkerSet, DistanceLink
+from caliscope.core.constraints import (
+    CentroidDistanceConstraint,
+    ConstraintSet,
+    ConstraintViolation,
+    DistanceConstraint,
+    RigidityReport,
+)
 from caliscope.core.point_data import STATIC_SYNC_INDEX, WorldPoints
 
 
@@ -16,13 +22,79 @@ def test_constraint_set_from_single_marker():
     assert len(cs.static_object_ids) == 0
 
 
-def test_constraint_set_from_8_markers_with_link():
+def test_constraint_set_from_8_markers_with_corner_link():
+    """A corner DistanceLink passes through as exactly ONE DistanceConstraint —
+    not one per corner. This is the new explicit-measurement model: the user's
+    single measured distance is the constraint, no derived pairs.
+    """
     markers = {i: ArucoMarker(i, 1.0, static=(i >= 4)) for i in range(8)}
-    link = MarkerLink(marker_a=0, marker_b=1, corner_map=(1, 0, 3, 2), separation_m=0.004)
+    link = DistanceLink(marker_a=0, corner_a=1, marker_b=1, corner_b=0, distance_m=0.004)
     ms = ArucoMarkerSet(dictionary=cv2.aruco.DICT_4X4_50, markers=markers, links=(link,))
     cs = ConstraintSet.from_marker_set(ms)
-    assert len(cs.distances) == 8 * 6 + 4  # 48 intra + 4 link = 52
+    assert len(cs.distances) == 8 * 6 + 1  # 48 intra + 1 corner link = 49
+    assert len(cs.centroid_distances) == 0
     assert cs.static_object_ids == frozenset({4, 5, 6, 7})
+
+    link_constraint = next(d for d in cs.distances if d.object_id_a == 0 and d.object_id_b == 1)
+    assert link_constraint == DistanceConstraint(
+        object_id_a=0,
+        keypoint_id_a=1,
+        object_id_b=1,
+        keypoint_id_b=0,
+        distance=0.004,
+        sigma=0.002,  # default corner sigma
+    )
+
+
+def test_constraint_set_from_marker_set_with_center_link():
+    """A center DistanceLink compiles to exactly one CentroidDistanceConstraint,
+    leaving the DistanceConstraint list to only the intra-marker geometry.
+    """
+    markers = {0: ArucoMarker(0, 1.0), 1: ArucoMarker(1, 1.0)}
+    link = DistanceLink(marker_a=0, marker_b=1, distance_m=0.512)
+    ms = ArucoMarkerSet(dictionary=cv2.aruco.DICT_4X4_50, markers=markers, links=(link,))
+    cs = ConstraintSet.from_marker_set(ms)
+
+    assert len(cs.distances) == 2 * 6  # intra-marker only, no derived corner pairs
+    assert cs.centroid_distances == (
+        CentroidDistanceConstraint(object_id_a=0, object_id_b=1, distance=0.512, sigma=0.005),
+    )
+
+
+def test_constraint_set_sigma_defaulting():
+    """Explicit link sigma_m wins; otherwise corner links default to sigma_m
+    and center links default to center_sigma_m (from_marker_set parameters).
+    """
+    markers = {0: ArucoMarker(0, 1.0), 1: ArucoMarker(1, 1.0)}
+    corner_link_default = DistanceLink(marker_a=0, corner_a=0, marker_b=1, corner_b=0, distance_m=0.3)
+    corner_link_explicit = DistanceLink(marker_a=0, corner_a=1, marker_b=1, corner_b=1, distance_m=0.3, sigma_m=0.0005)
+    ms = ArucoMarkerSet(
+        dictionary=cv2.aruco.DICT_4X4_50,
+        markers=markers,
+        links=(corner_link_default, corner_link_explicit),
+    )
+    cs = ConstraintSet.from_marker_set(ms, sigma_m=0.001, center_sigma_m=0.01)
+    default_constraint = next(d for d in cs.distances if d.keypoint_id_a == 0 and d.keypoint_id_b == 0)
+    explicit_constraint = next(d for d in cs.distances if d.keypoint_id_a == 1 and d.keypoint_id_b == 1)
+    assert default_constraint.sigma == pytest.approx(0.001)
+    assert explicit_constraint.sigma == pytest.approx(0.0005)
+
+    # Center links: a marker pair can carry only one link (duplicate-endpoint
+    # rejection), so default and explicit sigma are exercised on separate sets.
+    markers_center = {2: ArucoMarker(2, 1.0), 3: ArucoMarker(3, 1.0)}
+    center_link_default = DistanceLink(marker_a=2, marker_b=3, distance_m=0.6)
+    ms_center_default = ArucoMarkerSet(
+        dictionary=cv2.aruco.DICT_4X4_50, markers=markers_center, links=(center_link_default,)
+    )
+    cs_center_default = ConstraintSet.from_marker_set(ms_center_default, sigma_m=0.001, center_sigma_m=0.01)
+    assert cs_center_default.centroid_distances[0].sigma == pytest.approx(0.01)
+
+    center_link_explicit = DistanceLink(marker_a=2, marker_b=3, distance_m=0.6, sigma_m=0.02)
+    ms_center_explicit = ArucoMarkerSet(
+        dictionary=cv2.aruco.DICT_4X4_50, markers=markers_center, links=(center_link_explicit,)
+    )
+    cs_center_explicit = ConstraintSet.from_marker_set(ms_center_explicit, sigma_m=0.001, center_sigma_m=0.01)
+    assert cs_center_explicit.centroid_distances[0].sigma == pytest.approx(0.02)
 
 
 def test_constraint_set_distances_correct():
@@ -37,17 +109,58 @@ def test_constraint_set_distances_correct():
 
 
 def test_constraint_set_toml_round_trip(tmp_path):
-    markers = {0: ArucoMarker(0, 1.0), 4: ArucoMarker(4, 1.0, static=True)}
-    ms = ArucoMarkerSet(dictionary=cv2.aruco.DICT_4X4_50, markers=markers)
+    markers = {
+        0: ArucoMarker(0, 1.0),
+        1: ArucoMarker(1, 1.0),
+        4: ArucoMarker(4, 1.0, static=True),
+    }
+    center_link = DistanceLink(marker_a=0, marker_b=1, distance_m=0.512, sigma_m=0.005)
+    ms = ArucoMarkerSet(dictionary=cv2.aruco.DICT_4X4_50, markers=markers, links=(center_link,))
     original = ConstraintSet.from_marker_set(ms)
+    assert len(original.centroid_distances) == 1  # sanity: exercise the centroid path too
+
     path = tmp_path / "constraints.toml"
     original.to_toml(path)
     loaded = ConstraintSet.from_toml(path)
     assert len(loaded.distances) == len(original.distances)
+    assert len(loaded.centroid_distances) == len(original.centroid_distances)
     assert loaded.static_object_ids == original.static_object_ids
     for orig, load in zip(original.distances, loaded.distances):
         assert load.distance == pytest.approx(orig.distance)
         assert load.sigma == pytest.approx(orig.sigma)
+    for orig, load in zip(original.centroid_distances, loaded.centroid_distances):
+        assert load.object_id_a == orig.object_id_a
+        assert load.object_id_b == orig.object_id_b
+        assert load.distance == pytest.approx(orig.distance)
+        assert load.sigma == pytest.approx(orig.sigma)
+
+
+def test_constraint_set_from_toml_missing_centroid_key(tmp_path):
+    """A compiled TOML predating centroid_distances (no such key) loads with an
+    empty tuple rather than raising — older artifacts stay readable.
+    """
+    import rtoml
+
+    path = tmp_path / "constraints.toml"
+    rtoml.dump(
+        {
+            "static_object_ids": [],
+            "distances": [
+                {
+                    "object_id_a": 0,
+                    "keypoint_id_a": 0,
+                    "object_id_b": 0,
+                    "keypoint_id_b": 1,
+                    "distance": 1.0,
+                    "sigma": 0.002,
+                }
+            ],
+        },
+        path,
+    )
+    loaded = ConstraintSet.from_toml(path)
+    assert loaded.centroid_distances == ()
+    assert len(loaded.distances) == 1
 
 
 def test_constraint_set_from_toml_missing(tmp_path):

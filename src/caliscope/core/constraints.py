@@ -21,20 +21,45 @@ class DistanceConstraint:
 
 
 @dataclass(frozen=True)
+class CentroidDistanceConstraint:
+    """Distance between two markers' corner centroids.
+
+    A centroid is the mean of the marker's four corner points (keypoint_ids
+    0..3 — the ArUco corner convention). Only compiled from center
+    DistanceLinks; charuco never produces these. A centroid constraint pins
+    only the separation between the two centroids — it is blind to each
+    marker's internal orientation and shape, which relies on that marker's
+    own (always-compiled) intra-marker distance constraints to stay pinned.
+    """
+
+    object_id_a: int
+    object_id_b: int
+    distance: float
+    sigma: float
+
+
+@dataclass(frozen=True)
 class ConstraintSet:
     distances: tuple[DistanceConstraint, ...]
     static_object_ids: frozenset[int]
+    centroid_distances: tuple[CentroidDistanceConstraint, ...] = ()
 
     @classmethod
     def from_marker_set(
         cls,
         marker_set: ArucoMarkerSet,
         sigma_m: float = 0.002,
+        center_sigma_m: float = 0.005,
     ) -> ConstraintSet:
         """Compile distance constraints from a marker set.
 
-        Emits 6 intra-marker constraints per marker (4 edges + 2 diagonals)
-        and 4 cross-marker constraints per link. All distances in meters.
+        Emits 6 intra-marker constraints per marker (4 edges + 2 diagonals).
+        Each corner DistanceLink passes through as exactly one
+        DistanceConstraint — the user's measured distance is the constraint,
+        no derived pairs. Each center DistanceLink compiles to one
+        CentroidDistanceConstraint. A link's own sigma_m wins when set;
+        otherwise corner links default to sigma_m and center links default
+        to center_sigma_m. All distances in meters.
         """
         constraints: list[DistanceConstraint] = []
 
@@ -54,22 +79,37 @@ class ConstraintSet:
                         )
                     )
 
+        centroid_constraints: list[CentroidDistanceConstraint] = []
         for link in marker_set.links:
-            for i in range(4):
+            if link.is_center:
+                centroid_constraints.append(
+                    CentroidDistanceConstraint(
+                        object_id_a=link.marker_a,
+                        object_id_b=link.marker_b,
+                        distance=link.distance_m,
+                        sigma=link.sigma_m if link.sigma_m is not None else center_sigma_m,
+                    )
+                )
+            else:
+                assert link.corner_a is not None and link.corner_b is not None  # is_center=False guarantees this
                 constraints.append(
                     DistanceConstraint(
                         object_id_a=link.marker_a,
-                        keypoint_id_a=i,
+                        keypoint_id_a=link.corner_a,
                         object_id_b=link.marker_b,
-                        keypoint_id_b=link.corner_map[i],
-                        distance=link.separation_m,
-                        sigma=sigma_m,
+                        keypoint_id_b=link.corner_b,
+                        distance=link.distance_m,
+                        sigma=link.sigma_m if link.sigma_m is not None else sigma_m,
                     )
                 )
 
         static_ids = frozenset(mid for mid, m in marker_set.markers.items() if m.static)
 
-        return cls(distances=tuple(constraints), static_object_ids=static_ids)
+        return cls(
+            distances=tuple(constraints),
+            static_object_ids=static_ids,
+            centroid_distances=tuple(centroid_constraints),
+        )
 
     def to_toml(self, path: Path) -> None:
         from caliscope.persistence import _safe_write_toml
@@ -87,6 +127,15 @@ class ConstraintSet:
                     "sigma": d.sigma,
                 }
                 for d in self.distances
+            ],
+            "centroid_distances": [
+                {
+                    "object_id_a": c.object_id_a,
+                    "object_id_b": c.object_id_b,
+                    "distance": c.distance,
+                    "sigma": c.sigma,
+                }
+                for c in self.centroid_distances
             ],
         }
         _safe_write_toml(data, path)
@@ -110,8 +159,17 @@ class ConstraintSet:
                 )
                 for d in data.get("distances", [])
             )
+            centroid_distances = tuple(
+                CentroidDistanceConstraint(
+                    object_id_a=c["object_id_a"],
+                    object_id_b=c["object_id_b"],
+                    distance=c["distance"],
+                    sigma=c["sigma"],
+                )
+                for c in data.get("centroid_distances", [])
+            )
             static_ids = frozenset(data.get("static_object_ids", []))
-            return cls(distances=distances, static_object_ids=static_ids)
+            return cls(distances=distances, static_object_ids=static_ids, centroid_distances=centroid_distances)
         except PersistenceError:
             raise
         except Exception as e:

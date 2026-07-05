@@ -134,6 +134,17 @@ class CaptureVolume:
 
         return img_to_obj_map
 
+    def pixel_f_scale(self, px: float = 1.0) -> float:
+        """Convert a pixel inlier threshold to the normalized residual space.
+
+        Residuals are divided by fx_initial per camera. f_scale = px / f_median
+        maps a 1-pixel threshold to the same units.
+        """
+        focal_lengths = [
+            cam.matrix[0, 0] for cam in self.camera_array.posed_cameras.values() if cam.matrix is not None
+        ]
+        return px / float(np.median(focal_lengths))
+
     @cached_property
     def reprojection_report(self) -> ReprojectionReport:
         """
@@ -882,13 +893,7 @@ class CaptureVolume:
         source_points = merged[["x_coord", "y_coord", "z_coord"]].values.astype(np.float64)
         target_points = merged[obj_cols].values.astype(np.float64)
 
-        transform = estimate_similarity_transform(source_points, target_points)
-
-        if self.constraints is not None and abs(transform.scale - 1.0) > 0.02:
-            logger.warning(
-                f"Scale deviation on constrained volume: {transform.scale:.4f} "
-                f"(expected ~1.0). The BA could not reconcile constraints with pixel evidence."
-            )
+        transform = estimate_similarity_transform(source_points, target_points, rigid=True)
 
         logger.info(
             f"Estimated alignment: scale={transform.scale:.6f}, "

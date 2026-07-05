@@ -1,6 +1,6 @@
 """E5a: Robust loss on the outlier scene (extrinsics-only, runs first).
 
-Tests whether Huber loss prevents BA from absorbing outliers into camera
+Tests whether soft_l1 loss prevents BA from absorbing outliers into camera
 poses, which would leave outlier residuals exposed for the post-hoc filter.
 
 This is the evidence gate for the robust-loss-ba production task.
@@ -8,24 +8,9 @@ This is the evidence gate for the robust-loss-ba production task.
 
 from __future__ import annotations
 
-import numpy as np
-
 from caliscope.core.capture_volume import CaptureVolume
 from caliscope.synthetic.scene_factories import outlier_scene
 from tests.synthetic.assertions import align_to_ground_truth, pose_error
-
-
-def _f_scale_for_pixels(capture_volume: CaptureVolume, px: float = 1.0) -> float:
-    """Convert a pixel-space inlier threshold to the scaled residual space.
-
-    Production residuals are divided by fx_initial per camera. The scipy
-    f_scale should be px / f_median to match 1-pixel inlier threshold.
-    """
-    focal_lengths = [
-        cam.matrix[0, 0] for cam in capture_volume.camera_array.posed_cameras.values() if cam.matrix is not None
-    ]
-    f_median = float(np.median(focal_lengths))
-    return px / f_median
 
 
 def _corrupted_row_keys(corrupted_df, corrupted_indices):
@@ -44,26 +29,26 @@ def _row_key_set(df):
 
 class TestRobustLossOutliers:
     def test_robust_solve_converges(self) -> None:
-        """Huber BA on corrupted data converges."""
+        """soft_l1 BA on corrupted data converges."""
         scene, corrupted, _ = outlier_scene()
         intrinsics_only = scene.intrinsics_only_cameras()
 
         cv = CaptureVolume.bootstrap(corrupted, intrinsics_only)
-        f_scale = _f_scale_for_pixels(cv, px=1.0)
-        optimized = cv.optimize(loss="huber", f_scale=f_scale, refine_intrinsics=False)
+        f_scale = cv.pixel_f_scale(px=1.0)
+        optimized = cv.optimize(loss="soft_l1", f_scale=f_scale, refine_intrinsics=False)
 
         assert optimized.optimization_status is not None
         assert optimized.optimization_status.converged
 
     def test_robust_poses_no_worse_than_linear(self) -> None:
-        """Huber BA on corrupted data produces poses at least as good as linear BA."""
+        """soft_l1 BA on corrupted data produces poses at least as good as linear BA."""
         scene, corrupted, _ = outlier_scene()
         intrinsics_only = scene.intrinsics_only_cameras()
 
         cv = CaptureVolume.bootstrap(corrupted, intrinsics_only)
-        f_scale = _f_scale_for_pixels(cv, px=1.0)
+        f_scale = cv.pixel_f_scale(px=1.0)
         linear = cv.optimize(refine_intrinsics=False)
-        robust = cv.optimize(loss="huber", f_scale=f_scale, refine_intrinsics=False)
+        robust = cv.optimize(loss="soft_l1", f_scale=f_scale, refine_intrinsics=False)
 
         linear_aligned = align_to_ground_truth(linear, scene)
         robust_aligned = align_to_ground_truth(robust, scene)
@@ -83,13 +68,13 @@ class TestRobustLossOutliers:
         )
 
     def test_robust_improves_filter_recovery(self) -> None:
-        """Post-robust-solve filter catches more outliers than post-linear-solve filter."""
+        """Post-soft_l1-solve filter catches more outliers than post-linear-solve filter."""
         scene, corrupted, corrupted_indices = outlier_scene()
         corrupted_keys = _corrupted_row_keys(corrupted.df, corrupted_indices)
         intrinsics_only = scene.intrinsics_only_cameras()
 
         cv = CaptureVolume.bootstrap(corrupted, intrinsics_only)
-        f_scale = _f_scale_for_pixels(cv, px=1.0)
+        f_scale = cv.pixel_f_scale(px=1.0)
 
         # Linear baseline
         linear = cv.optimize(refine_intrinsics=False)
@@ -102,7 +87,7 @@ class TestRobustLossOutliers:
         linear_recall = len(linear_caught) / len(linear_matched) if linear_matched else 0
 
         # Robust solve
-        robust = cv.optimize(loss="huber", f_scale=f_scale, refine_intrinsics=False)
+        robust = cv.optimize(loss="soft_l1", f_scale=f_scale, refine_intrinsics=False)
         robust_filtered = robust.filter_by_percentile_error(percentile=5, scope="overall")
         robust_pre = _row_key_set(robust.image_points.df)
         robust_post = _row_key_set(robust_filtered.image_points.df)
@@ -113,7 +98,7 @@ class TestRobustLossOutliers:
 
         assert robust_recall >= linear_recall, (
             f"Robust recall {robust_recall:.3f} < linear recall {linear_recall:.3f}. "
-            f"Huber did not improve outlier separation."
+            f"soft_l1 did not improve outlier separation."
         )
 
         assert robust_recall >= 0.60, f"Robust recall {robust_recall:.3f} < 0.60 floor"
@@ -125,7 +110,7 @@ if __name__ == "__main__":
     debug_dir = Path(__file__).parent / "tmp"
     debug_dir.mkdir(parents=True, exist_ok=True)
 
-    print("Testing E5a: robust loss on outlier scene...")
+    print("Testing E5a: soft_l1 loss on outlier scene...")
     t = TestRobustLossOutliers()
     t.test_robust_solve_converges()
     print("  converges: PASSED")

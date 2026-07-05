@@ -129,23 +129,32 @@ def calibrate_extrinsics(
 
     _check_cancelled()
 
-    # 5. First optimize
-    _progress(50, "Optimizing")
+    # 5. Linear optimize (fast convergence to the basin)
+    _progress(40, "Optimizing")
     capture_volume = capture_volume.optimize(refine_intrinsics=refine_intrinsics)
 
     _check_cancelled()
 
-    # 6. Filter outliers
+    # 6. Robust refinement (warm-started, protects poses from outliers)
+    _progress(55, "Robust refinement")
+    f_scale = capture_volume.pixel_f_scale(px=1.0)
+    capture_volume = capture_volume.optimize(
+        refine_intrinsics=refine_intrinsics, loss="soft_l1", f_scale=f_scale
+    )
+
+    _check_cancelled()
+
+    # 7. Filter outliers
     _progress(75, "Filtering outliers")
     capture_volume = capture_volume.filter_by_percentile_error(filter_percentile)
 
     _check_cancelled()
 
-    # 7. Second optimize
+    # 8. Final optimize (clean data, linear is sufficient)
     _progress(90, "Re-optimizing")
     capture_volume = capture_volume.optimize(refine_intrinsics=refine_intrinsics)
 
-    # 8. Assemble result
+    # 9. Assemble result
     _progress(100, "Done")
     return _build_result(
         capture_volume=capture_volume,

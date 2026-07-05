@@ -315,7 +315,7 @@ class CaptureVolume:
     def optimize(
         self,
         ftol: float = 1e-8,
-        max_nfev: int = 5000,
+        max_nfev: int | None = None,
         verbose: int = 0,
         strict: bool = True,
         use_constraints: bool = True,

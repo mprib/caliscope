@@ -4,11 +4,14 @@ import logging
 from pathlib import Path
 from typing import TYPE_CHECKING, Literal
 
+import cv2
 import numpy as np
 import pandas as pd
 import pytest
 from caliscope import __root__
+from caliscope.core.aruco_marker import ArucoMarker, ArucoMarkerSet, DistanceLink
 from caliscope.core.capture_volume import CaptureVolume
+from caliscope.core.constraints import ConstraintSet
 from caliscope.helper import copy_contents_to_clean_dest
 from caliscope.repositories import CaptureVolumeRepository
 from caliscope.core.point_data import ImagePoints, WorldPoints
@@ -145,6 +148,48 @@ def test_capture_volume(tmp_path: Path):
     logger.info("\n" + "=" * 50)
     logger.info("ALL TESTS PASSED!")
     logger.info("=" * 50)
+
+
+def test_capture_volume_repository_round_trips_constraints(tmp_path: Path):
+    """A ConstraintSet with both corner and centroid constraints must survive a
+    full CaptureVolumeRepository save/load cycle unchanged.
+
+    ConstraintSet.to_toml/from_toml round-trip fidelity is covered directly in
+    test_constraints.py; this test proves the same fidelity holds through the
+    repository's save/load path, which is what production code actually calls.
+    """
+    version = "post_optimization"
+    original_session_path = Path(__root__, "tests", "sessions", version)
+    copy_contents_to_clean_dest(original_session_path, tmp_path)
+
+    camera_array = CameraArray.from_toml(tmp_path / "camera_array.toml")
+    csv_dir = tmp_path / "calibration" / "extrinsic" / "CHARUCO"
+    image_points = ImagePoints.from_csv(csv_dir / "xy_CHARUCO.csv")
+    world_points = WorldPoints.from_csv(csv_dir / "xyz_CHARUCO.csv")
+
+    markers = {
+        0: ArucoMarker(0, 1.0),
+        1: ArucoMarker(1, 1.0),
+        4: ArucoMarker(4, 1.0, static=True),
+    }
+    center_link = DistanceLink(marker_a=0, marker_b=1, distance_m=0.512, sigma_m=0.005)
+    marker_set = ArucoMarkerSet(dictionary=cv2.aruco.DICT_4X4_50, markers=markers, links=(center_link,))
+    constraints = ConstraintSet.from_marker_set(marker_set)
+    assert len(constraints.distances) > 0  # sanity: corner constraints present
+    assert len(constraints.centroid_distances) == 1  # sanity: centroid constraint present
+
+    capture_volume = CaptureVolume(
+        camera_array=camera_array,
+        image_points=image_points,
+        world_points=world_points,
+        constraints=constraints,
+    )
+
+    repository = CaptureVolumeRepository(tmp_path / "repo_constraints_round_trip")
+    repository.save(capture_volume)
+    loaded = repository.load()
+
+    assert loaded.constraints == capture_volume.constraints
 
 
 def test_align_bundle_to_charuco_board(larger_calibration_session_reduced: CalibrationTestData):

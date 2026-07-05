@@ -33,6 +33,7 @@ from caliscope.core.capture_volume import CaptureVolume, OptimizationStatus
 from caliscope.core.constraints import ConstraintSet
 from caliscope.core.scale_accuracy import VolumetricScaleReport, compute_depth_ratios
 from caliscope.core.workflow_status import StepStatus
+from caliscope.repositories.calibration_targets_repository import ExtrinsicTargetType
 from caliscope.repositories.project_settings_repository import ProjectSettingsRepository
 from caliscope.task_manager.cancellation import CancellationToken
 from caliscope.task_manager.task_handle import TaskHandle
@@ -199,6 +200,7 @@ class ExtrinsicCalibrationPresenter(QObject):
         existing_capture_volume: CaptureVolume | None = None,
         constraint_factory: Callable[[], ConstraintSet | None] | None = None,
         project_settings: ProjectSettingsRepository | None = None,
+        extrinsic_target_type: ExtrinsicTargetType | None = None,
         parent: QObject | None = None,
     ) -> None:
         """Initialize the presenter.
@@ -211,6 +213,9 @@ class ExtrinsicCalibrationPresenter(QObject):
                 If provided, presenter starts in CALIBRATED state with visualization ready.
             constraint_factory: Called at calibration time to get current constraints from disk.
             project_settings: Repository for persisting 3D view appearance settings.
+            extrinsic_target_type: Which target produced the calibration ("charuco" or
+                "aruco"), used only to label the single-object origin option. None when
+                unknown (e.g. tests constructing the presenter directly).
             parent: Optional Qt parent
         """
         super().__init__(parent)
@@ -220,6 +225,7 @@ class ExtrinsicCalibrationPresenter(QObject):
         self._image_points_path = image_points_path
         self._constraint_factory = constraint_factory
         self._project_settings = project_settings
+        self._extrinsic_target_type = extrinsic_target_type
 
         # Processing state (managed internally)
         self._capture_volume: CaptureVolume | None = existing_capture_volume
@@ -526,12 +532,29 @@ class ExtrinsicCalibrationPresenter(QObject):
                 options.append(OriginOption(object_id=oid, label=f"marker {oid} (static)", is_static=True))
         for oid in object_ids:
             if oid not in static_ids:
-                if not constraints and len(object_ids) == 1:
+                if self._is_board_origin(object_ids, static_ids):
                     options.append(OriginOption(object_id=oid, label="board", is_static=False))
                 else:
                     options.append(OriginOption(object_id=oid, label=f"marker {oid}", is_static=False))
 
         return options
+
+    def _is_board_origin(self, object_ids: list[int], static_ids: frozenset[int]) -> bool:
+        """Whether the single non-static origin option should be labeled "board".
+
+        Charuco calibration always produces exactly one object_id (0) with
+        board-geometry constraints, so it is labeled "board" precisely when
+        the target type is known to be charuco. When the target type is
+        unknown (e.g. a presenter constructed directly in a test), fall back
+        to the pre-existing heuristic: exactly one object and no static
+        markers. That heuristic also matches a single-marker ArUco
+        calibration — a low-stakes edge case (it picks up the "board" label
+        instead of "marker 0") accepted because the target type is normally
+        available from the coordinator.
+        """
+        if self._extrinsic_target_type is not None:
+            return self._extrinsic_target_type == "charuco"
+        return len(object_ids) == 1 and not static_ids
 
     def is_object_visible_at(self, object_id: int, sync_index: int) -> bool:
         """Check whether the given object has a triangulated world point at the given sync_index."""

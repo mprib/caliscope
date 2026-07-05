@@ -516,9 +516,17 @@ def wand_scene_with_constraints(
     trajectory with depth variation. Optionally includes two static wall
     markers. Static markers have a known triangulation issue with noisy
     4-corner observations — set include_static=False to exclude them.
+
+    The wand markers are composed by a pure X-translation offset (identity
+    rotation, see `wand_offset` below) applied to every base pose, so the 16
+    cross-marker corner distances and the center distance are frame-invariant
+    and are declared here as exact `DistanceLink`s computed from marker-local
+    geometry, rather than a single uniform distance asserted across all four
+    corner pairs (which only happened to be exact for this pure-translation
+    case).
     """
     import cv2
-    from caliscope.core.aruco_marker import ArucoMarker, ArucoMarkerSet, MarkerLink
+    from caliscope.core.aruco_marker import ArucoMarker, ArucoMarkerSet, DistanceLink
 
     camera_array = CameraSynthesizer().add_ring(n=4, radius=1.2, height=0.3).build()
 
@@ -533,8 +541,53 @@ def wand_scene_with_constraints(
         markers[4] = ArucoMarker(4, 0.30, static=True)
         markers[5] = ArucoMarker(5, 0.30, static=True)
 
-    link = MarkerLink(marker_a=0, marker_b=1, corner_map=(0, 1, 2, 3), separation_m=wand_separation)
-    marker_set = ArucoMarkerSet(dictionary=cv2.aruco.DICT_4X4_50, markers=markers, links=(link,))
+    # All 16 corner-to-corner distances plus the center-to-center distance,
+    # computed from marker-local corner geometry offset by the wand's pure
+    # X-translation — exact, not measured or hardcoded.
+    corners_0 = markers[0].corners
+    corners_1 = corners_0 + np.array([wand_separation, 0.0, 0.0])
+    links: list[DistanceLink] = [
+        DistanceLink(
+            marker_a=0,
+            corner_a=i,
+            marker_b=1,
+            corner_b=j,
+            distance_m=float(np.linalg.norm(corners_0[i] - corners_1[j])),
+        )
+        for i in range(4)
+        for j in range(4)
+    ]
+    links.append(
+        DistanceLink(
+            marker_a=0,
+            marker_b=1,
+            distance_m=float(np.linalg.norm(corners_0.mean(axis=0) - corners_1.mean(axis=0))),
+        )
+    )
+
+    static_marker_ids = (2, 3, 4, 5)
+    static_layout: dict[int, tuple[float, NDArray[np.float64]]] = {}
+    if include_static:
+        static_radius = 1.0
+        for i, marker_id in enumerate(static_marker_ids):
+            angle = np.radians(45 + 90 * i)
+            pos = np.array([static_radius * np.cos(angle), static_radius * np.sin(angle), 0.0])
+            static_layout[marker_id] = (angle, pos)
+
+        # A marker's center is its own local origin, so rotating it about that
+        # origin doesn't move the center — the static markers' centers sit
+        # exactly at their placement positions. One static-static center link
+        # across the ring diagonal (markers 2, 4) covers the tape-measure
+        # scale-anchor case with a long, exactly-known lever arm.
+        links.append(
+            DistanceLink(
+                marker_a=2,
+                marker_b=4,
+                distance_m=float(np.linalg.norm(static_layout[2][1] - static_layout[4][1])),
+            )
+        )
+
+    marker_set = ArucoMarkerSet(dictionary=cv2.aruco.DICT_4X4_50, markers=markers, links=tuple(links))
 
     wand_base_trajectory = Trajectory.linear(
         n_frames=40,
@@ -561,11 +614,8 @@ def wand_scene_with_constraints(
     }
     if include_static:
         # 4 static markers on the floor between cameras, facing upward
-        static_radius = 1.0
         n_frames = 40
-        for i, marker_id in enumerate([2, 3, 4, 5]):
-            angle = np.radians(45 + 90 * i)
-            pos = np.array([static_radius * np.cos(angle), static_radius * np.sin(angle), 0.0])
+        for marker_id, (angle, pos) in static_layout.items():
             # Markers lie flat on the floor (no rotation = face up along +Z)
             static_pose = SE3Pose.from_axis_angle(
                 axis=np.array([0.0, 0.0, 1.0]),

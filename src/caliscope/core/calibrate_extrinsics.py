@@ -38,6 +38,9 @@ class ExtrinsicCalibrationResult:
     synthesized_cam_ids: frozenset[int]
     bound_warnings: tuple[BoundWarning, ...]
     dropped_static_markers: tuple[int, ...]
+    # Per-camera depth ratios of the final volume; may differ from the values the
+    # refinement gate acted on (which were computed on the post-first-linear-pass
+    # volume, before filtering and the final optimize).
     depth_ratios: dict[int, float]
     intrinsic_refinement_gated: bool
 
@@ -145,16 +148,22 @@ def calibrate_extrinsics(
 
     _check_cancelled()
 
-    # Depth-ratio gate: only refine intrinsics where focal is jointly observable.
+    # Depth-ratio gate: refine intrinsics only where focal is jointly observable
+    # in every camera. compute_depth_ratios returns NaN for a camera with too few
+    # positive-depth points; NaN >= threshold is False, so an all() check gates a
+    # degenerate camera off naturally. Do not fold this back to min() — min() over
+    # NaN is insertion-order dependent and can let a NaN camera slip through.
     depth_ratios = compute_depth_ratios(capture_volume)
-    min_depth_ratio = min(depth_ratios.values()) if depth_ratios else 0.0
-    effective_refine = refine_intrinsics and min_depth_ratio >= MIN_DEPTH_RATIO_FOR_INTRINSIC_REFINEMENT
+    effective_refine = (
+        refine_intrinsics
+        and bool(depth_ratios)
+        and all(r >= MIN_DEPTH_RATIO_FOR_INTRINSIC_REFINEMENT for r in depth_ratios.values())
+    )
     intrinsic_refinement_gated = refine_intrinsics and not effective_refine
     if intrinsic_refinement_gated:
         logger.warning(
-            f"Intrinsic refinement requested but gated off: min depth ratio "
-            f"{min_depth_ratio:.2f} < {MIN_DEPTH_RATIO_FOR_INTRINSIC_REFINEMENT} threshold. "
-            f"Per-camera depth ratios: {depth_ratios}"
+            f"Intrinsic refinement requested but gated off (need every camera >= "
+            f"{MIN_DEPTH_RATIO_FOR_INTRINSIC_REFINEMENT}). Per-camera depth ratios: {depth_ratios}"
         )
 
     # 6. Robust refinement (warm-started, protects poses from outliers)

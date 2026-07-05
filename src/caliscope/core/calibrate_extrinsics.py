@@ -23,6 +23,13 @@ from caliscope.task_manager.cancellation import CancellationToken
 
 logger = logging.getLogger(__name__)
 
+# Below this per-camera near/far depth ratio, focal length is not jointly
+# observable with extrinsics, so refining it drifts f and couples scale error
+# into camera translation. Same bound the synthetic premise check uses
+# (_check_intrinsic_perturbation_premises, scene_factories.py) and the E4
+# negative control; measured separation is ring 1.29 vs wand 2.25.
+MIN_DEPTH_RATIO_FOR_INTRINSIC_REFINEMENT = 2.0
+
 
 @dataclass(frozen=True)
 class ExtrinsicCalibrationResult:
@@ -31,7 +38,11 @@ class ExtrinsicCalibrationResult:
     synthesized_cam_ids: frozenset[int]
     bound_warnings: tuple[BoundWarning, ...]
     dropped_static_markers: tuple[int, ...]
+    # Per-camera depth ratios of the final volume; may differ from the values the
+    # refinement gate acted on (which were computed on the post-first-linear-pass
+    # volume, before filtering and the final optimize).
     depth_ratios: dict[int, float]
+    intrinsic_refinement_gated: bool
 
 
 def calibrate_extrinsics(
@@ -129,18 +140,42 @@ def calibrate_extrinsics(
 
     _check_cancelled()
 
-    # 5. Linear optimize (fast convergence to the basin)
+    # 5. Linear optimize (fast convergence to the basin). Always extrinsics-only:
+    # this pass exists to reach the basin, and refining here is either harmful
+    # (weak geometry) or unnecessary (strong geometry — later passes handle it).
     _progress(40, "Optimizing")
-    capture_volume = capture_volume.optimize(refine_intrinsics=refine_intrinsics)
+    capture_volume = capture_volume.optimize(refine_intrinsics=False)
 
     _check_cancelled()
+
+    # Depth-ratio gate: refine intrinsics only where focal is jointly observable
+    # in every camera. compute_depth_ratios returns NaN for a camera with too few
+    # positive-depth points; NaN >= threshold is False, so an all() check gates a
+    # degenerate camera off naturally. Do not fold this back to min() — min() over
+    # NaN is insertion-order dependent and can let a NaN camera slip through.
+    depth_ratios = compute_depth_ratios(capture_volume)
+    effective_refine = (
+        refine_intrinsics
+        and bool(depth_ratios)
+        and all(r >= MIN_DEPTH_RATIO_FOR_INTRINSIC_REFINEMENT for r in depth_ratios.values())
+    )
+    intrinsic_refinement_gated = refine_intrinsics and not effective_refine
+    if intrinsic_refinement_gated:
+        logger.warning(
+            f"Intrinsic refinement requested but gated off (need every camera >= "
+            f"{MIN_DEPTH_RATIO_FOR_INTRINSIC_REFINEMENT}). Per-camera depth ratios: {depth_ratios}"
+        )
 
     # 6. Robust refinement (warm-started, protects poses from outliers)
     _progress(55, "Robust refinement")
     f_scale = capture_volume.pixel_f_scale(px=1.0)
     capture_volume = capture_volume.optimize(
-        refine_intrinsics=refine_intrinsics, loss="soft_l1", f_scale=f_scale,
-        max_nfev=2000, ftol=1e-4, strict=False,
+        refine_intrinsics=effective_refine,
+        loss="soft_l1",
+        f_scale=f_scale,
+        max_nfev=2000,
+        ftol=1e-4,
+        strict=False,
     )
 
     _check_cancelled()
@@ -153,7 +188,7 @@ def calibrate_extrinsics(
 
     # 8. Final optimize (clean data, linear is sufficient)
     _progress(90, "Re-optimizing")
-    capture_volume = capture_volume.optimize(refine_intrinsics=refine_intrinsics)
+    capture_volume = capture_volume.optimize(refine_intrinsics=effective_refine)
 
     # 9. Assemble result
     _progress(100, "Done")
@@ -162,6 +197,7 @@ def calibrate_extrinsics(
         anchors=anchors,
         synthesized_cam_ids=frozenset(synthesized),
         dropped_static_markers=tuple(dropped_markers),
+        intrinsic_refinement_gated=intrinsic_refinement_gated,
     )
 
 
@@ -183,6 +219,7 @@ def refresh_result(
         anchors=anchors,
         synthesized_cam_ids=previous.synthesized_cam_ids,
         dropped_static_markers=previous.dropped_static_markers,
+        intrinsic_refinement_gated=previous.intrinsic_refinement_gated,
     )
 
 
@@ -191,6 +228,7 @@ def _build_result(
     anchors: dict[int, tuple[float, float, float]],
     synthesized_cam_ids: frozenset[int],
     dropped_static_markers: tuple[int, ...],
+    intrinsic_refinement_gated: bool,
 ) -> ExtrinsicCalibrationResult:
     estimates: list[IntrinsicEstimate] = []
     for cam_id, cam in capture_volume.camera_array.posed_cameras.items():
@@ -219,6 +257,7 @@ def _build_result(
         bound_warnings=bound_warnings,
         dropped_static_markers=dropped_static_markers,
         depth_ratios=compute_depth_ratios(capture_volume),
+        intrinsic_refinement_gated=intrinsic_refinement_gated,
     )
 
 

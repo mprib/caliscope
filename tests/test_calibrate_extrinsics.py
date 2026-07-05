@@ -10,23 +10,15 @@ from caliscope.core.calibrate_extrinsics import (
     calibrate_extrinsics,
     refresh_result,
 )
+from caliscope.synthetic import strip_intrinsics
 from caliscope.synthetic.scene_factories import wand_scene_with_constraints
 from caliscope.task_manager.cancellation import CancellationToken
-
-
-def _strip_intrinsics(scene):
-    """Return intrinsics-only cameras with matrix/distortions zeroed out."""
-    cameras = scene.intrinsics_only_cameras()
-    for cam in cameras.cameras.values():
-        cam.matrix = None
-        cam.distortions = None
-    return cameras
 
 
 class TestEndToEndBlind:
     def test_blind_intrinsics_converge(self):
         scene, constraints = wand_scene_with_constraints(include_static=False)
-        cameras = _strip_intrinsics(scene)
+        cameras = strip_intrinsics(scene.intrinsics_only_cameras())
 
         result = calibrate_extrinsics(
             scene.image_points_noisy,
@@ -152,6 +144,7 @@ class TestRefreshResult:
             assert est_orig.k1_initial == est_new.k1_initial
 
         assert refreshed.synthesized_cam_ids == original.synthesized_cam_ids
+        assert refreshed.intrinsic_refinement_gated == original.intrinsic_refinement_gated
 
 
 if __name__ == "__main__":

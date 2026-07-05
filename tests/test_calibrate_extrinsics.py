@@ -144,6 +144,7 @@ class TestRefreshResult:
             assert est_orig.k1_initial == est_new.k1_initial
 
         assert refreshed.synthesized_cam_ids == original.synthesized_cam_ids
+        assert refreshed.intrinsic_refinement_gated == original.intrinsic_refinement_gated
 
 
 if __name__ == "__main__":

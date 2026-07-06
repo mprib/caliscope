@@ -153,6 +153,34 @@ def test_constraint_set_toml_round_trip(tmp_path):
         assert load.sigma == pytest.approx(orig.sigma)
 
 
+def test_constraint_set_toml_round_trip_no_centroids(tmp_path):
+    """A charuco-shaped ConstraintSet — non-empty distances and
+    static_object_ids, but NO centroid_distances — must round-trip. rtoml
+    raises TomlSerializationError if an empty list key is written after a
+    non-empty array-of-tables key ("values must be emitted before tables"),
+    so centroid_distances must be omitted entirely when empty.
+    """
+    distances = (
+        DistanceConstraint(object_id_a=0, keypoint_id_a=0, object_id_b=0, keypoint_id_b=1, distance=1.0, sigma=0.002),
+        DistanceConstraint(object_id_a=0, keypoint_id_a=1, object_id_b=0, keypoint_id_b=2, distance=2.0, sigma=0.002),
+    )
+    original = ConstraintSet(
+        distances=distances,
+        static_object_ids=frozenset({4, 7}),
+        centroid_distances=(),
+    )
+
+    path = tmp_path / "constraints.toml"
+    original.to_toml(path)
+
+    assert "centroid_distances" not in path.read_text()
+
+    loaded = ConstraintSet.from_toml(path)
+    assert loaded.distances == original.distances
+    assert loaded.static_object_ids == original.static_object_ids
+    assert loaded.centroid_distances == ()
+
+
 def test_constraint_set_from_toml_missing_centroid_key(tmp_path):
     """A compiled TOML predating centroid_distances (no such key) loads with an
     empty tuple rather than raising — older artifacts stay readable.

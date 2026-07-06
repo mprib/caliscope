@@ -229,7 +229,9 @@ class ConstraintSet:
                 }
                 for d in self.distances
             ],
-            "centroid_distances": [
+        }
+        if self.centroid_distances:
+            data["centroid_distances"] = [
                 {
                     "object_id_a": c.object_id_a,
                     "object_id_b": c.object_id_b,
@@ -237,8 +239,7 @@ class ConstraintSet:
                     "sigma": c.sigma,
                 }
                 for c in self.centroid_distances
-            ],
-        }
+            ]
         _safe_write_toml(data, path)
 
     @classmethod

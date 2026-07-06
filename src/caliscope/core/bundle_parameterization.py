@@ -190,7 +190,8 @@ class BundleParameterization:
         camera_indices: NDArray,
         obj_indices: NDArray,
         n_constraints: int,
-        constraint_pairs: NDArray | None,
+        constraint_groups_a: NDArray | None,
+        constraint_groups_b: NDArray | None,
     ) -> lil_matrix:
         n_observations = len(camera_indices)
         n_residuals = n_observations * 2 + n_constraints
@@ -214,14 +215,17 @@ class BundleParameterization:
             sp[2 * obs_idx, param_col] = 1
             sp[2 * obs_idx + 1, param_col] = 1
 
-        if constraint_pairs is not None and n_constraints > 0:
+        if constraint_groups_a is not None and constraint_groups_b is not None and n_constraints > 0:
+            # Each constraint row depends on the 3 coordinate columns of every
+            # world-point row in both width-4 endpoint groups (up to 24 columns).
+            # Corner groups repeat one row 4x; re-marking a column is idempotent.
             c_idx = np.arange(n_constraints)
             row_offset = n_observations * 2
-            for coord in range(3):
-                col_a = self.n_camera_params + constraint_pairs[:, 0] * 3 + coord
-                col_b = self.n_camera_params + constraint_pairs[:, 1] * 3 + coord
-                sp[row_offset + c_idx, col_a] = 1
-                sp[row_offset + c_idx, col_b] = 1
+            for groups in (constraint_groups_a, constraint_groups_b):
+                for col in range(groups.shape[1]):
+                    for coord in range(3):
+                        param_col = self.n_camera_params + groups[:, col] * 3 + coord
+                        sp[row_offset + c_idx, param_col] = 1
 
         return sp
 

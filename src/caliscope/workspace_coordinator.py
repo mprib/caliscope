@@ -586,15 +586,19 @@ class WorkspaceCoordinator(QObject):
         # Check for existing calibration (restores state on project reopen)
         existing_capture_volume = self.capture_volume
 
-        # Constraint factory reads marker set fresh from disk at calibration time
-        constraint_factory = None
-        if self.targets_repository.extrinsic_target_type == "aruco":
-            targets_repo = self.targets_repository
+        # Constraint factory reads the target config fresh from disk at calibration time
+        targets_repo = self.targets_repository
+        extrinsic_target_type = targets_repo.extrinsic_target_type
+        if extrinsic_target_type == "aruco":
 
             def _build_constraints() -> ConstraintSet:
                 return ConstraintSet.from_marker_set(targets_repo.load_aruco_marker_set())
+        else:
 
-            constraint_factory = _build_constraints
+            def _build_constraints() -> ConstraintSet:
+                return ConstraintSet.from_charuco(targets_repo.load_extrinsic_charuco())
+
+        constraint_factory = _build_constraints
 
         presenter = ExtrinsicCalibrationPresenter(
             task_manager=self.task_manager,
@@ -603,6 +607,7 @@ class WorkspaceCoordinator(QObject):
             existing_capture_volume=existing_capture_volume,
             constraint_factory=constraint_factory,
             project_settings=self.settings_repository,
+            extrinsic_target_type=extrinsic_target_type,
         )
 
         # Wire signal directly - no passthrough needed

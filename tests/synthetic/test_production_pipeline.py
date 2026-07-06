@@ -15,14 +15,17 @@ prompt to relax the bound.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 import pytest
 
 from caliscope.core.capture_volume import CaptureVolume
+from caliscope.core.charuco import Charuco
+from caliscope.core.constraints import ConstraintSet
 from caliscope.core.point_data import STATIC_SYNC_INDEX, ImagePoints
 from caliscope.synthetic import SyntheticScene
 from caliscope.synthetic.scene_factories import (
+    charuco_target_scene,
     default_ring_scene,
     outlier_scene,
     wand_scene_with_constraints,
@@ -41,6 +44,14 @@ class Case:
 class FilterCase:
     run: ProductionRun
     baseline_max_translation_m: float
+
+
+@dataclass(frozen=True)
+class CharucoCase:
+    run: ProductionRun
+    scene: SyntheticScene
+    constrained_rmse_mm: float
+    unconstrained_rmse_mm: float
 
 
 def _clean_case() -> Case:
@@ -74,6 +85,32 @@ def _filter_case() -> FilterCase:
 def _rigid_case() -> Case:
     scene, constraints = wand_scene_with_constraints(include_static=True)
     return Case(run=run_production_pipeline(scene, constraints=constraints), scene=scene)
+
+
+def _charuco_case() -> CharucoCase:
+    scene = charuco_target_scene()
+
+    # A production Charuco matching the scene's board (5x7 squares, 5cm). Its
+    # getChessboardCorners() corner ids are the same ids the synthetic board
+    # emits as keypoint_id — target_factories.charuco_board is built to mirror
+    # that layout — so the compiled DistanceConstraints index exactly the points
+    # the scene triangulates.
+    charuco = Charuco.from_squares(columns=7, rows=5, square_size_cm=5.0)
+    constraints = ConstraintSet.from_charuco(charuco)
+    run = run_production_pipeline(scene, constraints=constraints)
+
+    # Unconstrained baseline through the same pipeline. The constraints are
+    # attached afterward only to *measure* rigidity on the result — they never
+    # entered its optimization — mirroring TestConstrainedVsUnconstrainedOptimization.
+    unconstrained = run_production_pipeline(scene, constraints=None)
+    unconstrained_measured = replace(unconstrained.result.capture_volume, constraints=constraints)
+
+    return CharucoCase(
+        run=run,
+        scene=scene,
+        constrained_rmse_mm=run.result.capture_volume.rigidity_report().rmse_mm,
+        unconstrained_rmse_mm=unconstrained_measured.rigidity_report().rmse_mm,
+    )
 
 
 def _blind_case() -> Case:
@@ -119,6 +156,11 @@ def filter_case() -> FilterCase:
 @pytest.fixture(scope="module")
 def rigid_case() -> Case:
     return _rigid_case()
+
+
+@pytest.fixture(scope="module")
+def charuco_case() -> CharucoCase:
+    return _charuco_case()
 
 
 @pytest.fixture(scope="module")
@@ -217,6 +259,60 @@ class TestRigidConstraintsProduction:
             rows = world_df[(world_df["object_id"] == marker_id) & (world_df["sync_index"] == STATIC_SYNC_INDEX)]
             assert len(rows) == 4, f"static marker {marker_id}: {len(rows)} world rows, expected 4"
 
+    def test_centroid_constraints_consumed(self, rigid_case: Case) -> None:
+        # Guard against a silently-empty centroid path: the ConstraintSet the
+        # pipeline actually optimized must still carry both center links — the
+        # mobile wand center (markers 0-1) and the static-static wall-marker
+        # center link (markers 2-4). The migrated wand fixture is the only
+        # scene exercising CentroidDistanceConstraint end to end.
+        consumed = rigid_case.run.result.capture_volume.constraints
+        assert consumed is not None
+        centroid_pairs = {frozenset((c.object_id_a, c.object_id_b)) for c in consumed.centroid_distances}
+        assert frozenset((0, 1)) in centroid_pairs, f"missing wand center link; have {centroid_pairs}"
+        assert frozenset((2, 4)) in centroid_pairs, f"missing static-static center link; have {centroid_pairs}"
+
+    def test_centroid_center_link_fires(self, rigid_case: Case) -> None:
+        # The static wall-marker center link (markers 2-4) is the long-lever
+        # tape-measure scale anchor. It must survive the full pipeline and be
+        # evaluated once at STATIC_SYNC_INDEX — proving the centroid path is not
+        # silently skipped. Its magnitude is already bounded by the pooled
+        # rigidity RMSE in test_rigidity; here we assert only that it fired.
+        report = rigid_case.run.result.capture_volume.rigidity_report()
+        static_center = [
+            v for v in report.violations if v.kind == "centroid" and {v.object_id_a, v.object_id_b} == {2, 4}
+        ]
+        assert len(static_center) == 1, f"expected one static-static centroid violation, got {len(static_center)}"
+        v = static_center[0]
+        assert v.sync_index == STATIC_SYNC_INDEX
+        assert v.keypoint_id_a == -1 and v.keypoint_id_b == -1  # centroids name no single corner
+
+
+class TestCharucoConstraintsProduction:
+    def test_pose_recovery(self, charuco_case: CharucoCase) -> None:
+        # 0.5 deg / 5mm: charuco_target_scene is the default 4-cam ring
+        # (radius 2.0, height 0.5), 20 frames, 0.5px sigma — identical geometry
+        # to default_ring_scene, only the target differs (charuco board vs
+        # planar grid). Same covariance-propagation derivation as
+        # TestCleanSceneProduction.test_pose_recovery holds a fortiori: the
+        # board geometry now also anchors BA as distance constraints.
+        for cam_id, err in charuco_case.run.pose_errors.items():
+            assert err.rotation_deg < 0.5, f"cam {cam_id}: rotation {err.rotation_deg:.3f} deg > 0.5 deg"
+            assert err.translation_m < 0.005, f"cam {cam_id}: translation {err.translation_m * 1000:.2f} mm > 5 mm"
+
+    def test_rigidity(self, charuco_case: CharucoCase) -> None:
+        # < 2.0mm: same bound and precedent as TestRigidConstraintsProduction
+        # (TestEndToEndBlind in tests/test_calibrate_extrinsics.py).
+        assert charuco_case.constrained_rmse_mm < 2.0, f"rigidity RMSE {charuco_case.constrained_rmse_mm:.3f}mm > 2.0mm"
+
+    def test_constrained_beats_unconstrained(self, charuco_case: CharucoCase) -> None:
+        # Precedent TestConstrainedVsUnconstrainedOptimization: adding the board
+        # geometry as constraints cannot worsen rigidity. The relative bound is
+        # the point of the test; the absolute ceiling lives in test_rigidity.
+        assert charuco_case.constrained_rmse_mm <= charuco_case.unconstrained_rmse_mm, (
+            f"constrained RMSE {charuco_case.constrained_rmse_mm:.3f}mm > "
+            f"unconstrained RMSE {charuco_case.unconstrained_rmse_mm:.3f}mm"
+        )
+
 
 class TestBlindIntrinsicsProduction:
     def test_synthesized_ids(self, blind_case: Case) -> None:
@@ -286,6 +382,15 @@ if __name__ == "__main__":
     TestRigidConstraintsProduction().test_pose_recovery(rigid)
     TestRigidConstraintsProduction().test_rigidity(rigid)
     TestRigidConstraintsProduction().test_static_markers_survive(rigid)
+    TestRigidConstraintsProduction().test_centroid_constraints_consumed(rigid)
+    TestRigidConstraintsProduction().test_centroid_center_link_fires(rigid)
+    print("  PASSED")
+
+    print("Charuco constraints...")
+    charuco = _charuco_case()
+    TestCharucoConstraintsProduction().test_pose_recovery(charuco)
+    TestCharucoConstraintsProduction().test_rigidity(charuco)
+    TestCharucoConstraintsProduction().test_constrained_beats_unconstrained(charuco)
     print("  PASSED")
 
     print("Blind intrinsics...")

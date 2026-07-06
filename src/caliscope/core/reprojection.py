@@ -77,11 +77,18 @@ def joint_residuals(
     camera_indices: CameraIndices,
     image_coords: ImageCoords,
     obj_indices: NDArray[np.int32],
-    constraint_pairs: NDArray[np.int32] | None = None,
+    constraint_groups_a: NDArray[np.int32] | None = None,
+    constraint_groups_b: NDArray[np.int32] | None = None,
     constraint_distances: NDArray[np.float64] | None = None,
     constraint_weights: NDArray[np.float64] | None = None,
 ) -> NDArray[np.float64]:
-    """Pixel-space residuals for scipy least_squares, scaled by 1/fx_initial."""
+    """Pixel-space residuals for scipy least_squares, scaled by 1/fx_initial.
+
+    Each distance constraint endpoint is a width-4 group of world-point row
+    indices whose mean is the constrained point: a corner endpoint repeats one
+    row four times (mean is exactly that row), a centroid endpoint names a
+    marker's four corner rows. One code path serves both kinds.
+    """
     points_3d = params[parameterization.n_camera_params :].reshape(-1, 3)
     world_coords = points_3d[obj_indices]
 
@@ -101,8 +108,10 @@ def joint_residuals(
 
     reproj = errors_xy.ravel()
 
-    if constraint_pairs is not None:
-        diffs = points_3d[constraint_pairs[:, 0]] - points_3d[constraint_pairs[:, 1]]
+    if constraint_groups_a is not None:
+        endpoints_a = points_3d[constraint_groups_a].mean(axis=1)
+        endpoints_b = points_3d[constraint_groups_b].mean(axis=1)
+        diffs = endpoints_a - endpoints_b
         constraint_residuals = (np.linalg.norm(diffs, axis=1) - constraint_distances) * constraint_weights
         return np.concatenate([reproj, constraint_residuals])
 

@@ -1,8 +1,11 @@
+import logging
+
 import numpy as np
 import pytest
 import cv2
+import rtoml
 
-from caliscope.core.aruco_marker import ArucoMarker, ArucoMarkerSet, MarkerLink
+from caliscope.core.aruco_marker import ArucoMarker, ArucoMarkerSet, DistanceLink
 
 
 # -- ArucoMarker --
@@ -114,42 +117,241 @@ def test_pre_branch3_toml_loads(tmp_path):
     assert loaded.markers[0].static is False
 
 
-# -- MarkerLink --
+# -- DistanceLink --
 
 
-def test_marker_link_construction():
-    link = MarkerLink(marker_a=0, marker_b=8, corner_map=(1, 0, 3, 2), separation_m=0.004)
+def test_distance_link_corner_construction():
+    link = DistanceLink(marker_a=0, marker_b=8, distance_m=0.5, corner_a=1, corner_b=2)
     assert link.marker_a == 0
-    assert link.separation_m == 0.004
+    assert link.marker_b == 8
+    assert link.distance_m == 0.5
+    assert link.corner_a == 1
+    assert link.corner_b == 2
+    assert link.sigma_m is None
+    assert link.is_center is False
 
 
-def test_marker_link_rejects_bad_corner_map():
-    with pytest.raises(ValueError, match="permutation"):
-        MarkerLink(marker_a=0, marker_b=1, corner_map=(0, 0, 1, 2))
+def test_distance_link_center_construction():
+    link = DistanceLink(marker_a=0, marker_b=8, distance_m=0.512, sigma_m=0.005)
+    assert link.corner_a is None
+    assert link.corner_b is None
+    assert link.sigma_m == 0.005
+    assert link.is_center is True
 
 
-def test_marker_link_rejects_negative_separation():
-    with pytest.raises(ValueError, match="separation_m"):
-        MarkerLink(marker_a=0, marker_b=1, corner_map=(0, 1, 2, 3), separation_m=-0.01)
+def test_distance_link_rejects_self_link():
+    with pytest.raises(ValueError, match="differ"):
+        DistanceLink(marker_a=0, marker_b=0, distance_m=0.5)
 
 
-def test_marker_set_with_links(tmp_path):
+def test_distance_link_rejects_one_sided_corner():
+    with pytest.raises(ValueError, match="both"):
+        DistanceLink(marker_a=0, marker_b=1, distance_m=0.5, corner_a=0)
+    with pytest.raises(ValueError, match="both"):
+        DistanceLink(marker_a=0, marker_b=1, distance_m=0.5, corner_b=0)
+
+
+def test_distance_link_rejects_corner_out_of_range():
+    with pytest.raises(ValueError, match="0..3"):
+        DistanceLink(marker_a=0, marker_b=1, distance_m=0.5, corner_a=4, corner_b=0)
+    with pytest.raises(ValueError, match="0..3"):
+        DistanceLink(marker_a=0, marker_b=1, distance_m=0.5, corner_a=0, corner_b=-1)
+
+
+def test_distance_link_rejects_nonpositive_distance():
+    with pytest.raises(ValueError, match="distance_m"):
+        DistanceLink(marker_a=0, marker_b=1, distance_m=0.0)
+    with pytest.raises(ValueError, match="distance_m"):
+        DistanceLink(marker_a=0, marker_b=1, distance_m=-0.1)
+
+
+def test_distance_link_rejects_nonpositive_sigma():
+    with pytest.raises(ValueError, match="sigma_m"):
+        DistanceLink(marker_a=0, marker_b=1, distance_m=0.5, sigma_m=0.0)
+    with pytest.raises(ValueError, match="sigma_m"):
+        DistanceLink(marker_a=0, marker_b=1, distance_m=0.5, sigma_m=-0.002)
+
+
+# -- ArucoMarkerSet.links validation --
+
+
+def test_marker_set_rejects_link_unknown_marker():
+    markers = {0: ArucoMarker(0, 0.165)}
+    link = DistanceLink(marker_a=0, marker_b=99, distance_m=0.5)
+    with pytest.raises(ValueError, match="unknown marker_b"):
+        ArucoMarkerSet(dictionary=cv2.aruco.DICT_4X4_100, markers=markers, links=(link,))
+
+
+def test_marker_set_rejects_link_unknown_marker_a():
+    markers = {1: ArucoMarker(1, 0.165)}
+    link = DistanceLink(marker_a=99, marker_b=1, distance_m=0.5)
+    with pytest.raises(ValueError, match="unknown marker_a"):
+        ArucoMarkerSet(dictionary=cv2.aruco.DICT_4X4_100, markers=markers, links=(link,))
+
+
+def test_marker_set_rejects_mixed_static_link():
+    markers = {0: ArucoMarker(0, 0.165, static=True), 1: ArucoMarker(1, 0.165, static=False)}
+    link = DistanceLink(marker_a=0, marker_b=1, distance_m=0.5)
+    with pytest.raises(ValueError, match="static"):
+        ArucoMarkerSet(dictionary=cv2.aruco.DICT_4X4_100, markers=markers, links=(link,))
+
+
+def test_marker_set_rejects_duplicate_link():
+    markers = {0: ArucoMarker(0, 0.165), 1: ArucoMarker(1, 0.165)}
+    link_a = DistanceLink(marker_a=0, marker_b=1, distance_m=0.5)
+    link_b = DistanceLink(marker_a=1, marker_b=0, distance_m=0.512)
+    with pytest.raises(ValueError, match="[Dd]uplicate"):
+        ArucoMarkerSet(dictionary=cv2.aruco.DICT_4X4_100, markers=markers, links=(link_a, link_b))
+
+
+def test_marker_set_rejects_duplicate_corner_link():
+    markers = {0: ArucoMarker(0, 0.165), 1: ArucoMarker(1, 0.165)}
+    link_a = DistanceLink(marker_a=0, marker_b=1, distance_m=0.5, corner_a=0, corner_b=1)
+    link_b = DistanceLink(marker_a=1, marker_b=0, distance_m=0.55, corner_a=1, corner_b=0)
+    with pytest.raises(ValueError, match="[Dd]uplicate"):
+        ArucoMarkerSet(dictionary=cv2.aruco.DICT_4X4_100, markers=markers, links=(link_a, link_b))
+
+
+def test_marker_set_allows_multiple_links_between_same_markers_different_corners():
+    markers = {0: ArucoMarker(0, 0.165), 1: ArucoMarker(1, 0.165)}
+    link_a = DistanceLink(marker_a=0, marker_b=1, distance_m=0.5, corner_a=0, corner_b=1)
+    link_b = DistanceLink(marker_a=0, marker_b=1, distance_m=0.55, corner_a=0, corner_b=2)
+    ms = ArucoMarkerSet(dictionary=cv2.aruco.DICT_4X4_100, markers=markers, links=(link_a, link_b))
+    assert len(ms.links) == 2
+
+
+# -- DistanceLink TOML round trip --
+
+
+def test_marker_set_toml_round_trip_with_corner_link(tmp_path):
     markers = {0: ArucoMarker(0, 0.165), 8: ArucoMarker(8, 0.165)}
-    link = MarkerLink(marker_a=0, marker_b=8, corner_map=(1, 0, 3, 2), separation_m=0.004)
+    link = DistanceLink(marker_a=0, marker_b=8, distance_m=0.500, corner_a=0, corner_b=1)
     ms = ArucoMarkerSet(dictionary=cv2.aruco.DICT_4X4_100, markers=markers, links=(link,))
     path = tmp_path / "linked.toml"
     ms.to_toml(path)
     loaded = ArucoMarkerSet.from_toml(path)
     assert len(loaded.links) == 1
-    assert loaded.links[0].corner_map == (1, 0, 3, 2)
-    assert loaded.links[0].separation_m == 0.004
+    loaded_link = loaded.links[0]
+    assert loaded_link.marker_a == 0
+    assert loaded_link.marker_b == 8
+    assert loaded_link.corner_a == 0
+    assert loaded_link.corner_b == 1
+    assert loaded_link.distance_m == 0.500
+    assert loaded_link.sigma_m is None
+    assert loaded_link.is_center is False
 
 
-def test_marker_set_rejects_link_unknown_marker():
+def test_marker_set_toml_round_trip_with_center_link(tmp_path):
+    markers = {0: ArucoMarker(0, 0.165), 1: ArucoMarker(1, 0.165)}
+    link = DistanceLink(marker_a=0, marker_b=1, distance_m=0.512, sigma_m=0.005)
+    ms = ArucoMarkerSet(dictionary=cv2.aruco.DICT_4X4_100, markers=markers, links=(link,))
+    path = tmp_path / "centerlinked.toml"
+    ms.to_toml(path)
+    loaded = ArucoMarkerSet.from_toml(path)
+    assert len(loaded.links) == 1
+    loaded_link = loaded.links[0]
+    assert loaded_link.corner_a is None
+    assert loaded_link.corner_b is None
+    assert loaded_link.distance_m == 0.512
+    assert loaded_link.sigma_m == 0.005
+    assert loaded_link.is_center is True
+
+
+def test_marker_set_to_toml_omits_corner_and_sigma_keys_for_bare_center_link(tmp_path):
+    markers = {0: ArucoMarker(0, 0.165), 1: ArucoMarker(1, 0.165)}
+    link = DistanceLink(marker_a=0, marker_b=1, distance_m=0.512)
+    ms = ArucoMarkerSet(dictionary=cv2.aruco.DICT_4X4_100, markers=markers, links=(link,))
+    path = tmp_path / "center_only.toml"
+    ms.to_toml(path)
+    raw = rtoml.load(path)
+    assert "corner_a" not in raw["links"][0]
+    assert "corner_b" not in raw["links"][0]
+    assert "sigma_m" not in raw["links"][0]
+
+
+def test_marker_set_to_toml_omits_links_key_when_empty(tmp_path):
     markers = {0: ArucoMarker(0, 0.165)}
-    link = MarkerLink(marker_a=0, marker_b=99, corner_map=(0, 1, 2, 3))
-    with pytest.raises(ValueError, match="unknown marker_b"):
-        ArucoMarkerSet(dictionary=cv2.aruco.DICT_4X4_100, markers=markers, links=(link,))
+    ms = ArucoMarkerSet(dictionary=cv2.aruco.DICT_4X4_100, markers=markers)
+    path = tmp_path / "no_links.toml"
+    ms.to_toml(path)
+    raw = rtoml.load(path)
+    assert "links" not in raw
+
+
+# -- Legacy link entry migration path --
+
+
+def test_marker_set_from_toml_warns_and_skips_legacy_corner_map_entry(tmp_path, caplog):
+    path = tmp_path / "legacy.toml"
+    path.write_text(
+        "dictionary = 0\n\n"
+        "[[markers]]\n"
+        "id = 0\n"
+        "size_m = 0.165\n\n"
+        "[[markers]]\n"
+        "id = 1\n"
+        "size_m = 0.165\n\n"
+        "[[links]]\n"
+        "marker_a = 0\n"
+        "marker_b = 1\n"
+        "corner_map = [0, 1, 2, 3]\n"
+        "separation_m = 0.5\n"
+    )
+    with caplog.at_level(logging.WARNING):
+        loaded = ArucoMarkerSet.from_toml(path)
+    assert len(loaded.links) == 0
+    assert "docs/calibration_targets.md" in caplog.text
+
+
+def test_marker_set_from_toml_warns_and_skips_legacy_separation_m_only_entry(tmp_path, caplog):
+    path = tmp_path / "legacy2.toml"
+    path.write_text(
+        "dictionary = 0\n\n"
+        "[[markers]]\n"
+        "id = 0\n"
+        "size_m = 0.165\n\n"
+        "[[markers]]\n"
+        "id = 1\n"
+        "size_m = 0.165\n\n"
+        "[[links]]\n"
+        "marker_a = 0\n"
+        "marker_b = 1\n"
+        "separation_m = 0.5\n"
+    )
+    with caplog.at_level(logging.WARNING):
+        loaded = ArucoMarkerSet.from_toml(path)
+    assert len(loaded.links) == 0
+    assert "docs/calibration_targets.md" in caplog.text
+
+
+def test_marker_set_from_toml_warns_once_per_legacy_entry(tmp_path, caplog):
+    path = tmp_path / "legacy_multi.toml"
+    path.write_text(
+        "dictionary = 0\n\n"
+        "[[markers]]\n"
+        "id = 0\n"
+        "size_m = 0.165\n\n"
+        "[[markers]]\n"
+        "id = 1\n"
+        "size_m = 0.165\n\n"
+        "[[markers]]\n"
+        "id = 2\n"
+        "size_m = 0.165\n\n"
+        "[[links]]\n"
+        "marker_a = 0\n"
+        "marker_b = 1\n"
+        "corner_map = [0, 1, 2, 3]\n"
+        "separation_m = 0.5\n\n"
+        "[[links]]\n"
+        "marker_a = 1\n"
+        "marker_b = 2\n"
+        "corner_map = [0, 1, 2, 3]\n"
+        "separation_m = 0.6\n"
+    )
+    with caplog.at_level(logging.WARNING):
+        loaded = ArucoMarkerSet.from_toml(path)
+    assert len(loaded.links) == 0
+    assert len(caplog.records) == 2
 
 
 # -- ImagePoints.filter_to_objects --

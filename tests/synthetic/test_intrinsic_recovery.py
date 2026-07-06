@@ -60,7 +60,7 @@ class TestSparsityOracle:
             cv.camera_array, n_points=len(cv.world_points.points), refine_intrinsics=True
         )
         x0 = parameterization.pack(cv.camera_array, cv.world_points.points)
-        sparsity = parameterization.sparsity(camera_indices, obj_indices, 0, None)
+        sparsity = parameterization.sparsity(camera_indices, obj_indices, 0, None, None)
 
         def residual_fn(x):
             return joint_residuals(x, parameterization, camera_indices, image_coords, obj_indices)

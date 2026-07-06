@@ -4,7 +4,7 @@ import numpy as np
 from numpy.typing import NDArray
 
 from caliscope.cameras.camera_array import CameraArray, CameraData
-from caliscope.core.aruco_marker import ArucoMarkerSet
+from caliscope.core.aruco_marker import ArucoMarker, ArucoMarkerSet, DistanceLink, MirrorPair
 from caliscope.core.constraints import ConstraintSet
 from caliscope.core.point_data import ImagePoints
 from caliscope.synthetic.calibration_object import CalibrationObject
@@ -516,9 +516,17 @@ def wand_scene_with_constraints(
     trajectory with depth variation. Optionally includes two static wall
     markers. Static markers have a known triangulation issue with noisy
     4-corner observations — set include_static=False to exclude them.
+
+    The wand markers are composed by a pure X-translation offset (identity
+    rotation, see `wand_offset` below) applied to every base pose, so the 16
+    cross-marker corner distances and the center distance are frame-invariant
+    and are declared here as exact `DistanceLink`s computed from marker-local
+    geometry, rather than a single uniform distance asserted across all four
+    corner pairs (which only happened to be exact for this pure-translation
+    case).
     """
     import cv2
-    from caliscope.core.aruco_marker import ArucoMarker, ArucoMarkerSet, MarkerLink
+    from caliscope.core.aruco_marker import ArucoMarker, ArucoMarkerSet, DistanceLink
 
     camera_array = CameraSynthesizer().add_ring(n=4, radius=1.2, height=0.3).build()
 
@@ -533,8 +541,53 @@ def wand_scene_with_constraints(
         markers[4] = ArucoMarker(4, 0.30, static=True)
         markers[5] = ArucoMarker(5, 0.30, static=True)
 
-    link = MarkerLink(marker_a=0, marker_b=1, corner_map=(0, 1, 2, 3), separation_m=wand_separation)
-    marker_set = ArucoMarkerSet(dictionary=cv2.aruco.DICT_4X4_50, markers=markers, links=(link,))
+    # All 16 corner-to-corner distances plus the center-to-center distance,
+    # computed from marker-local corner geometry offset by the wand's pure
+    # X-translation — exact, not measured or hardcoded.
+    corners_0 = markers[0].corners
+    corners_1 = corners_0 + np.array([wand_separation, 0.0, 0.0])
+    links: list[DistanceLink] = [
+        DistanceLink(
+            marker_a=0,
+            corner_a=i,
+            marker_b=1,
+            corner_b=j,
+            distance_m=float(np.linalg.norm(corners_0[i] - corners_1[j])),
+        )
+        for i in range(4)
+        for j in range(4)
+    ]
+    links.append(
+        DistanceLink(
+            marker_a=0,
+            marker_b=1,
+            distance_m=float(np.linalg.norm(corners_0.mean(axis=0) - corners_1.mean(axis=0))),
+        )
+    )
+
+    static_marker_ids = (2, 3, 4, 5)
+    static_layout: dict[int, tuple[float, NDArray[np.float64]]] = {}
+    if include_static:
+        static_radius = 1.0
+        for i, marker_id in enumerate(static_marker_ids):
+            angle = np.radians(45 + 90 * i)
+            pos = np.array([static_radius * np.cos(angle), static_radius * np.sin(angle), 0.0])
+            static_layout[marker_id] = (angle, pos)
+
+        # A marker's center is its own local origin, so rotating it about that
+        # origin doesn't move the center — the static markers' centers sit
+        # exactly at their placement positions. One static-static center link
+        # across the ring diagonal (markers 2, 4) covers the tape-measure
+        # scale-anchor case with a long, exactly-known lever arm.
+        links.append(
+            DistanceLink(
+                marker_a=2,
+                marker_b=4,
+                distance_m=float(np.linalg.norm(static_layout[2][1] - static_layout[4][1])),
+            )
+        )
+
+    marker_set = ArucoMarkerSet(dictionary=cv2.aruco.DICT_4X4_50, markers=markers, links=tuple(links))
 
     wand_base_trajectory = Trajectory.linear(
         n_frames=40,
@@ -561,11 +614,8 @@ def wand_scene_with_constraints(
     }
     if include_static:
         # 4 static markers on the floor between cameras, facing upward
-        static_radius = 1.0
         n_frames = 40
-        for i, marker_id in enumerate([2, 3, 4, 5]):
-            angle = np.radians(45 + 90 * i)
-            pos = np.array([static_radius * np.cos(angle), static_radius * np.sin(angle), 0.0])
+        for marker_id, (angle, pos) in static_layout.items():
             # Markers lie flat on the floor (no rotation = face up along +Z)
             static_pose = SE3Pose.from_axis_angle(
                 axis=np.array([0.0, 0.0, 1.0]),
@@ -604,3 +654,235 @@ def large_ring_scene(
         pixel_noise_sigma=pixel_noise_sigma,
         random_seed=random_seed,
     )
+
+
+# --- Mirror-pair scenes -----------------------------------------------------
+#
+# A mirror pair is two same-size ArUco markers printed on opposite faces of a
+# rigid board. These factories build the two faces as two single-sided
+# SceneObjects whose corners coincide (zero thickness) or sit `thickness_m`
+# apart (nonzero) per the anchor-derived corner mapping, so the compiled
+# ConstraintSet's remaps/thickness constraints exercise the real pipeline.
+
+
+def _mirror_flip_pose(marker_a: ArucoMarker, marker_b: ArucoMarker, pair: MirrorPair) -> SE3Pose:
+    """Board-local rigid flip F with F.apply(C_B[b]) == C_A[a] + (0,0,-thickness).
+
+    Recovered by a Kabsch fit of marker B's corners (in mapping order) onto
+    marker A's corners. Both corner sets are centered squares, so the fit is a
+    pure proper rotation (a 180-degree turn about an in-plane axis) that also
+    flips the face normal to the opposite side. The translation carries the
+    board thickness along marker A's local normal (-Z).
+    """
+    c_a = marker_a.corners
+    c_b = marker_b.corners
+    b_src = np.array([c_b[b] for _, b in pair.corner_mapping])
+    a_tgt = np.array([c_a[a] for a, _ in pair.corner_mapping])
+    h = b_src.T @ a_tgt
+    u, _, vt = np.linalg.svd(h)
+    d = np.sign(np.linalg.det(vt.T @ u.T))
+    rotation = vt.T @ np.diag([1.0, 1.0, d]) @ u.T
+    return SE3Pose(rotation=rotation, translation=np.array([0.0, 0.0, -pair.thickness_m]))
+
+
+def _facing_camera_pair(distance_m: float) -> CameraArray:
+    """Two cameras on the +Z and -Z axes, each looking at the origin."""
+    cam_plus = _look_at_camera(np.array([0.0, 0.0, distance_m]), np.zeros(3), cam_id=0)
+    cam_minus = _look_at_camera(np.array([0.0, 0.0, -distance_m]), np.zeros(3), cam_id=1)
+    return CameraArray(cameras={0: cam_plus, 1: cam_minus})
+
+
+def _tilt_sweep_trajectory(n_frames: int, max_tilt_deg: float = 35.0, xy_amplitude: float = 0.15) -> Trajectory:
+    """Board centered near the origin, sweeping tilt about both in-plane axes.
+
+    The out-of-plane tilt is essential: two facing cameras viewing a single
+    planar marker sit on the classic two-fold planar-pose ambiguity when the
+    board is fronto-parallel. Sweeping the tilt (never holding it flat) breaks
+    the branch symmetry. A small XY translation spreads the corners across the
+    image.
+    """
+    poses = []
+    for i in range(n_frames):
+        t = i / max(n_frames - 1, 1)
+        tilt_x = np.radians(max_tilt_deg) * np.sin(2 * np.pi * t)
+        tilt_y = np.radians(max_tilt_deg) * np.cos(2 * np.pi * t * 1.3)
+        rx = np.array(
+            [[1, 0, 0], [0, np.cos(tilt_x), -np.sin(tilt_x)], [0, np.sin(tilt_x), np.cos(tilt_x)]],
+            dtype=np.float64,
+        )
+        ry = np.array(
+            [[np.cos(tilt_y), 0, np.sin(tilt_y)], [0, 1, 0], [-np.sin(tilt_y), 0, np.cos(tilt_y)]],
+            dtype=np.float64,
+        )
+        pos = np.array([xy_amplitude * np.sin(2 * np.pi * t), xy_amplitude * np.cos(2 * np.pi * t), 0.0])
+        poses.append(SE3Pose(rotation=rx @ ry, translation=pos))
+    return Trajectory(poses=tuple(poses), origin_frame=0)
+
+
+def _spin_tumble_trajectory(n_frames: int, tilt_deg: float = 20.0) -> Trajectory:
+    """Board spins a full turn about world Y with a fixed X-tilt.
+
+    The face normal precesses through the XZ plane, pointing at each ring
+    camera in turn, so each face is co-observed by several cameras across the
+    trajectory. That chains an otherwise two-component pose graph (one per
+    opaque face) into a single connected graph — the prerequisite for the
+    thickness constraints to pull the faces together during bundle adjustment.
+    The fixed tilt keeps the board off exact edge-on to the ring plane.
+    """
+    poses = []
+    for i in range(n_frames):
+        t = i / n_frames  # periodic: no duplicated endpoint
+        spin = 2 * np.pi * t
+        tx = np.radians(tilt_deg)
+        ry = np.array(
+            [[np.cos(spin), 0, np.sin(spin)], [0, 1, 0], [-np.sin(spin), 0, np.cos(spin)]],
+            dtype=np.float64,
+        )
+        rx = np.array(
+            [[1, 0, 0], [0, np.cos(tx), -np.sin(tx)], [0, np.sin(tx), np.cos(tx)]],
+            dtype=np.float64,
+        )
+        poses.append(SE3Pose(rotation=ry @ rx, translation=np.zeros(3)))
+    return Trajectory(poses=tuple(poses), origin_frame=0)
+
+
+def _face_object(marker: ArucoMarker) -> CalibrationObject:
+    """Single-sided calibration object for one marker face (normal +Z local)."""
+    return CalibrationObject(
+        points=np.asarray(marker.corners, dtype=np.float64),
+        keypoint_ids=np.arange(4, dtype=np.int64),
+        face_normal=np.array([0.0, 0.0, 1.0]),
+    )
+
+
+def mirror_pair_two_camera_scene(
+    anchor_corner_a: int = 0,
+    anchor_corner_b: int = 2,
+    pixel_noise_sigma: float = 0.5,
+    random_seed: int = 42,
+) -> tuple[SyntheticScene, ArucoMarkerSet]:
+    """Zero-thickness mirror board, two cameras facing each other.
+
+    One marker per face of a thin board; cam 0 sees face A (marker 0), cam 1
+    sees face B (marker 1). After the compiled ConstraintSet remaps face B's
+    observations onto marker A's identity, both cameras contribute to the same
+    triangulated world points and connect in the pose graph. The board sweeps
+    through a tilt range (design decision 11) to avoid the planar-pose
+    ambiguity two facing cameras would otherwise sit on.
+    """
+    import cv2
+
+    size = 0.165
+    marker_a = ArucoMarker(0, size)
+    marker_b = ArucoMarker(1, size)
+    pair = MirrorPair(
+        marker_a=0,
+        marker_b=1,
+        anchor_corner_a=anchor_corner_a,
+        anchor_corner_b=anchor_corner_b,
+        thickness_m=0.0,
+    )
+    marker_set = ArucoMarkerSet(
+        dictionary=cv2.aruco.DICT_4X4_50,
+        markers={0: marker_a, 1: marker_b},
+        mirror_pairs=(pair,),
+    )
+
+    board_trajectory = _tilt_sweep_trajectory(n_frames=24)
+    flip = _mirror_flip_pose(marker_a, marker_b, pair)
+    face_b_trajectory = Trajectory(
+        poses=tuple(flip.compose(p) for p in board_trajectory.poses),
+        origin_frame=board_trajectory.origin_frame,
+    )
+
+    scene = SyntheticScene(
+        camera_array=_facing_camera_pair(distance_m=1.2),
+        objects=(
+            SceneObject(object_id=0, calibration_object=_face_object(marker_a), trajectory=board_trajectory),
+            SceneObject(object_id=1, calibration_object=_face_object(marker_b), trajectory=face_b_trajectory),
+        ),
+        pixel_noise_sigma=pixel_noise_sigma,
+        random_seed=random_seed,
+    )
+    return scene, marker_set
+
+
+def mirror_pair_ring_scene(
+    thickness_m: float = 0.005,
+    anchor_corner_a: int = 0,
+    anchor_corner_b: int = 2,
+    with_anchored_marker: bool = False,
+    pixel_noise_sigma: float = 0.5,
+    random_seed: int = 42,
+) -> tuple[SyntheticScene, ArucoMarkerSet]:
+    """Mirror board in a 4-camera ring, board spinning through a full turn.
+
+    Defaults to a 5mm-thick board: each face keeps its own identity and the
+    compiled ConstraintSet carries four thickness DistanceConstraints between
+    corresponding corners. The spin lets each face sweep across multiple ring
+    cameras so the pose graph connects across faces.
+
+    with_anchored_marker adds a third static marker (id 2) and a center
+    DistanceLink from marker A (id 0) to it, exercising mirror pairs and an
+    explicit link to a third target in the same compile.
+    """
+    import cv2
+
+    marker_a = ArucoMarker(0, 0.165)
+    marker_b = ArucoMarker(1, 0.165)
+    markers: dict[int, ArucoMarker] = {0: marker_a, 1: marker_b}
+    pair = MirrorPair(
+        marker_a=0,
+        marker_b=1,
+        anchor_corner_a=anchor_corner_a,
+        anchor_corner_b=anchor_corner_b,
+        thickness_m=thickness_m,
+    )
+
+    board_trajectory = _spin_tumble_trajectory(n_frames=40)
+    flip = _mirror_flip_pose(marker_a, marker_b, pair)
+    face_b_trajectory = Trajectory(
+        poses=tuple(flip.compose(p) for p in board_trajectory.poses),
+        origin_frame=board_trajectory.origin_frame,
+    )
+
+    objects = [
+        SceneObject(object_id=0, calibration_object=_face_object(marker_a), trajectory=board_trajectory),
+        SceneObject(object_id=1, calibration_object=_face_object(marker_b), trajectory=face_b_trajectory),
+    ]
+    links: tuple[DistanceLink, ...] = ()
+
+    if with_anchored_marker:
+        marker_c = ArucoMarker(2, 0.165, static=False)
+        markers[2] = marker_c
+        # Third marker rigidly co-planar with face A, offset in the board's
+        # local frame, so it is co-observed with face A on every frame and its
+        # link to marker A reliably fires. The offset lives in the trajectory,
+        # not the local corners, matching what the ArUco tracker emits.
+        neighbor_offset = 0.4
+        offset_pose = SE3Pose(rotation=np.eye(3), translation=np.array([neighbor_offset, 0.0, 0.0]))
+        neighbor_trajectory = Trajectory(
+            poses=tuple(offset_pose.compose(p) for p in board_trajectory.poses),
+            origin_frame=board_trajectory.origin_frame,
+        )
+        objects.append(
+            SceneObject(object_id=2, calibration_object=_face_object(marker_c), trajectory=neighbor_trajectory)
+        )
+        # Rigid in-plane offset, so the center-to-center distance is exactly the
+        # offset magnitude and frame-invariant.
+        links = (DistanceLink(marker_a=0, marker_b=2, distance_m=neighbor_offset),)
+
+    marker_set = ArucoMarkerSet(
+        dictionary=cv2.aruco.DICT_4X4_50,
+        markers=markers,
+        links=links,
+        mirror_pairs=(pair,),
+    )
+
+    scene = SyntheticScene(
+        camera_array=CameraSynthesizer().add_ring(n=4, radius=1.2, height=0.0).build(),
+        objects=tuple(objects),
+        pixel_noise_sigma=pixel_noise_sigma,
+        random_seed=random_seed,
+    )
+    return scene, marker_set

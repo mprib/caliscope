@@ -2,12 +2,18 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from functools import cached_property
+from itertools import combinations
 from pathlib import Path
+from typing import TYPE_CHECKING, Literal
 
 import numpy as np
 import rtoml
 
 from caliscope.core.aruco_marker import ArucoMarkerSet
+
+if TYPE_CHECKING:
+    from caliscope.core.charuco import Charuco
+    from caliscope.core.point_data import ImagePoints
 
 
 @dataclass(frozen=True)
@@ -21,24 +27,80 @@ class DistanceConstraint:
 
 
 @dataclass(frozen=True)
+class CentroidDistanceConstraint:
+    """Distance between two markers' corner centroids.
+
+    A centroid is the mean of the marker's four corner points (keypoint_ids
+    0..3 — the ArUco corner convention). Only compiled from center
+    DistanceLinks; charuco never produces these. A centroid constraint pins
+    only the separation between the two centroids — it is blind to each
+    marker's internal orientation and shape, which relies on that marker's
+    own (always-compiled) intra-marker distance constraints to stay pinned.
+    """
+
+    object_id_a: int
+    object_id_b: int
+    distance: float
+    sigma: float
+
+
+@dataclass(frozen=True)
+class PointRemap:
+    """Rewrites one observed (object_id, keypoint_id) to another's identity.
+
+    Compiled from zero-thickness MirrorPairs: marker B's corner observation
+    is remapped to marker A's identity and marker A's baked-in obj_loc, so
+    both faces of a thin board contribute to the same triangulated world
+    point. obj_loc_x/y/z are marker A's corner coordinates at compile time —
+    applying the remap needs nothing but the ConstraintSet itself.
+    """
+
+    object_id_from: int
+    keypoint_id_from: int
+    object_id_to: int
+    keypoint_id_to: int
+    obj_loc_x: float
+    obj_loc_y: float
+    obj_loc_z: float
+
+
+@dataclass(frozen=True)
 class ConstraintSet:
     distances: tuple[DistanceConstraint, ...]
     static_object_ids: frozenset[int]
+    centroid_distances: tuple[CentroidDistanceConstraint, ...] = ()
+    point_remaps: tuple[PointRemap, ...] = ()
 
     @classmethod
     def from_marker_set(
         cls,
         marker_set: ArucoMarkerSet,
         sigma_m: float = 0.002,
+        center_sigma_m: float = 0.005,
     ) -> ConstraintSet:
         """Compile distance constraints from a marker set.
 
-        Emits 6 intra-marker constraints per marker (4 edges + 2 diagonals)
-        and 4 cross-marker constraints per link. All distances in meters.
+        Emits 6 intra-marker constraints per marker (4 edges + 2 diagonals),
+        skipped for a marker that is the B-side of a zero-thickness
+        MirrorPair (its observations are remapped to marker A's identity, so
+        its own geometry constraints would reference an object_id with no
+        world points). Each corner DistanceLink passes through as exactly
+        one DistanceConstraint — the user's measured distance is the
+        constraint, no derived pairs. Each center DistanceLink compiles to
+        one CentroidDistanceConstraint. A link's own sigma_m wins when set;
+        otherwise corner links default to sigma_m and center links default
+        to center_sigma_m. Nonzero-thickness MirrorPairs compile to 4
+        DistanceConstraints (one per corresponding corner pair) at
+        thickness_m; zero-thickness MirrorPairs compile to 4 PointRemaps
+        instead. All distances in meters.
         """
+        remapped_marker_ids: set[int] = {pair.marker_b for pair in marker_set.mirror_pairs if pair.is_zero_thickness}
+
         constraints: list[DistanceConstraint] = []
 
         for marker_id, marker in marker_set.markers.items():
+            if marker_id in remapped_marker_ids:
+                continue
             corners = marker.corners
             for i in range(4):
                 for j in range(i + 1, 4):
@@ -54,22 +116,190 @@ class ConstraintSet:
                         )
                     )
 
+        centroid_constraints: list[CentroidDistanceConstraint] = []
         for link in marker_set.links:
-            for i in range(4):
+            if link.is_center:
+                centroid_constraints.append(
+                    CentroidDistanceConstraint(
+                        object_id_a=link.marker_a,
+                        object_id_b=link.marker_b,
+                        distance=link.distance_m,
+                        sigma=link.sigma_m if link.sigma_m is not None else center_sigma_m,
+                    )
+                )
+            else:
+                assert link.corner_a is not None and link.corner_b is not None  # is_center=False guarantees this
                 constraints.append(
                     DistanceConstraint(
                         object_id_a=link.marker_a,
-                        keypoint_id_a=i,
+                        keypoint_id_a=link.corner_a,
                         object_id_b=link.marker_b,
-                        keypoint_id_b=link.corner_map[i],
-                        distance=link.separation_m,
-                        sigma=sigma_m,
+                        keypoint_id_b=link.corner_b,
+                        distance=link.distance_m,
+                        sigma=link.sigma_m if link.sigma_m is not None else sigma_m,
                     )
                 )
 
-        static_ids = frozenset(mid for mid, m in marker_set.markers.items() if m.static)
+        point_remaps: list[PointRemap] = []
+        for pair in marker_set.mirror_pairs:
+            if pair.is_zero_thickness:
+                marker_a = marker_set.markers[pair.marker_a]
+                for corner_a, corner_b in pair.corner_mapping:
+                    obj_loc = marker_a.corners[corner_a]
+                    point_remaps.append(
+                        PointRemap(
+                            object_id_from=pair.marker_b,
+                            keypoint_id_from=corner_b,
+                            object_id_to=pair.marker_a,
+                            keypoint_id_to=corner_a,
+                            obj_loc_x=float(obj_loc[0]),
+                            obj_loc_y=float(obj_loc[1]),
+                            obj_loc_z=float(obj_loc[2]),
+                        )
+                    )
+            else:
+                for corner_a, corner_b in pair.corner_mapping:
+                    constraints.append(
+                        DistanceConstraint(
+                            object_id_a=pair.marker_a,
+                            keypoint_id_a=corner_a,
+                            object_id_b=pair.marker_b,
+                            keypoint_id_b=corner_b,
+                            distance=pair.thickness_m,
+                            sigma=pair.sigma_m if pair.sigma_m is not None else sigma_m,
+                        )
+                    )
 
-        return cls(distances=tuple(constraints), static_object_ids=static_ids)
+        static_ids = frozenset(
+            mid for mid, m in marker_set.markers.items() if m.static and mid not in remapped_marker_ids
+        )
+
+        return cls(
+            distances=tuple(constraints),
+            static_object_ids=static_ids,
+            centroid_distances=tuple(centroid_constraints),
+            point_remaps=tuple(point_remaps),
+        )
+
+    def remap_image_points(self, image_points: ImagePoints) -> ImagePoints:
+        """Apply zero-thickness MirrorPair remaps to observed image points.
+
+        Returns the input object unchanged when point_remaps is empty (cheap
+        no-op for charuco and plain-aruco paths). Otherwise rewrites the
+        identity and obj_loc columns for each remapped observation and
+        constructs a fresh ImagePoints (which revalidates).
+        """
+        if not self.point_remaps:
+            return image_points
+
+        from caliscope.core.point_data import ImagePoints
+
+        df = image_points.df
+        for r in self.point_remaps:
+            mask = (df["object_id"] == r.object_id_from) & (df["keypoint_id"] == r.keypoint_id_from)
+            df.loc[mask, "object_id"] = r.object_id_to
+            df.loc[mask, "keypoint_id"] = r.keypoint_id_to
+            df.loc[mask, "obj_loc_x"] = r.obj_loc_x
+            df.loc[mask, "obj_loc_y"] = r.obj_loc_y
+            df.loc[mask, "obj_loc_z"] = r.obj_loc_z
+
+        return ImagePoints(df)
+
+    @classmethod
+    def from_charuco(cls, charuco: Charuco, sigma_m: float = 0.002) -> ConstraintSet:
+        """Compile board-geometry distance constraints for BA.
+
+        object_id is 0 for every corner, matching CharucoTracker's identity
+        scheme (object_id=0, keypoint_id=chessboard corner index).
+        static_object_ids is empty — the board moves. Produces only
+        DistanceConstraints, never centroids (a charuco board has no separate
+        markers to link by centroid).
+
+        Corner ids come from `charuco.board.getChessboardCorners()`, the same
+        (N, 3) array CharucoTracker indexes by `keypoint_id`. Edges are found
+        by corner *coordinates*, not assumed index order — the same robust
+        pattern `Charuco.get_connected_points` uses — because OpenCV does not
+        guarantee any particular corner-id-to-grid-position layout.
+
+        Constraint density is a local truss (horizontal + vertical neighbor
+        edges, both diagonals of every grid cell) plus 6 global braces among
+        the 4 extreme board corners. Rationale: nearest-neighbor + diagonal
+        distances alone are invariant under a paper fold along any grid
+        line — every truss edge and cell diagonal either lies wholly within
+        one rigid half of the fold or has an endpoint on the hinge axis, so
+        every constrained *distance* is preserved even though corners move.
+        The 4-corner braces cross every interior fold line and kill those
+        modes. Full pairwise distances (~C(N,2), roughly triple the residual
+        rows for a typical board) would add no rigidity information beyond
+        what the truss + braces already pin down.
+        """
+        corners = np.asarray(charuco.board.getChessboardCorners())
+        square_length = float(charuco.board.getSquareLength())
+
+        # Quantize by rounding each coordinate to the nearest multiple of
+        # square_length. OpenCV emits these as float32, so exact equality is
+        # unsafe; unlike a fixed absolute tolerance, this scales with board
+        # size and tolerates float32 error (empirically up to ~1e-6 of a
+        # square) with wide margin below the 0.5-square ambiguity band.
+        x_keys = np.round(corners[:, 0] / square_length).astype(np.int64)
+        y_keys = np.round(corners[:, 1] / square_length).astype(np.int64)
+
+        edges: list[tuple[int, int]] = []
+
+        # Horizontal neighbors: group by row (y), sort by column (x).
+        rows: dict[int, list[tuple[int, int]]] = {}
+        for idx, y_key in enumerate(y_keys):
+            rows.setdefault(int(y_key), []).append((int(x_keys[idx]), idx))
+        for row_points in rows.values():
+            row_points.sort()
+            for (_, a), (_, b) in zip(row_points, row_points[1:]):
+                edges.append((a, b))
+
+        # Vertical neighbors: group by column (x), sort by row (y).
+        cols: dict[int, list[tuple[int, int]]] = {}
+        for idx, x_key in enumerate(x_keys):
+            cols.setdefault(int(x_key), []).append((int(y_keys[idx]), idx))
+        for col_points in cols.values():
+            col_points.sort()
+            for (_, a), (_, b) in zip(col_points, col_points[1:]):
+                edges.append((a, b))
+
+        # Cell diagonals: a corner at (x, y) with neighbors at (x+sq, y),
+        # (x, y+sq), (x+sq, y+sq) forms a grid cell; emit both diagonals.
+        coord_to_idx = {(int(xk), int(yk)): idx for idx, (xk, yk) in enumerate(zip(x_keys, y_keys))}
+        for idx, (x_key, y_key) in enumerate(zip(x_keys, y_keys)):
+            x_key, y_key = int(x_key), int(y_key)
+            right = coord_to_idx.get((x_key + 1, y_key))
+            up = coord_to_idx.get((x_key, y_key + 1))
+            diagonal = coord_to_idx.get((x_key + 1, y_key + 1))
+            if right is not None and up is not None and diagonal is not None:
+                edges.append((idx, diagonal))
+                edges.append((right, up))
+
+        # Global braces: all 6 pairwise distances among the 4 extreme corners.
+        min_x, max_x = int(x_keys.min()), int(x_keys.max())
+        min_y, max_y = int(y_keys.min()), int(y_keys.max())
+        extreme_corners = [
+            coord_to_idx[(min_x, min_y)],
+            coord_to_idx[(min_x, max_y)],
+            coord_to_idx[(max_x, min_y)],
+            coord_to_idx[(max_x, max_y)],
+        ]
+        edges.extend(combinations(extreme_corners, 2))
+
+        constraints = tuple(
+            DistanceConstraint(
+                object_id_a=0,
+                keypoint_id_a=a,
+                object_id_b=0,
+                keypoint_id_b=b,
+                distance=float(np.linalg.norm(corners[a] - corners[b])),
+                sigma=sigma_m,
+            )
+            for a, b in edges
+        )
+
+        return cls(distances=constraints, static_object_ids=frozenset(), centroid_distances=())
 
     def to_toml(self, path: Path) -> None:
         from caliscope.persistence import _safe_write_toml
@@ -89,6 +319,29 @@ class ConstraintSet:
                 for d in self.distances
             ],
         }
+        if self.centroid_distances:
+            data["centroid_distances"] = [
+                {
+                    "object_id_a": c.object_id_a,
+                    "object_id_b": c.object_id_b,
+                    "distance": c.distance,
+                    "sigma": c.sigma,
+                }
+                for c in self.centroid_distances
+            ]
+        if self.point_remaps:
+            data["point_remaps"] = [
+                {
+                    "object_id_from": r.object_id_from,
+                    "keypoint_id_from": r.keypoint_id_from,
+                    "object_id_to": r.object_id_to,
+                    "keypoint_id_to": r.keypoint_id_to,
+                    "obj_loc_x": r.obj_loc_x,
+                    "obj_loc_y": r.obj_loc_y,
+                    "obj_loc_z": r.obj_loc_z,
+                }
+                for r in self.point_remaps
+            ]
         _safe_write_toml(data, path)
 
     @classmethod
@@ -110,8 +363,34 @@ class ConstraintSet:
                 )
                 for d in data.get("distances", [])
             )
+            centroid_distances = tuple(
+                CentroidDistanceConstraint(
+                    object_id_a=c["object_id_a"],
+                    object_id_b=c["object_id_b"],
+                    distance=c["distance"],
+                    sigma=c["sigma"],
+                )
+                for c in data.get("centroid_distances", [])
+            )
+            point_remaps = tuple(
+                PointRemap(
+                    object_id_from=r["object_id_from"],
+                    keypoint_id_from=r["keypoint_id_from"],
+                    object_id_to=r["object_id_to"],
+                    keypoint_id_to=r["keypoint_id_to"],
+                    obj_loc_x=r["obj_loc_x"],
+                    obj_loc_y=r["obj_loc_y"],
+                    obj_loc_z=r["obj_loc_z"],
+                )
+                for r in data.get("point_remaps", [])
+            )
             static_ids = frozenset(data.get("static_object_ids", []))
-            return cls(distances=distances, static_object_ids=static_ids)
+            return cls(
+                distances=distances,
+                static_object_ids=static_ids,
+                centroid_distances=centroid_distances,
+                point_remaps=point_remaps,
+            )
         except PersistenceError:
             raise
         except Exception as e:
@@ -127,6 +406,9 @@ class ConstraintViolation:
     sync_index: int
     expected: float
     actual: float
+    # "centroid" violations have no single corner to name; keypoint_id_a and
+    # keypoint_id_b are set to -1 for them.
+    kind: Literal["corner", "centroid"] = "corner"
 
 
 @dataclass(frozen=True)

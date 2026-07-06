@@ -9,7 +9,7 @@ import numpy as np
 import pandas as pd
 import pytest
 from caliscope import __root__
-from caliscope.core.aruco_marker import ArucoMarker, ArucoMarkerSet, DistanceLink
+from caliscope.core.aruco_marker import ArucoMarker, ArucoMarkerSet, DistanceLink, MirrorPair
 from caliscope.core.capture_volume import CaptureVolume
 from caliscope.core.constraints import ConstraintSet
 from caliscope.helper import copy_contents_to_clean_dest
@@ -171,12 +171,21 @@ def test_capture_volume_repository_round_trips_constraints(tmp_path: Path):
         0: ArucoMarker(0, 1.0),
         1: ArucoMarker(1, 1.0),
         4: ArucoMarker(4, 1.0, static=True),
+        5: ArucoMarker(5, 1.0),
+        6: ArucoMarker(6, 1.0),
     }
     center_link = DistanceLink(marker_a=0, marker_b=1, distance_m=0.512, sigma_m=0.005)
-    marker_set = ArucoMarkerSet(dictionary=cv2.aruco.DICT_4X4_50, markers=markers, links=(center_link,))
+    mirror_pair = MirrorPair(marker_a=5, marker_b=6, anchor_corner_a=0, anchor_corner_b=2, thickness_m=0.0)
+    marker_set = ArucoMarkerSet(
+        dictionary=cv2.aruco.DICT_4X4_50,
+        markers=markers,
+        links=(center_link,),
+        mirror_pairs=(mirror_pair,),
+    )
     constraints = ConstraintSet.from_marker_set(marker_set)
     assert len(constraints.distances) > 0  # sanity: corner constraints present
     assert len(constraints.centroid_distances) == 1  # sanity: centroid constraint present
+    assert len(constraints.point_remaps) == 4  # sanity: zero-thickness pair present
 
     capture_volume = CaptureVolume(
         camera_array=camera_array,

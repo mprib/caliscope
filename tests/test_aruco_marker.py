@@ -5,7 +5,7 @@ import pytest
 import cv2
 import rtoml
 
-from caliscope.core.aruco_marker import ArucoMarker, ArucoMarkerSet, DistanceLink
+from caliscope.core.aruco_marker import ArucoMarker, ArucoMarkerSet, DistanceLink, MirrorPair
 
 
 # -- ArucoMarker --
@@ -470,6 +470,186 @@ def test_tracker_multi_marker_uses_per_marker_size():
     max_3 = np.max(np.abs(corners_3[:, :2]))
     assert max_0 == pytest.approx(0.025, abs=1e-6)
     assert max_3 == pytest.approx(0.05, abs=1e-6)
+
+
+# -- MirrorPair --
+
+
+@pytest.mark.parametrize("anchor_corner_a", range(4))
+@pytest.mark.parametrize("anchor_corner_b", range(4))
+def test_mirror_pair_corner_mapping_all_anchor_combinations(anchor_corner_a, anchor_corner_b):
+    pair = MirrorPair(
+        marker_a=0,
+        marker_b=1,
+        anchor_corner_a=anchor_corner_a,
+        anchor_corner_b=anchor_corner_b,
+        thickness_m=0.0,
+    )
+    expected = tuple(((anchor_corner_a + k) % 4, (anchor_corner_b - k) % 4) for k in range(4))
+    assert pair.corner_mapping == expected
+
+
+def test_mirror_pair_is_zero_thickness():
+    zero = MirrorPair(marker_a=0, marker_b=1, anchor_corner_a=0, anchor_corner_b=0, thickness_m=0.0)
+    nonzero = MirrorPair(marker_a=0, marker_b=1, anchor_corner_a=0, anchor_corner_b=0, thickness_m=0.005)
+    assert zero.is_zero_thickness is True
+    assert nonzero.is_zero_thickness is False
+
+
+def test_mirror_pair_rejects_same_marker():
+    with pytest.raises(ValueError, match="differ"):
+        MirrorPair(marker_a=0, marker_b=0, anchor_corner_a=0, anchor_corner_b=0, thickness_m=0.0)
+
+
+def test_mirror_pair_rejects_anchor_corner_out_of_range():
+    with pytest.raises(ValueError, match="0..3"):
+        MirrorPair(marker_a=0, marker_b=1, anchor_corner_a=4, anchor_corner_b=0, thickness_m=0.0)
+    with pytest.raises(ValueError, match="0..3"):
+        MirrorPair(marker_a=0, marker_b=1, anchor_corner_a=0, anchor_corner_b=-1, thickness_m=0.0)
+
+
+def test_mirror_pair_rejects_negative_thickness():
+    with pytest.raises(ValueError, match="thickness_m"):
+        MirrorPair(marker_a=0, marker_b=1, anchor_corner_a=0, anchor_corner_b=0, thickness_m=-0.001)
+
+
+def test_mirror_pair_rejects_nonpositive_sigma():
+    with pytest.raises(ValueError, match="sigma_m"):
+        MirrorPair(marker_a=0, marker_b=1, anchor_corner_a=0, anchor_corner_b=0, thickness_m=0.0, sigma_m=0.0)
+    with pytest.raises(ValueError, match="sigma_m"):
+        MirrorPair(marker_a=0, marker_b=1, anchor_corner_a=0, anchor_corner_b=0, thickness_m=0.0, sigma_m=-0.002)
+
+
+def test_mirror_pair_allows_zero_thickness_and_none_sigma():
+    pair = MirrorPair(marker_a=0, marker_b=1, anchor_corner_a=0, anchor_corner_b=2, thickness_m=0.0)
+    assert pair.sigma_m is None
+
+
+# -- ArucoMarkerSet.mirror_pairs validation --
+
+
+def test_marker_set_rejects_mirror_pair_unknown_marker():
+    markers = {0: ArucoMarker(0, 0.165)}
+    pair = MirrorPair(marker_a=0, marker_b=99, anchor_corner_a=0, anchor_corner_b=0, thickness_m=0.0)
+    with pytest.raises(ValueError, match="unknown marker"):
+        ArucoMarkerSet(dictionary=cv2.aruco.DICT_4X4_100, markers=markers, mirror_pairs=(pair,))
+
+
+def test_marker_set_rejects_mirror_pair_different_size():
+    markers = {0: ArucoMarker(0, 0.165), 1: ArucoMarker(1, 0.10)}
+    pair = MirrorPair(marker_a=0, marker_b=1, anchor_corner_a=0, anchor_corner_b=0, thickness_m=0.0)
+    with pytest.raises(ValueError, match="same size_m"):
+        ArucoMarkerSet(dictionary=cv2.aruco.DICT_4X4_100, markers=markers, mirror_pairs=(pair,))
+
+
+def test_marker_set_rejects_mirror_pair_mixed_static():
+    markers = {0: ArucoMarker(0, 0.165, static=True), 1: ArucoMarker(1, 0.165, static=False)}
+    pair = MirrorPair(marker_a=0, marker_b=1, anchor_corner_a=0, anchor_corner_b=0, thickness_m=0.0)
+    with pytest.raises(ValueError, match="static"):
+        ArucoMarkerSet(dictionary=cv2.aruco.DICT_4X4_100, markers=markers, mirror_pairs=(pair,))
+
+
+def test_marker_set_rejects_marker_in_multiple_mirror_pairs():
+    markers = {0: ArucoMarker(0, 0.165), 1: ArucoMarker(1, 0.165), 2: ArucoMarker(2, 0.165)}
+    pair_a = MirrorPair(marker_a=0, marker_b=1, anchor_corner_a=0, anchor_corner_b=0, thickness_m=0.0)
+    pair_b = MirrorPair(marker_a=0, marker_b=2, anchor_corner_a=0, anchor_corner_b=0, thickness_m=0.0)
+    with pytest.raises(ValueError, match="multiple mirror pairs"):
+        ArucoMarkerSet(dictionary=cv2.aruco.DICT_4X4_100, markers=markers, mirror_pairs=(pair_a, pair_b))
+
+
+def test_marker_set_rejects_duplicate_mirror_pair():
+    markers = {0: ArucoMarker(0, 0.165), 1: ArucoMarker(1, 0.165)}
+    pair_a = MirrorPair(marker_a=0, marker_b=1, anchor_corner_a=0, anchor_corner_b=0, thickness_m=0.0)
+    pair_b = MirrorPair(marker_a=1, marker_b=0, anchor_corner_a=0, anchor_corner_b=0, thickness_m=0.005)
+    with pytest.raises(ValueError, match="multiple mirror pairs"):
+        ArucoMarkerSet(dictionary=cv2.aruco.DICT_4X4_100, markers=markers, mirror_pairs=(pair_a, pair_b))
+
+
+def test_marker_set_rejects_mirror_pair_conflicting_with_corner_link():
+    markers = {0: ArucoMarker(0, 0.165), 1: ArucoMarker(1, 0.165)}
+    pair = MirrorPair(marker_a=0, marker_b=1, anchor_corner_a=0, anchor_corner_b=2, thickness_m=0.005)
+    link = DistanceLink(marker_a=0, marker_b=1, distance_m=0.5, corner_a=0, corner_b=2)
+    with pytest.raises(ValueError, match="both connect markers"):
+        ArucoMarkerSet(dictionary=cv2.aruco.DICT_4X4_100, markers=markers, links=(link,), mirror_pairs=(pair,))
+
+
+def test_marker_set_rejects_mirror_pair_conflicting_with_center_link():
+    markers = {0: ArucoMarker(0, 0.165), 1: ArucoMarker(1, 0.165)}
+    pair = MirrorPair(marker_a=0, marker_b=1, anchor_corner_a=0, anchor_corner_b=2, thickness_m=0.005)
+    link = DistanceLink(marker_a=0, marker_b=1, distance_m=0.5)
+    with pytest.raises(ValueError, match="both connect markers"):
+        ArucoMarkerSet(dictionary=cv2.aruco.DICT_4X4_100, markers=markers, links=(link,), mirror_pairs=(pair,))
+
+
+def test_marker_set_rejects_link_to_zero_thickness_remapped_marker():
+    markers = {0: ArucoMarker(0, 0.165), 1: ArucoMarker(1, 0.165), 2: ArucoMarker(2, 0.165)}
+    pair = MirrorPair(marker_a=0, marker_b=1, anchor_corner_a=0, anchor_corner_b=2, thickness_m=0.0)
+    link = DistanceLink(marker_a=1, marker_b=2, distance_m=0.3)
+    with pytest.raises(ValueError, match="remapped away"):
+        ArucoMarkerSet(dictionary=cv2.aruco.DICT_4X4_100, markers=markers, links=(link,), mirror_pairs=(pair,))
+
+
+def test_marker_set_allows_link_to_mirror_pair_a_side():
+    """Marker A of a zero-thickness pair keeps its identity, so links to it are fine."""
+    markers = {0: ArucoMarker(0, 0.165), 1: ArucoMarker(1, 0.165), 2: ArucoMarker(2, 0.165)}
+    pair = MirrorPair(marker_a=0, marker_b=1, anchor_corner_a=0, anchor_corner_b=2, thickness_m=0.0)
+    link = DistanceLink(marker_a=0, marker_b=2, distance_m=0.3)
+    ms = ArucoMarkerSet(dictionary=cv2.aruco.DICT_4X4_100, markers=markers, links=(link,), mirror_pairs=(pair,))
+    assert len(ms.mirror_pairs) == 1
+    assert len(ms.links) == 1
+
+
+def test_marker_set_allows_link_to_nonzero_thickness_pair_marker():
+    """Nonzero-thickness pairs impose no link restriction on either marker."""
+    markers = {0: ArucoMarker(0, 0.165), 1: ArucoMarker(1, 0.165), 2: ArucoMarker(2, 0.165)}
+    pair = MirrorPair(marker_a=0, marker_b=1, anchor_corner_a=0, anchor_corner_b=2, thickness_m=0.005)
+    link = DistanceLink(marker_a=1, marker_b=2, distance_m=0.3)
+    ms = ArucoMarkerSet(dictionary=cv2.aruco.DICT_4X4_100, markers=markers, links=(link,), mirror_pairs=(pair,))
+    assert len(ms.mirror_pairs) == 1
+    assert len(ms.links) == 1
+
+
+# -- ArucoMarkerSet.mirror_pairs TOML round trip --
+
+
+def test_marker_set_toml_round_trip_with_mirror_pairs(tmp_path):
+    markers = {0: ArucoMarker(0, 0.165), 1: ArucoMarker(1, 0.165), 5: ArucoMarker(5, 0.10), 6: ArucoMarker(6, 0.10)}
+    zero_pair = MirrorPair(marker_a=0, marker_b=1, anchor_corner_a=0, anchor_corner_b=2, thickness_m=0.0)
+    thick_pair = MirrorPair(
+        marker_a=5, marker_b=6, anchor_corner_a=0, anchor_corner_b=1, thickness_m=0.005, sigma_m=0.001
+    )
+    original = ArucoMarkerSet(
+        dictionary=cv2.aruco.DICT_4X4_100,
+        markers=markers,
+        mirror_pairs=(zero_pair, thick_pair),
+    )
+    path = tmp_path / "mirror_pairs.toml"
+    original.to_toml(path)
+    loaded = ArucoMarkerSet.from_toml(path)
+
+    assert len(loaded.mirror_pairs) == 2
+    loaded_zero = next(p for p in loaded.mirror_pairs if p.marker_a == 0)
+    assert loaded_zero.marker_b == 1
+    assert loaded_zero.anchor_corner_a == 0
+    assert loaded_zero.anchor_corner_b == 2
+    assert loaded_zero.thickness_m == 0.0
+    assert loaded_zero.sigma_m is None
+
+    loaded_thick = next(p for p in loaded.mirror_pairs if p.marker_a == 5)
+    assert loaded_thick.marker_b == 6
+    assert loaded_thick.anchor_corner_a == 0
+    assert loaded_thick.anchor_corner_b == 1
+    assert loaded_thick.thickness_m == 0.005
+    assert loaded_thick.sigma_m == 0.001
+
+
+def test_marker_set_to_toml_omits_mirror_pairs_key_when_empty(tmp_path):
+    markers = {0: ArucoMarker(0, 0.165)}
+    ms = ArucoMarkerSet(dictionary=cv2.aruco.DICT_4X4_100, markers=markers)
+    path = tmp_path / "no_mirror_pairs.toml"
+    ms.to_toml(path)
+    raw = rtoml.load(path)
+    assert "mirror_pairs" not in raw
 
 
 if __name__ == "__main__":

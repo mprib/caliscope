@@ -19,6 +19,7 @@ from dataclasses import dataclass, replace
 
 import pytest
 
+from caliscope.core.aruco_marker import ArucoMarkerSet
 from caliscope.core.capture_volume import CaptureVolume
 from caliscope.core.charuco import Charuco
 from caliscope.core.constraints import ConstraintSet
@@ -27,6 +28,8 @@ from caliscope.synthetic import SyntheticScene
 from caliscope.synthetic.scene_factories import (
     charuco_target_scene,
     default_ring_scene,
+    mirror_pair_ring_scene,
+    mirror_pair_two_camera_scene,
     outlier_scene,
     wand_scene_with_constraints,
 )
@@ -52,6 +55,26 @@ class CharucoCase:
     scene: SyntheticScene
     constrained_rmse_mm: float
     unconstrained_rmse_mm: float
+
+
+@dataclass(frozen=True)
+class MirrorZeroThicknessCase:
+    run: ProductionRun
+    point_remap_count: int
+
+
+@dataclass(frozen=True)
+class MirrorThickBoardCase:
+    run: ProductionRun
+    marker_set: ArucoMarkerSet
+    constraints: ConstraintSet
+
+
+@dataclass(frozen=True)
+class MirrorCoexistenceCase:
+    run: ProductionRun
+    marker_set: ArucoMarkerSet
+    constraints: ConstraintSet
 
 
 def _clean_case() -> Case:
@@ -138,6 +161,27 @@ def _static_guard_case() -> Case:
     )
 
 
+def _mirror_pair_zero_thickness_case() -> MirrorZeroThicknessCase:
+    scene, marker_set = mirror_pair_two_camera_scene()
+    constraints = ConstraintSet.from_marker_set(marker_set)
+    run = run_production_pipeline(scene, constraints=constraints)
+    return MirrorZeroThicknessCase(run=run, point_remap_count=len(constraints.point_remaps))
+
+
+def _mirror_pair_thick_board_case() -> MirrorThickBoardCase:
+    scene, marker_set = mirror_pair_ring_scene(thickness_m=0.005)
+    constraints = ConstraintSet.from_marker_set(marker_set)
+    run = run_production_pipeline(scene, constraints=constraints)
+    return MirrorThickBoardCase(run=run, marker_set=marker_set, constraints=constraints)
+
+
+def _mirror_pair_coexistence_case() -> MirrorCoexistenceCase:
+    scene, marker_set = mirror_pair_ring_scene(thickness_m=0.005, with_anchored_marker=True)
+    constraints = ConstraintSet.from_marker_set(marker_set)
+    run = run_production_pipeline(scene, constraints=constraints)
+    return MirrorCoexistenceCase(run=run, marker_set=marker_set, constraints=constraints)
+
+
 @pytest.fixture(scope="module")
 def clean_case() -> Case:
     return _clean_case()
@@ -171,6 +215,21 @@ def blind_case() -> Case:
 @pytest.fixture(scope="module")
 def static_guard_case() -> Case:
     return _static_guard_case()
+
+
+@pytest.fixture(scope="module")
+def mirror_zero_thickness_case() -> MirrorZeroThicknessCase:
+    return _mirror_pair_zero_thickness_case()
+
+
+@pytest.fixture(scope="module")
+def mirror_thick_board_case() -> MirrorThickBoardCase:
+    return _mirror_pair_thick_board_case()
+
+
+@pytest.fixture(scope="module")
+def mirror_coexistence_case() -> MirrorCoexistenceCase:
+    return _mirror_pair_coexistence_case()
 
 
 class TestCleanSceneProduction:
@@ -314,6 +373,89 @@ class TestCharucoConstraintsProduction:
         )
 
 
+class TestMirrorPairZeroThickness:
+    def test_both_cameras_posed(self, mirror_zero_thickness_case: MirrorZeroThicknessCase) -> None:
+        posed = set(mirror_zero_thickness_case.run.result.capture_volume.camera_array.posed_cameras)
+        assert posed == {0, 1}
+
+    def test_point_remaps_compiled(self, mirror_zero_thickness_case: MirrorZeroThicknessCase) -> None:
+        # Four remaps: one per corner of the zero-thickness pair, merging face
+        # B's observations onto face A's identity.
+        assert mirror_zero_thickness_case.point_remap_count == 4
+
+    def test_pose_recovery(self, mirror_zero_thickness_case: MirrorZeroThicknessCase) -> None:
+        # 1.0 deg / 20mm: two facing cameras merging one planar marker face
+        # each via the zero-thickness remap — minimal redundancy, sitting near
+        # the two-fold planar-pose ambiguity that the factory's tilt-sweep
+        # trajectory breaks. Measured worst across seeds {42,7,99,123,2024}:
+        # 0.61 deg / 13.0 mm (seed 123). The 1.0 deg / 20 mm bound is ~1.5x the
+        # worst seed, the looser derived bound the plan anticipated for the
+        # two-camera minimal-redundancy case. Precedent: weak-geometry
+        # synthetic scenes (narrow_baseline_scene, test_planar_degeneracy).
+        for cam_id, err in mirror_zero_thickness_case.run.pose_errors.items():
+            assert err.rotation_deg < 1.0, f"cam {cam_id}: rotation {err.rotation_deg:.3f} deg > 1.0 deg"
+            assert err.translation_m < 0.020, f"cam {cam_id}: translation {err.translation_m * 1000:.2f} mm > 20 mm"
+
+
+class TestMirrorPairThickBoard:
+    def test_all_cameras_posed(self, mirror_thick_board_case: MirrorThickBoardCase) -> None:
+        posed = set(mirror_thick_board_case.run.result.capture_volume.camera_array.posed_cameras)
+        assert posed == {0, 1, 2, 3}
+
+    def test_thickness_constraints_compiled(self, mirror_thick_board_case: MirrorThickBoardCase) -> None:
+        pair = mirror_thick_board_case.marker_set.mirror_pairs[0]
+        thickness_constraints = [
+            c for c in mirror_thick_board_case.constraints.distances if {c.object_id_a, c.object_id_b} == {0, 1}
+        ]
+        assert len(thickness_constraints) == 4
+        for c in thickness_constraints:
+            assert c.distance == pytest.approx(0.005)
+            assert c.sigma == pytest.approx(0.002)
+        corner_pairs = {(c.keypoint_id_a, c.keypoint_id_b) for c in thickness_constraints}
+        assert corner_pairs == set(pair.corner_mapping)
+
+    def test_pose_recovery(self, mirror_thick_board_case: MirrorThickBoardCase) -> None:
+        # 0.5 deg / 5mm: standard 4-camera ring covariance-propagation bound,
+        # identical to TestRigidConstraintsProduction. Measured 0.07 deg /
+        # 0.63 mm.
+        for cam_id, err in mirror_thick_board_case.run.pose_errors.items():
+            assert err.rotation_deg < 0.5, f"cam {cam_id}: rotation {err.rotation_deg:.3f} deg > 0.5 deg"
+            assert err.translation_m < 0.005, f"cam {cam_id}: translation {err.translation_m * 1000:.2f} mm > 5 mm"
+
+    def test_rigidity(self, mirror_thick_board_case: MirrorThickBoardCase) -> None:
+        # < 2.0mm: precedent TestEndToEndBlind in tests/test_calibrate_extrinsics.py,
+        # same as TestRigidConstraintsProduction.test_rigidity. Measured 0.39 mm.
+        rmse_mm = mirror_thick_board_case.run.result.capture_volume.rigidity_report().rmse_mm
+        assert rmse_mm < 2.0, f"rigidity RMSE {rmse_mm:.3f}mm > 2.0mm"
+
+
+class TestMirrorPairCoexistence:
+    def test_constraints_compiled(self, mirror_coexistence_case: MirrorCoexistenceCase) -> None:
+        constraints = mirror_coexistence_case.constraints
+        thickness_constraints = [c for c in constraints.distances if {c.object_id_a, c.object_id_b} == {0, 1}]
+        assert len(thickness_constraints) == 4
+
+        center_links = [c for c in constraints.centroid_distances if {c.object_id_a, c.object_id_b} == {0, 2}]
+        assert len(center_links) == 1
+
+    def test_center_link_fires(self, mirror_coexistence_case: MirrorCoexistenceCase) -> None:
+        # Measured: it fires on 23 frames.
+        report = mirror_coexistence_case.run.result.capture_volume.rigidity_report()
+        center_violations = [
+            v for v in report.violations if v.kind == "centroid" and {v.object_id_a, v.object_id_b} == {0, 2}
+        ]
+        assert len(center_violations) >= 1, "expected the 0-2 center link to fire at least one violation"
+
+    def test_pose_recovery(self, mirror_coexistence_case: MirrorCoexistenceCase) -> None:
+        # 0.5 deg / 5mm: same ring bound as TestMirrorPairThickBoard — the
+        # coexisting center link to a third marker does not degrade geometry.
+        posed = set(mirror_coexistence_case.run.result.capture_volume.camera_array.posed_cameras)
+        assert posed == {0, 1, 2, 3}
+        for cam_id, err in mirror_coexistence_case.run.pose_errors.items():
+            assert err.rotation_deg < 0.5, f"cam {cam_id}: rotation {err.rotation_deg:.3f} deg > 0.5 deg"
+            assert err.translation_m < 0.005, f"cam {cam_id}: translation {err.translation_m * 1000:.2f} mm > 5 mm"
+
+
 class TestBlindIntrinsicsProduction:
     def test_synthesized_ids(self, blind_case: Case) -> None:
         assert blind_case.run.result.synthesized_cam_ids == frozenset(blind_case.scene.camera_array.cameras)
@@ -404,4 +546,26 @@ if __name__ == "__main__":
     guard = _static_guard_case()
     TestStaticMarkerGuardProduction().test_dropped(guard)
     TestStaticMarkerGuardProduction().test_survivors_unharmed(guard)
+    print("  PASSED")
+
+    print("Mirror pair zero-thickness...")
+    mirror_zero = _mirror_pair_zero_thickness_case()
+    TestMirrorPairZeroThickness().test_both_cameras_posed(mirror_zero)
+    TestMirrorPairZeroThickness().test_point_remaps_compiled(mirror_zero)
+    TestMirrorPairZeroThickness().test_pose_recovery(mirror_zero)
+    print("  PASSED")
+
+    print("Mirror pair thick board...")
+    mirror_thick = _mirror_pair_thick_board_case()
+    TestMirrorPairThickBoard().test_all_cameras_posed(mirror_thick)
+    TestMirrorPairThickBoard().test_thickness_constraints_compiled(mirror_thick)
+    TestMirrorPairThickBoard().test_pose_recovery(mirror_thick)
+    TestMirrorPairThickBoard().test_rigidity(mirror_thick)
+    print("  PASSED")
+
+    print("Mirror pair coexistence...")
+    mirror_coexist = _mirror_pair_coexistence_case()
+    TestMirrorPairCoexistence().test_constraints_compiled(mirror_coexist)
+    TestMirrorPairCoexistence().test_center_link_fires(mirror_coexist)
+    TestMirrorPairCoexistence().test_pose_recovery(mirror_coexist)
     print("  PASSED")

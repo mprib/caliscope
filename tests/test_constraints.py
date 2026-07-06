@@ -3,16 +3,17 @@ import pandas as pd
 import pytest
 import cv2
 
-from caliscope.core.aruco_marker import ArucoMarker, ArucoMarkerSet, DistanceLink
+from caliscope.core.aruco_marker import ArucoMarker, ArucoMarkerSet, DistanceLink, MirrorPair
 from caliscope.core.charuco import Charuco
 from caliscope.core.constraints import (
     CentroidDistanceConstraint,
     ConstraintSet,
     ConstraintViolation,
     DistanceConstraint,
+    PointRemap,
     RigidityReport,
 )
-from caliscope.core.point_data import STATIC_SYNC_INDEX, WorldPoints
+from caliscope.core.point_data import STATIC_SYNC_INDEX, ImagePoints, WorldPoints
 
 
 def _identity_cam_array():
@@ -214,6 +215,176 @@ def test_constraint_set_from_toml_missing(tmp_path):
 
     with pytest.raises(PersistenceError):
         ConstraintSet.from_toml(tmp_path / "nope.toml")
+
+
+# -- MirrorPair compilation --
+
+
+def test_from_marker_set_nonzero_thickness_pair_emits_four_distance_constraints():
+    """A nonzero-thickness MirrorPair compiles to exactly 4 DistanceConstraints
+    (one per corresponding corner pair), at thickness_m, with both markers'
+    intra-marker constraints intact.
+    """
+    markers = {0: ArucoMarker(0, 0.165), 1: ArucoMarker(1, 0.165)}
+    pair = MirrorPair(marker_a=0, marker_b=1, anchor_corner_a=0, anchor_corner_b=1, thickness_m=0.005)
+    ms = ArucoMarkerSet(dictionary=cv2.aruco.DICT_4X4_50, markers=markers, mirror_pairs=(pair,))
+    cs = ConstraintSet.from_marker_set(ms)
+
+    assert len(cs.distances) == 2 * 6 + 4  # both markers' intra + 4 thickness constraints
+    assert cs.point_remaps == ()
+    assert cs.static_object_ids == frozenset()
+
+    thickness_constraints = [d for d in cs.distances if d.distance == pytest.approx(0.005)]
+    assert len(thickness_constraints) == 4
+    # anchor_corner_a=0, anchor_corner_b=1 -> (a+k)%4, (b-k)%4 for k in 0..3
+    expected_pairs = {(0, 1), (1, 0), (2, 3), (3, 2)}
+    actual_pairs = {(d.keypoint_id_a, d.keypoint_id_b) for d in thickness_constraints}
+    assert actual_pairs == expected_pairs
+    for d in thickness_constraints:
+        assert d.object_id_a == 0
+        assert d.object_id_b == 1
+        assert d.sigma == pytest.approx(0.002)  # default sigma_m
+
+
+def test_from_marker_set_nonzero_thickness_pair_uses_pair_sigma():
+    markers = {0: ArucoMarker(0, 0.165), 1: ArucoMarker(1, 0.165)}
+    pair = MirrorPair(marker_a=0, marker_b=1, anchor_corner_a=0, anchor_corner_b=1, thickness_m=0.005, sigma_m=0.001)
+    ms = ArucoMarkerSet(dictionary=cv2.aruco.DICT_4X4_50, markers=markers, mirror_pairs=(pair,))
+    cs = ConstraintSet.from_marker_set(ms)
+    thickness_constraints = [d for d in cs.distances if d.distance == pytest.approx(0.005)]
+    assert all(d.sigma == pytest.approx(0.001) for d in thickness_constraints)
+
+
+def test_from_marker_set_zero_thickness_pair_emits_four_point_remaps():
+    """A zero-thickness MirrorPair compiles to 4 PointRemaps with A's baked-in
+    obj_loc, skips B's intra-marker constraints, keeps A's, and excludes B
+    from static_object_ids.
+    """
+    markers = {0: ArucoMarker(0, 0.165, static=True), 1: ArucoMarker(1, 0.165, static=True)}
+    pair = MirrorPair(marker_a=0, marker_b=1, anchor_corner_a=0, anchor_corner_b=2, thickness_m=0.0)
+    ms = ArucoMarkerSet(dictionary=cv2.aruco.DICT_4X4_50, markers=markers, mirror_pairs=(pair,))
+    cs = ConstraintSet.from_marker_set(ms)
+
+    assert len(cs.point_remaps) == 4
+    assert len(cs.distances) == 6  # only marker A's intra-marker constraints
+    assert all(d.object_id_a == 0 and d.object_id_b == 0 for d in cs.distances)
+    assert cs.static_object_ids == frozenset({0})  # marker B excluded
+
+    marker_a_corners = markers[0].corners
+    expected_mapping = {(0, 2), (1, 1), (2, 0), (3, 3)}
+    actual_mapping = {(r.keypoint_id_to, r.keypoint_id_from) for r in cs.point_remaps}
+    assert actual_mapping == expected_mapping
+
+    for r in cs.point_remaps:
+        assert r.object_id_from == 1
+        assert r.object_id_to == 0
+        expected_loc = marker_a_corners[r.keypoint_id_to]
+        assert r.obj_loc_x == pytest.approx(expected_loc[0])
+        assert r.obj_loc_y == pytest.approx(expected_loc[1])
+        assert r.obj_loc_z == pytest.approx(expected_loc[2])
+
+
+def test_constraint_set_toml_round_trip_with_point_remaps(tmp_path):
+    markers = {0: ArucoMarker(0, 0.165), 1: ArucoMarker(1, 0.165)}
+    pair = MirrorPair(marker_a=0, marker_b=1, anchor_corner_a=0, anchor_corner_b=2, thickness_m=0.0)
+    ms = ArucoMarkerSet(dictionary=cv2.aruco.DICT_4X4_50, markers=markers, mirror_pairs=(pair,))
+    original = ConstraintSet.from_marker_set(ms)
+    assert len(original.point_remaps) == 4  # sanity: exercise the remap path
+
+    path = tmp_path / "constraints_with_remaps.toml"
+    original.to_toml(path)
+    loaded = ConstraintSet.from_toml(path)
+
+    assert len(loaded.point_remaps) == len(original.point_remaps)
+    for orig, load in zip(original.point_remaps, loaded.point_remaps):
+        assert load.object_id_from == orig.object_id_from
+        assert load.keypoint_id_from == orig.keypoint_id_from
+        assert load.object_id_to == orig.object_id_to
+        assert load.keypoint_id_to == orig.keypoint_id_to
+        assert load.obj_loc_x == pytest.approx(orig.obj_loc_x)
+        assert load.obj_loc_y == pytest.approx(orig.obj_loc_y)
+        assert load.obj_loc_z == pytest.approx(orig.obj_loc_z)
+
+
+def test_constraint_set_to_toml_omits_point_remaps_key_when_empty(tmp_path):
+    markers = {0: ArucoMarker(0, 1.0)}
+    ms = ArucoMarkerSet(dictionary=cv2.aruco.DICT_4X4_50, markers=markers)
+    cs = ConstraintSet.from_marker_set(ms)
+    assert cs.point_remaps == ()
+
+    path = tmp_path / "no_remaps.toml"
+    cs.to_toml(path)
+    assert "point_remaps" not in path.read_text()
+
+    loaded = ConstraintSet.from_toml(path)
+    assert loaded.point_remaps == ()
+
+
+# -- ConstraintSet.remap_image_points --
+
+
+def test_remap_image_points_empty_returns_same_object():
+    cs = ConstraintSet(distances=(), static_object_ids=frozenset())
+    df = pd.DataFrame(
+        {
+            "sync_index": [0],
+            "cam_id": [0],
+            "object_id": [0],
+            "keypoint_id": [0],
+            "img_loc_x": [100.0],
+            "img_loc_y": [100.0],
+        }
+    )
+    ip = ImagePoints(df)
+    result = cs.remap_image_points(ip)
+    assert result is ip
+
+
+def test_remap_image_points_rewrites_b_rows_only():
+    """Marker B's rows get marker A's object_id, mapped keypoint_id, and A's
+    obj_loc; marker A's own rows are untouched.
+    """
+    remaps = tuple(
+        PointRemap(
+            object_id_from=1,
+            keypoint_id_from=kid_b,
+            object_id_to=0,
+            keypoint_id_to=kid_a,
+            obj_loc_x=float(kid_a),
+            obj_loc_y=float(kid_a) * 2,
+            obj_loc_z=0.0,
+        )
+        for kid_a, kid_b in [(0, 2), (1, 1), (2, 0), (3, 3)]
+    )
+    cs = ConstraintSet(distances=(), static_object_ids=frozenset(), point_remaps=remaps)
+
+    df = pd.DataFrame(
+        {
+            "sync_index": [0, 0, 0, 0, 0, 0, 0, 0],
+            "cam_id": [0, 0, 0, 0, 1, 1, 1, 1],
+            "object_id": [0, 0, 0, 0, 1, 1, 1, 1],
+            "keypoint_id": [0, 1, 2, 3, 2, 1, 0, 3],
+            "img_loc_x": [10.0, 20.0, 30.0, 40.0, 50.0, 60.0, 70.0, 80.0],
+            "img_loc_y": [10.0, 20.0, 30.0, 40.0, 50.0, 60.0, 70.0, 80.0],
+        }
+    )
+    ip = ImagePoints(df)
+    remapped = cs.remap_image_points(ip)
+
+    a_rows = remapped.df[remapped.df["cam_id"] == 0]
+    assert set(a_rows["object_id"]) == {0}
+    assert list(a_rows["keypoint_id"]) == [0, 1, 2, 3]
+    assert a_rows["obj_loc_x"].isna().all()  # marker A's own rows are untouched (no obj_loc set on input)
+
+    b_rows = remapped.df[remapped.df["cam_id"] == 1]
+    assert set(b_rows["object_id"]) == {0}  # B rewritten to A's identity
+    # original keypoint_id 2 -> 0, 1 -> 1, 0 -> 2, 3 -> 3 (per remaps table above)
+    orig_to_new_kid = dict(zip(df.loc[4:, "keypoint_id"], b_rows["keypoint_id"]))
+    assert orig_to_new_kid == {2: 0, 1: 1, 0: 2, 3: 3}
+    for new_kid in orig_to_new_kid.values():
+        row = b_rows[b_rows["keypoint_id"] == new_kid]
+        assert row["obj_loc_x"].iloc[0] == pytest.approx(float(new_kid))
+        assert row["obj_loc_y"].iloc[0] == pytest.approx(float(new_kid) * 2)
 
 
 def test_world_points_static_sync_index_excluded_from_min_max():

@@ -13,6 +13,7 @@ from caliscope.core.aruco_marker import ArucoMarkerSet
 
 if TYPE_CHECKING:
     from caliscope.core.charuco import Charuco
+    from caliscope.core.point_data import ImagePoints
 
 
 @dataclass(frozen=True)
@@ -44,10 +45,31 @@ class CentroidDistanceConstraint:
 
 
 @dataclass(frozen=True)
+class PointRemap:
+    """Rewrites one observed (object_id, keypoint_id) to another's identity.
+
+    Compiled from zero-thickness MirrorPairs: marker B's corner observation
+    is remapped to marker A's identity and marker A's baked-in obj_loc, so
+    both faces of a thin board contribute to the same triangulated world
+    point. obj_loc_x/y/z are marker A's corner coordinates at compile time —
+    applying the remap needs nothing but the ConstraintSet itself.
+    """
+
+    object_id_from: int
+    keypoint_id_from: int
+    object_id_to: int
+    keypoint_id_to: int
+    obj_loc_x: float
+    obj_loc_y: float
+    obj_loc_z: float
+
+
+@dataclass(frozen=True)
 class ConstraintSet:
     distances: tuple[DistanceConstraint, ...]
     static_object_ids: frozenset[int]
     centroid_distances: tuple[CentroidDistanceConstraint, ...] = ()
+    point_remaps: tuple[PointRemap, ...] = ()
 
     @classmethod
     def from_marker_set(
@@ -58,17 +80,27 @@ class ConstraintSet:
     ) -> ConstraintSet:
         """Compile distance constraints from a marker set.
 
-        Emits 6 intra-marker constraints per marker (4 edges + 2 diagonals).
-        Each corner DistanceLink passes through as exactly one
-        DistanceConstraint — the user's measured distance is the constraint,
-        no derived pairs. Each center DistanceLink compiles to one
-        CentroidDistanceConstraint. A link's own sigma_m wins when set;
+        Emits 6 intra-marker constraints per marker (4 edges + 2 diagonals),
+        skipped for a marker that is the B-side of a zero-thickness
+        MirrorPair (its observations are remapped to marker A's identity, so
+        its own geometry constraints would reference an object_id with no
+        world points). Each corner DistanceLink passes through as exactly
+        one DistanceConstraint — the user's measured distance is the
+        constraint, no derived pairs. Each center DistanceLink compiles to
+        one CentroidDistanceConstraint. A link's own sigma_m wins when set;
         otherwise corner links default to sigma_m and center links default
-        to center_sigma_m. All distances in meters.
+        to center_sigma_m. Nonzero-thickness MirrorPairs compile to 4
+        DistanceConstraints (one per corresponding corner pair) at
+        thickness_m; zero-thickness MirrorPairs compile to 4 PointRemaps
+        instead. All distances in meters.
         """
+        remapped_marker_ids: set[int] = {pair.marker_b for pair in marker_set.mirror_pairs if pair.is_zero_thickness}
+
         constraints: list[DistanceConstraint] = []
 
         for marker_id, marker in marker_set.markers.items():
+            if marker_id in remapped_marker_ids:
+                continue
             corners = marker.corners
             for i in range(4):
                 for j in range(i + 1, 4):
@@ -108,13 +140,70 @@ class ConstraintSet:
                     )
                 )
 
-        static_ids = frozenset(mid for mid, m in marker_set.markers.items() if m.static)
+        point_remaps: list[PointRemap] = []
+        for pair in marker_set.mirror_pairs:
+            if pair.is_zero_thickness:
+                marker_a = marker_set.markers[pair.marker_a]
+                for corner_a, corner_b in pair.corner_mapping:
+                    obj_loc = marker_a.corners[corner_a]
+                    point_remaps.append(
+                        PointRemap(
+                            object_id_from=pair.marker_b,
+                            keypoint_id_from=corner_b,
+                            object_id_to=pair.marker_a,
+                            keypoint_id_to=corner_a,
+                            obj_loc_x=float(obj_loc[0]),
+                            obj_loc_y=float(obj_loc[1]),
+                            obj_loc_z=float(obj_loc[2]),
+                        )
+                    )
+            else:
+                for corner_a, corner_b in pair.corner_mapping:
+                    constraints.append(
+                        DistanceConstraint(
+                            object_id_a=pair.marker_a,
+                            keypoint_id_a=corner_a,
+                            object_id_b=pair.marker_b,
+                            keypoint_id_b=corner_b,
+                            distance=pair.thickness_m,
+                            sigma=pair.sigma_m if pair.sigma_m is not None else sigma_m,
+                        )
+                    )
+
+        static_ids = frozenset(
+            mid for mid, m in marker_set.markers.items() if m.static and mid not in remapped_marker_ids
+        )
 
         return cls(
             distances=tuple(constraints),
             static_object_ids=static_ids,
             centroid_distances=tuple(centroid_constraints),
+            point_remaps=tuple(point_remaps),
         )
+
+    def remap_image_points(self, image_points: ImagePoints) -> ImagePoints:
+        """Apply zero-thickness MirrorPair remaps to observed image points.
+
+        Returns the input object unchanged when point_remaps is empty (cheap
+        no-op for charuco and plain-aruco paths). Otherwise rewrites the
+        identity and obj_loc columns for each remapped observation and
+        constructs a fresh ImagePoints (which revalidates).
+        """
+        if not self.point_remaps:
+            return image_points
+
+        from caliscope.core.point_data import ImagePoints
+
+        df = image_points.df
+        for r in self.point_remaps:
+            mask = (df["object_id"] == r.object_id_from) & (df["keypoint_id"] == r.keypoint_id_from)
+            df.loc[mask, "object_id"] = r.object_id_to
+            df.loc[mask, "keypoint_id"] = r.keypoint_id_to
+            df.loc[mask, "obj_loc_x"] = r.obj_loc_x
+            df.loc[mask, "obj_loc_y"] = r.obj_loc_y
+            df.loc[mask, "obj_loc_z"] = r.obj_loc_z
+
+        return ImagePoints(df)
 
     @classmethod
     def from_charuco(cls, charuco: Charuco, sigma_m: float = 0.002) -> ConstraintSet:
@@ -240,6 +329,19 @@ class ConstraintSet:
                 }
                 for c in self.centroid_distances
             ]
+        if self.point_remaps:
+            data["point_remaps"] = [
+                {
+                    "object_id_from": r.object_id_from,
+                    "keypoint_id_from": r.keypoint_id_from,
+                    "object_id_to": r.object_id_to,
+                    "keypoint_id_to": r.keypoint_id_to,
+                    "obj_loc_x": r.obj_loc_x,
+                    "obj_loc_y": r.obj_loc_y,
+                    "obj_loc_z": r.obj_loc_z,
+                }
+                for r in self.point_remaps
+            ]
         _safe_write_toml(data, path)
 
     @classmethod
@@ -270,8 +372,25 @@ class ConstraintSet:
                 )
                 for c in data.get("centroid_distances", [])
             )
+            point_remaps = tuple(
+                PointRemap(
+                    object_id_from=r["object_id_from"],
+                    keypoint_id_from=r["keypoint_id_from"],
+                    object_id_to=r["object_id_to"],
+                    keypoint_id_to=r["keypoint_id_to"],
+                    obj_loc_x=r["obj_loc_x"],
+                    obj_loc_y=r["obj_loc_y"],
+                    obj_loc_z=r["obj_loc_z"],
+                )
+                for r in data.get("point_remaps", [])
+            )
             static_ids = frozenset(data.get("static_object_ids", []))
-            return cls(distances=distances, static_object_ids=static_ids, centroid_distances=centroid_distances)
+            return cls(
+                distances=distances,
+                static_object_ids=static_ids,
+                centroid_distances=centroid_distances,
+                point_remaps=point_remaps,
+            )
         except PersistenceError:
             raise
         except Exception as e:

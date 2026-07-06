@@ -92,6 +92,13 @@ def calibrate_extrinsics(
             float(cam.distortions[1]),
         )
 
+    # Apply zero-thickness MirrorPair remaps before any bootstrap or PnP call, so
+    # every downstream stage (bootstrap, static guard re-bootstrap, optimize,
+    # filter, persisted capture_volume/image_points.csv) sees remapped data. A
+    # no-op when constraints carry no point_remaps (charuco, plain-aruco).
+    if constraints is not None:
+        image_points = constraints.remap_image_points(image_points)
+
     _check_cancelled()
 
     # 3. Bootstrap
@@ -141,6 +148,7 @@ def calibrate_extrinsics(
                 distances=filtered_distances,
                 static_object_ids=filtered_statics,
                 centroid_distances=filtered_centroids,
+                point_remaps=constraints.point_remaps,
             )
 
             _progress(20, "Re-bootstrapping after dropping markers")

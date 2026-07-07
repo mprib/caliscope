@@ -1,7 +1,11 @@
 """
-Chessboard corner tracker for intrinsic calibration.
+Chessboard corner tracker.
 
-Uses OpenCV's findChessboardCorners with sub-pixel refinement.
+Uses OpenCV's findChessboardCorners with sub-pixel refinement. Serves
+intrinsic calibration always; when its Chessboard carries a square_size_cm the
+emitted obj_loc is metric, so the same tracker also drives extrinsic
+calibration (the Calibration Target Interchangeability contract).
+
 Unlike CharucoTracker, there is no mirror search — chessboard patterns
 don't need it for intrinsic calibration (frames without detection are skipped).
 """

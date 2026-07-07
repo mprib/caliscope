@@ -35,10 +35,11 @@ from caliscope.synthetic.scene_factories import (
     sparse_coverage_scene,
     visibility_culling_scene,
 )
-from caliscope.synthetic.scene_factories import charuco_target_scene, machine_vision_scene
+from caliscope.synthetic.scene_factories import box_target_scene, charuco_target_scene, machine_vision_scene
 from caliscope.synthetic.se3_pose import SE3Pose
 from caliscope.synthetic.target_factories import (
     aruco_marker,
+    box_target,
     charuco_board,
     double_sided_charuco_board,
 )
@@ -56,6 +57,8 @@ __all__ = [
     "aruco_marker",
     "aruco_multi_object_scene",
     "aruco_scene",
+    "box_target",
+    "box_target_scene",
     "charuco_board",
     "charuco_target_scene",
     "IDEAL",

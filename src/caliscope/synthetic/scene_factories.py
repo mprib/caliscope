@@ -10,7 +10,7 @@ from caliscope.core.point_data import ImagePoints
 from caliscope.synthetic.calibration_object import CalibrationObject
 from caliscope.synthetic.camera_synthesizer import CameraSynthesizer, MACHINE_VISION
 from caliscope.synthetic.outliers import OutlierConfig, inject_outliers
-from caliscope.synthetic.target_factories import double_sided_charuco_board
+from caliscope.synthetic.target_factories import box_target, double_sided_charuco_board
 from caliscope.synthetic.se3_pose import SE3Pose
 from caliscope.synthetic.synthetic_scene import SceneObject, SyntheticScene
 from caliscope.synthetic.trajectory import Trajectory
@@ -121,6 +121,35 @@ def charuco_target_scene(
     """4-camera ring with a double-sided charuco board (visible from both sides)."""
     camera_array = CameraSynthesizer().add_ring(n=4, radius=2.0, height=0.5).build()
     calibration_object = double_sided_charuco_board(rows=5, cols=7, square_size=0.05)
+    trajectory = Trajectory.orbital(
+        n_frames=20,
+        radius=0.2,
+        arc_extent_deg=360.0,
+        tumble_rate=1.0,
+    )
+
+    return SyntheticScene.single(
+        camera_array=camera_array,
+        calibration_object=calibration_object,
+        trajectory=trajectory,
+        pixel_noise_sigma=pixel_noise_sigma,
+        random_seed=random_seed,
+    )
+
+
+def box_target_scene(
+    pixel_noise_sigma: float = 0.5,
+    random_seed: int = 42,
+) -> SyntheticScene:
+    """4-camera ring with a non-planar box target (visible from all sides).
+
+    Same ring arrangement, frame count, and trajectory as default_ring_scene,
+    but the target is a 0.4m box (8 corners + 6 face centers). Its z spread
+    makes the bootstrap classify each view as non-planar and solve it with
+    SQPNP.
+    """
+    camera_array = CameraSynthesizer().add_ring(n=4, radius=2.0, height=0.5).build()
+    calibration_object = box_target(width=0.4, height=0.4, depth=0.4)
     trajectory = Trajectory.orbital(
         n_frames=20,
         radius=0.2,

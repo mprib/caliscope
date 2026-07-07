@@ -1213,3 +1213,40 @@ def test_from_charuco_object_ids_all_zero_and_no_centroids():
     assert all(d.object_id_a == 0 and d.object_id_b == 0 for d in cs.distances)
     assert cs.static_object_ids == frozenset()
     assert cs.centroid_distances == ()
+
+
+# -- ConstraintSet.from_chessboard --
+
+
+def test_from_chessboard_requires_square_size():
+    """Without a square size the object points are unit-spacing, which would
+    pin the wrong scale — from_chessboard must refuse it.
+    """
+    from caliscope.core.chessboard import Chessboard
+
+    with pytest.raises(ValueError, match="square_size_cm"):
+        ConstraintSet.from_chessboard(Chessboard(rows=4, columns=6))
+
+
+def test_from_chessboard_metric_truss():
+    """A 4x6-corner metric chessboard yields the same truss+brace count as the
+    charuco path, with neighbor distances equal to the square size in meters,
+    object_id 0 everywhere, no statics, and no centroids.
+    """
+    from caliscope.core.chessboard import Chessboard
+
+    n_rows, n_cols = 4, 6  # both >= 3, so braces don't alias truss edges
+    square_size_cm = 5.0
+    cb = Chessboard(rows=n_rows, columns=n_cols, square_size_cm=square_size_cm)
+    cs = ConstraintSet.from_chessboard(cb)
+
+    expected = n_rows * (n_cols - 1) + (n_rows - 1) * n_cols + 2 * (n_rows - 1) * (n_cols - 1) + 6
+    assert len(cs.distances) == expected
+
+    square_size_m = square_size_cm / 100
+    neighbor_distances = [d.distance for d in cs.distances if d.distance == pytest.approx(square_size_m, abs=1e-6)]
+    assert len(neighbor_distances) > 0
+
+    assert all(d.object_id_a == 0 and d.object_id_b == 0 for d in cs.distances)
+    assert cs.static_object_ids == frozenset()
+    assert cs.centroid_distances == ()

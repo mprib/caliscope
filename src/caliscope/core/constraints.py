@@ -13,6 +13,7 @@ from caliscope.core.aruco_marker import ArucoMarkerSet
 
 if TYPE_CHECKING:
     from caliscope.core.charuco import Charuco
+    from caliscope.core.chessboard import Chessboard
     from caliscope.core.point_data import ImagePoints
 
 
@@ -205,21 +206,23 @@ class ConstraintSet:
 
         return ImagePoints(df)
 
-    @classmethod
-    def from_charuco(cls, charuco: Charuco, sigma_m: float = 0.002) -> ConstraintSet:
-        """Compile board-geometry distance constraints for BA.
+    @staticmethod
+    def _truss_distance_constraints(
+        corners: np.ndarray, spacing: float, sigma_m: float
+    ) -> tuple[DistanceConstraint, ...]:
+        """Local-truss + extreme-corner-brace distance constraints for a grid.
 
-        object_id is 0 for every corner, matching CharucoTracker's identity
-        scheme (object_id=0, keypoint_id=chessboard corner index).
-        static_object_ids is empty — the board moves. Produces only
-        DistanceConstraints, never centroids (a charuco board has no separate
-        markers to link by centroid).
+        corners is (N, 3) in meters; spacing is the grid pitch in meters.
+        object_id is 0 for every corner (matching the Charuco/Chessboard tracker
+        identity scheme: object_id=0, keypoint_id=corner index).
 
-        Corner ids come from `charuco.board.getChessboardCorners()`, the same
-        (N, 3) array CharucoTracker indexes by `keypoint_id`. Edges are found
-        by corner *coordinates*, not assumed index order — the same robust
-        pattern `Charuco.get_connected_points` uses — because OpenCV does not
-        guarantee any particular corner-id-to-grid-position layout.
+        Corners are located on the grid by rounding each coordinate to the
+        nearest multiple of spacing, so the layout is recovered from geometry
+        rather than assumed corner-id order — OpenCV does not guarantee any
+        particular charuco corner-id-to-grid-position layout. Points are emitted
+        as float32, so exact equality is unsafe; the rounding scales with board
+        size and tolerates float32 error (empirically up to ~1e-6 of a square)
+        with wide margin below the 0.5-square ambiguity band.
 
         Constraint density is a local truss (horizontal + vertical neighbor
         edges, both diagonals of every grid cell) plus 6 global braces among
@@ -233,16 +236,8 @@ class ConstraintSet:
         rows for a typical board) would add no rigidity information beyond
         what the truss + braces already pin down.
         """
-        corners = np.asarray(charuco.board.getChessboardCorners())
-        square_length = float(charuco.board.getSquareLength())
-
-        # Quantize by rounding each coordinate to the nearest multiple of
-        # square_length. OpenCV emits these as float32, so exact equality is
-        # unsafe; unlike a fixed absolute tolerance, this scales with board
-        # size and tolerates float32 error (empirically up to ~1e-6 of a
-        # square) with wide margin below the 0.5-square ambiguity band.
-        x_keys = np.round(corners[:, 0] / square_length).astype(np.int64)
-        y_keys = np.round(corners[:, 1] / square_length).astype(np.int64)
+        x_keys = np.round(corners[:, 0] / spacing).astype(np.int64)
+        y_keys = np.round(corners[:, 1] / spacing).astype(np.int64)
 
         edges: list[tuple[int, int]] = []
 
@@ -287,7 +282,7 @@ class ConstraintSet:
         ]
         edges.extend(combinations(extreme_corners, 2))
 
-        constraints = tuple(
+        return tuple(
             DistanceConstraint(
                 object_id_a=0,
                 keypoint_id_a=a,
@@ -299,6 +294,45 @@ class ConstraintSet:
             for a, b in edges
         )
 
+    @classmethod
+    def from_charuco(cls, charuco: Charuco, sigma_m: float = 0.002) -> ConstraintSet:
+        """Compile board-geometry distance constraints for BA.
+
+        object_id is 0 for every corner, matching CharucoTracker's identity
+        scheme (object_id=0, keypoint_id=chessboard corner index).
+        static_object_ids is empty — the board moves. Produces only
+        DistanceConstraints, never centroids (a charuco board has no separate
+        markers to link by centroid).
+
+        Corner ids come from `charuco.board.getChessboardCorners()`, the same
+        (N, 3) array CharucoTracker indexes by `keypoint_id`. Truss density and
+        the grid-from-coordinates recovery live in _truss_distance_constraints.
+        """
+        corners = np.asarray(charuco.board.getChessboardCorners())
+        square_length = float(charuco.board.getSquareLength())
+        constraints = cls._truss_distance_constraints(corners, square_length, sigma_m)
+        return cls(distances=constraints, static_object_ids=frozenset(), centroid_distances=())
+
+    @classmethod
+    def from_chessboard(cls, chessboard: Chessboard, sigma_m: float = 0.002) -> ConstraintSet:
+        """Compile board-geometry distance constraints from a metric chessboard.
+
+        object_id is 0 for every corner, matching ChessboardTracker's identity
+        scheme. static_object_ids is empty — the board moves. Same truss density
+        and rationale as from_charuco (see _truss_distance_constraints).
+
+        Requires chessboard.square_size_cm to be set: without it
+        get_object_points() returns unit-spacing points, and a unit-spacing
+        constraint set is a silent scale bug.
+        """
+        if chessboard.square_size_cm is None:
+            raise ValueError(
+                "from_chessboard requires square_size_cm to be set; a unit-spacing "
+                "constraint set would silently pin the wrong scale."
+            )
+        corners = chessboard.get_object_points()
+        spacing = chessboard.square_size_cm / 100
+        constraints = cls._truss_distance_constraints(corners, spacing, sigma_m)
         return cls(distances=constraints, static_object_ids=frozenset(), centroid_distances=())
 
     def to_toml(self, path: Path) -> None:

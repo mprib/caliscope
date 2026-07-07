@@ -86,8 +86,12 @@ class PoseNetworkBuilder:
 
         Args:
             min_points: Minimum points for reliable PnP (default: 4)
-            pnp_flags: Primary PnP algorithm (default: SOLVEPNP_IPPE)
-            fallback_flags: Fallback algorithm (default: SOLVEPNP_ITERATIVE)
+            pnp_flags: Primary PnP algorithm for planar groups (default: SOLVEPNP_IPPE)
+            fallback_flags: Fallback algorithm for planar groups (default: SOLVEPNP_ITERATIVE)
+
+        pnp_flags and fallback_flags apply to planar groups only. Non-planar
+        groups (obj_loc_z spread) always use SOLVEPNP_SQPNP with an ITERATIVE
+        fallback and a 6-point floor.
 
         Returns:
             self for method chaining
@@ -214,12 +218,20 @@ def compute_camera_to_object_poses_pnp(
     """
     Compute per-camera poses relative to the object coordinate frame for each sync_index.
 
+    Each (cam_id, sync_index, object_id) group is classified planar or
+    non-planar by its obj_loc_z spread. Planar groups use pnp_flags with a
+    fallback_flags fallback and the min_points floor — the historical path,
+    unchanged. Non-planar groups (a genuine 3D target) use SOLVEPNP_SQPNP with
+    a SOLVEPNP_ITERATIVE fallback and an effective floor of max(min_points, 6),
+    because IPPE only solves planar targets and ITERATIVE's DLT init needs >= 6
+    non-coplanar points.
+
     Args:
         image_points: Validated 2D point correspondences
         camera_array: Camera array with intrinsic parameters
         min_points: Minimum points required for reliable PnP (default: 4)
-        pnp_flags: Primary PnP algorithm flag (default: SOLVEPNP_IPPE for planar targets)
-        fallback_flags: Fallback algorithm if primary fails (default: SOLVEPNP_ITERATIVE)
+        pnp_flags: Primary PnP algorithm flag for planar groups (default: SOLVEPNP_IPPE)
+        fallback_flags: Fallback algorithm for planar groups (default: SOLVEPNP_ITERATIVE)
 
     Returns:
         dict mapping (cam_id, sync_index, object_id) -> (R, t, reprojection_error)
@@ -259,23 +271,40 @@ def compute_camera_to_object_poses_pnp(
     D_perfect = np.zeros(5)
 
     for (cam_id, sync_index, object_id), group in grouped:
-        if len(group) < min_points:
+        # Read all three object columns; planar trackers leave obj_loc_z NaN
+        # or 0, so fill NaN with 0 before classifying and solving.
+        obj_points = group[["obj_loc_x", "obj_loc_y", "obj_loc_z"]].to_numpy().copy()
+        obj_points[:, 2] = np.nan_to_num(obj_points[:, 2], nan=0.0)
+
+        # Planar iff every point shares one z (tracker-emitted planar targets
+        # sit at z exactly 0.0); a genuine 3D target spreads z over decimeters.
+        is_planar = np.ptp(obj_points[:, 2]) < 1e-6
+        if is_planar:
+            effective_min = min_points
+            primary_flags, secondary_flags = pnp_flags, fallback_flags
+        else:
+            # IPPE returns success=False on non-planar input, and ITERATIVE's
+            # DLT initialization needs >= 6 non-coplanar points, so a 3D target
+            # needs a global solver (SQPNP) as primary and a 6-point floor.
+            effective_min = max(min_points, 6)
+            primary_flags, secondary_flags = cv2.SOLVEPNP_SQPNP, cv2.SOLVEPNP_ITERATIVE
+
+        if len(group) < effective_min:
             failure_count += 1
             continue
 
+        obj_points = obj_points.astype(np.float32)
         # Use pre-undistorted points
         img_points = group[["undistort_x", "undistort_y"]].to_numpy(dtype=np.float32)
-        obj_points = group[["obj_loc_x", "obj_loc_y"]].to_numpy()
-        obj_points = np.hstack([obj_points, np.zeros((len(obj_points), 1))]).astype(np.float32)
 
-        # PnP with configurable flags
+        # PnP with the classified flags
         success, rvec, tvec = cv2.solvePnP(
-            obj_points, img_points, cameraMatrix=K_perfect, distCoeffs=D_perfect, flags=pnp_flags
+            obj_points, img_points, cameraMatrix=K_perfect, distCoeffs=D_perfect, flags=primary_flags
         )
 
         if not success:
             success, rvec, tvec = cv2.solvePnP(
-                obj_points, img_points, cameraMatrix=K_perfect, distCoeffs=D_perfect, flags=fallback_flags
+                obj_points, img_points, cameraMatrix=K_perfect, distCoeffs=D_perfect, flags=secondary_flags
             )
 
         if success:

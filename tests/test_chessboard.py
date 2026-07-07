@@ -14,7 +14,39 @@ import pytest
 
 from caliscope.core.chessboard import Chessboard
 from caliscope.persistence import PersistenceError
-from caliscope.trackers.chessboard_tracker import ChessboardTracker
+from caliscope.trackers.chessboard_tracker import ChessboardTracker, _subpix_window_half_width
+
+
+def _row_major_grid(columns: int, rows: int, pitch_px: float) -> np.ndarray:
+    """Synthetic raw findChessboardCorners output: (N, 1, 2), row-major."""
+    xs, ys = np.meshgrid(np.arange(columns) * pitch_px, np.arange(rows) * pitch_px)
+    return np.stack([xs.ravel(), ys.ravel()], axis=1).reshape(-1, 1, 2).astype(np.float32)
+
+
+def test_subpix_window_small_board_shrinks():
+    """A 16 px-pitch board (OpenCap scale) gets a 4 px half-window, not 11.
+
+    Measured on OpenCap Cam0: the fixed 11 px window inflated the homography
+    residual to 4-8 px; floor(16 / 4) = 4 px keeps it near 0.1 px.
+    """
+    corners = _row_major_grid(columns=9, rows=6, pitch_px=16.0)
+    assert _subpix_window_half_width(corners, columns=9, rows=6) == 4
+
+
+def test_subpix_window_large_board_hits_ceiling():
+    """GUI-scale board (60 px pitch) clamps to the old 11 px ceiling — unchanged."""
+    corners = _row_major_grid(columns=9, rows=6, pitch_px=60.0)
+    assert _subpix_window_half_width(corners, columns=9, rows=6) == 11
+
+
+def test_subpix_window_uses_min_over_both_axes():
+    """Vertical foreshortening drives the window: a board wide in X but squashed
+    in Y (12 px vertical pitch) must pick the vertical minimum, not the 60 px
+    horizontal pitch.
+    """
+    xs, ys = np.meshgrid(np.arange(9) * 60.0, np.arange(6) * 12.0)
+    corners = np.stack([xs.ravel(), ys.ravel()], axis=1).reshape(-1, 1, 2).astype(np.float32)
+    assert _subpix_window_half_width(corners, columns=9, rows=6) == 3  # floor(12 / 4)
 
 
 # ── Dataclass ────────────────────────────────────────────────────────────────

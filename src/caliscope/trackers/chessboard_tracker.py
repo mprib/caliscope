@@ -1,7 +1,11 @@
 """
-Chessboard corner tracker for intrinsic calibration.
+Chessboard corner tracker.
 
-Uses OpenCV's findChessboardCorners with sub-pixel refinement.
+Uses OpenCV's findChessboardCorners with sub-pixel refinement. Serves
+intrinsic calibration always; when its Chessboard carries a square_size_cm the
+emitted obj_loc is metric, so the same tracker also drives extrinsic
+calibration (the Calibration Target Interchangeability contract).
+
 Unlike CharucoTracker, there is no mirror search — chessboard patterns
 don't need it for intrinsic calibration (frames without detection are skipped).
 """
@@ -16,6 +20,26 @@ from caliscope.packets import PixelFormat, PointPacket
 from caliscope.tracker import Tracker
 
 logger = logging.getLogger(__name__)
+
+
+def _subpix_window_half_width(corners_row_major: np.ndarray, columns: int, rows: int) -> int:
+    """Sub-pixel search-window half-width derived from detected corner pitch.
+
+    corners_row_major is the raw findChessboardCorners output (shape (N, 1, 2)
+    or (N, 2)), row-major in (columns, rows) order. A window wider than ~a
+    quarter of the corner pitch drags corners toward neighbors: on OpenCap Cam0
+    (16 px squares) the fixed 11 px window inflated the planar-homography
+    residual to 4-8 px vs 0.12 px at a 5 px window. The pitch is the min over
+    both horizontal and vertical neighbors — perspective foreshortening (camera
+    well off the board plane) can make the smallest pitch vertical. Half-width =
+    clamp(floor(min_neighbor_px / 4), 2, 11); 11 stays the large-board ceiling
+    so GUI-scale boards are unchanged.
+    """
+    grid = corners_row_major.reshape(rows, columns, 2)
+    horizontal_px = np.linalg.norm(np.diff(grid, axis=1), axis=2)
+    vertical_px = np.linalg.norm(np.diff(grid, axis=0), axis=2)
+    min_neighbor_px = float(min(horizontal_px.min(), vertical_px.min()))
+    return int(np.clip(np.floor(min_neighbor_px / 4), 2, 11))
 
 
 class ChessboardTracker(Tracker):
@@ -47,7 +71,8 @@ class ChessboardTracker(Tracker):
             30,  # max iterations
             0.001,  # epsilon (corner movement threshold)
         )
-        self._win_size = (11, 11)  # Search window for sub-pixel refinement
+        # Sub-pixel search window is derived per frame from the detected
+        # corner pitch (see _subpix_window_half_width), not fixed.
 
     @property
     def name(self) -> str:
@@ -73,11 +98,12 @@ class ChessboardTracker(Tracker):
                 obj_loc=np.empty((0, 3), dtype=np.float32),
             )
 
-        # Sub-pixel corner refinement
+        # Sub-pixel corner refinement, window scaled to the board's frame size
+        half_width = _subpix_window_half_width(corners, self.chessboard.columns, self.chessboard.rows)
         corners_refined = cv2.cornerSubPix(
             gray,
             corners,
-            self._win_size,
+            (half_width, half_width),
             (-1, -1),  # zero zone (no dead zone)
             self._criteria,
         )

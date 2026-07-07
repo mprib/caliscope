@@ -55,6 +55,34 @@ def double_sided_charuco_board(
     return charuco_board(rows, cols, square_size, single_sided=False)
 
 
+def box_target(width: float, height: float, depth: float) -> CalibrationObject:
+    """Non-planar target: 8 box corners plus 6 face centers, centered at origin.
+
+    14 genuinely non-coplanar points with no face_normal, so every camera sees
+    all of them. Exercises the bootstrap's non-planar (SQPNP) PnP path, which
+    the planar grid and charuco factories never reach.
+
+    Args:
+        width: Box extent along X (meters)
+        height: Box extent along Y (meters)
+        depth: Box extent along Z (meters)
+    """
+    half_width, half_height, half_depth = width / 2, height / 2, depth / 2
+    corners = [
+        [sx * half_width, sy * half_height, sz * half_depth] for sx in (-1, 1) for sy in (-1, 1) for sz in (-1, 1)
+    ]
+    face_centers = [
+        [-half_width, 0.0, 0.0],
+        [half_width, 0.0, 0.0],
+        [0.0, -half_height, 0.0],
+        [0.0, half_height, 0.0],
+        [0.0, 0.0, -half_depth],
+        [0.0, 0.0, half_depth],
+    ]
+    points = np.array(corners + face_centers, dtype=np.float64)
+    return CalibrationObject.from_points(points)
+
+
 def aruco_marker(
     size: float,
     *,

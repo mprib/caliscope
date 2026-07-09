@@ -100,54 +100,6 @@ class TrackedFrame:
         return table
 
 
-@dataclass(frozen=True, slots=True)
-class SyncPacket:
-    """
-    SyncPacket holds synchronized tracked frames.
-    """
-
-    sync_index: int
-    tracked_frames: dict[int, TrackedFrame | None]
-
-    @property
-    def triangulation_inputs(self):
-        """Returns (cameras, object_ids, keypoint_ids, img_xy) for triangulation."""
-        cameras = []
-        object_ids = []
-        keypoint_ids = []
-        img_xy = []
-
-        for cam_id, tracked_frame in self.tracked_frames.items():
-            if tracked_frame is not None and tracked_frame.points is not None:
-                cameras.extend([cam_id] * len(tracked_frame.points.keypoint_id))
-                object_ids.extend(tracked_frame.points.object_id.tolist())
-                keypoint_ids.extend(tracked_frame.points.keypoint_id.tolist())
-                img_xy.extend(tracked_frame.points.img_loc.tolist())
-
-        return cameras, object_ids, keypoint_ids, img_xy
-
-    @property
-    def dropped(self):
-        """
-        convencience method to ease tracking of dropped frame rate within the synchronizer
-        """
-        temp_dict = {}
-        for cam_id, tracked_frame in self.tracked_frames.items():
-            if tracked_frame is None:
-                temp_dict[cam_id] = 1
-            else:
-                temp_dict[cam_id] = 0
-        return temp_dict
-
-    @property
-    def tracked_frame_count(self):
-        count = 0
-        for cam_id, tracked_frame in self.tracked_frames.items():
-            if tracked_frame is not None:
-                count += 1
-        return count
-
-
 @dataclass(slots=True, frozen=True)
 class XYZPacket:
     sync_index: int

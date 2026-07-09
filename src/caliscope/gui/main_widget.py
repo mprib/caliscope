@@ -22,6 +22,7 @@ from caliscope.gui import ICONS_DIR
 from caliscope.workspace_coordinator import WorkspaceCoordinator
 from caliscope.task_manager import TaskHandle
 from caliscope.gui.cameras_tab_widget import CamerasTabWidget
+from caliscope.gui.widgets.cameras_info_placeholder import CamerasInfoPlaceholder
 from caliscope.gui.log_widget import LogWidget
 from caliscope.gui.multi_camera_processing_tab import MultiCameraProcessingTab
 from caliscope.gui.reconstruction_tab import ReconstructionTab
@@ -117,19 +118,16 @@ class MainWindow(QMainWindow):
         self.project_tab.tab_navigation_requested.connect(self._navigate_to_tab)
         self.central_tab.addTab(self.project_tab, "Project")
 
-        # Cameras tab - enabled based on computed property
-        cameras_enabled = self.coordinator.cameras_tab_enabled
-        if cameras_enabled:
+        # Cameras tab - always enabled. Without intrinsic videos it shows an
+        # info placeholder describing the skip-intrinsics path (a disabled tab
+        # can't be clicked, so it could never explain itself).
+        if self.coordinator.cameras_tab_enabled:
             logger.info("Building Cameras tab with intrinsic calibration")
             self.cameras_tab_widget = CamerasTabWidget(self.coordinator)
         else:
-            logger.info("Cameras tab disabled - no intrinsic videos available")
-            self.cameras_tab_widget = QWidget()
+            logger.info("No intrinsic videos - Cameras tab shows skip-intrinsics placeholder")
+            self.cameras_tab_widget = CamerasInfoPlaceholder()
         self.central_tab.addTab(self.cameras_tab_widget, "Cameras")
-        self.central_tab.setTabEnabled(
-            self.find_tab_index_by_title("Cameras"),
-            cameras_enabled,
-        )
 
         # Multi-Camera tab - enabled based on computed property
         multi_camera_enabled = self.coordinator.multi_camera_tab_enabled
@@ -192,11 +190,8 @@ class MainWindow(QMainWindow):
         Called when Coordinator.status_changed fires (filesystem change,
         calibration complete, etc.).
         """
-        # Update enabled state for each tab
-        self.central_tab.setTabEnabled(
-            self.find_tab_index_by_title("Cameras"),
-            self.coordinator.cameras_tab_enabled,
-        )
+        # Update enabled state for each tab. The Cameras tab is exempt: it
+        # stays enabled and shows a placeholder until intrinsic videos exist.
         self.central_tab.setTabEnabled(
             self.find_tab_index_by_title("Multi-Camera"),
             self.coordinator.multi_camera_tab_enabled,

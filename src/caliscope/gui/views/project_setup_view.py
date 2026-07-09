@@ -811,7 +811,15 @@ class ProjectSetupView(QWidget):
                     cam_labels += "..."
                 detail += f" (need: {cam_labels})"
         else:
-            if status.intrinsic_videos_missing:
+            if status.camera_count > 0 and len(status.intrinsic_videos_missing) == status.camera_count:
+                # Extrinsic videos define the camera set but no intrinsic videos
+                # exist: the deliberate skip-intrinsics path, not a stalled step.
+                detail = (
+                    "No intrinsic videos — optional if you capture for it. "
+                    "Extrinsic calibration can recover intrinsics (fisheye cameras excepted); "
+                    "see the Cameras tab for prerequisites, then continue on the Calibrate tab."
+                )
+            elif status.intrinsic_videos_missing:
                 cam_labels = ", ".join(str(p) for p in status.intrinsic_videos_missing[:3])
                 if len(status.intrinsic_videos_missing) > 3:
                     cam_labels += "..."

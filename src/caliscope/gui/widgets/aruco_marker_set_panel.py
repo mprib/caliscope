@@ -58,7 +58,7 @@ class ArucoMarkerSetPanel(QWidget):
 
         # Help link
         help_label = QLabel(
-            '<a href="https://mprib.github.io/caliscope/calibration_targets/">'
+            '<a href="https://mprib.github.io/caliscope/aruco_calibration_set/">'
             "How to set up multi-marker calibration</a>"
         )
         help_label.setOpenExternalLinks(True)

@@ -17,6 +17,7 @@ from caliscope.core.reprojection import (
     ErrorsXY,
     reprojection_errors,
     joint_residuals,
+    joint_jacobian,
     ImageCoords,
     WorldCoords,
     CameraIndices,
@@ -384,11 +385,6 @@ class CaptureVolume:
                 n_c = len(constraint_groups_a)
                 logger.info(f"Adding {n_c} constraint rows (f_median={f_median:.0f}, pixel_sigma={pixel_sigma})")
 
-        n_constraints = len(constraint_groups_a) if constraint_groups_a is not None else 0
-        sparsity_pattern = parameterization.sparsity(
-            camera_indices, image_to_world_indices, n_constraints, constraint_groups_a, constraint_groups_b
-        )
-
         n_obs = len(image_coords)
         logger.info(f"Beginning bundle adjustment on {n_obs} observations")
         result = least_squares(
@@ -404,7 +400,9 @@ class CaptureVolume:
                 constraint_distances,
                 constraint_weights,
             ),
-            jac_sparsity=sparsity_pattern,
+            # scipy's stubs type jac as the str literals only; a callable returning
+            # a sparse matrix is documented and supported.
+            jac=joint_jacobian,  # type: ignore[arg-type]
             verbose=verbose,
             x_scale="jac",
             loss=loss,

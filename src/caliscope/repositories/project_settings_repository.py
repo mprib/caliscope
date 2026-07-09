@@ -79,6 +79,16 @@ class ProjectSettingsRepository:
         settings["save_tracked_points_video"] = save
         self.save(settings)
 
+    def get_save_xy_points(self) -> bool:
+        """Get flag for saving the xy_{tracker}.csv 2D-points artifact (default: True)."""
+        return self._cache.get("save_xy_points", True)
+
+    def set_save_xy_points(self, save: bool) -> None:
+        """Update xy-points saving flag and persist immediately."""
+        settings = self._cache.copy()
+        settings["save_xy_points"] = save
+        self.save(settings)
+
     def get_creation_date(self) -> Any:
         """Get project creation date if available."""
         return self._cache.get("creation_date")

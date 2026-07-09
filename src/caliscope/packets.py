@@ -2,7 +2,6 @@ from dataclasses import dataclass
 from enum import StrEnum
 from typing import Any, Callable, cast
 
-import cv2
 import numpy as np
 from numpy.typing import NDArray
 
@@ -99,35 +98,6 @@ class TrackedFrame:
         else:
             table = None
         return table
-
-    @property
-    def frame_with_points(self) -> NDArray[Any] | None:
-        if self.frame is None:
-            return None
-
-        if self.points is not None and self.draw_instructions is not None:
-            drawn_frame = self.frame.copy()
-            if self.pixel_format == PixelFormat.GRAY:
-                drawn_frame = cv2.cvtColor(drawn_frame, cv2.COLOR_GRAY2BGR)
-
-            ids = self.points.keypoint_id
-            locs = self.points.img_loc
-            for _id, coord in zip(ids, locs):
-                x = round(coord[0])
-                y = round(coord[1])
-
-                params = self.draw_instructions(_id)
-                cv2.circle(
-                    drawn_frame,
-                    (x, y),
-                    params["radius"],
-                    params["color"],
-                    params["thickness"],
-                )
-        else:
-            drawn_frame = self.frame
-
-        return drawn_frame
 
 
 @dataclass(frozen=True, slots=True)

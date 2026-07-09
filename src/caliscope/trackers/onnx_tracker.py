@@ -67,8 +67,8 @@ class OnnxTracker(Tracker):
         self.input_name = self.session.get_inputs()[0].name
 
         # Tracking state: per-camera previous bounding box in post-rotation coords.
-        # Keyed by cam_id to isolate state across cameras (single tracker instance
-        # is shared across all cameras — see Reconstructor/SynchronizedStreamManager).
+        # Keyed by cam_id to isolate state across cameras (a single tracker instance
+        # is shared across all cameras by process_synchronized_recording).
         self._prev_bboxes: dict[int, tuple[int, int, int, int]] = {}
 
         logger.info(

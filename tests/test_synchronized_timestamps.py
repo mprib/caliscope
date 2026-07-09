@@ -364,3 +364,36 @@ if __name__ == "__main__":
     print(f"  min stored sync_index in CSV: {min_stored}")
     print("  computed starts at 0 (recomputed from timestamps)")
     print("  Algorithm test passed (run pytest for full verification)")
+
+
+# ---------------------------------------------------------------------------
+# mean_fps
+# ---------------------------------------------------------------------------
+
+
+class TestMeanFps:
+    """mean_fps derives a playback rate and never returns 0/inf or raises."""
+
+    def _synced(self, camera_frame_times: dict) -> SynchronizedTimestamps:
+        from types import MappingProxyType
+
+        from caliscope.recording.frame_timestamps import FrameTimestamps
+
+        cams = {cam_id: FrameTimestamps(MappingProxyType(dict(times))) for cam_id, times in camera_frame_times.items()}
+        return SynchronizedTimestamps(MappingProxyType(cams))
+
+    def test_derives_rate_from_span(self):
+        """A 30 fps recording yields ~30."""
+        times = {i: i / 30.0 for i in range(30)}
+        synced = self._synced({0: times, 1: times})
+        assert synced.mean_fps == pytest.approx(30.0)
+
+    def test_single_frame_falls_back(self):
+        """One frame per camera has no span; fall back rather than raise."""
+        synced = self._synced({0: {0: 0.0}, 1: {0: 0.0}})
+        assert synced.mean_fps == pytest.approx(30.0)
+
+    def test_zero_span_falls_back(self):
+        """Duplicate timestamps give a zero span; no division by zero."""
+        synced = self._synced({0: {0: 5.0, 1: 5.0}})
+        assert synced.mean_fps == pytest.approx(30.0)

@@ -9,7 +9,6 @@ matplotlib.use("Agg")
 
 import logging
 from pathlib import Path
-from time import sleep
 from typing import TYPE_CHECKING
 import numpy as np
 
@@ -20,10 +19,7 @@ from caliscope.core.bootstrap_pose.build_paired_pose_network import build_paired
 # from caliscope.cameras.camera_array_initializer import CameraArrayInitializer
 from caliscope.helper import copy_contents_to_clean_dest
 from caliscope.core.point_data import ImagePoints
-from caliscope.managers.synchronized_stream_manager import SynchronizedStreamManager
-from caliscope.trackers.charuco_tracker import CharucoTracker
 from caliscope.cameras.camera_array import CameraArray
-from caliscope.core.charuco import Charuco
 from caliscope.core.capture_volume import CaptureVolume
 
 if TYPE_CHECKING:
@@ -31,37 +27,6 @@ if TYPE_CHECKING:
 
 
 logger = logging.getLogger(__name__)
-
-
-def test_xy_charuco_creation(tmp_path: Path):
-    original_session_path = Path(__root__, "tests", "sessions", "charuco_calibration")
-
-    copy_contents_to_clean_dest(original_session_path, tmp_path)
-
-    # This test begins with a set of cameras with calibrated intrinsics
-    logger.info(f"Getting charuco from {tmp_path}")
-    charuco = Charuco.from_toml(tmp_path / "charuco.toml")
-    charuco_tracker = CharucoTracker(charuco)
-
-    # create publishers for synchronized processing
-    logger.info("Creating publishers")
-    recording_path = Path(tmp_path, "calibration", "extrinsic")
-    point_data_path = Path(recording_path, "CHARUCO", "xy_CHARUCO.csv")
-
-    camera_array = CameraArray.from_toml(tmp_path / "camera_array.toml")
-    sync_stream_manager = SynchronizedStreamManager(
-        recording_dir=recording_path, all_camera_data=camera_array.cameras, tracker=charuco_tracker
-    )
-    sync_stream_manager.process_streams(fps_target=100)
-
-    # need to wait for points.csv file to populate
-    while not point_data_path.exists():
-        logger.info("Waiting for point_data.csv to populate...")
-        sleep(1)
-
-    assert point_data_path.exists()
-
-    sync_stream_manager.cleanup()
 
 
 def _run_bundle_optimization_test(data: CalibrationTestData):
@@ -294,9 +259,6 @@ if __name__ == "__main__":
     # Run tests with reduced data for fast debugging
     calib_data = _load_calibration_data(temp_path, subsample_stride=20)
     test_capture_volume_optimization(calib_data)
-
-    # Run other tests that don't use the new fixtures
-    test_xy_charuco_creation(temp_path)
 
     # Run percentile test (function does its own loading with stride=10)
     test_filter_percentile_modes(temp_path / "percentile")

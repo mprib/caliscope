@@ -17,8 +17,11 @@ from pathlib import Path
 from PySide6.QtCore import QObject, Qt, Signal
 
 from caliscope.cameras.camera_array import CameraArray
+from caliscope.core.process_synchronized_recording import process_synchronized_recording
 from caliscope.gui.geometry.wireframe import WireframeSegment, wireframe_segments_from_view
-from caliscope.reconstruction.reconstructor import Reconstructor
+from caliscope.reconstruction.reconstruct_xyz import reconstruct_xyz
+from caliscope.recording.overlay_video_writer import OverlayVideoWriter
+from caliscope.recording.synchronized_timestamps import SynchronizedTimestamps
 from caliscope.repositories.project_settings_repository import ProjectSettingsRepository
 from caliscope.task_manager.task_handle import TaskHandle
 from caliscope.task_manager.task_manager import TaskManager
@@ -316,24 +319,76 @@ class ReconstructionPresenter(QObject):
         # Clear previous state
         self._last_error = None
 
-        # Capture values for closure
+        # --- boundary: synchronous, fallible setup before submitting the task ---
         recording_path = self._workspace_dir / "recordings" / self._selected_recording
         tracker_name = self._selected_tracker
         camera_array = self._camera_array
+        cam_ids = sorted(camera_array.cameras.keys())
+
+        tracker = tracker_registry.create(tracker_name)
+        tracker_dir = recording_path / tracker_name
+        tracker_dir.mkdir(parents=True, exist_ok=True)
+        camera_array.to_toml(tracker_dir / "camera_array.toml")
+
+        try:
+            synced_timestamps = SynchronizedTimestamps.load(recording_path, cam_ids)
+        except ValueError as e:
+            # Incompatible videos: reject cleanly, stay out of RECONSTRUCTING.
+            logger.error(f"Cannot load timestamps: {e}")
+            self._last_error = str(e)
+            self._emit_state_changed()
+            return
+
+        save_overlay = bool(self._project_settings and self._project_settings.get_save_tracked_points_video())
+        save_xy = bool(self._project_settings and self._project_settings.get_save_xy_points())
 
         def worker(token, handle):
-            reconstructor = Reconstructor(camera_array, recording_path, tracker_name)
+            recorder = (
+                OverlayVideoWriter(tracker_dir, tracker, synced_timestamps.mean_fps, suffix=tracker_name)
+                if save_overlay
+                else None
+            )
 
-            # Stage 1: 2D landmark detection (0-80%)
-            if not reconstructor.create_xy(token=token, handle=handle):
-                return None  # Cancelled
+            last_pct = -1
 
-            # Stage 2: Triangulation (80-100%)
+            def on_progress(done: int, total: int) -> None:
+                nonlocal last_pct
+                pct = int((done / total) * 80) if total else 0  # stage 1 is 0-80%
+                if pct != last_pct:  # throttle: emit only on integer-percent change
+                    last_pct = pct
+                    raw = int((done / total) * 100) if total else 0
+                    handle.report_progress(pct, f"Stage 1: {raw}% - Detecting 2D landmarks")
+
+            def on_frame_data(sync_index, frame_data) -> None:
+                if recorder is not None:
+                    recorder.on_frame_data(sync_index, frame_data)
+
+            try:
+                image_points = process_synchronized_recording(
+                    recording_dir=recording_path,
+                    cameras=camera_array.cameras,
+                    tracker=tracker,
+                    synced_timestamps=synced_timestamps,
+                    on_progress=on_progress,
+                    on_frame_data=on_frame_data,
+                    token=token,
+                )
+            finally:
+                if recorder is not None:
+                    recorder.close()  # flush encoders even on cancel/failure
+
+            if token.is_cancelled:
+                return None
+
+            if save_xy:
+                image_points.to_csv(tracker_dir / f"xy_{tracker_name}.csv")
+
+            # Stage 2: Triangulation (80-100%), from the in-memory points (no read-back)
             handle.report_progress(85, "Stage 2: Triangulating 3D points")
-            reconstructor.create_xyz()
+            reconstruct_xyz(image_points, camera_array, tracker, tracker_dir)
             handle.report_progress(100, "Complete")
 
-            return reconstructor
+            return tracker_dir
 
         self._processing_task = self._task_manager.submit(worker, name="reconstruction", auto_start=False)
 

@@ -30,7 +30,6 @@ from caliscope.core.constraints import ConstraintSet
 from caliscope.core.workflow_status import WorkflowStatus
 from caliscope.persistence import PersistenceError
 from caliscope.repositories.intrinsic_report_repository import IntrinsicReportRepository
-from caliscope.reconstruction.reconstructor import Reconstructor
 from caliscope.recording import read_video_properties
 from caliscope.core.point_data import ImagePoints
 from caliscope.trackers.charuco_tracker import CharucoTracker
@@ -110,9 +109,6 @@ class WorkspaceCoordinator(QObject):
 
         # Centralized task management for background operations
         self.task_manager = TaskManager(parent=self)
-
-        # Created during process_recordings; lives for the duration of that task
-        self.reconstructor: Reconstructor | None = None
 
         # In-memory cache of intrinsic calibration data (by cam_id)
         # These enable overlay restoration when switching between cameras
@@ -789,42 +785,6 @@ class WorkspaceCoordinator(QObject):
             return
         new_capture_volume = capture_volume.align_to_object(sync_index)
         self.update_capture_volume(new_capture_volume)
-
-    def process_recordings(self, recording_path: Path, tracker_name: str) -> TaskHandle:
-        """
-        Initiate post-processing of recorded video in worker thread.
-
-        Args:
-            recording_path: Directory containing synchronized video recordings
-            tracker_name: Tracker name to use for landmark detection
-
-        Returns:
-            TaskHandle for connecting completion callbacks.
-        """
-
-        def worker(token, handle):
-            logger.info(f"Beginning to process video files at {recording_path}")
-            logger.info(f"Creating reconstructor for {recording_path}")
-            self.reconstructor = Reconstructor(self.camera_array, recording_path, tracker_name)
-
-            # Get processing settings from project configuration
-            include_video = self.settings_repository.get_save_tracked_points_video()
-            fps_target = self.settings_repository.get_fps_sync_stream_processing()
-
-            # Pass token for cancellation support and handle for progress reporting
-            if not self.reconstructor.create_xy(
-                include_video=include_video, fps_target=fps_target, token=token, handle=handle
-            ):
-                return  # Cancelled
-
-            # Stage 2 progress (80-100%)
-            handle.report_progress(85, "Stage 2: Triangulating 3D points")
-            self.reconstructor.create_xyz()
-            handle.report_progress(100, "Complete")
-
-        handle = self.task_manager.submit(worker, name="process_recordings", auto_start=False)
-        self.task_manager.start_task(handle.task_id)
-        return handle
 
     def cleanup(self) -> None:
         """Shutdown all background operations.

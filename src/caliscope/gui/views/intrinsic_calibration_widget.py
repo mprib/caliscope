@@ -529,6 +529,17 @@ class FrameRenderThread(QThread):
             except Empty:
                 continue
 
+            # Conflate: tracking fills the queue faster than we can scale+paint a
+            # frame, so drain any backlog and keep only the newest. Dropping stale
+            # frames keeps the preview at the current processed frame instead of
+            # replaying a growing buffer. Corners are recorded separately, so no
+            # extraction data is lost.
+            try:
+                while True:
+                    tracked_frame = self._display_queue.get_nowait()
+            except Empty:
+                pass
+
             if tracked_frame is None:
                 continue
 

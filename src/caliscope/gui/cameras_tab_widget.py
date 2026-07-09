@@ -119,7 +119,7 @@ class CamerasTabWidget(QWidget):
             "5 = every 5th frame (good balance)\n"
             "Higher values speed up processing but use fewer frames."
         )
-        setup_spinbox_sizing(self._frame_skip_spin, min_value=1, max_value=30)
+        setup_spinbox_sizing(self._frame_skip_spin, min_value=1, max_value=100000)
         left_layout.addWidget(self._frame_skip_spin)
 
         self._splitter.addWidget(left_container)

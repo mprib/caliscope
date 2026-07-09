@@ -33,8 +33,12 @@ def _two_phase_optimize(cv: CaptureVolume, refine_intrinsics: bool = False) -> C
     linear = cv.optimize(refine_intrinsics=refine_intrinsics)
     f_scale = linear.pixel_f_scale(px=1.0)
     return linear.optimize(
-        loss="soft_l1", f_scale=f_scale, refine_intrinsics=refine_intrinsics,
-        max_nfev=2000, ftol=1e-4, strict=False,
+        loss="soft_l1",
+        f_scale=f_scale,
+        refine_intrinsics=refine_intrinsics,
+        max_nfev=2000,
+        ftol=1e-4,
+        strict=False,
     )
 
 

@@ -28,6 +28,11 @@ This produces a reliable starting point, even when no single position of the tar
 The PnP approach allows a single ArUco marker printed on a standard sheet of paper to serve as the extrinsic calibration target.
 Large-format prints are visible from greater distances, making it practical to calibrate wide capture volumes.
 
+- **Joint intrinsic recovery:**
+Separate per-camera intrinsic calibration is optional for standard lenses.
+When the capture provides enough depth variation, bundle adjustment recovers focal length and distortion jointly with the camera poses.
+See [Skipping Intrinsic Calibration](extrinsic_calibration.md#skipping-intrinsic-calibration).
+
 - **Mirror boards:**
 For setups where cameras face inward from all directions (common in animal behavior rigs and dense multicamera arrays), finding board positions visible to every camera can be difficult.
 Caliscope supports a charuco board printed on both sides of a rigid surface (mirror image on back), so cameras viewing opposite sides identify the same physical point from either direction.

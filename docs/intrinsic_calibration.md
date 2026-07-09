@@ -2,6 +2,9 @@
 
 Intrinsic calibration determines the internal optical properties of each camera: the focal length (in pixels), the optical center (where the camera's optical axis intersects the sensor), and the lens distortion coefficients that correct barrel and pincushion distortion. These parameters are unique to each camera and remain constant as long as the camera's focal length and lens haven't changed.
 
+!!! note "This step is optional for many setups"
+    Extrinsic calibration can recover focal length and leading distortion during bundle adjustment, if you capture for it. Fisheye cameras still require this step, and it remains the way to get a dense lens model. See [Skipping Intrinsic Calibration](extrinsic_calibration.md#skipping-intrinsic-calibration) for the prerequisites.
+
 ### Calibration Targets
 
 Caliscope supports both **ChArUco** and **chessboard** patterns for intrinsic calibration. ChArUco boards are generally preferred because they are more robust to partial occlusion and provide unique corner identification. See [Calibration Targets](calibration_targets.md) for details on creating your calibration board.

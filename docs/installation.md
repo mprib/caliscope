@@ -94,11 +94,17 @@ For **scripting and library use** (no GUI dependencies):
 uv pip install caliscope
 ```
 
-The standard install includes the calibration pipeline (intrinsic and extrinsic) and the scripting API (`caliscope.api`). The `[gui]` extra adds the PySide6 desktop interface, 3D visualization, and ONNX pose tracking.
+For **headless pose tracking** (scripting install plus ONNX inference, no GUI):
+
+```bash
+uv pip install caliscope[tracking]
+```
+
+The standard install includes the calibration pipeline (intrinsic and extrinsic) and the scripting API (`caliscope.api`). The `[tracking]` extra adds `onnxruntime` for neural pose tracking. The `[gui]` extra includes `[tracking]` and adds the PySide6 desktop interface and 3D visualization.
 
 Installation may take a moment as some dependencies are large.
 
-ONNX model inference via `onnxruntime` ships with the `[gui]` extra. See [Custom ONNX Trackers](onnx_trackers.md) for details.
+See [Custom ONNX Trackers](onnx_trackers.md) for details on pose model setup.
 
 ## 5. Launch from the command line
 

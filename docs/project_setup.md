@@ -46,6 +46,25 @@ workspace/
 
 After calibration, each camera's intrinsic parameters are stored internally for use in extrinsic calibration.
 
+### Extrinsic-Only Projects
+
+The `calibration/intrinsic/` directory can be left empty.
+Caliscope can recover camera intrinsics during extrinsic calibration, provided the capture meets [the prerequisites](extrinsic_calibration.md#skipping-intrinsic-calibration) — most notably a target swept through depth and no fisheye cameras.
+The minimal project layout is then:
+
+```
+workspace/
+├── calibration/
+│   ├── targets/
+│   └── extrinsic/
+│       ├── cam_0.mp4
+│       ├── cam_1.mp4
+│       └── cam_2.mp4
+└── recordings/
+```
+
+The camera set is always derived from the files in `calibration/extrinsic/`, so nothing else changes: synchronization, extraction, and calibration work the same way.
+
 ## Stage 2: Extrinsic Calibration
 
 Extrinsic calibration determines the spatial relationship between cameras (their positions and orientations in 3D space).

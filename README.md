@@ -11,10 +11,13 @@
 ![pytest](https://github.com/mprib/caliscope/actions/workflows/pytest.yml/badge.svg)
 </div>
 
-Caliscope estimates intrinsic and extrinsic camera parameters for multicamera rigs.
-Bundle adjustment needs a good starting point to converge. Caliscope builds that starting point from pairwise PnP estimates chained transitively, then refines it.
+3D motion capture requires knowing each camera's intrinsic properties (focal length and lens distortion), as well as where the cameras sit relative to each other in space.
+With these parameters, observations from multiple cameras can be triangulated into accurate 3D coordinates.
+
 
 ## Demo
+
+Note that the workflow flow below is from v0.9.0 and will soon be updated with v0.10.0
 
 https://github.com/user-attachments/assets/b8bb78de-866e-4ba2-b5c7-674e3a33dd9e
 

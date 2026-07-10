@@ -17,7 +17,7 @@ With these parameters, observations from multiple cameras can be triangulated in
 
 ## Demo
 
-Note that the workflow flow below is from v0.9.0 and will soon be updated with v0.10.0
+Note that the workflow below is from v0.9.0 and will soon be updated with v0.10.0
 
 https://github.com/user-attachments/assets/b8bb78de-866e-4ba2-b5c7-674e3a33dd9e
 

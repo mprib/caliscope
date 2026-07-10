@@ -14,6 +14,8 @@
 3D motion capture requires knowing each camera's intrinsic properties (focal length and lens distortion), as well as where the cameras sit relative to each other in space.
 With these parameters, observations from multiple cameras can be triangulated into accurate 3D coordinates.
 
+Caliscope efficiently estimates these parameters with a scriptable Python API as well as a GUI that offers visual feedback during each stage of the calibration.
+
 
 ## Demo
 

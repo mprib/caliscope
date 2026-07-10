@@ -33,7 +33,7 @@ Intrinsic calibration determines each camera's internal properties (focal length
 
 Place one video per camera in `calibration/intrinsic/`.
 These videos **do not need to be synchronized**.
-Each video should show a calibration target (Charuco board, chessboard, or ArUco grid) being moved throughout the camera's field of view.
+Each video should show a calibration target (ChArUco board or chessboard) being moved throughout the camera's field of view.
 
 ```
 workspace/
@@ -49,7 +49,7 @@ After calibration, each camera's intrinsic parameters are stored internally for 
 ### Extrinsic-Only Projects
 
 The `calibration/intrinsic/` directory can be left empty.
-Caliscope can recover camera intrinsics during extrinsic calibration, provided the capture meets [the prerequisites](extrinsic_calibration.md#skipping-intrinsic-calibration), most notably a target moved toward and away from each camera, and no fisheye cameras.
+Caliscope can recover camera intrinsics during extrinsic calibration, provided the capture meets [the prerequisites](extrinsic_calibration_reference.md#skipping-intrinsic-calibration), most notably a target moved toward and away from each camera, and no fisheye cameras.
 The minimal project layout is then:
 
 ```
@@ -85,7 +85,9 @@ workspace/
 ### Frame Synchronization
 
 If your cameras are hardware-synchronized (same frame count in every file), Caliscope aligns them automatically.
-If they are not, include a `timestamps.csv` with per-frame timing, or the calibration will suffer from misaligned frames.
+
+!!! warning "Non-synchronized cameras"
+    If your cameras are not hardware-synchronized, include a `timestamps.csv` with per-frame timing. Without it, the calibration will suffer from misaligned frames.
 
 ### `timestamps.csv` Format
 

@@ -1,8 +1,7 @@
 # Reconstruction
 
-Caliscope's reconstruction pipeline is a convenience tool for verifying calibration quality and quick landmark export.
-For production 3D reconstruction, use [Pose2Sim](https://github.com/perfanalytics/pose2sim) or [anipose](https://anipose.readthedocs.io/).
-Caliscope's aniposelib-compatible camera export lets you calibrate here and hand off to those tools.
+!!! note "Calibration verification, not production reconstruction"
+    This pipeline verifies calibration quality and provides quick landmark export. For production 3D reconstruction, use [Pose2Sim](https://github.com/perfanalytics/pose2sim) or [anipose](https://anipose.readthedocs.io/). Caliscope's aniposelib-compatible export lets you calibrate here and hand off to those tools.
 
 The pipeline tracks 2D landmarks with ONNX pose models, then triangulates them into 3D using the calibrated cameras.
 Several RTMPose Halpe26 models ship as built-in model cards and can be downloaded in-app.

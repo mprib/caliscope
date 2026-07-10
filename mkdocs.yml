@@ -38,6 +38,7 @@ nav:
       - Calibration Targets: calibration_targets.md
       - Intrinsic Calibration: intrinsic_calibration.md
       - Extrinsic Calibration: extrinsic_calibration.md
+      - Extrinsic Reference: extrinsic_calibration_reference.md
       - ArUco Calibration Set: aruco_calibration_set.md
   - Reconstruction:
       - Tracking & Triangulation: reconstruction.md

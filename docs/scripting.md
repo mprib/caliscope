@@ -77,7 +77,7 @@ Pass `progress=None` to suppress it.
 `print_intrinsic_report` prints these with color-coded quality badges.
 
 This whole step is optional.
-The extrinsic pipeline can recover intrinsics on its own; see [Calibrating without intrinsics](#calibrating-without-intrinsics) below.
+The extrinsic pipeline can recover intrinsics during bundle adjustment; see [Calibrating without intrinsics](#calibrating-without-intrinsics) below. This path is experimental.
 
 ## Step 4: Extract time-aligned points for extrinsic calibration
 
@@ -124,7 +124,7 @@ Build them from the same board definition you used for tracking.
 Two keyword arguments matter most:
 
 - `refine_intrinsics` (default `True`): re-estimate each camera's focal length and leading distortion jointly with the poses.
-  Refinement is subject to the [depth-ratio gate](extrinsic_calibration.md#the-depth-ratio-gate): if any camera saw the target over too narrow a depth range, refinement is disabled for the whole rig.
+  Refinement is subject to the [depth-ratio gate](extrinsic_calibration_reference.md#the-depth-ratio-gate): if any camera saw the target over too narrow a depth range, refinement is disabled for the whole rig.
 - `filter_percentile` (default `2.5`): the worst percentage of observations removed per camera between the two optimization passes.
 
 The returned `ExtrinsicCalibrationResult` carries the calibrated volume plus diagnostics:
@@ -191,14 +191,13 @@ volume = CaptureVolume.load("capture_volume")
 cameras = CameraArray.from_toml("capture_volume/camera_array.toml")
 ```
 
-## Calibrating without intrinsics
+## Calibrating without intrinsics (experimental)
 
-The pipeline above assumed Step 3 produced calibrated intrinsics.
-You can skip it.
+!!! warning "Experimental"
+    This path passes synthetic tests but has not been validated on real-world data. The recommended workflow is to calibrate intrinsics first.
+
 When a camera in the array has no intrinsics, `calibrate_extrinsics` synthesizes a starting guess from the resolution and recovers focal length and leading distortion during bundle adjustment.
-Read [Skipping Intrinsic Calibration](extrinsic_calibration.md#skipping-intrinsic-calibration) first; the prerequisites (a target swept through depth, no fisheye cameras) are the same from a script as from the GUI.
-
-This example uses an [ArUco marker set](aruco_calibration_set.md), the usual companion to an extrinsic-only project:
+See [Skipping Intrinsic Calibration](extrinsic_calibration_reference.md#skipping-intrinsic-calibration) for prerequisites.
 
 ```python
 from caliscope.api import CameraArray, calibrate_extrinsics, extract_image_points_multicam
@@ -206,11 +205,7 @@ from caliscope.core.aruco_marker import ArucoMarkerSet
 from caliscope.core.constraints import ConstraintSet
 from caliscope.trackers.aruco_tracker import ArucoTracker
 
-# Camera array straight from the extrinsic videos: no intrinsics anywhere
-extrinsic_videos = {0: "extrinsic/cam_0.mp4", 1: "extrinsic/cam_1.mp4", 2: "extrinsic/cam_2.mp4"}
 cameras = CameraArray.from_video_metadata(extrinsic_videos)
-
-# Marker set defines the targets and their rigidity
 marker_set = ArucoMarkerSet.from_toml("calibration/targets/aruco_marker_set.toml")
 tracker = ArucoTracker(dictionary=marker_set.dictionary, marker_set=marker_set)
 constraints = ConstraintSet.from_marker_set(marker_set)
@@ -218,25 +213,4 @@ constraints = ConstraintSet.from_marker_set(marker_set)
 ext_points = extract_image_points_multicam(extrinsic_videos, tracker)
 result = calibrate_extrinsics(ext_points, cameras, constraints)
 ```
-
-Leave `refine_intrinsics` at its default of `True` here.
-The GUI forces this choice when cameras lack intrinsics; the API trusts you.
-Passing `False` with uncalibrated cameras leaves the blind resolution-based guess in place, which produces a confidently wrong calibration.
-Afterward, the diagnostics tell you how it went:
-
-```python
-if result.intrinsic_refinement_gated:
-    print("Refinement gated off; the calibration rests on blind-guess intrinsics.")
-    print(f"Per-camera depth ratios: {result.depth_ratios}")
-
-for est in result.intrinsic_estimates:
-    print(f"cam {est.cam_id}: f {est.f_initial:.0f} -> {est.f_recovered:.0f}")
-
-result.capture_volume.save("capture_volume")
-```
-
-A gated result here deserves suspicion, not a save: with no prior intrinsics to fall back on, the gate means the recovered geometry is built on the synthesized guess.
-Re-record with the marker moving toward and away from the cameras.
-
-A fisheye camera (one with `fisheye = true` in its camera data) cannot take this path at all; `calibrate_extrinsics` raises a `CalibrationError` for it.
 Calibrate fisheye cameras intrinsically first, then run the same extrinsic pipeline.

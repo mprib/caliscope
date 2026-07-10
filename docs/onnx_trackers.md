@@ -6,7 +6,9 @@ After installation, ONNX models appear alongside the built-in trackers in the re
 
 ## Requirements
 
-ONNX inference requires the `[tracking]` extra (see [Installation](installation.md)).
+!!! info "Requires the `[tracking]` extra"
+    ONNX inference requires `pip install caliscope[tracking]`. The `[gui]` extra includes it automatically.
+
 On first launch, Caliscope seeds your models directory with model cards for the RTMPose Halpe26 family.
 The `.onnx` weight files are not shipped; they can be downloaded in-app or placed manually.
 
@@ -263,4 +265,5 @@ Other RTMPose variants and SLEAP-exported models should work with appropriate mo
 
 ## Limitations
 
-The ONNX tracker currently supports single-person detection with CPU inference only. GPU acceleration and multi-person tracking are not yet implemented. If you have a use case that requires these features, please [open an issue](https://github.com/mprib/caliscope/issues).
+!!! note "Current limitations"
+    Single-person detection with CPU inference only. GPU acceleration and multi-person tracking are not yet implemented. [Open an issue](https://github.com/mprib/caliscope/issues) if you need these.

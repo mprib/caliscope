@@ -2,8 +2,6 @@
 
 Intrinsic calibration determines the internal optical properties of each camera: the focal length (in pixels), the optical center (where the camera's optical axis intersects the sensor), and the lens distortion coefficients that correct barrel and pincushion distortion. These parameters are unique to each camera and remain constant as long as the camera's focal length and lens haven't changed.
 
-!!! note "This step is optional for many setups"
-    Extrinsic calibration can recover focal length and leading distortion during bundle adjustment, if you capture for it. Fisheye cameras still require this step, and it remains the way to get a dense lens model. See [Skipping Intrinsic Calibration](extrinsic_calibration.md#skipping-intrinsic-calibration) for the prerequisites.
 
 ### Calibration Targets
 
@@ -29,13 +27,8 @@ See [Calibration Targets](calibration_targets.md#intrinsic-calibration-size-inde
 
 ## Reusability
 
-**Intrinsic calibration only needs to be performed once per camera.** The same calibration parameters can be used across multiple projects as long as:
-
-- The camera's focal length hasn't changed (no zoom adjustment)
-- The lens hasn't been physically modified or replaced
-- You're using the same focus setting (see warning below)
-
-You can copy previously determined intrinsic parameters from one project to another when reusing the same cameras in a new setup. Intrinsic parameters are stored in `camera_array.toml` (TOML format) within the project's calibration directory.
+!!! tip "Reuse across projects"
+    Intrinsic calibration only needs to be done once per camera. Copy `camera_array.toml` to a new project as long as focal length, lens, and focus setting haven't changed.
 
 ### Camera Model Considerations
 

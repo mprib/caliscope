@@ -7,6 +7,9 @@ The cameras were not hardware-synchronized, so the data includes a `timestamps.c
 It contains raw input data only: intrinsic calibration videos, extrinsic calibration videos, and one walking recording.
 You configure calibration targets and run the pipeline yourself.
 
-The intrinsic calibration videos use a chessboard rather than a charuco board. This produces a slightly worse intrinsic calibration (~1 px reprojection error). A charuco board will give better results. The extrinsic calibration uses a charuco board.
+The intrinsic calibration videos use a chessboard rather than a charuco board.
+A charuco board's embedded ArUco markers give the detector a coarse position lock before subpixel corner refinement, which makes it more robust to motion blur and partial occlusion.
+The sample's ~1 px reprojection error may partly reflect this.
+The extrinsic calibration uses a charuco board.
 
 For a scripting-based alternative to the GUI walkthrough, see `scripts/demo_api.py` which runs the same calibration pipeline programmatically.

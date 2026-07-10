@@ -11,12 +11,8 @@ I (mprib) am interested in exploring whether Caliscope can be upgraded to accomm
 ## The calibration problem
 
 Multicamera 3D reconstruction requires knowing each camera's optical properties (intrinsic calibration) and its position and orientation in space (extrinsic calibration).
-Getting these parameters right is the foundation of accurate triangulation.
-Getting them wrong produces errors that propagate silently through every downstream analysis.
-Calibrating more than two cameras requires bundle adjustment, a nonlinear optimization that simultaneously refines all camera positions and 3D point estimates.
-Bundle adjustment is powerful but sensitive to its starting point: a poor initial estimate can cause it to converge to a poor solution or fail entirely.
-When the initial estimate is good, bundle adjustment converges quickly and reliably.
-Caliscope is designed to produce that good initial estimate and rapidly solve for a quality calibration. Some important strategies that facilitate this:
+Bundle adjustment needs a good starting point to converge reliably.
+Caliscope is built to supply one:
 
 - **Pairwise PnP initialization:**
 Caliscope builds an initial estimate of camera positions from pairwise relationships using PnP (Perspective-n-Point).
@@ -52,11 +48,9 @@ Tools that consume aniposelib calibrations can use this file directly.
 
 ## Tracking and triangulation
 
-Caliscope includes a basic reconstruction pipeline that tracks 2D landmarks and triangulates them into 3D trajectories.
-You can load custom ONNX pose estimation models exported from SLEAP, DeepLabCut, RTMPose, or other frameworks.
-Output is available in CSV and TRC (OpenSim) formats.
-For more complete reconstruction workflows, tools like [anipose](https://anipose.readthedocs.io/) and [Pose2Sim](https://github.com/perfanalytics/pose2sim) will serve you better.
-Caliscope's aniposelib-compatible export (see above) makes it straightforward to use Caliscope for calibration and hand off to these tools for downstream processing.
+Caliscope includes a basic reconstruction pipeline for verifying calibration quality and quick landmark export.
+For production 3D reconstruction, use [Pose2Sim](https://github.com/perfanalytics/pose2sim) or [anipose](https://anipose.readthedocs.io/).
+Caliscope's aniposelib-compatible export lets you calibrate here and hand off to those tools.
 
 ## Getting started
 
@@ -66,9 +60,7 @@ A [sample project](sample_project.md) with downloadable data demonstrates the fu
 
 ### Scripting workflow
 
-The standard install (`uv pip install caliscope`) includes intrinsic and extrinsic camera calibration as importable Python functions. Install with `uv pip install caliscope[gui]` to add the desktop interface, 3D visualization, and ONNX pose tracking.
-
-The [Scripting API](scripting.md) page walks through the full calibration pipeline from a Python script.
+See [Installation](installation.md) for install options and [Scripting API](scripting.md) for the full calibration pipeline from a Python script.
 
 If you encounter a bug or have a feature request, please [open an issue](https://github.com/mprib/caliscope/issues).
 For questions, post in [Discussions](https://github.com/mprib/caliscope/discussions).

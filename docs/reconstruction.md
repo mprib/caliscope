@@ -1,19 +1,13 @@
-# Reconstruction: Landmark Triangulation from Motion Capture
+# Reconstruction
 
-The reconstruction pipeline transforms synchronized videos into 3D motion trajectories through two stages:
+Caliscope's reconstruction pipeline is a convenience tool for verifying calibration quality and quick landmark export.
+For production 3D reconstruction, use [Pose2Sim](https://github.com/perfanalytics/pose2sim) or [anipose](https://anipose.readthedocs.io/).
+Caliscope's aniposelib-compatible camera export lets you calibrate here and hand off to those tools.
 
-1. **2D landmark detection**: a tracker processes each camera's video to identify anatomical landmarks (e.g., joint positions) in every frame
-2. **3D triangulation**: using the calibrated camera system, corresponding 2D observations from multiple cameras are triangulated into 3D world coordinates
-
-The pipeline uses the camera intrinsics and extrinsics established during calibration to locate landmarks in physical space.
-
-## Available Trackers
-
-### ONNX Trackers
-
-Caliscope uses ONNX pose estimation models for 2D landmark tracking. Several RTMPose Halpe26 models (tiny through xlarge, 26 body landmarks) ship as built-in model cards and can be downloaded in-app on first use. You can also load custom models exported from SLEAP, DeepLabCut, RTMPose, or other frameworks — see [Custom ONNX Trackers](onnx_trackers.md) for setup instructions.
-
-The reconstruction pipeline is a convenience tool for verifying calibration quality and quick landmark export. For production reconstruction workflows, tools like [anipose](https://anipose.readthedocs.io/) and [Pose2Sim](https://github.com/perfanalytics/pose2sim) are better suited. Caliscope's aniposelib-compatible camera export makes it straightforward to calibrate here and hand off to those tools.
+The pipeline tracks 2D landmarks with ONNX pose models, then triangulates them into 3D using the calibrated cameras.
+Several RTMPose Halpe26 models ship as built-in model cards and can be downloaded in-app.
+Custom models from SLEAP, DeepLabCut, or other frameworks also work.
+See [Custom ONNX Trackers](onnx_trackers.md) for setup.
 
 ## Workflow
 
@@ -40,26 +34,15 @@ After processing, output is saved to a subfolder named after the tracker within 
 
 ### Coordinate Units
 
-All 3D coordinates are in **meters**. The physical scale is determined by the calibration target dimensions you entered during extrinsic calibration. See [Calibration Targets](calibration_targets.md#physical-size-and-world-scale) for details on how the scale chain propagates from board geometry to world coordinates.
+All 3D coordinates are in **meters**. The physical scale is determined by the calibration target dimensions you entered during extrinsic calibration. See [Calibration Targets](calibration_targets.md#physical-size-and-world-scale) for how the board measurement you entered becomes the unit of all 3D output.
 
 ## Per-Recording Camera Snapshot
 
-Each reconstruction saves a copy of `camera_array.toml` alongside its output files. This ensures that recalibrating your camera system does not invalidate previous reconstruction results. Each recording retains the exact calibration parameters used to produce it.
+Each reconstruction saves a copy of `camera_array.toml` alongside its output files, so recalibrating your camera system does not invalidate previous results. Each recording retains the exact calibration parameters used to produce it.
 
 In longitudinal studies where camera positions may shift between sessions, this prevents the need to reprocess archived recordings.
 
-## Practical Recording Guidelines
+## Recording Tips
 
-### Minimize Motion Blur
-
-Motion blur substantially compromises landmark recognition. To reduce blur:
-
-- Use higher frame rates (e.g., 60 fps or above for dynamic movements)
-- Increase lighting to maintain exposure at faster shutter speeds
-- Avoid slow shutter speeds that allow excessive motion during exposure
-
-### Lighting
-
-- Ensure adequate, even lighting across the capture volume
-- Avoid harsh shadows or high-contrast regions that can confuse trackers
-- Diffuse lighting generally produces more consistent tracking than point sources
+Move slowly, light the scene evenly, and avoid harsh shadows.
+Higher frame rates reduce motion blur but need more light.

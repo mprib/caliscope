@@ -49,7 +49,7 @@ After calibration, each camera's intrinsic parameters are stored internally for 
 ### Extrinsic-Only Projects
 
 The `calibration/intrinsic/` directory can be left empty.
-Caliscope can recover camera intrinsics during extrinsic calibration, provided the capture meets [the prerequisites](extrinsic_calibration.md#skipping-intrinsic-calibration) — most notably a target swept through depth and no fisheye cameras.
+Caliscope can recover camera intrinsics during extrinsic calibration, provided the capture meets [the prerequisites](extrinsic_calibration.md#skipping-intrinsic-calibration), most notably a target moved toward and away from each camera, and no fisheye cameras.
 The minimal project layout is then:
 
 ```
@@ -93,7 +93,7 @@ This handles cameras with different frame rates, dropped frames, and different s
 It reads each video's frame count and frame rate, then spaces each camera's frames evenly across a shared average duration.
 The inferred frame times are saved to `inferred_timestamps.csv` for inspection.
 Hardware synchronization will result in the same number of frames in each file which Caliscope synchronizes exactly.
-In the absence of hardware synchronization, ensure that the files start and stop at the same moment in time.
+Without hardware synchronization, make sure the files start and stop at the same moment in time.
 The inferred timestamp approach will attempt to time align these files even in the presence of mild drift in frame rate.
 
 Misalignment of the start or stop frames along with drift in the actual recording will impact the time alignment.
@@ -143,7 +143,8 @@ workspace/
             └── world_points.csv
 ```
 
-The `capture_volume/` directory contains the complete calibrated camera system and can be used for 3D reconstruction of motion capture data. This workspace structure works with both the GUI and scripting workflows — scripts can load calibration results with `CameraArray.from_toml()` and save with `CaptureVolume.save()`.
+The `capture_volume/` directory contains the complete calibrated camera system and can be used for 3D reconstruction of motion capture data. This workspace structure works with both the GUI and scripting workflows.
+Scripts can load calibration results with `CameraArray.from_toml()` and save with `CaptureVolume.save()`.
 
 ## Stage 3: Recording and Reconstruction
 
@@ -180,17 +181,4 @@ workspace/
 
 ## Output Files
 
-### xy_[tracker].csv
-2D landmark coordinates detected in each camera's view. Contains columns: `sync_index`, `cam_id`, `frame_index`, `frame_time`, `point_id`, `img_loc_x`, `img_loc_y`, `obj_loc_x`, `obj_loc_y`.
-
-### xyz_[tracker].csv
-Triangulated 3D coordinates in long format. Contains columns: `sync_index`, `point_id`, `x_coord`, `y_coord`, `z_coord`, plus metadata fields. Each row represents one landmark point at one time frame.
-
-### xyz_[tracker]_labelled.csv
-Wide-format 3D data with named columns (e.g., `nose_x`, `nose_y`, `nose_z`, `left_shoulder_x`, ...). Each row represents one time frame with all landmarks as separate columns. This format is easier for analysis in spreadsheet applications or data science tools like pandas.
-
-### xyz_[tracker].trc
-Track Row Column format for OpenSim and other biomechanical modeling software. Contains the same 3D trajectory data formatted according to OpenSim specifications, with landmark names and units (meters).
-
-### camera_array.toml
-A snapshot of the camera calibration (intrinsic and extrinsic parameters) used for this specific reconstruction. This ensures reproducibility even if the calibration is later updated.
+See [Reconstruction](reconstruction.md#output-files) for output file format details.

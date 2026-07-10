@@ -138,7 +138,7 @@ result.intrinsic_estimates         # initial vs recovered f, k1, k2 per camera
 result.dropped_static_markers      # static markers excluded for moving (ArUco path)
 ```
 
-Check `intrinsic_refinement_gated` when you expected refinement: a `True` here with poor results usually means the capture lacked a depth sweep.
+Check `intrinsic_refinement_gated` when you expected refinement: a `True` here with poor results usually means the target was not moved toward and away from the cameras enough.
 
 `calibrate_extrinsics` accepts a `progress` callback (`progress=lambda pct, msg: print(pct, msg)`); it runs silently by default.
 

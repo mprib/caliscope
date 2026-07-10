@@ -87,22 +87,17 @@ Large-format markers printed on a plotter, or several markers surveyed into the 
 
 A plain ArUco scene provides far fewer detection points per frame than a ChArUco board, so rigidity constraints hold the solve together.
 The baseline constraints are automatic: each marker is a square of known size, and Caliscope derives its corner-to-corner geometry from `size_m`.
-Static reference markers and measured inter-marker distances strengthen the solve further and are the recommended shape for a capture.
+Static reference markers and measured inter-marker distances strengthen the solve further.
 
-The marker set — marker IDs and sizes, static flags, distance links, mirror pairs, and measurement uncertainties — is configured in `aruco_marker_set.toml` and summarized in the GUI.
+The marker set (marker IDs and sizes, static flags, distance links, mirror pairs, and measurement uncertainties) is configured in `aruco_marker_set.toml` and summarized in the GUI.
 See [The ArUco Calibration Set](aruco_calibration_set.md) for the full configuration guide.
 
 ### Limitations
 
 ArUco markers **cannot be used for the intrinsic calibration step**.
 A handful of marker corners does not provide the dense image coverage the per-camera solver needs to estimate a full distortion model.
-Either calibrate intrinsics with a ChArUco board or chessboard first, or skip the step and let extrinsic calibration recover intrinsics jointly — see [Skipping Intrinsic Calibration](extrinsic_calibration.md#skipping-intrinsic-calibration) for the prerequisites.
-
-### Future Work
-
-Combining a ChArUco board and loose ArUco markers in a single extrinsic calibration is not yet supported.
-Today an extrinsic calibration uses either a ChArUco board or an ArUco marker set, not both.
-Mixed targets are planned.
+Either calibrate intrinsics with a ChArUco board or chessboard first, or skip the step and let extrinsic calibration recover intrinsics jointly.
+See [Skipping Intrinsic Calibration](extrinsic_calibration.md#skipping-intrinsic-calibration) for the prerequisites.
 
 ---
 
@@ -123,21 +118,9 @@ This means you can measure and enter the physical size of your target after intr
 **Extrinsic calibration requires physical size.** The physical dimension you measure and enter for your calibration target becomes the **scale gauge** for the entire 3D reconstruction.
 All output coordinates are in meters, scaled relative to this measurement.
 
-**The scale chain**:
-
-1. You measure the target with a ruler or calipers (in centimeters)
-2. You enter this measurement in the GUI
-3. Caliscope converts to meters internally
-4. All 3D output coordinates are in meters at that scale
-
-**Warning**: Measurement error propagates silently through the entire system.
-If you measure your board squares as 2.5 cm but they are actually 2.4 cm, all 3D coordinates will be approximately 4% too large.
-There is no validation step to catch this error.
-The calibration will succeed and produce plausible results at the wrong scale.
-
-**Recommendation**: Use calipers for precise measurement.
-For ChArUco boards, measure corner to corner across several squares and divide to get a single square's edge length.
-For ArUco markers, measure one side of the marker corner to corner.
+You measure the target, enter the dimension, and all 3D output is in meters at that scale.
+If the measurement is wrong, all coordinates are wrong by the same factor, and nothing in the calibration will flag it.
+Use calipers, not a ruler.
 
 ---
 
@@ -151,19 +134,7 @@ If you need different boards for the two stages (e.g., a small flat board for in
 
 ## Printing and Preparation
 
-**Flatness is critical for intrinsic calibration.** The algorithm assumes detected points lie on a perfect plane.
-Use rigid backing.
-Flatness is less critical for extrinsic calibration, where bundle adjustment can absorb small deviations.
-
-**Measure actual printed dimensions.** Even when printing at exact scale, small variations are common.
-Measure with a ruler or calipers before entering values in the GUI.
-
-**Physical construction:**
-
-- Mount your printed target to rigid backing (cardboard, foam board, or glass)
-- Matte finishes reduce glare that can interfere with corner detection
-- For double-sided boards, ensure front and back are precisely aligned
-
-You can use different targets for intrinsic and extrinsic calibration.
-A small flat board works well for intrinsic; a larger board or ArUco marker may be necessary for extrinsic calibration of a large capture volume.
-Intrinsic calibration only needs to be performed once per camera.
+Mount your printed target on rigid, flat backing (cardboard, foam board, or glass).
+The intrinsic solver assumes detected points lie on a perfect plane.
+Use a matte finish to reduce glare.
+Measure the actual printed dimensions with calipers before entering values in the GUI.

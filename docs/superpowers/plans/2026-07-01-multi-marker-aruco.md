@@ -272,7 +272,7 @@ git commit -m "feat: add ArucoMarker and ArucoMarkerSet with TOML persistence"
 
 **Interfaces:**
 - Consumes: `ArucoMarkerSet` from Task 1
-- Produces: `ArucoTracker(dictionary, inverted, mirror_flag_search, marker_set: ArucoMarkerSet | None)`
+- Produces: `ArucoTracker(dictionary, inverted, marker_set: ArucoMarkerSet | None)`
 
 - [ ] **Step 1: Write multi-marker filtering test**
 

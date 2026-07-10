@@ -10,6 +10,7 @@ from caliscope.synthetic.camera_synthesizer import (
     LensProfile,
     perturb_intrinsics,
     strip_extrinsics,
+    strip_intrinsics,
 )
 from caliscope.core.coverage_analysis import compute_coverage_matrix
 from caliscope.synthetic.filter_config import FilterConfig
@@ -34,10 +35,11 @@ from caliscope.synthetic.scene_factories import (
     sparse_coverage_scene,
     visibility_culling_scene,
 )
-from caliscope.synthetic.scene_factories import charuco_target_scene, machine_vision_scene
+from caliscope.synthetic.scene_factories import box_target_scene, charuco_target_scene, machine_vision_scene
 from caliscope.synthetic.se3_pose import SE3Pose
 from caliscope.synthetic.target_factories import (
     aruco_marker,
+    box_target,
     charuco_board,
     double_sided_charuco_board,
 )
@@ -55,6 +57,8 @@ __all__ = [
     "aruco_marker",
     "aruco_multi_object_scene",
     "aruco_scene",
+    "box_target",
+    "box_target_scene",
     "charuco_board",
     "charuco_target_scene",
     "IDEAL",
@@ -80,5 +84,6 @@ __all__ = [
     "load_fixture",
     "perturb_intrinsics",
     "strip_extrinsics",
+    "strip_intrinsics",
     "WEBCAM",
 ]

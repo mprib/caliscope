@@ -30,7 +30,6 @@ from caliscope.core.constraints import ConstraintSet
 from caliscope.core.workflow_status import WorkflowStatus
 from caliscope.persistence import PersistenceError
 from caliscope.repositories.intrinsic_report_repository import IntrinsicReportRepository
-from caliscope.reconstruction.reconstructor import Reconstructor
 from caliscope.recording import read_video_properties
 from caliscope.core.point_data import ImagePoints
 from caliscope.trackers.charuco_tracker import CharucoTracker
@@ -111,9 +110,6 @@ class WorkspaceCoordinator(QObject):
         # Centralized task management for background operations
         self.task_manager = TaskManager(parent=self)
 
-        # Created during process_recordings; lives for the duration of that task
-        self.reconstructor: Reconstructor | None = None
-
         # In-memory cache of intrinsic calibration data (by cam_id)
         # These enable overlay restoration when switching between cameras
         self._intrinsic_reports: dict[int, IntrinsicCalibrationReport] = {}
@@ -174,27 +170,27 @@ class WorkspaceCoordinator(QObject):
     def multi_camera_tab_enabled(self) -> bool:
         """Whether Multi-Camera tab should be enabled.
 
-        Requires: extrinsic videos exist AND all intrinsics calibrated.
+        Requires: extrinsic videos exist AND all cameras have resolution.
         """
-        return self.workspace_guide.all_extrinsic_mp4s_available() and self.camera_array.all_intrinsics_calibrated()
+        return self.workspace_guide.all_extrinsic_mp4s_available() and self.camera_array.all_cameras_have_resolution()
 
     @property
     def capture_volume_tab_enabled(self) -> bool:
-        """Whether Capture Volume tab should be enabled.
+        """Whether Calibrate tab should be enabled.
 
-        Requires: 2D extraction complete AND intrinsics calibrated.
-        This is where extrinsic calibration happens.
+        Requires: 2D extraction complete AND all cameras have resolution.
         """
         extraction_complete = self.extrinsic_image_points_path.exists()
-        return extraction_complete and self.camera_array.all_intrinsics_calibrated()
+        return extraction_complete and self.camera_array.all_cameras_have_resolution()
 
     @property
     def reconstruction_tab_enabled(self) -> bool:
         """Whether Reconstruction tab should be enabled.
 
-        Requires: extrinsic calibration complete AND recordings available.
+        Requires: bundle exists AND recordings available.
         """
-        return self.capture_volume_tab_enabled and self.recordings_available()
+        has_bundle = self.capture_volume_repository.camera_array_path.exists()
+        return has_bundle and self.recordings_available()
 
     def _initialize_project_files(self):
         """Create default project files if they don't exist."""
@@ -228,14 +224,24 @@ class WorkspaceCoordinator(QObject):
         """
 
         def worker(_token, _handle):
-            # Load camera array if intrinsic videos exist
-            if self.cameras_tab_enabled:
-                logger.info("Loading camera array (intrinsic videos available)")
+            # Load camera array if any calibration videos exist
+            has_intrinsic = self.workspace_guide.all_instrinsic_mp4s_available()
+            has_extrinsic = self.workspace_guide.all_extrinsic_mp4s_available()
+            if has_intrinsic or has_extrinsic:
+                logger.info("Loading camera array (calibration videos available)")
                 self.load_camera_array()
             else:
-                logger.info("Skipping camera array load (no intrinsic videos)")
+                logger.info("Skipping camera array load (no calibration videos)")
 
-            # Load capture volume if extrinsic calibration complete
+            # Overlay bundle-authoritative camera state if a bundle exists
+            if self.capture_volume_repository.camera_array_path.exists():
+                bundle = self.capture_volume
+                if bundle is not None:
+                    for cam_id, bundle_cam in bundle.camera_array.cameras.items():
+                        if cam_id in self.camera_array.cameras:
+                            self.camera_array.cameras[cam_id] = bundle_cam
+                    logger.info("Overlaid bundle-authoritative camera state")
+
             if self.capture_volume_tab_enabled:
                 logger.info("Extrinsic calibration available (loaded via capture_volume property)")
             else:
@@ -314,6 +320,7 @@ class WorkspaceCoordinator(QObject):
             intrinsic_videos_missing=intrinsic_missing,
             intrinsic_calibration_complete=self.camera_array.all_intrinsics_calibrated(),
             cameras_needing_calibration=cameras_needing,
+            cameras_have_resolution=self.camera_array.all_cameras_have_resolution(),
             extrinsic_videos_available=len(extrinsic_missing) == 0,
             extrinsic_videos_missing=extrinsic_missing,
             extrinsic_2d_extraction_complete=extraction_complete,
@@ -403,19 +410,18 @@ class WorkspaceCoordinator(QObject):
             return CharucoTracker(charuco)
 
     def load_camera_array(self):
-        """
-        Load camera array from persistence and detect new cameras from video files.
+        """Load camera array from persistence and detect new cameras from video files.
 
-        Any cameras discovered in the intrinsic directory that aren't in the
-        saved array will be added automatically. Also loads any persisted
-        intrinsic calibration reports for overlay restoration.
+        Discovers cameras from the union of intrinsic and extrinsic directories.
+        Also loads any persisted intrinsic calibration reports for overlay restoration.
         """
         self.camera_array = self.camera_repository.load()
 
-        # double check that no new camera associated files have been placed in the intrinsic calibration folder
-        all_cam_ids = self.workspace_guide.get_cam_ids_in_dir(self.workspace_guide.intrinsic_dir)
+        intrinsic_ids = set(self.workspace_guide.get_cam_ids_in_dir(self.workspace_guide.intrinsic_dir))
+        extrinsic_ids = set(self.workspace_guide.get_cam_ids_in_dir(self.workspace_guide.extrinsic_dir))
+        all_cam_ids = intrinsic_ids | extrinsic_ids
 
-        for cam_id in all_cam_ids:
+        for cam_id in sorted(all_cam_ids):
             if cam_id not in self.camera_array.cameras:
                 self._add_camera_from_source(cam_id)
 
@@ -425,21 +431,33 @@ class WorkspaceCoordinator(QObject):
             logger.info(f"Loaded intrinsic reports for cam_ids: {list(self._intrinsic_reports.keys())}")
 
     def _add_camera_from_source(self, cam_id: int):
-        """
-        Add a new camera discovered from video file in intrinsic directory.
+        """Add a new camera discovered from video file.
 
-        File will be transferred to workspace/calibration/intrinsic/cam_{cam_id}.mp4
-        in keeping with project layout.
+        Tries intrinsic directory first, falls back to extrinsic. Raises
+        CalibrationError if both exist with different resolutions.
         """
-        # copy source over to standard workspace structure
-        target_mp4_path = Path(self.workspace_guide.intrinsic_dir, f"cam_{cam_id}.mp4")
-        video_properties = read_video_properties(target_mp4_path)
-        size = video_properties["size"]
-        new_cam_data = CameraData(
-            cam_id=cam_id,
-            size=size,
-        )
-        self.camera_array.cameras[cam_id] = new_cam_data
+        from caliscope.exceptions import CalibrationError
+
+        intrinsic_path = self.workspace_guide.intrinsic_dir / f"cam_{cam_id}.mp4"
+        extrinsic_path = self.workspace_guide.extrinsic_dir / f"cam_{cam_id}.mp4"
+
+        if intrinsic_path.exists() and extrinsic_path.exists():
+            i_props = read_video_properties(intrinsic_path)
+            e_props = read_video_properties(extrinsic_path)
+            if i_props["size"] != e_props["size"]:
+                raise CalibrationError(
+                    f"Resolution mismatch for cam_{cam_id}: intrinsic {i_props['size']} vs extrinsic {e_props['size']}"
+                )
+            size = i_props["size"]
+        elif intrinsic_path.exists():
+            size = read_video_properties(intrinsic_path)["size"]
+        elif extrinsic_path.exists():
+            size = read_video_properties(extrinsic_path)["size"]
+        else:
+            logger.warning(f"No video found for cam_{cam_id}")
+            return
+
+        self.camera_array.cameras[cam_id] = CameraData(cam_id=cam_id, size=size)
         self.camera_repository.save(self.camera_array)
 
     def push_camera_data(self, cam_id):
@@ -564,15 +582,19 @@ class WorkspaceCoordinator(QObject):
         # Check for existing calibration (restores state on project reopen)
         existing_capture_volume = self.capture_volume
 
-        # Constraint factory reads marker set fresh from disk at calibration time
-        constraint_factory = None
-        if self.targets_repository.extrinsic_target_type == "aruco":
-            targets_repo = self.targets_repository
+        # Constraint factory reads the target config fresh from disk at calibration time
+        targets_repo = self.targets_repository
+        extrinsic_target_type = targets_repo.extrinsic_target_type
+        if extrinsic_target_type == "aruco":
 
             def _build_constraints() -> ConstraintSet:
                 return ConstraintSet.from_marker_set(targets_repo.load_aruco_marker_set())
+        else:
 
-            constraint_factory = _build_constraints
+            def _build_constraints() -> ConstraintSet:
+                return ConstraintSet.from_charuco(targets_repo.load_extrinsic_charuco())
+
+        constraint_factory = _build_constraints
 
         presenter = ExtrinsicCalibrationPresenter(
             task_manager=self.task_manager,
@@ -581,6 +603,7 @@ class WorkspaceCoordinator(QObject):
             existing_capture_volume=existing_capture_volume,
             constraint_factory=constraint_factory,
             project_settings=self.settings_repository,
+            extrinsic_target_type=extrinsic_target_type,
         )
 
         # Wire signal directly - no passthrough needed
@@ -762,42 +785,6 @@ class WorkspaceCoordinator(QObject):
             return
         new_capture_volume = capture_volume.align_to_object(sync_index)
         self.update_capture_volume(new_capture_volume)
-
-    def process_recordings(self, recording_path: Path, tracker_name: str) -> TaskHandle:
-        """
-        Initiate post-processing of recorded video in worker thread.
-
-        Args:
-            recording_path: Directory containing synchronized video recordings
-            tracker_name: Tracker name to use for landmark detection
-
-        Returns:
-            TaskHandle for connecting completion callbacks.
-        """
-
-        def worker(token, handle):
-            logger.info(f"Beginning to process video files at {recording_path}")
-            logger.info(f"Creating reconstructor for {recording_path}")
-            self.reconstructor = Reconstructor(self.camera_array, recording_path, tracker_name)
-
-            # Get processing settings from project configuration
-            include_video = self.settings_repository.get_save_tracked_points_video()
-            fps_target = self.settings_repository.get_fps_sync_stream_processing()
-
-            # Pass token for cancellation support and handle for progress reporting
-            if not self.reconstructor.create_xy(
-                include_video=include_video, fps_target=fps_target, token=token, handle=handle
-            ):
-                return  # Cancelled
-
-            # Stage 2 progress (80-100%)
-            handle.report_progress(85, "Stage 2: Triangulating 3D points")
-            self.reconstructor.create_xyz()
-            handle.report_progress(100, "Complete")
-
-        handle = self.task_manager.submit(worker, name="process_recordings", auto_start=False)
-        self.task_manager.start_task(handle.task_id)
-        return handle
 
     def cleanup(self) -> None:
         """Shutdown all background operations.

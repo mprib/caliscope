@@ -414,7 +414,7 @@ class ProjectSetupView(QWidget):
         self._extraction_row.navigation_requested.connect(self.tab_navigation_requested)
         layout.addWidget(self._extraction_row)
 
-        self._extrinsic_row = WorkflowStepRow("Extrinsic Calibration", "Capture Volume")
+        self._extrinsic_row = WorkflowStepRow("Extrinsic Calibration", "Calibrate")
         self._extrinsic_row.navigation_requested.connect(self.tab_navigation_requested)
         layout.addWidget(self._extrinsic_row)
 
@@ -797,6 +797,11 @@ class ProjectSetupView(QWidget):
 
         if step_status == StepStatus.COMPLETE:
             detail = f"{status.camera_count}/{status.camera_count} cameras calibrated"
+        elif step_status == StepStatus.AVAILABLE:
+            detail = (
+                "Optional — the joint calibration recovers focal length and "
+                "distortion on its own. Run this for fisheye cameras or a dense lens model."
+            )
         elif step_status == StepStatus.INCOMPLETE:
             calibrated_count = status.camera_count - len(status.cameras_needing_calibration)
             detail = f"{calibrated_count}/{status.camera_count} cameras calibrated"
@@ -806,7 +811,15 @@ class ProjectSetupView(QWidget):
                     cam_labels += "..."
                 detail += f" (need: {cam_labels})"
         else:
-            if status.intrinsic_videos_missing:
+            if status.camera_count > 0 and len(status.intrinsic_videos_missing) == status.camera_count:
+                # Extrinsic videos define the camera set but no intrinsic videos
+                # exist: the deliberate skip-intrinsics path, not a stalled step.
+                detail = (
+                    "No intrinsic videos — optional if you capture for it. "
+                    "Extrinsic calibration can recover intrinsics (fisheye cameras excepted); "
+                    "see the Cameras tab for prerequisites, then continue on the Calibrate tab."
+                )
+            elif status.intrinsic_videos_missing:
                 cam_labels = ", ".join(str(p) for p in status.intrinsic_videos_missing[:3])
                 if len(status.intrinsic_videos_missing) > 3:
                     cam_labels += "..."
@@ -825,8 +838,8 @@ class ProjectSetupView(QWidget):
         elif step_status == StepStatus.INCOMPLETE:
             detail = "Ready to process"
         else:
-            if not status.intrinsic_calibration_complete:
-                detail = "Waiting for intrinsic calibration"
+            if not status.cameras_have_resolution:
+                detail = "Waiting for camera resolution data"
             elif status.extrinsic_videos_missing:
                 cam_labels = ", ".join(str(p) for p in status.extrinsic_videos_missing[:3])
                 if len(status.extrinsic_videos_missing) > 3:

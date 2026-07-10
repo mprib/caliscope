@@ -43,8 +43,9 @@ class FramePacketStreamer:
         Subscriber list is protected by a lock. The lock is released before
         blocking put() calls to avoid deadlock when queues are bounded.
 
-    Duck-typed Interface:
-        Exposes cam_id, subscribe(), unsubscribe() for Synchronizer compatibility.
+    Subscriber Interface:
+        Exposes cam_id, subscribe(), unsubscribe() so consumers (e.g. the
+        intrinsic calibration presenter) can pull FramePackets off a queue.
     """
 
     def __init__(
@@ -98,7 +99,7 @@ class FramePacketStreamer:
         self._thread: Thread | None = None
 
     # -------------------------------------------------------------------------
-    # Properties (duck-typed interface for Synchronizer)
+    # Properties (subscriber interface)
     # -------------------------------------------------------------------------
 
     @property

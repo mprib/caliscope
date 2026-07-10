@@ -138,7 +138,8 @@ class TestSparsityOracle:
     """
 
     def test_sparsity_zeros_match_true_jacobian(self) -> None:
-        from caliscope.core.reprojection import bundle_residuals
+        from caliscope.core.bundle_parameterization import BundleParameterization
+        from caliscope.core.reprojection import joint_residuals
 
         scene, constraints, camera_array = _make_aruco_scene()
         intrinsics_only = scene.intrinsics_only_cameras()
@@ -164,24 +165,28 @@ class TestSparsityOracle:
 
         arrays = cv._build_constraint_arrays()
         assert arrays is not None
-        c_pairs, c_dists, c_sigmas = arrays
+        c_groups_a, c_groups_b, c_dists, c_sigmas = arrays
 
         focal_lengths = [cam.matrix[0, 0] for cam in cv.camera_array.posed_cameras.values() if cam.matrix is not None]
         f_median = float(np.median(focal_lengths))
         c_weights = (1.0 / f_median) / c_sigmas
 
-        x0 = cv._get_vectorized_params()
-        sparsity = cv._get_sparsity_pattern(camera_indices, obj_indices, c_pairs)
+        parameterization = BundleParameterization.from_camera_array(
+            cv.camera_array, n_points=len(cv.world_points.points), refine_intrinsics=False
+        )
+        x0 = parameterization.pack(cv.camera_array, cv.world_points.points)
+        n_constraints = len(c_groups_a)
+        sparsity = parameterization.sparsity(camera_indices, obj_indices, n_constraints, c_groups_a, c_groups_b)
 
         def residual_fn(x: np.ndarray) -> np.ndarray:
-            return bundle_residuals(
+            return joint_residuals(
                 x,
-                cv.camera_array,
+                parameterization,
                 camera_indices,
                 image_coords,
                 obj_indices,
-                True,
-                c_pairs,
+                c_groups_a,
+                c_groups_b,
                 c_dists,
                 c_weights,
             )

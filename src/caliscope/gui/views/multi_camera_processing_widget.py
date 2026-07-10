@@ -103,7 +103,7 @@ class MultiCameraProcessingWidget(QWidget):
         subsample_row = QHBoxLayout()
         subsample_row.addWidget(QLabel("Process every"))
         self._subsample_spin = QSpinBox()
-        self._subsample_spin.setRange(1, 20)
+        self._subsample_spin.setRange(1, 100000)  # effectively unbounded; user's call how aggressively to subsample
         self._subsample_spin.setValue(5)
         self._subsample_spin.setToolTip(
             "Skip frames to speed up processing.\n\n"

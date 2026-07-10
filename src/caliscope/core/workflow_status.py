@@ -42,6 +42,7 @@ class WorkflowStatus:
     intrinsic_videos_missing: list[int]  # Ports with missing videos
     intrinsic_calibration_complete: bool
     cameras_needing_calibration: list[int]  # Ports without intrinsics
+    cameras_have_resolution: bool
 
     # Step 3: Extrinsic 2D Extraction
     extrinsic_videos_available: bool
@@ -61,7 +62,7 @@ class WorkflowStatus:
         if self.intrinsic_calibration_complete:
             return StepStatus.COMPLETE
         if self.intrinsic_videos_available:
-            return StepStatus.INCOMPLETE
+            return StepStatus.AVAILABLE
         return StepStatus.NOT_STARTED
 
     @property
@@ -69,7 +70,7 @@ class WorkflowStatus:
         """Computed status for 2D extraction step."""
         if self.extrinsic_2d_extraction_complete:
             return StepStatus.COMPLETE
-        if self.extrinsic_videos_available and self.intrinsic_calibration_complete:
+        if self.extrinsic_videos_available and self.cameras_have_resolution:
             return StepStatus.INCOMPLETE
         return StepStatus.NOT_STARTED
 

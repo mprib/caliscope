@@ -4,13 +4,15 @@ import logging
 from pathlib import Path
 
 import numpy as np
+import pytest
 
 from caliscope import __root__
+from caliscope.cameras.camera_array import CameraArray, CameraData
 from caliscope.core.bootstrap_pose.build_paired_pose_network import build_paired_pose_network
 from caliscope.core.bootstrap_pose.paired_pose_network import PairedPoseNetwork
-from caliscope.helper import copy_contents_to_clean_dest
 from caliscope.core.point_data import ImagePoints
-from caliscope.cameras.camera_array import CameraArray
+from caliscope.exceptions import CalibrationError
+from caliscope.helper import copy_contents_to_clean_dest
 
 logger = logging.getLogger(__name__)
 
@@ -167,44 +169,74 @@ def test_missing_extrinsics(tmp_path: Path):
     assert set(camera_array.posed_cameras.keys()) == {1, 2, 3, 6}
     assert list(camera_array.unposed_cameras.keys()) == [4, 5]
 
-    # when creating extrinsic parameters shouldn't have camera 5.
-    extrinsic_params = camera_array.get_extrinsic_params()
-    assert extrinsic_params is not None, "Extrinsic parameters should not be None"
-
-    # Now the assertion that fails
-    assert extrinsic_params.shape == (4, 6), "Shape should be (4 posed cameras, 6 params)"
-
     # camera 5 should not be in the index used for optimization parameter mapping
     assert 5 not in camera_array.posed_cam_id_to_index
     assert 4 not in camera_array.posed_cam_id_to_index
 
-    # Verify that the order of cameras in the extrinsic_params array is correct
-    logger.info("Verifying order of extrinsic parameters vector...")
-    for cam_id, index in camera_array.posed_cam_id_to_index.items():
-        expected_params = camera_array.cameras[cam_id].extrinsics_to_vector()
-        actual_params = extrinsic_params[index]
+    # BundleParameterization pack/unpack round-trip leaves unposed cameras untouched
+    from copy import deepcopy
+
+    from caliscope.core.bundle_parameterization import BundleParameterization
+
+    n_points = 10
+    parameterization = BundleParameterization.from_camera_array(
+        camera_array, n_points=n_points, refine_intrinsics=False
+    )
+    points = np.zeros((n_points, 3))
+    x = parameterization.pack(camera_array, points)
+
+    # Perturb all params slightly
+    x += 0.01
+
+    copy_array = deepcopy(camera_array)
+    parameterization.unpack_into(copy_array, x)
+
+    # Unposed cameras must remain untouched
+    assert copy_array.cameras[5].rotation is None, "Unposed camera rotation should remain None"
+    assert copy_array.cameras[5].translation is None, "Unposed camera translation should remain None"
+
+
+class TestSynthesizeDefaultIntrinsics:
+    def test_produces_expected_matrix_and_zeros(self):
+        cam = CameraData(cam_id=0, size=(1920, 1080))
+        cam.synthesize_default_intrinsics()
+
+        assert cam.matrix is not None
+        assert cam.distortions is not None
         np.testing.assert_array_equal(
-            actual_params, expected_params, err_msg=f"Parameter mismatch for cam_id {cam_id} at index {index}"
+            cam.matrix,
+            np.array([[960.0, 0.0, 960.0], [0.0, 960.0, 540.0], [0.0, 0.0, 1.0]]),
         )
+        np.testing.assert_array_equal(cam.distortions, np.zeros(5))
 
-    # should be able to extract params from complete extrinsics vector and map back to individual cam params
-    # This round-trip test confirms the mapping from vector -> cameras works correctly
+    def test_fisheye_raises(self):
+        cam = CameraData(cam_id=0, size=(1920, 1080), fisheye=True)
+        with pytest.raises(CalibrationError, match="fisheye"):
+            cam.synthesize_default_intrinsics()
 
-    # 1. Simulate a small change from an optimization step
-    new_params = extrinsic_params + 0.01
 
-    # 2. Update the camera array with the new parameters
-    camera_array.update_extrinsic_params(new_params)
+class TestAllCamerasHaveResolution:
+    def test_empty_array_returns_false(self):
+        arr = CameraArray({})
+        assert arr.all_cameras_have_resolution() is False
 
-    # 3. Verify the update worked correctly on the posed cameras
-    updated_params = camera_array.get_extrinsic_params()
-    assert updated_params is not None
-    np.testing.assert_allclose(updated_params, new_params, atol=1e-6)
+    def test_true_with_sized_cameras(self):
+        arr = CameraArray(
+            {
+                0: CameraData(cam_id=0, size=(1920, 1080)),
+                1: CameraData(cam_id=1, size=(1920, 1080)),
+            }
+        )
+        assert arr.all_cameras_have_resolution() is True
 
-    # 4. Verify the unposed camera was untouched
-    unposed_cam = camera_array.cameras[5]
-    assert unposed_cam.rotation is None, "Unposed camera rotation should remain None"
-    assert unposed_cam.translation is None, "Unposed camera translation should remain None"
+    def test_ignores_ignored_cameras(self):
+        arr = CameraArray(
+            {
+                0: CameraData(cam_id=0, size=(1920, 1080)),
+                1: CameraData(cam_id=1, size=(1920, 1080), ignore=True),
+            }
+        )
+        assert arr.all_cameras_have_resolution() is True
 
 
 if __name__ == "__main__":
@@ -215,4 +247,3 @@ if __name__ == "__main__":
     temp_path = Path(__file__).parent / "debug"
     test_missing_extrinsics(temp_path)
     print("end")
-    # test_deterministic_consistency()

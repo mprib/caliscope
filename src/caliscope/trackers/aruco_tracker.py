@@ -7,7 +7,9 @@ Design decisions:
 - obj_loc populated when ArucoMarkerSet is provided
 - Default dictionary: cv2.aruco.DICT_4X4_100
 - Default inversion: False (True only for legacy test data)
-- Mirror search: Attempts detection on flipped image if no markers found
+- Two-sided boards: use MirrorPair on ArucoMarkerSet (core/aruco_marker.py),
+  not image-level mirror detection — a horizontally flipped ArUco pattern can
+  decode as a different valid ID, so flip-and-redetect is unsafe for ArUco.
 """
 
 import logging
@@ -32,14 +34,6 @@ class ArucoTracker(Tracker):
     """
     Tracker for ArUco markers. Detects markers and returns their corner positions.
 
-    WARNING: The mirror_flag_search parameter should ONLY be used when tracking a
-    SINGLE double-sided ArUco marker (an "ArUco flag"). Some markers have rotational
-    symmetry that can cause ambiguity. When using this feature:
-    1. Use exactly ONE marker ID in your dictionary
-    2. Print the marker normally on one side
-    3. Print the mirrored version on the back side
-    4. Ensure cameras on opposite sides can both see the marker
-
     Note on inversion: The default is False. The test fixture data uses inverted
     markers due to a historical quirk. In production, physical markers should be
     printed normally and used with inverted=False. We may remove this toggle
@@ -50,19 +44,16 @@ class ArucoTracker(Tracker):
         self,
         dictionary=cv2.aruco.DICT_4X4_100,
         inverted=False,
-        mirror_flag_search=False,
         marker_set: ArucoMarkerSet | None = None,
     ):
         """
         Args:
             dictionary: OpenCV ArUco dictionary to use for detection
             inverted: Whether to invert the image before detection (for legacy test data)
-            mirror_search: If True, adds detections of mirror images; only use if a single "aruco flag" is employed
             marker_set: Marker set definition for filtering and obj_loc population
         """
         self.dictionary = dictionary
         self.inverted = inverted
-        self.mirror_flag_search = mirror_flag_search  # use with aruco "flag"
         self.marker_set = marker_set
 
         # Create detector instance
@@ -144,18 +135,6 @@ class ArucoTracker(Tracker):
 
         # Attempt detection on original orientation
         object_ids, keypoint_ids, all_corners = self._detect_markers(gray_frame)
-
-        # If no markers found and mirror search enabled, try flipped image
-        if object_ids is None and self.mirror_flag_search:
-            logger.debug("No markers found in original orientation, trying mirrored image")
-            mirrored_frame = cv2.flip(gray_frame, 1)  # Horizontal flip
-            object_ids, keypoint_ids, all_corners = self._detect_markers(mirrored_frame)
-
-            # If markers found in mirror, adjust x-coordinates back to original frame
-            if object_ids is not None and all_corners is not None:
-                frame_width = gray_frame.shape[1]
-                all_corners[:, 0] = frame_width - all_corners[:, 0]
-                logger.debug(f"Detected {len(np.unique(object_ids))} markers in mirrored image")
 
         if object_ids is not None and keypoint_ids is not None and all_corners is not None:
             if self.marker_set is not None:

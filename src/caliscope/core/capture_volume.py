@@ -1,5 +1,4 @@
 from __future__ import annotations
-from scipy.sparse import lil_matrix
 from scipy.optimize import least_squares
 from copy import deepcopy
 from numpy.typing import NDArray
@@ -17,7 +16,8 @@ from caliscope.core.point_data import STATIC_SYNC_INDEX, ImagePoints, WorldPoint
 from caliscope.core.reprojection import (
     ErrorsXY,
     reprojection_errors,
-    bundle_residuals,
+    joint_residuals,
+    joint_jacobian,
     ImageCoords,
     WorldCoords,
     CameraIndices,
@@ -50,6 +50,7 @@ class OptimizationStatus:
     termination_reason: str  # "converged_gtol", "max_evaluations", etc.
     iterations: int  # nfev from scipy
     final_cost: float
+    bound_warnings: tuple = ()
 
 
 # Mapping from scipy least_squares status codes to human-readable reasons
@@ -134,6 +135,15 @@ class CaptureVolume:
 
         return img_to_obj_map
 
+    def pixel_f_scale(self, px: float = 1.0) -> float:
+        """Convert a pixel inlier threshold to the normalized residual space.
+
+        Residuals are divided by fx_initial per camera. f_scale = px / f_median
+        maps a 1-pixel threshold to the same units.
+        """
+        focal_lengths = [cam.matrix[0, 0] for cam in self.camera_array.posed_cameras.values() if cam.matrix is not None]
+        return px / float(np.median(focal_lengths))
+
     @cached_property
     def reprojection_report(self) -> ReprojectionReport:
         """
@@ -164,9 +174,7 @@ class CaptureVolume:
         world_coords: WorldCoords = self.world_points.points[matched_obj_indices]
 
         # 3. Compute reprojection errors
-        errors_xy: ErrorsXY = reprojection_errors(
-            self.camera_array, camera_indices, image_coords, world_coords, use_normalized=False
-        )
+        errors_xy: ErrorsXY = reprojection_errors(self.camera_array, camera_indices, image_coords, world_coords)
 
         # 4. Build raw_errors DataFrame
         euclidean_error = np.sqrt(np.sum(errors_xy**2, axis=1))
@@ -317,17 +325,27 @@ class CaptureVolume:
     def optimize(
         self,
         ftol: float = 1e-8,
-        max_nfev: int = 1000,
+        max_nfev: int | None = None,
         verbose: int = 0,
         strict: bool = True,
         use_constraints: bool = True,
         pixel_sigma: float = 1.0,
+        *,
+        refine_intrinsics: bool = False,
+        loss: str = "linear",
+        f_scale: float = 1.0,
     ) -> CaptureVolume:
-        """Perform bundle adjustment optimization on this CaptureVolume.
+        """Bundle adjustment via pixel-space residuals.
 
-        Returns a NEW CaptureVolume with optimized camera parameters and 3D points.
-        The original remains unchanged (immutable pattern).
+        Extrinsics-only by default. Pass refine_intrinsics=True for joint
+        intrinsic recovery (the production calibration workflow does).
+
+        Free intrinsics converge slowly when depth variation is poor or
+        constraints are absent — f and scale are coupled without a metric
+        anchor. The depth-ratio metric characterizes this risk.
         """
+        from caliscope.core.bundle_parameterization import BundleParameterization
+
         matched_mask = self.img_to_obj_map >= 0
         posed_cam_ids = set(self.camera_array.posed_cam_id_to_index.keys())
         posed_mask: np.ndarray = self.image_points.df["cam_id"].isin(posed_cam_ids).to_numpy()
@@ -342,64 +360,61 @@ class CaptureVolume:
         image_coords: ImageCoords = matched_img_df[["img_loc_x", "img_loc_y"]].values
         image_to_world_indices = self.img_to_obj_map[combined_mask]
 
-        initial_params = self._get_vectorized_params()
+        new_camera_array = deepcopy(self.camera_array)
+
+        parameterization = BundleParameterization.from_camera_array(
+            new_camera_array, n_points=len(self.world_points.points), refine_intrinsics=refine_intrinsics
+        )
+        x0 = parameterization.pack(new_camera_array, self.world_points.points)
 
         # Build constraint arrays if available
-        constraint_pairs = None
+        constraint_groups_a = None
+        constraint_groups_b = None
         constraint_distances = None
         constraint_weights = None
 
         if use_constraints and self.constraints is not None:
             arrays = self._build_constraint_arrays()
             if arrays is not None:
-                constraint_pairs, constraint_distances, constraint_sigmas = arrays
-                # w = (pixel_sigma / f_median) / sigma_c
-                # A sigma_c-sized violation costs the same as a pixel_sigma-sized
-                # reprojection error. Collapses to 1/sigma_c under Phase 2 whitened residuals.
-                # posed_cameras guarantees matrix is not None
+                constraint_groups_a, constraint_groups_b, constraint_distances, constraint_sigmas = arrays
                 focal_lengths = [
                     cam.matrix[0, 0] for cam in self.camera_array.posed_cameras.values() if cam.matrix is not None
                 ]
                 f_median = float(np.median(focal_lengths))
                 constraint_weights = (pixel_sigma / f_median) / constraint_sigmas
-                n_c = len(constraint_pairs)
+                n_c = len(constraint_groups_a)
                 logger.info(f"Adding {n_c} constraint rows (f_median={f_median:.0f}, pixel_sigma={pixel_sigma})")
-
-        sparsity_pattern = self._get_sparsity_pattern(camera_indices, image_to_world_indices, constraint_pairs)
 
         n_obs = len(image_coords)
         logger.info(f"Beginning bundle adjustment on {n_obs} observations")
         result = least_squares(
-            bundle_residuals,
-            initial_params,
+            joint_residuals,
+            x0,
             args=(
-                self.camera_array,
+                parameterization,
                 camera_indices,
                 image_coords,
                 image_to_world_indices,
-                True,
-                constraint_pairs,
+                constraint_groups_a,
+                constraint_groups_b,
                 constraint_distances,
                 constraint_weights,
             ),
-            jac_sparsity=sparsity_pattern,
+            # scipy's stubs type jac as the str literals only; a callable returning
+            # a sparse matrix is documented and supported.
+            jac=joint_jacobian,  # type: ignore[arg-type]
             verbose=verbose,
             x_scale="jac",
-            loss="linear",
+            loss=loss,
+            f_scale=f_scale,
             ftol=ftol,
             max_nfev=max_nfev,
             method="trf",
+            bounds=parameterization.bounds(),
         )
 
         termination_reason = _SCIPY_STATUS_REASONS.get(result.status, f"unknown_{result.status}")
         converged = result.status in (1, 2, 3, 4)
-
-        optimization_status = OptimizationStatus(
-            converged=converged,
-            termination_reason=termination_reason,
-            iterations=result.nfev,
-            final_cost=float(result.cost),
-        )
 
         if strict and not converged:
             from caliscope.exceptions import CalibrationError
@@ -409,93 +424,40 @@ class CaptureVolume:
                 f"Pass strict=False to suppress this error and inspect the result."
             )
 
-        new_camera_array = deepcopy(self.camera_array)
-        new_camera_array.update_extrinsic_params(result.x)
+        new_points_xyz = parameterization.unpack_into(new_camera_array, result.x)
 
-        n_cams = len(self.camera_array.posed_cameras)
-        n_cam_params = 6
-        optimized_points = result.x[n_cams * n_cam_params :].reshape((-1, 3))
+        bound_warnings = parameterization.bound_warnings(result.x)
+        optimization_status = OptimizationStatus(
+            converged=converged,
+            termination_reason=termination_reason,
+            iterations=result.nfev,
+            final_cost=float(result.cost),
+            bound_warnings=bound_warnings,
+        )
 
         new_world_df = self.world_points.df.copy()
-        new_world_df[["x_coord", "y_coord", "z_coord"]] = optimized_points
-
-        new_world_points = WorldPoints(new_world_df)
+        new_world_df[["x_coord", "y_coord", "z_coord"]] = new_points_xyz
 
         return CaptureVolume(
             camera_array=new_camera_array,
             image_points=self.image_points,
-            world_points=new_world_points,
+            world_points=WorldPoints(new_world_df),
             constraints=self.constraints,
             _optimization_status=optimization_status,
         )
 
-    def _get_sparsity_pattern(
-        self,
-        camera_indices: NDArray[np.int16],
-        obj_indices: NDArray[np.int32],
-        constraint_pairs: NDArray[np.int32] | None = None,
-    ) -> lil_matrix:
-        """Generate sparsity pattern for Jacobian matrix.
-
-        Reprojection rows: each depends on 6 camera params + 3 point params.
-        Constraint rows: each depends on 6 point params (3 per endpoint),
-        no camera params.
-        """
-        n_observations = len(camera_indices)
-        n_cameras = len(self.camera_array.posed_cameras)
-        n_points = len(self.world_points.points)
-
-        n_constraints = len(constraint_pairs) if constraint_pairs is not None else 0
-        n_residuals = n_observations * 2 + n_constraints
-        n_params = n_cameras * 6 + n_points * 3
-
-        sparsity = lil_matrix((n_residuals, n_params), dtype=int)
-
-        obs_idx = np.arange(n_observations)
-
-        for cam_param in range(6):
-            param_col = camera_indices * 6 + cam_param
-            sparsity[2 * obs_idx, param_col] = 1
-            sparsity[2 * obs_idx + 1, param_col] = 1
-
-        for point_param in range(3):
-            param_col = n_cameras * 6 + obj_indices * 3 + point_param
-            sparsity[2 * obs_idx, param_col] = 1
-            sparsity[2 * obs_idx + 1, param_col] = 1
-
-        if constraint_pairs is not None:
-            c_idx = np.arange(n_constraints)
-            row_offset = n_observations * 2
-            for coord in range(3):
-                col_a = n_cameras * 6 + constraint_pairs[:, 0] * 3 + coord
-                col_b = n_cameras * 6 + constraint_pairs[:, 1] * 3 + coord
-                sparsity[row_offset + c_idx, col_a] = 1
-                sparsity[row_offset + c_idx, col_b] = 1
-
-        return sparsity
-
-    def _get_vectorized_params(self) -> NDArray[np.float64]:
-        """
-        Convert camera extrinsics and 3D points to a flattened optimization vector.
-        Shape: (n_cameras*6 + n_points*3,)
-        """
-        camera_params = self.camera_array.get_extrinsic_params()  # (n_cams, 6)
-        if camera_params is None:
-            raise ValueError("Camera extrinsic parameters not initialized")
-        points_3d = self.world_points.points  # (n_points, 3)
-
-        return np.concatenate([camera_params.ravel(), points_3d.ravel()])
-
     def _build_constraint_arrays(
         self,
-    ) -> tuple[NDArray[np.int32], NDArray[np.float64], NDArray[np.float64]] | None:
+    ) -> tuple[NDArray[np.int32], NDArray[np.int32], NDArray[np.float64], NDArray[np.float64]] | None:
         """Build constraint arrays for the BA from self.constraints.
 
-        Returns (pair_indices (n_c, 2), distances (n_c,), sigmas (n_c,))
-        where pair_indices are row indices into world_points.df.
+        Returns (groups_a (n_c, 4), groups_b (n_c, 4), distances (n_c,), sigmas (n_c,))
+        where each endpoint group holds four row indices into world_points.df.
+        A corner endpoint repeats one row index four times (its mean is exactly
+        that point); a centroid endpoint names the marker's four corner rows.
         Returns None if no constraints or no valid instances.
         """
-        if self.constraints is None or not self.constraints.distances:
+        if self.constraints is None or not (self.constraints.distances or self.constraints.centroid_distances):
             return None
 
         from collections import defaultdict
@@ -510,46 +472,66 @@ class CaptureVolume:
         ):
             point_lookup[(int(oid), int(kid))][int(si)] = row_idx
 
-        pairs: list[list[int]] = []
+        groups_a: list[list[int]] = []
+        groups_b: list[list[int]] = []
         dists: list[float] = []
         sigmas: list[float] = []
 
         for dc in self.constraints.distances:
-            key_a = (dc.object_id_a, dc.keypoint_id_a)
-            key_b = (dc.object_id_b, dc.keypoint_id_b)
             a_static = dc.object_id_a in static_ids
             b_static = dc.object_id_b in static_ids
-
             if a_static != b_static:
                 continue
 
-            syncs_a = point_lookup.get(key_a, {})
-            syncs_b = point_lookup.get(key_b, {})
+            syncs_a = point_lookup.get((dc.object_id_a, dc.keypoint_id_a), {})
+            syncs_b = point_lookup.get((dc.object_id_b, dc.keypoint_id_b), {})
 
-            if a_static:
-                # Both static: one instance at STATIC_SYNC_INDEX
-                if STATIC_SYNC_INDEX in syncs_a and STATIC_SYNC_INDEX in syncs_b:
-                    pairs.append([syncs_a[STATIC_SYNC_INDEX], syncs_b[STATIC_SYNC_INDEX]])
-                    dists.append(dc.distance)
-                    sigmas.append(dc.sigma)
-            else:
-                # Both mobile: one instance per shared sync_index
-                shared = syncs_a.keys() & syncs_b.keys()
-                for si in shared:
-                    if si == STATIC_SYNC_INDEX:
-                        continue
-                    pairs.append([syncs_a[si], syncs_b[si]])
-                    dists.append(dc.distance)
-                    sigmas.append(dc.sigma)
+            for si in self._firing_sync_indices(a_static, (syncs_a, syncs_b)):
+                groups_a.append([syncs_a[si]] * 4)
+                groups_b.append([syncs_b[si]] * 4)
+                dists.append(dc.distance)
+                sigmas.append(dc.sigma)
 
-        if not pairs:
+        for cc in self.constraints.centroid_distances:
+            a_static = cc.object_id_a in static_ids
+            b_static = cc.object_id_b in static_ids
+            if a_static != b_static:
+                continue
+
+            corners_a = [point_lookup.get((cc.object_id_a, k), {}) for k in range(4)]
+            corners_b = [point_lookup.get((cc.object_id_b, k), {}) for k in range(4)]
+
+            # A centroid fires only where all eight corner rows exist.
+            for si in self._firing_sync_indices(a_static, (*corners_a, *corners_b)):
+                groups_a.append([corners_a[k][si] for k in range(4)])
+                groups_b.append([corners_b[k][si] for k in range(4)])
+                dists.append(cc.distance)
+                sigmas.append(cc.sigma)
+
+        if not groups_a:
             return None
 
         return (
-            np.array(pairs, dtype=np.int32),
+            np.array(groups_a, dtype=np.int32),
+            np.array(groups_b, dtype=np.int32),
             np.array(dists, dtype=np.float64),
             np.array(sigmas, dtype=np.float64),
         )
+
+    @staticmethod
+    def _firing_sync_indices(is_static: bool, lookups: tuple[dict[int, int], ...]) -> list[int]:
+        """Sync indices where every endpoint lookup has a row.
+
+        Static constraints fire once, at STATIC_SYNC_INDEX; mobile constraints
+        fire per shared sync_index (STATIC_SYNC_INDEX excluded). Mixed
+        static/mobile constraints are skipped by the caller before this is reached.
+        """
+        if is_static:
+            if all(STATIC_SYNC_INDEX in lookup for lookup in lookups):
+                return [STATIC_SYNC_INDEX]
+            return []
+        shared = set.intersection(*(set(lookup.keys()) for lookup in lookups))
+        return [si for si in shared if si != STATIC_SYNC_INDEX]
 
     def rigidity_report(self) -> RigidityReport:
         """Measure constraint violations against current world points.
@@ -557,7 +539,7 @@ class CaptureVolume:
         Pure measurement, no optimization. Valid on any CaptureVolume with
         constraints, before or after optimize().
         """
-        if self.constraints is None or not self.constraints.distances:
+        if self.constraints is None or not (self.constraints.distances or self.constraints.centroid_distances):
             return RigidityReport(violations=())
 
         from collections import defaultdict
@@ -575,50 +557,53 @@ class CaptureVolume:
         violations: list[ConstraintViolation] = []
 
         for dc in self.constraints.distances:
-            key_a = (dc.object_id_a, dc.keypoint_id_a)
-            key_b = (dc.object_id_b, dc.keypoint_id_b)
             a_static = dc.object_id_a in static_ids
             b_static = dc.object_id_b in static_ids
-
             if a_static != b_static:
                 continue
 
-            syncs_a = point_lookup.get(key_a, {})
-            syncs_b = point_lookup.get(key_b, {})
+            syncs_a = point_lookup.get((dc.object_id_a, dc.keypoint_id_a), {})
+            syncs_b = point_lookup.get((dc.object_id_b, dc.keypoint_id_b), {})
 
-            if a_static:
-                if STATIC_SYNC_INDEX in syncs_a and STATIC_SYNC_INDEX in syncs_b:
-                    actual = float(
-                        np.linalg.norm(coords[syncs_a[STATIC_SYNC_INDEX]] - coords[syncs_b[STATIC_SYNC_INDEX]])
+            for si in self._firing_sync_indices(a_static, (syncs_a, syncs_b)):
+                actual = float(np.linalg.norm(coords[syncs_a[si]] - coords[syncs_b[si]]))
+                violations.append(
+                    ConstraintViolation(
+                        object_id_a=dc.object_id_a,
+                        keypoint_id_a=dc.keypoint_id_a,
+                        object_id_b=dc.object_id_b,
+                        keypoint_id_b=dc.keypoint_id_b,
+                        sync_index=si,
+                        expected=dc.distance,
+                        actual=actual,
                     )
-                    violations.append(
-                        ConstraintViolation(
-                            object_id_a=dc.object_id_a,
-                            keypoint_id_a=dc.keypoint_id_a,
-                            object_id_b=dc.object_id_b,
-                            keypoint_id_b=dc.keypoint_id_b,
-                            sync_index=STATIC_SYNC_INDEX,
-                            expected=dc.distance,
-                            actual=actual,
-                        )
+                )
+
+        for cc in self.constraints.centroid_distances:
+            a_static = cc.object_id_a in static_ids
+            b_static = cc.object_id_b in static_ids
+            if a_static != b_static:
+                continue
+
+            corners_a = [point_lookup.get((cc.object_id_a, k), {}) for k in range(4)]
+            corners_b = [point_lookup.get((cc.object_id_b, k), {}) for k in range(4)]
+
+            for si in self._firing_sync_indices(a_static, (*corners_a, *corners_b)):
+                centroid_a = np.mean([coords[corners_a[k][si]] for k in range(4)], axis=0)
+                centroid_b = np.mean([coords[corners_b[k][si]] for k in range(4)], axis=0)
+                actual = float(np.linalg.norm(centroid_a - centroid_b))
+                violations.append(
+                    ConstraintViolation(
+                        object_id_a=cc.object_id_a,
+                        keypoint_id_a=-1,
+                        object_id_b=cc.object_id_b,
+                        keypoint_id_b=-1,
+                        sync_index=si,
+                        expected=cc.distance,
+                        actual=actual,
+                        kind="centroid",
                     )
-            else:
-                shared = syncs_a.keys() & syncs_b.keys()
-                for si in shared:
-                    if si == STATIC_SYNC_INDEX:
-                        continue
-                    actual = float(np.linalg.norm(coords[syncs_a[si]] - coords[syncs_b[si]]))
-                    violations.append(
-                        ConstraintViolation(
-                            object_id_a=dc.object_id_a,
-                            keypoint_id_a=dc.keypoint_id_a,
-                            object_id_b=dc.object_id_b,
-                            keypoint_id_b=dc.keypoint_id_b,
-                            sync_index=si,
-                            expected=dc.distance,
-                            actual=actual,
-                        )
-                    )
+                )
 
         return RigidityReport(violations=tuple(violations))
 
@@ -843,7 +828,10 @@ class CaptureVolume:
                 logger.debug(f"Skipping sync_index {sync_index} object_id {object_id}: {e}")
                 continue
 
-        return VolumetricScaleReport(frame_errors=tuple(frame_errors))
+        return VolumetricScaleReport(
+            frame_errors=tuple(frame_errors),
+            static_object_ids=self.constraints.static_object_ids if self.constraints else frozenset(),
+        )
 
     def align_to_object(
         self,
@@ -928,13 +916,7 @@ class CaptureVolume:
         source_points = merged[["x_coord", "y_coord", "z_coord"]].values.astype(np.float64)
         target_points = merged[obj_cols].values.astype(np.float64)
 
-        transform = estimate_similarity_transform(source_points, target_points)
-
-        if self.constraints is not None and abs(transform.scale - 1.0) > 0.02:
-            logger.warning(
-                f"Scale deviation on constrained volume: {transform.scale:.4f} "
-                f"(expected ~1.0). The BA could not reconcile constraints with pixel evidence."
-            )
+        transform = estimate_similarity_transform(source_points, target_points, rigid=True)
 
         logger.info(
             f"Estimated alignment: scale={transform.scale:.6f}, "

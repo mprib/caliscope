@@ -22,6 +22,7 @@ from caliscope.gui import ICONS_DIR
 from caliscope.workspace_coordinator import WorkspaceCoordinator
 from caliscope.task_manager import TaskHandle
 from caliscope.gui.cameras_tab_widget import CamerasTabWidget
+from caliscope.gui.widgets.cameras_info_placeholder import CamerasInfoPlaceholder
 from caliscope.gui.log_widget import LogWidget
 from caliscope.gui.multi_camera_processing_tab import MultiCameraProcessingTab
 from caliscope.gui.reconstruction_tab import ReconstructionTab
@@ -117,19 +118,16 @@ class MainWindow(QMainWindow):
         self.project_tab.tab_navigation_requested.connect(self._navigate_to_tab)
         self.central_tab.addTab(self.project_tab, "Project")
 
-        # Cameras tab - enabled based on computed property
-        cameras_enabled = self.coordinator.cameras_tab_enabled
-        if cameras_enabled:
+        # Cameras tab - always enabled. Without intrinsic videos it shows an
+        # info placeholder describing the skip-intrinsics path (a disabled tab
+        # can't be clicked, so it could never explain itself).
+        if self.coordinator.cameras_tab_enabled:
             logger.info("Building Cameras tab with intrinsic calibration")
             self.cameras_tab_widget = CamerasTabWidget(self.coordinator)
         else:
-            logger.info("Cameras tab disabled - no intrinsic videos available")
-            self.cameras_tab_widget = QWidget()
+            logger.info("No intrinsic videos - Cameras tab shows skip-intrinsics placeholder")
+            self.cameras_tab_widget = CamerasInfoPlaceholder()
         self.central_tab.addTab(self.cameras_tab_widget, "Cameras")
-        self.central_tab.setTabEnabled(
-            self.find_tab_index_by_title("Cameras"),
-            cameras_enabled,
-        )
 
         # Multi-Camera tab - enabled based on computed property
         multi_camera_enabled = self.coordinator.multi_camera_tab_enabled
@@ -145,17 +143,18 @@ class MainWindow(QMainWindow):
             multi_camera_enabled,
         )
 
-        # Capture Volume tab - enabled based on computed property
+        # Calibrate tab - enabled based on computed property
         capture_volume_enabled = self.coordinator.capture_volume_tab_enabled
         if capture_volume_enabled:
             logger.info("Creating ExtrinsicCalibrationTab")
             self.extrinsic_calibration_tab = ExtrinsicCalibrationTab(self.coordinator)
+            self.extrinsic_calibration_tab.navigation_requested.connect(self._navigate_to_tab)
         else:
-            logger.info("Creating dummy widget for Capture Volume")
+            logger.info("Creating dummy widget for Calibrate")
             self.extrinsic_calibration_tab = QWidget()
-        self.central_tab.addTab(self.extrinsic_calibration_tab, "Capture Volume")
+        self.central_tab.addTab(self.extrinsic_calibration_tab, "Calibrate")
         self.central_tab.setTabEnabled(
-            self.find_tab_index_by_title("Capture Volume"),
+            self.find_tab_index_by_title("Calibrate"),
             capture_volume_enabled,
         )
 
@@ -191,17 +190,14 @@ class MainWindow(QMainWindow):
         Called when Coordinator.status_changed fires (filesystem change,
         calibration complete, etc.).
         """
-        # Update enabled state for each tab
-        self.central_tab.setTabEnabled(
-            self.find_tab_index_by_title("Cameras"),
-            self.coordinator.cameras_tab_enabled,
-        )
+        # Update enabled state for each tab. The Cameras tab is exempt: it
+        # stays enabled and shows a placeholder until intrinsic videos exist.
         self.central_tab.setTabEnabled(
             self.find_tab_index_by_title("Multi-Camera"),
             self.coordinator.multi_camera_tab_enabled,
         )
         self.central_tab.setTabEnabled(
-            self.find_tab_index_by_title("Capture Volume"),
+            self.find_tab_index_by_title("Calibrate"),
             self.coordinator.capture_volume_tab_enabled,
         )
         self.central_tab.setTabEnabled(
@@ -238,15 +234,16 @@ class MainWindow(QMainWindow):
             if old:
                 old.deleteLater()
 
-        # Capture Volume tab
-        cv_idx = self.find_tab_index_by_title("Capture Volume")
+        # Calibrate tab
+        cv_idx = self.find_tab_index_by_title("Calibrate")
         if self.coordinator.capture_volume_tab_enabled and not isinstance(
             self.central_tab.widget(cv_idx), ExtrinsicCalibrationTab
         ):
             old = self.central_tab.widget(cv_idx)
             self.extrinsic_calibration_tab = ExtrinsicCalibrationTab(self.coordinator)
+            self.extrinsic_calibration_tab.navigation_requested.connect(self._navigate_to_tab)
             self.central_tab.removeTab(cv_idx)
-            self.central_tab.insertTab(cv_idx, self.extrinsic_calibration_tab, "Capture Volume")
+            self.central_tab.insertTab(cv_idx, self.extrinsic_calibration_tab, "Calibrate")
             if old:
                 old.deleteLater()
 
@@ -411,16 +408,15 @@ class MainWindow(QMainWindow):
             rtoml.dump(self.app_settings, f)
 
 
-def launch_main():
+def launch_main(workspace: str | None = None):
     from caliscope.gui.gc_confinement import disable, enable
-
-    # import qdarktheme
 
     app = QApplication(sys.argv)
     gc_timer = enable()  # after QApplication, before any Qt3D widgets
-    # qdarktheme.setup_theme("auto")
     window = MainWindow()
     window.show()
+    if workspace is not None:
+        window.launch_workspace(workspace)
     app.exec()
     disable(gc_timer)  # after event loop exits, restore automatic GC
 

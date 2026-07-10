@@ -2,7 +2,6 @@ from dataclasses import dataclass
 from enum import StrEnum
 from typing import Any, Callable, cast
 
-import cv2
 import numpy as np
 from numpy.typing import NDArray
 
@@ -99,83 +98,6 @@ class TrackedFrame:
         else:
             table = None
         return table
-
-    @property
-    def frame_with_points(self) -> NDArray[Any] | None:
-        if self.frame is None:
-            return None
-
-        if self.points is not None and self.draw_instructions is not None:
-            drawn_frame = self.frame.copy()
-            if self.pixel_format == PixelFormat.GRAY:
-                drawn_frame = cv2.cvtColor(drawn_frame, cv2.COLOR_GRAY2BGR)
-
-            ids = self.points.keypoint_id
-            locs = self.points.img_loc
-            for _id, coord in zip(ids, locs):
-                x = round(coord[0])
-                y = round(coord[1])
-
-                params = self.draw_instructions(_id)
-                cv2.circle(
-                    drawn_frame,
-                    (x, y),
-                    params["radius"],
-                    params["color"],
-                    params["thickness"],
-                )
-        else:
-            drawn_frame = self.frame
-
-        return drawn_frame
-
-
-@dataclass(frozen=True, slots=True)
-class SyncPacket:
-    """
-    SyncPacket holds synchronized tracked frames.
-    """
-
-    sync_index: int
-    tracked_frames: dict[int, TrackedFrame | None]
-
-    @property
-    def triangulation_inputs(self):
-        """Returns (cameras, object_ids, keypoint_ids, img_xy) for triangulation."""
-        cameras = []
-        object_ids = []
-        keypoint_ids = []
-        img_xy = []
-
-        for cam_id, tracked_frame in self.tracked_frames.items():
-            if tracked_frame is not None and tracked_frame.points is not None:
-                cameras.extend([cam_id] * len(tracked_frame.points.keypoint_id))
-                object_ids.extend(tracked_frame.points.object_id.tolist())
-                keypoint_ids.extend(tracked_frame.points.keypoint_id.tolist())
-                img_xy.extend(tracked_frame.points.img_loc.tolist())
-
-        return cameras, object_ids, keypoint_ids, img_xy
-
-    @property
-    def dropped(self):
-        """
-        convencience method to ease tracking of dropped frame rate within the synchronizer
-        """
-        temp_dict = {}
-        for cam_id, tracked_frame in self.tracked_frames.items():
-            if tracked_frame is None:
-                temp_dict[cam_id] = 1
-            else:
-                temp_dict[cam_id] = 0
-        return temp_dict
-
-    @property
-    def tracked_frame_count(self):
-        count = 0
-        for cam_id, tracked_frame in self.tracked_frames.items():
-            if tracked_frame is not None:
-                count += 1
-        return count
 
 
 @dataclass(slots=True, frozen=True)

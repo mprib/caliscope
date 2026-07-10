@@ -42,6 +42,7 @@ MACHINE_VISION = LensProfile(
 class IntrinsicPerturbation:
     f_scale: float = 1.0
     k1_delta: float = 0.0
+    k2_delta: float = 0.0
 
 
 def perturb_intrinsics(
@@ -68,6 +69,7 @@ def perturb_intrinsics(
             matrix[0, 0] *= p.f_scale
             matrix[1, 1] *= p.f_scale
             distortions[0] += p.k1_delta
+            distortions[1] += p.k2_delta
 
         cameras[cam_id] = CameraData(
             cam_id=cam.cam_id,
@@ -317,6 +319,40 @@ class CameraSynthesizer:
             )
 
         return CameraArray(cameras=cameras)
+
+
+def strip_intrinsics(camera_array: CameraArray) -> CameraArray:
+    """Return a copy of camera_array with matrix and distortions removed.
+
+    Simulates fully blind cameras so calibrate_extrinsics() exercises its
+    default-intrinsic synthesis path. Resolution (size) is retained, as a
+    real uncalibrated camera still reports its sensor dimensions.
+
+    Args:
+        camera_array: Source camera array (not modified)
+
+    Returns:
+        New CameraArray with matrix=None, distortions=None for all cameras
+    """
+    cameras: dict[int, CameraData] = {}
+
+    for cam_id, cam in camera_array.cameras.items():
+        cameras[cam_id] = CameraData(
+            cam_id=cam.cam_id,
+            size=cam.size,
+            rotation_count=cam.rotation_count,
+            error=cam.error,
+            matrix=None,
+            distortions=None,
+            exposure=cam.exposure,
+            grid_count=cam.grid_count,
+            ignore=cam.ignore,
+            fisheye=cam.fisheye,
+            translation=cam.translation.copy() if cam.translation is not None else None,
+            rotation=cam.rotation.copy() if cam.rotation is not None else None,
+        )
+
+    return CameraArray(cameras=cameras)
 
 
 def strip_extrinsics(camera_array: CameraArray) -> CameraArray:

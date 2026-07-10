@@ -72,6 +72,7 @@ from caliscope.synthetic.scene_factories import (
     quick_test_scene,
     sparse_coverage_scene,
     visibility_culling_scene,
+    wand_scene,
 )
 from caliscope.task_manager.task_manager import TaskManager
 
@@ -95,6 +96,7 @@ SCENE_PRESETS: dict[str, ScenePreset] = {
     "Cheirality Demo (forward vs backward camera)": _preset(cheirality_demo_scene),
     "Visibility Culling (single-sided board)": _preset(visibility_culling_scene),
     "ArUco Multi-Object (mobile + static marker)": _preset(aruco_multi_object_scene),
+    "Wand Scene (2 linked + 2 static ArUcos)": _preset(wand_scene),
     "Charuco Target (double-sided board)": _preset(charuco_target_scene),
     "Machine Vision Lens (KITTI-class barrel)": _preset(machine_vision_scene),
     "Perturbed Intrinsics (3% focal error)": ScenePreset(

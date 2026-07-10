@@ -24,6 +24,10 @@ logger = logging.getLogger(__name__)
 # Internal type alias for the sync mapping
 _SyncMapping = dict[int, dict[int, int | None]]
 
+# Fallback rate when no camera yields a usable frame rate (e.g. single-frame recordings).
+# Used only for the overlay-video writer, a QA artifact, so a sane default is harmless.
+_DEFAULT_FPS_FALLBACK = 30.0
+
 
 @dataclass(frozen=True)
 class SynchronizedTimestamps:
@@ -72,6 +76,28 @@ class SynchronizedTimestamps:
     def for_camera(self, cam_id: int) -> FrameTimestamps:
         """Per-camera timestamps (for streaming path consumers)."""
         return self._camera_timestamps[cam_id]
+
+    @property
+    def mean_fps(self) -> float:
+        """Mean capture frame rate across cameras, derived from frame-time spans.
+
+        For the overlay-video writer's playback rate. Never returns 0/inf or raises:
+        a camera with fewer than two frames or a non-positive time span is skipped,
+        and if no camera yields a usable rate the result falls back to a sane default.
+        """
+        per_camera_fps: list[float] = []
+        for ft in self._camera_timestamps.values():
+            times = sorted(ft.frame_times.values())
+            if len(times) < 2:
+                continue
+            span = times[-1] - times[0]
+            if span <= 0:
+                continue
+            per_camera_fps.append((len(times) - 1) / span)
+
+        if not per_camera_fps:
+            return _DEFAULT_FPS_FALLBACK
+        return mean(per_camera_fps)
 
     def to_csv(self, path: Path) -> None:
         """Write all camera timestamps to CSV (cam_id, frame_time format)."""

@@ -6,11 +6,11 @@ After installation, ONNX models appear alongside the built-in trackers in the re
 
 ## Requirements
 
-ONNX model inference is included in the desktop app installation (`uv pip install caliscope[gui]`). On first launch, Caliscope seeds your models directory with model cards for the RTMPose Halpe26 family (tiny through xlarge). The ONNX weight files are not shipped with the package; they can be downloaded in-app or placed manually.
+!!! info "Requires the `[tracking]` extra"
+    ONNX inference requires `pip install caliscope[tracking]`. The `[gui]` extra includes it automatically.
 
-## Built-in Models
-
-Caliscope ships model card templates for the RTMPose Halpe26 family. On first launch, these are copied to your platform's models directory (see Models Directory below). The model cards describe the model but do not include the weights — the `.onnx` files must be downloaded separately.
+On first launch, Caliscope seeds your models directory with model cards for the RTMPose Halpe26 family.
+The `.onnx` weight files are not shipped; they can be downloaded in-app or placed manually.
 
 ### In-App Download
 
@@ -19,7 +19,7 @@ For built-in models that include a `[source]` section in their model card, Calis
 1. Open the Reconstruction tab
 2. Select an ONNX tracker from the dropdown
 3. If the weights are not yet present, a download button appears with the model's license information
-4. Click to download — the weights are fetched from the upstream source and placed in the models directory
+4. Click to download. The weights are fetched from the upstream source and placed in the models directory
 
 You can also download weights manually and place the `.onnx` file in the models directory. The filename must match the `model_path` field in the model card.
 
@@ -27,7 +27,7 @@ You can also download weights manually and place the `.onnx` file in the models 
 
 1. **Obtain or export an ONNX pose estimation model**
    - Many pose estimation frameworks support ONNX export (MMPose, SLEAP, DeepLabCut with model zoo)
-   - Ensure the model outputs either SimCC vectors or heatmaps (see format details below)
+   - The model must output either SimCC vectors or heatmaps (see format details below)
 
 2. **Locate your models directory**
    - Caliscope uses platform-specific data directories (see Models Directory below)
@@ -207,7 +207,8 @@ Segments are used by the 3D visualizer to draw connections between keypoints, ma
 
 ### Source Section (For In-App Download)
 
-Model cards can include a `[source]` section that enables in-app downloading of weights. This is optional — custom models without a `[source]` section work normally but require manual placement of the `.onnx` file.
+Model cards can include a `[source]` section that enables in-app downloading of weights. This is optional.
+Custom models without a `[source]` section work normally but require manual placement of the `.onnx` file.
 
 ```toml
 [source]
@@ -230,29 +231,12 @@ sha256 = "de5fa6ef754e1b19a0f8199d53affef122813e30c580c48be87fcf86c4ec47a7"
 
 ## SimCC vs Heatmap Formats
 
-ONNX pose estimation models output predictions in different formats. You must specify which format your model uses in the `model.format` field.
+Set `model.format` to match your model's output type:
 
-### SimCC (Simulated Coordinate Classification)
+- **`"simcc"`**: RTMPose and other models using the SimCC head. Two output tensors (X and Y distributions).
+- **`"heatmap"`**: SLEAP exports and other heatmap-based models. One output tensor (2D heat image per keypoint).
 
-**Used by:** RTMPose family (MMPose/OpenMMLab)
-
-**How it works:** The model outputs two 1D probability distributions per keypoint, one for the X coordinate and one for the Y coordinate. The coordinate is the argmax of each distribution. This provides sub-pixel accuracy (0.5px resolution) built into the architecture.
-
-**When to use:** If your model was trained with RTMPose or uses the SimCC head architecture, use `format = "simcc"`.
-
-**Output structure:** Two tensors of shape `(batch, num_keypoints, input_width * simcc_split_ratio)` and `(batch, num_keypoints, input_height * simcc_split_ratio)`. The default `simcc_split_ratio` is 2.0, so for a model with `input_size = [192, 256]`, the X vector length is 384 and the Y vector length is 512.
-
-### Heatmap
-
-**Used by:** SLEAP ONNX exports, many pose estimation frameworks
-
-**How it works:** The model outputs a 2D "heat image" per keypoint. The coordinate is the location of the brightest pixel, refined with quadratic interpolation for sub-pixel accuracy.
-
-**When to use:** If your model was trained with SLEAP, or uses a heatmap-based architecture (common in many pose estimation systems), use `format = "heatmap"`.
-
-**Output structure:** One tensor of shape `(batch, num_keypoints, heatmap_height, heatmap_width)`.
-
-If you're unsure which format your model uses, check the training framework's documentation or inspect the model's output tensors. SimCC models will have two outputs, heatmap models will have one.
+If unsure, check your training framework's docs or inspect the model's output tensors: two outputs means SimCC, one means heatmap.
 
 ## Built-in Model Cards
 
@@ -272,67 +256,14 @@ Other RTMPose variants and SLEAP-exported models should work with appropriate mo
 
 ## Troubleshooting
 
-### Model not appearing in dropdown
-
-**Symptoms:** After creating a model card and restarting Caliscope, your custom tracker doesn't appear in the reconstruction tab's dropdown menu.
-
-**Diagnosis:**
-1. Verify the `.toml` file is in the correct models directory (see platform paths above)
-2. Launch Caliscope from a terminal to see error messages
-3. Check the log file for parsing errors
-
-**Common causes:**
-- TOML syntax error (missing quotes, incorrect nesting)
-- Missing required fields (`model_path`, `format`, `input_size`, or `[points]` section)
-- Invalid `format` value (must be exactly `"simcc"` or `"heatmap"`)
-
-### Poor detection quality
-
-**Symptoms:** Few keypoints detected, erratic tracking, or complete detection failure.
-
-**Solutions:**
-- **Lower the confidence threshold:** Try `confidence_threshold = 0.1` to include more marginal detections
-- **Verify input size:** Ensure `input_size` exactly matches what the model was trained on (check model documentation)
-- **Check preprocessing compatibility:** SimCC format expects ImageNet normalization; if your model uses different preprocessing, it may not work correctly
-
-**Note:** Wrong input size will produce garbage output because the model receives distorted or incorrectly scaled input.
-
-### Wrong keypoint positions
-
-**Symptoms:** Keypoints appear in incorrect anatomical locations (e.g., left elbow predicted where right wrist should be).
-
-**Diagnosis:** The `[points]` mapping in your model card doesn't match the model's actual output ordering.
-
-**Solution:**
-1. Consult your model's training framework documentation for the keypoint ordering
-2. Verify the indices in your `[points]` section match that ordering exactly
-3. Different model families use different conventions even for the same body landmarks (e.g., COCO vs Halpe vs OpenPose keypoint orderings)
-
-### Model file path issues
-
-**Symptoms:** Error about model file not found, even though the file exists.
-
-**Solution:**
-- Use absolute paths in `model_path`, not relative paths
-- Verify the path is correct (no typos, correct extension)
-- Ensure the file has read permissions
-
-## Performance Characteristics
-
-ONNX trackers in Caliscope use CPU inference through onnxruntime. Processing speed depends on:
-
-- **Model size:** Smaller models (RTMPose-t) process faster than larger ones (RTMPose-m)
-- **Input resolution:** Models with smaller input sizes process faster
-- **CPU capabilities:** More cores and newer processors improve throughput
-
-A three-tier crop-and-track strategy helps maintain robust detection across frames:
-
-1. **Tier 1:** Crop to previous detection (fast, common case)
-2. **Tier 2:** Full-frame letterbox (cold start or lost tracking)
-3. **Tier 3:** Sliding window scan (thorough search when full-frame fails)
-
-This ensures reliable detection even when subjects move rapidly or temporarily leave the crop region.
+| Symptom | Cause | Fix |
+|---------|-------|-----|
+| Model not in dropdown | TOML not in models dir, syntax error, or missing required field | Check the terminal log on launch |
+| Few/no detections | Wrong `input_size` or threshold too high | Match `input_size` to training config; try `confidence_threshold = 0.1` |
+| Wrong keypoint positions | `[points]` indices don't match model output ordering | Check your framework's keypoint convention (COCO vs Halpe vs OpenPose differ) |
+| Model file not found | Relative path or typo | Use absolute paths in `model_path` |
 
 ## Limitations
 
-The ONNX tracker currently supports single-person detection with CPU inference only. GPU acceleration and multi-person tracking are not yet implemented. If you have a use case that requires these features, please [open an issue](https://github.com/mprib/caliscope/issues).
+!!! note "Current limitations"
+    Single-person detection with CPU inference only. GPU acceleration and multi-person tracking are not yet implemented. [Open an issue](https://github.com/mprib/caliscope/issues) if you need these.

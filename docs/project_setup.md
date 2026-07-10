@@ -84,19 +84,8 @@ workspace/
 
 ### Frame Synchronization
 
-Caliscope needs to know which frames across cameras correspond to the same moment in time.
-
-**If you have per-frame timestamps**, place a `timestamps.csv` file in the recording directory.
-This handles cameras with different frame rates, dropped frames, and different start/stop times.
-
-**If you don't have per-frame timestamps**, leave out `timestamps.csv` and Caliscope will infer timing from the video files.
-It reads each video's frame count and frame rate, then spaces each camera's frames evenly across a shared average duration.
-The inferred frame times are saved to `inferred_timestamps.csv` for inspection.
-Hardware synchronization will result in the same number of frames in each file which Caliscope synchronizes exactly.
-Without hardware synchronization, make sure the files start and stop at the same moment in time.
-The inferred timestamp approach will attempt to time align these files even in the presence of mild drift in frame rate.
-
-Misalignment of the start or stop frames along with drift in the actual recording will impact the time alignment.
+If your cameras are hardware-synchronized (same frame count in every file), Caliscope aligns them automatically.
+If they are not, include a `timestamps.csv` with per-frame timing, or the calibration will suffer from misaligned frames.
 
 ### `timestamps.csv` Format
 

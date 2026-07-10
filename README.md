@@ -2,19 +2,17 @@
 
 # Caliscope
 
-*Multicamera Calibration for Motion Capture Workflows*
+*Multicamera Calibration for Motion Capture*
 
 [![PyPI - Downloads](https://img.shields.io/pypi/dm/caliscope?color=blue)](https://pypi.org/project/caliscope/)
 [![PyPI - License](https://img.shields.io/pypi/l/caliscope?color=blue)](https://opensource.org/license/bsd-2-clause/)
 [![PyPI - Version](https://img.shields.io/pypi/v/caliscope?color=blue)](https://pypi.org/project/caliscope/)
 [![GitHub last commit](https://img.shields.io/github/last-commit/mprib/caliscope.svg)](https://github.com/mprib/caliscope/commits)
-[![GitHub stars](https://img.shields.io/github/stars/mprib/caliscope.svg?style=social&label=Star)](https://github.com/mprib/caliscope/stargazers)
 ![pytest](https://github.com/mprib/caliscope/actions/workflows/pytest.yml/badge.svg)
 </div>
 
-Caliscope calibrates multicamera systems for 3D motion capture.
-It estimates the intrinsic and extrinsic parameters of every camera, so downstream tools can triangulate 3D positions accurately.
-Bundle adjustment across 3+ cameras needs a good starting estimate to converge reliably. Caliscope produces that estimate and solves for a quality calibration.
+Caliscope estimates intrinsic and extrinsic camera parameters for multicamera rigs.
+Bundle adjustment needs a good starting point to converge. Caliscope builds that starting point from pairwise PnP estimates chained transitively, then refines it.
 
 ## Demo
 
@@ -22,70 +20,45 @@ https://github.com/user-attachments/assets/b8bb78de-866e-4ba2-b5c7-674e3a33dd9e
 
 ## Install
 
-We recommend [uv](https://docs.astral.sh/uv/) for installation.
-Full instructions (including uv setup and virtual environments) are in the [docs](https://mprib.github.io/caliscope/installation/).
-
 ```bash
-# Calibration library (intrinsic/extrinsic calibration + triangulation)
-uv pip install caliscope
-
-# Desktop app with 3D visualization and pose tracking
-uv pip install caliscope[gui]
+uv pip install caliscope        # calibration library + scripting API
+uv pip install caliscope[gui]   # adds desktop app, 3D visualization, and pose tracking
+caliscope                       # launch the app
 ```
 
-The base install includes the full calibration pipeline as importable Python functions.
-Add `[gui]` for the interactive desktop application, which also includes ONNX pose tracking.
-
-```bash
-# Launch the app (with the virtual environment activated)
-caliscope
-```
-
-### Development setup
-
-```bash
-git clone https://github.com/mprib/caliscope.git
-cd caliscope
-uv sync --group dev --extra gui
-```
+Full instructions at [mprib.github.io/caliscope/installation](https://mprib.github.io/caliscope/installation/).
 
 ## Features
 
 | Feature | What it does |
 |---------|-------------|
-| Pairwise PnP initialization | Estimates camera positions from stereo pairs chained transitively, so bundle adjustment starts from a reliable point |
-| Flexible calibration targets | ChArUco, ArUco, and chessboard targets. A single ArUco marker on a sheet of paper can calibrate a wide volume |
-| Mirror board support | A charuco board printed on both sides of a rigid surface links cameras that never share a common view |
-| Visual feedback | Inspect distortion models, 3D camera positions, reprojection errors, and world scale accuracy at each stage |
-| Outlier filtering | Filter calibration points by reprojection error and re-solve |
-| Aniposelib export | Generates `camera_array_aniposelib.toml` for use with [aniposelib](https://github.com/lambdaloop/aniposelib)-compatible tools |
+| Pairwise PnP initialization | Chains stereo pair estimates transitively, so the target never needs to be visible to all cameras at once |
+| Flexible targets | ChArUco boards, ArUco markers, and chessboards. A single marker on a sheet of paper can calibrate a wide volume |
+| Mirror boards | A board printed on both sides links cameras that never share a common view |
+| Outlier filtering | Filter by reprojection error and re-solve |
+| Aniposelib export | `camera_array_aniposelib.toml` for [Pose2Sim](https://github.com/perfanalytics/pose2sim), [anipose](https://anipose.readthedocs.io/), and other aniposelib-compatible tools |
 
 ## Scripting API
 
-The base install exposes intrinsic and extrinsic calibration as Python functions with Rich progress bars.
-See the [Scripting API docs](https://mprib.github.io/caliscope/scripting/) for a walkthrough.
+The base install exposes calibration as Python functions.
+See the [scripting docs](https://mprib.github.io/caliscope/scripting/) for a walkthrough.
 
-## Tracking and Reconstruction
+## Reconstruction
 
-Caliscope includes a basic reconstruction pipeline for verifying calibration quality.
-You can load ONNX pose estimation models (RTMPose, SLEAP, DeepLabCut, or custom) and export 3D trajectories as CSV or TRC (OpenSim).
+A basic reconstruction pipeline is included for verifying calibration quality: ONNX pose tracking, triangulation, and CSV/TRC export.
+For production reconstruction, use Pose2Sim or anipose with Caliscope's exported calibration.
 
-For full reconstruction workflows, [anipose](https://anipose.readthedocs.io/) and [Pose2Sim](https://github.com/perfanalytics/pose2sim) are better suited.
-Caliscope exports an aniposelib-compatible calibration file, making it simple to calibrate here and hand off to those tools.
+## Getting started
 
-## Getting Started
+[Sample project](https://mprib.github.io/caliscope/sample_project/) with downloadable data.
+[Full documentation](https://mprib.github.io/caliscope/).
 
-For a walkthrough with sample data, see the [sample project](https://mprib.github.io/caliscope/sample_project/).
-
-## Community & Support
-
-To report a bug or request a feature, [open an issue](https://github.com/mprib/caliscope/issues).
-For questions, post in [Discussions](https://github.com/mprib/caliscope/discussions).
+Bugs: [Issues](https://github.com/mprib/caliscope/issues). Questions: [Discussions](https://github.com/mprib/caliscope/discussions).
 
 ## Acknowledgments
 
-Caliscope was inspired by [anipose](https://github.com/lambdaloop/anipose), created by Lili Karashchuk, PhD, which demonstrated the value of accessible multicamera calibration for the research community.
+Inspired by [anipose](https://github.com/lambdaloop/anipose), created by Lili Karashchuk, PhD.
 
 ## License
 
-Caliscope is licensed under the [BSD 2-Clause license](https://opensource.org/license/bsd-2-clause/).
+[BSD 2-Clause](https://opensource.org/license/bsd-2-clause/)

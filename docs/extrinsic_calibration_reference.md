@@ -19,17 +19,17 @@ When one or more cameras have no intrinsics at all (see [Skipping Intrinsic Cali
 
 ## The Depth-Ratio Gate
 
-Focal length and distance are coupled in the image.
-Only depth variation separates them.
+A target at 3 meters with a 50mm lens produces the same image as a target at 6 meters with a 100mm lens.
+If the target stays at roughly the same distance throughout the capture, the solver cannot separate focal length from target distance.
+Moving the target toward and away from the cameras breaks this ambiguity.
 
-Before refining intrinsics, Caliscope measures each camera's near/far depth ratio.
-**If any camera's ratio falls below 2.0, intrinsic refinement is disabled for the entire rig.**
-Below that ratio, refining focal length drifts it and couples scale error into camera translation, which is worse than not refining at all.
+Caliscope measures this before refining intrinsics.
+For each camera, it computes the ratio between the farthest and nearest observed target distances.
+If any camera's ratio falls below 2.0, Caliscope disables intrinsic refinement for the entire rig.
+One camera with flat depth coverage gates all the others.
 
-Two consequences:
-
-- Move the target toward and away from the cameras during recording. One camera with flat coverage gates the whole rig.
-- The gate can silently override the checkbox. The log records per-camera depth ratios when the gate fires.
+The gate can silently override the refine-intrinsics checkbox.
+The log records per-camera depth ratios when this happens.
 
 ## Skipping Intrinsic Calibration
 

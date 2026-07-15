@@ -340,6 +340,38 @@ class CameraArray:
         return cls(cameras)
 
     @classmethod
+    def from_focal_estimates(cls, focal_per_cam: dict[int, float], videos: Mapping[int, Path | str]) -> CameraArray:
+        """Build a CameraArray with intrinsics from per-camera focal estimates.
+
+        Each camera gets a pinhole matrix ``[[f, 0, cx], [0, f, cy], [0, 0, 1]]``
+        with the principal point at the image center and zero distortion; no
+        extrinsics are set. Image dimensions come from the video metadata. The
+        focal estimates typically come from ``run_moge`` (MoGeResult.focal_per_cam).
+        """
+        from caliscope.recording.video_utils import read_video_properties
+
+        cameras = {}
+        for cam_id, focal in focal_per_cam.items():
+            if cam_id not in videos:
+                raise ValueError(f"No video provided for cam_id {cam_id} in focal_per_cam.")
+            props = read_video_properties(Path(videos[cam_id]))
+            width, height = props["width"], props["height"]
+            matrix = np.array(
+                [
+                    [focal, 0.0, width / 2.0],
+                    [0.0, focal, height / 2.0],
+                    [0.0, 0.0, 1.0],
+                ]
+            )
+            cameras[cam_id] = CameraData(
+                cam_id=cam_id,
+                size=(width, height),
+                matrix=matrix,
+                distortions=np.zeros(5),
+            )
+        return cls(cameras)
+
+    @classmethod
     def from_image_sizes(cls, sizes: dict[int, tuple[int, int]]) -> CameraArray:
         """Create uncalibrated CameraArray from known image sizes.
 

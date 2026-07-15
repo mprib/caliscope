@@ -24,6 +24,7 @@ from caliscope.core.capture_volume import CaptureVolume
 from caliscope.core.charuco import Charuco
 from caliscope.core.constraints import ConstraintSet
 from caliscope.core.point_data import STATIC_SYNC_INDEX, ImagePoints
+from caliscope.core.scale_accuracy import compute_depth_ratios
 from caliscope.synthetic import SyntheticScene
 from caliscope.synthetic.scene_factories import (
     charuco_target_scene,
@@ -248,8 +249,10 @@ class TestCleanSceneProduction:
 
         assert result.synthesized_cam_ids == frozenset()
         assert result.dropped_static_markers == ()
-        assert result.bound_warnings == ()
-        assert set(result.depth_ratios) == posed_ids
+        status = result.capture_volume.optimization_status
+        assert status is not None
+        assert status.bound_warnings == ()
+        assert set(compute_depth_ratios(result.capture_volume)) == posed_ids
         # Ring geometry: depth ratio ~1.29 < 2.0 gate, so refinement is gated off.
         assert result.intrinsic_refinement_gated
 

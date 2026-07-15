@@ -1,8 +1,8 @@
 """Use-case function for extrinsic calibration.
 
 Pipeline: synthesize blind intrinsics → bootstrap → static-marker guard →
-optimize → filter → optimize. Returns an ExtrinsicCalibrationResult with
-recovered intrinsic estimates, bound warnings, depth ratios, and dropped markers.
+optimize → filter → optimize. Returns a CalibrationRun with recovered
+intrinsic estimates and dropped markers.
 """
 
 from __future__ import annotations
@@ -14,10 +14,11 @@ from dataclasses import dataclass
 
 
 from caliscope.cameras.camera_array import CameraArray
-from caliscope.core.bundle_parameterization import BoundWarning, IntrinsicEstimate
+from caliscope.core.bundle_parameterization import IntrinsicEstimate
 from caliscope.core.capture_volume import CaptureVolume
 from caliscope.core.constraints import ConstraintSet, RigidityReport
 from caliscope.core.point_data import ImagePoints
+from caliscope.exceptions import CalibrationError
 from caliscope.core.scale_accuracy import compute_depth_ratios
 from caliscope.task_manager.cancellation import CancellationToken
 
@@ -32,16 +33,11 @@ MIN_DEPTH_RATIO_FOR_INTRINSIC_REFINEMENT = 2.0
 
 
 @dataclass(frozen=True)
-class ExtrinsicCalibrationResult:
+class CalibrationRun:
     capture_volume: CaptureVolume
     intrinsic_estimates: tuple[IntrinsicEstimate, ...]
     synthesized_cam_ids: frozenset[int]
-    bound_warnings: tuple[BoundWarning, ...]
     dropped_static_markers: tuple[int, ...]
-    # Per-camera depth ratios of the final volume; may differ from the values the
-    # refinement gate acted on (which were computed on the post-first-linear-pass
-    # volume, before filtering and the final optimize).
-    depth_ratios: dict[int, float]
     intrinsic_refinement_gated: bool
 
 
@@ -54,7 +50,7 @@ def calibrate_extrinsics(
     filter_percentile: float = 2.5,
     cancellation_token: CancellationToken | None = None,
     progress: Callable[[int, str], None] | None = None,
-) -> ExtrinsicCalibrationResult:
+) -> CalibrationRun:
     """Run the full extrinsic calibration pipeline.
 
     Synthesizes blind intrinsics for uncalibrated cameras, bootstraps poses,
@@ -80,6 +76,21 @@ def calibrate_extrinsics(
         if cam.matrix is None or cam.distortions is None:
             synthesized.add(cam.cam_id)
             cam.synthesize_default_intrinsics()
+
+    # Intrinsic-quality gate for the epipolar path. With no object geometry the
+    # bootstrap falls back to essential-matrix decomposition, which -- unlike PnP
+    # -- has no obj_loc anchor to absorb focal error. Blind intrinsics (f=width/2)
+    # produce geometrically wrong poses, so refuse to proceed on synthesized cams.
+    obj_absent = image_points.df[["obj_loc_x", "obj_loc_y", "obj_loc_z"]].isna().all().all()
+    if obj_absent and synthesized:
+        raise CalibrationError(
+            f"Epipolar bootstrap requires calibrated intrinsics, but cameras {sorted(synthesized)} "
+            f"have none and fell back to blind defaults (f=width/2). The essential-matrix "
+            f"decomposition has no object-geometry anchor to absorb focal-length error, so blind "
+            f"intrinsics yield geometrically wrong poses (not merely mis-scaled ones). Supply real "
+            f"intrinsics first -- run MoGe focal estimation or charuco intrinsic calibration for "
+            f"these cameras -- then re-run extrinsic calibration."
+        )
 
     # 2. Capture initial intrinsic anchors
     anchors: dict[int, tuple[float, float, float]] = {}
@@ -214,7 +225,7 @@ def calibrate_extrinsics(
 
     # 9. Assemble result
     _progress(100, "Done")
-    return _build_result(
+    return _build_run(
         capture_volume=capture_volume,
         anchors=anchors,
         synthesized_cam_ids=frozenset(synthesized),
@@ -223,20 +234,20 @@ def calibrate_extrinsics(
     )
 
 
-def refresh_result(
-    previous: ExtrinsicCalibrationResult,
+def refresh_run(
+    previous: CalibrationRun,
     capture_volume: CaptureVolume,
-) -> ExtrinsicCalibrationResult:
-    """Rebuild the result around a re-optimized capture volume.
+) -> CalibrationRun:
+    """Rebuild the run around a re-optimized capture volume.
 
     Preserved: initial anchors, synthesized_cam_ids, dropped markers.
-    Recomputed: intrinsic estimates, bound warnings, depth ratios.
+    Recomputed: intrinsic estimates.
     """
     anchors: dict[int, tuple[float, float, float]] = {}
     for est in previous.intrinsic_estimates:
         anchors[est.cam_id] = (est.f_initial, est.k1_initial, est.k2_initial)
 
-    return _build_result(
+    return _build_run(
         capture_volume=capture_volume,
         anchors=anchors,
         synthesized_cam_ids=previous.synthesized_cam_ids,
@@ -245,13 +256,13 @@ def refresh_result(
     )
 
 
-def _build_result(
+def _build_run(
     capture_volume: CaptureVolume,
     anchors: dict[int, tuple[float, float, float]],
     synthesized_cam_ids: frozenset[int],
     dropped_static_markers: tuple[int, ...],
     intrinsic_refinement_gated: bool,
-) -> ExtrinsicCalibrationResult:
+) -> CalibrationRun:
     estimates: list[IntrinsicEstimate] = []
     for cam_id, cam in capture_volume.camera_array.posed_cameras.items():
         if cam_id not in anchors or cam.matrix is None or cam.distortions is None:
@@ -269,16 +280,11 @@ def _build_result(
             )
         )
 
-    status = capture_volume.optimization_status
-    bound_warnings = status.bound_warnings if status is not None else ()
-
-    return ExtrinsicCalibrationResult(
+    return CalibrationRun(
         capture_volume=capture_volume,
         intrinsic_estimates=tuple(estimates),
         synthesized_cam_ids=synthesized_cam_ids,
-        bound_warnings=bound_warnings,
         dropped_static_markers=dropped_static_markers,
-        depth_ratios=compute_depth_ratios(capture_volume),
         intrinsic_refinement_gated=intrinsic_refinement_gated,
     )
 

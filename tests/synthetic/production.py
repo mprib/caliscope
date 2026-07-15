@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from caliscope.core.calibrate_extrinsics import ExtrinsicCalibrationResult, calibrate_extrinsics
+from caliscope.core.calibrate_extrinsics import CalibrationRun, calibrate_extrinsics
 from caliscope.core.capture_volume import CaptureVolume
 from caliscope.core.constraints import ConstraintSet
 from caliscope.core.point_data import ImagePoints
@@ -20,7 +20,7 @@ from tests.synthetic.assertions import PoseError, align_to_ground_truth, pose_er
 
 @dataclass(frozen=True)
 class ProductionRun:
-    result: ExtrinsicCalibrationResult
+    result: CalibrationRun
     aligned_volume: CaptureVolume  # Procrustes-aligned to ground truth
     pose_errors: dict[int, PoseError]  # cam_id -> error vs ground truth
 

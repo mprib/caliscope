@@ -9,6 +9,7 @@ from functools import cached_property
 from pathlib import Path
 from typing import Literal
 import logging
+import warnings
 
 from caliscope.cameras.camera_array import CameraArray
 from caliscope.core.constraints import ConstraintSet, ConstraintViolation, RigidityReport
@@ -33,6 +34,8 @@ from caliscope.core.scale_accuracy import (
     FrameScaleError,
     VolumetricScaleReport,
 )
+from caliscope.core.coordinate_frame import world_basis_from_up_and_forward
+from caliscope.core.scale_cues import CameraDistance, DepthObservation, SegmentLength
 
 import pandas as pd
 
@@ -305,15 +308,9 @@ class CaptureVolume:
                 f"    cameras[{uncalibrated[0]}] = output.camera"
             )
 
-        # Validate: obj_loc presence
-        obj_cols = image_points.df[["obj_loc_x", "obj_loc_y", "obj_loc_z"]]
-        if obj_cols.isna().all().all():
-            raise CalibrationError(
-                "ImagePoints contain no object location data (obj_loc columns are all NaN). "
-                "Extrinsic calibration requires a tracker that provides known 3D positions "
-                "(e.g., CharucoTracker)."
-            )
-
+        # obj_loc presence is no longer validated here: build_paired_pose_network
+        # branches on it, using the PnP path when object geometry is present and
+        # the essential-matrix (epipolar) path when obj_loc is all NaN.
         cameras = deepcopy(camera_array)
         pose_network = build_paired_pose_network(image_points, cameras)
         pose_network.apply_to(cameras)
@@ -1000,6 +997,250 @@ class CaptureVolume:
             scale=1.0,
         )
 
+        new_camera_array, new_world_points = apply_similarity_transform(self.camera_array, self.world_points, transform)
+
+        return CaptureVolume(
+            camera_array=new_camera_array,
+            image_points=self.image_points,
+            world_points=new_world_points,
+            constraints=self.constraints,
+            _optimization_status=self._optimization_status,
+        )
+
+    # ------------------------------------------------------------------
+    # Metric anchoring (post-BA). Each returns a new frozen CaptureVolume.
+    # ------------------------------------------------------------------
+
+    def _anchor_cam_id(self) -> int:
+        """The lowest posed cam_id -- the yaw/XY convention anchor ("camera 0")."""
+        posed = self.camera_array.posed_cameras
+        if not posed:
+            raise ValueError("No posed cameras; cannot anchor a shape-only volume.")
+        return min(posed)
+
+    def _camera_center(self, cam_id: int) -> NDArray:
+        """Camera center in the current world frame: C = -R.T @ t."""
+        cam = self.camera_array.cameras[cam_id]
+        if cam.rotation is None or cam.translation is None:
+            raise ValueError(f"Camera {cam_id} has no pose; cannot compute its center.")
+        return -cam.rotation.T @ cam.translation
+
+    def scaled(self, *cues: CameraDistance | SegmentLength | DepthObservation) -> "CaptureVolume":
+        """Apply uniform metric scale recovered from one or more metric cues.
+
+        A single cue sets scale exactly (metric / arbitrary). Multiple cues are
+        combined by sigma-weighted least squares on the scale factor, using each
+        cue's ``sigma_m``. Cues whose implied scales disagree by more than 2 sigma
+        (propagated to scale space) trigger a ``warnings.warn``.
+
+        ``CameraDistance`` and ``SegmentLength`` cues are user-typed and strict: a
+        missing camera or keypoint raises ``ValueError``. ``DepthObservation`` cues
+        are bulk estimator output (one per detection), so unresolvable ones are
+        skipped with a single aggregated ``warnings.warn`` rather than aborting:
+        a keypoint triangulated in fewer than two views has no world point, and
+        triangulation noise can push a point behind the camera (non-positive
+        depth). Zero cues, or all cues unresolvable, raise ``ValueError``.
+        """
+        if not cues:
+            raise ValueError("scaled() requires at least one cue; got none.")
+
+        # Compile each cue to (d_arbitrary, d_metric, sigma_m). Strict cue types
+        # raise on failure; depth cues (bulk estimator output) are filtered.
+        compiled: list[tuple[float, float, float]] = []
+        skip_reasons: list[str] = []
+        n_depth = 0
+        for cue in cues:
+            if isinstance(cue, DepthObservation):
+                n_depth += 1
+                outcome = self._compile_depth_cue(cue)
+                if isinstance(outcome, str):
+                    skip_reasons.append(outcome)
+                else:
+                    compiled.append(outcome)
+            else:
+                compiled.append(self._compile_cue(cue))
+
+        if skip_reasons:
+            from collections import Counter
+
+            breakdown = ", ".join(f"{count} {reason}" for reason, count in sorted(Counter(skip_reasons).items()))
+            warnings.warn(
+                f"Skipped {len(skip_reasons)} of {n_depth} depth cues as unresolvable ({breakdown}).",
+                stacklevel=2,
+            )
+
+        if not compiled:
+            raise ValueError(f"All {len(cues)} scale cues were unresolvable; cannot determine scale.")
+
+        d_arb = np.array([c[0] for c in compiled], dtype=np.float64)
+        d_met = np.array([c[1] for c in compiled], dtype=np.float64)
+        sigma = np.array([c[2] for c in compiled], dtype=np.float64)
+
+        if len(compiled) == 1:
+            scale = float(d_met[0] / d_arb[0])
+        else:
+            # Sigma-weighted least squares: scale = Σ(m·d/σ²) / Σ(d²/σ²).
+            numerator = float(np.sum(d_met * d_arb / sigma**2))
+            denominator = float(np.sum(d_arb**2 / sigma**2))
+            scale = numerator / denominator
+
+            # Disagreement diagnostic in scale space.
+            implied = d_met / d_arb
+            sigma_scale = sigma / d_arb
+            n = len(compiled)
+            for i in range(n):
+                for j in range(i + 1, n):
+                    combined = float(np.hypot(sigma_scale[i], sigma_scale[j]))
+                    if abs(implied[i] - implied[j]) > 2.0 * combined:
+                        warnings.warn(
+                            f"Scale cues {i} and {j} disagree: implied scales "
+                            f"{implied[i]:.6g} vs {implied[j]:.6g} differ by more than "
+                            f"2 sigma ({2.0 * combined:.6g}).",
+                            stacklevel=2,
+                        )
+
+        transform = SimilarityTransform(
+            rotation=np.eye(3, dtype=np.float64),
+            translation=np.zeros(3, dtype=np.float64),
+            scale=scale,
+        )
+        new_camera_array, new_world_points = apply_similarity_transform(self.camera_array, self.world_points, transform)
+
+        return CaptureVolume(
+            camera_array=new_camera_array,
+            image_points=self.image_points,
+            world_points=new_world_points,
+            constraints=self.constraints,
+            _optimization_status=self._optimization_status,
+        )
+
+    def _compile_cue(self, cue: CameraDistance | SegmentLength) -> tuple[float, float, float]:
+        """Reduce a strict (user-typed) cue to (d_arbitrary, d_metric, sigma_m).
+
+        Raises ``ValueError`` on any unresolvable reference -- these cues are few
+        and hand-entered, so a bad reference is a real mistake worth surfacing.
+        """
+        if isinstance(cue, CameraDistance):
+            posed = self.camera_array.posed_cameras
+            for cam_id in (cue.cam_a, cue.cam_b):
+                if cam_id not in posed:
+                    raise ValueError(f"CameraDistance references cam_id {cam_id}, which is not a posed camera.")
+            d_arb = float(np.linalg.norm(self._camera_center(cue.cam_a) - self._camera_center(cue.cam_b)))
+            if d_arb == 0.0:
+                raise ValueError(f"Cameras {cue.cam_a} and {cue.cam_b} coincide; distance cue is degenerate.")
+            return d_arb, float(cue.meters), float(cue.sigma_m)
+
+        world_df = self.world_points.df
+
+        if isinstance(cue, SegmentLength):
+            coords = ["x_coord", "y_coord", "z_coord"]
+            side_a = world_df[world_df["keypoint_id"] == cue.keypoint_id_a][["sync_index", "object_id", *coords]]
+            side_b = world_df[world_df["keypoint_id"] == cue.keypoint_id_b][["sync_index", "object_id", *coords]]
+            merged = side_a.merge(side_b, on=["sync_index", "object_id"], suffixes=("_a", "_b"))
+            if merged.empty:
+                raise ValueError(
+                    f"SegmentLength found no frame where both keypoints "
+                    f"{cue.keypoint_id_a} and {cue.keypoint_id_b} are triangulated."
+                )
+            deltas = merged[[f"{c}_a" for c in coords]].to_numpy() - merged[[f"{c}_b" for c in coords]].to_numpy()
+            distances = np.linalg.norm(deltas, axis=1)
+            d_arb = float(np.median(distances))
+            return d_arb, float(cue.meters), float(cue.sigma_m)
+
+        raise TypeError(f"Unknown scale cue type: {type(cue).__name__}")
+
+    def _compile_depth_cue(self, cue: DepthObservation) -> tuple[float, float, float] | str:
+        """Reduce a depth cue to (d_arbitrary, d_metric, sigma_m), or a skip reason.
+
+        Depth cues are bulk estimator output, so unresolvable ones return a short
+        reason string (for the caller's aggregated warning) instead of raising:
+        an unposed camera, no world point (single-view keypoint), an ambiguous
+        match, or a non-positive depth (point behind the camera from noise).
+        """
+        cam = self.camera_array.cameras.get(cue.cam_id)
+        if cam is None or cam.rotation is None or cam.translation is None:
+            return "unposed camera"
+
+        world_df = self.world_points.df
+        match = world_df[(world_df["sync_index"] == cue.sync_index) & (world_df["keypoint_id"] == cue.keypoint_id)]
+        if match.empty:
+            return "no world point"
+        if len(match) > 1:
+            return "ambiguous match"
+
+        p_world = match[["x_coord", "y_coord", "z_coord"]].to_numpy()[0]
+        d_arb = float((cam.rotation @ p_world + cam.translation)[2])
+        if d_arb <= 0.0:
+            return "non-positive depth"
+        return d_arb, float(cue.depth_m), float(cue.sigma_m)
+
+    def oriented(self, up: dict[int, NDArray]) -> "CaptureVolume":
+        """Rotate so the consensus vertical becomes +Z, yaw fixed by the anchor camera.
+
+        ``up`` maps cam_id to that camera's up vector in its own (OpenCV) frame.
+        Each is mapped into the world frame (``R.T @ up_cam``), averaged, and
+        normalized to a consensus vertical. The anchor camera (lowest posed cam_id)
+        supplies the yaw: its optical axis, projected onto the horizontal plane,
+        becomes +Y. Scale and translation are untouched.
+        """
+        if not up:
+            raise ValueError("oriented() requires at least one up vector.")
+
+        world_ups: list[NDArray] = []
+        for cam_id, up_cam in up.items():
+            cam = self.camera_array.cameras.get(cam_id)
+            if cam is None or cam.rotation is None:
+                raise ValueError(f"oriented() references cam_id {cam_id}, which is not a posed camera.")
+            v = np.asarray(up_cam, dtype=np.float64)
+            world_ups.append(cam.rotation.T @ v)
+
+        consensus = np.mean(np.stack(world_ups), axis=0)
+        norm = float(np.linalg.norm(consensus))
+        if norm < 1e-9:
+            raise ValueError("Consensus up vector is degenerate (per-camera verticals cancel).")
+        consensus_up = consensus / norm
+
+        anchor_cam = self.camera_array.cameras[self._anchor_cam_id()]
+        assert anchor_cam.rotation is not None  # _anchor_cam_id returns a posed camera
+        # Optical axis (+Z in the camera frame) expressed in the world frame.
+        forward = anchor_cam.rotation.T @ np.array([0.0, 0.0, 1.0])
+
+        rotation = world_basis_from_up_and_forward(consensus_up, forward=forward)
+
+        transform = SimilarityTransform(
+            rotation=rotation,
+            translation=np.zeros(3, dtype=np.float64),
+            scale=1.0,
+        )
+        new_camera_array, new_world_points = apply_similarity_transform(self.camera_array, self.world_points, transform)
+
+        return CaptureVolume(
+            camera_array=new_camera_array,
+            image_points=self.image_points,
+            world_points=new_world_points,
+            constraints=self.constraints,
+            _optimization_status=self._optimization_status,
+        )
+
+    def grounded(self, mode: Literal["lowest_point"] = "lowest_point") -> "CaptureVolume":
+        """Translate so the ground sits at Z=0 and the XY origin lies under the anchor camera.
+
+        ``mode="lowest_point"`` places the world point of least Z at Z=0 (call after
+        ``oriented()`` so Z is vertical). XY origin is set under the anchor camera
+        (lowest posed cam_id). No rotation or scale change.
+        """
+        if mode != "lowest_point":
+            raise ValueError(f"grounded() only supports mode='lowest_point', got {mode!r}.")
+
+        min_z = float(self.world_points.df["z_coord"].min())
+        anchor_center = self._camera_center(self._anchor_cam_id())
+        offset = np.array([anchor_center[0], anchor_center[1], min_z], dtype=np.float64)
+
+        transform = SimilarityTransform(
+            rotation=np.eye(3, dtype=np.float64),
+            translation=-offset,
+            scale=1.0,
+        )
         new_camera_array, new_world_points = apply_similarity_transform(self.camera_array, self.world_points, transform)
 
         return CaptureVolume(

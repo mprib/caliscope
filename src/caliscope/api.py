@@ -21,8 +21,8 @@ Quick start (pre-calibrated cameras):
 Or use the one-call extrinsic calibration pipeline (synthesizes blind
 intrinsics for uncalibrated cameras, runs joint BA with intrinsic recovery):
 
-    result = calibrate_extrinsics(points, cameras, constraints)
-    result.capture_volume.save("capture_volume")
+    run = calibrate_extrinsics(points, cameras, constraints)
+    run.capture_volume.save("capture_volume")
 
 Pass ``progress=None`` to any extraction function to suppress progress output.
 
@@ -38,7 +38,7 @@ from typing import TYPE_CHECKING, Any, Generator
 
 from caliscope.cameras.camera_array import CameraArray, CameraData
 from caliscope.core.calibrate_extrinsics import (
-    ExtrinsicCalibrationResult,
+    CalibrationRun,
     calibrate_extrinsics,
 )
 from caliscope.core.calibrate_intrinsics import (
@@ -47,7 +47,10 @@ from caliscope.core.calibrate_intrinsics import (
 )
 from caliscope.core.capture_volume import CaptureVolume
 from caliscope.core.charuco import Charuco
+from caliscope.estimators.moge import MoGeResult, run_moge
+from caliscope.estimators.vertical import VerticalEstimate, estimate_vertical
 from caliscope.core.point_data import ImagePoints
+from caliscope.core.scale_cues import CameraDistance, DepthObservation, SegmentLength
 from caliscope.exceptions import CalibrationError
 from caliscope.tracker import Tracker
 from caliscope.trackers.charuco_tracker import CharucoTracker
@@ -86,15 +89,23 @@ __all__ = [
     "CameraArray",
     "ImagePoints",
     "CaptureVolume",
+    # Scale cues
+    "CameraDistance",
+    "SegmentLength",
+    "DepthObservation",
     # Result types
     "IntrinsicCalibrationOutput",
     "IntrinsicCalibrationReport",
-    "ExtrinsicCalibrationResult",
+    "CalibrationRun",
+    "MoGeResult",
+    "VerticalEstimate",
     # Functions
     "extract_image_points",
     "extract_image_points_multicam",
     "calibrate_intrinsics",
     "calibrate_extrinsics",
+    "run_moge",
+    "estimate_vertical",
     # Exceptions
     "CalibrationError",
 ]

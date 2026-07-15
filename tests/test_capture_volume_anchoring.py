@@ -221,6 +221,64 @@ def test_missing_camera_cue_raises():
         volume.scaled(CameraDistance(cam_a=0, cam_b=99, meters=5.0))
 
 
+def test_unresolvable_depth_cues_skipped_survivors_scale():
+    # Bulk depth cues: one resolves, one references a keypoint with no world point.
+    cameras = {
+        0: make_camera(0, np.eye(3), np.array([0.0, 0.0, 0.0])),
+        1: make_camera(1, np.eye(3), np.array([3.0, 0.0, 0.0])),
+    }
+    rows = [world_row(5, 10, (0.0, 0.0, 2.0)), world_row(5, 11, (1.0, 0.0, 2.0))]
+    volume = make_volume(cameras, rows)
+
+    with pytest.warns(UserWarning, match="Skipped 1 of 2 depth cues"):
+        scaled = volume.scaled(
+            DepthObservation(cam_id=0, keypoint_id=10, sync_index=5, depth_m=5.0),  # resolves, depth 2
+            DepthObservation(cam_id=0, keypoint_id=99, sync_index=5, depth_m=9.0),  # no world point
+        )
+
+    # Only the survivor sets scale: depth 2 -> 5.0 exactly.
+    df = scaled.world_points.df
+    p = df[(df["sync_index"] == 5) & (df["keypoint_id"] == 10)][["x_coord", "y_coord", "z_coord"]].to_numpy()[0]
+    cam = scaled.camera_array.cameras[0]
+    assert cam.rotation is not None and cam.translation is not None
+    recovered_depth = float((cam.rotation @ p + cam.translation)[2])
+    assert abs(recovered_depth - 5.0) < 1e-10
+
+
+def test_all_depth_cues_unresolvable_raises():
+    cameras = {
+        0: make_camera(0, np.eye(3), np.array([0.0, 0.0, 0.0])),
+        1: make_camera(1, np.eye(3), np.array([3.0, 0.0, 0.0])),
+    }
+    rows = [world_row(5, 10, (0.0, 0.0, 2.0)), world_row(5, 11, (1.0, 0.0, 2.0))]
+    volume = make_volume(cameras, rows)
+
+    with pytest.raises(ValueError, match="unresolvable"):
+        volume.scaled(
+            DepthObservation(cam_id=0, keypoint_id=98, sync_index=5, depth_m=5.0),
+            DepthObservation(cam_id=0, keypoint_id=99, sync_index=5, depth_m=9.0),
+        )
+
+
+def test_negative_depth_cue_skipped_camera_distance_still_scales():
+    cameras = {
+        0: make_camera(0, np.eye(3), np.array([0.0, 0.0, 0.0])),
+        1: make_camera(1, np.eye(3), np.array([4.0, 0.0, 0.0])),
+    }
+    # Keypoint 10 sits behind camera 0 (z < 0 in its frame) -- triangulation noise.
+    rows = [world_row(0, 10, (0.0, 0.0, -3.0)), world_row(0, 11, (1.0, 0.0, 2.0))]
+    volume = make_volume(cameras, rows)
+
+    with pytest.warns(UserWarning, match="non-positive depth"):
+        scaled = volume.scaled(
+            DepthObservation(cam_id=0, keypoint_id=10, sync_index=0, depth_m=5.0),  # behind camera
+            CameraDistance(cam_a=0, cam_b=1, meters=10.0),  # good, sets scale exactly
+        )
+
+    recovered = float(np.linalg.norm(camera_center(scaled, 0) - camera_center(scaled, 1)))
+    assert abs(recovered - 10.0) < 1e-10
+
+
 # ---------------------------------------------------------------------------
 # Orientation
 # ---------------------------------------------------------------------------

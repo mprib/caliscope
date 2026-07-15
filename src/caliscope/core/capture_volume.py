@@ -1031,14 +1031,46 @@ class CaptureVolume:
         A single cue sets scale exactly (metric / arbitrary). Multiple cues are
         combined by sigma-weighted least squares on the scale factor, using each
         cue's ``sigma_m``. Cues whose implied scales disagree by more than 2 sigma
-        (propagated to scale space) trigger a ``warnings.warn``. Zero cues, or a
-        cue referencing a missing camera/keypoint, raise ``ValueError``.
+        (propagated to scale space) trigger a ``warnings.warn``.
+
+        ``CameraDistance`` and ``SegmentLength`` cues are user-typed and strict: a
+        missing camera or keypoint raises ``ValueError``. ``DepthObservation`` cues
+        are bulk estimator output (one per detection), so unresolvable ones are
+        skipped with a single aggregated ``warnings.warn`` rather than aborting:
+        a keypoint triangulated in fewer than two views has no world point, and
+        triangulation noise can push a point behind the camera (non-positive
+        depth). Zero cues, or all cues unresolvable, raise ``ValueError``.
         """
         if not cues:
             raise ValueError("scaled() requires at least one cue; got none.")
 
-        # Compile each cue to (d_arbitrary, d_metric, sigma_m).
-        compiled: list[tuple[float, float, float]] = [self._compile_cue(cue) for cue in cues]
+        # Compile each cue to (d_arbitrary, d_metric, sigma_m). Strict cue types
+        # raise on failure; depth cues (bulk estimator output) are filtered.
+        compiled: list[tuple[float, float, float]] = []
+        skip_reasons: list[str] = []
+        n_depth = 0
+        for cue in cues:
+            if isinstance(cue, DepthObservation):
+                n_depth += 1
+                outcome = self._compile_depth_cue(cue)
+                if isinstance(outcome, str):
+                    skip_reasons.append(outcome)
+                else:
+                    compiled.append(outcome)
+            else:
+                compiled.append(self._compile_cue(cue))
+
+        if skip_reasons:
+            from collections import Counter
+
+            breakdown = ", ".join(f"{count} {reason}" for reason, count in sorted(Counter(skip_reasons).items()))
+            warnings.warn(
+                f"Skipped {len(skip_reasons)} of {n_depth} depth cues as unresolvable ({breakdown}).",
+                stacklevel=2,
+            )
+
+        if not compiled:
+            raise ValueError(f"All {len(cues)} scale cues were unresolvable; cannot determine scale.")
 
         d_arb = np.array([c[0] for c in compiled], dtype=np.float64)
         d_met = np.array([c[1] for c in compiled], dtype=np.float64)
@@ -1082,8 +1114,12 @@ class CaptureVolume:
             _optimization_status=self._optimization_status,
         )
 
-    def _compile_cue(self, cue: CameraDistance | SegmentLength | DepthObservation) -> tuple[float, float, float]:
-        """Reduce a cue to (d_arbitrary, d_metric, sigma_m) in the current BA frame."""
+    def _compile_cue(self, cue: CameraDistance | SegmentLength) -> tuple[float, float, float]:
+        """Reduce a strict (user-typed) cue to (d_arbitrary, d_metric, sigma_m).
+
+        Raises ``ValueError`` on any unresolvable reference -- these cues are few
+        and hand-entered, so a bad reference is a real mistake worth surfacing.
+        """
         if isinstance(cue, CameraDistance):
             posed = self.camera_array.posed_cameras
             for cam_id in (cue.cam_a, cue.cam_b):
@@ -1111,26 +1147,32 @@ class CaptureVolume:
             d_arb = float(np.median(distances))
             return d_arb, float(cue.meters), float(cue.sigma_m)
 
-        if isinstance(cue, DepthObservation):
-            cam = self.camera_array.cameras.get(cue.cam_id)
-            if cam is None or cam.rotation is None or cam.translation is None:
-                raise ValueError(f"DepthObservation references cam_id {cue.cam_id}, which is not a posed camera.")
-            match = world_df[(world_df["sync_index"] == cue.sync_index) & (world_df["keypoint_id"] == cue.keypoint_id)]
-            if match.empty:
-                raise ValueError(
-                    f"DepthObservation found no world point for keypoint {cue.keypoint_id} "
-                    f"at sync_index {cue.sync_index}."
-                )
-            if len(match) > 1:
-                raise ValueError(
-                    f"DepthObservation matched {len(match)} world points for keypoint {cue.keypoint_id} "
-                    f"at sync_index {cue.sync_index}; the (sync_index, keypoint_id) pair is ambiguous."
-                )
-            p_world = match[["x_coord", "y_coord", "z_coord"]].to_numpy()[0]
-            d_arb = float((cam.rotation @ p_world + cam.translation)[2])
-            return d_arb, float(cue.depth_m), float(cue.sigma_m)
-
         raise TypeError(f"Unknown scale cue type: {type(cue).__name__}")
+
+    def _compile_depth_cue(self, cue: DepthObservation) -> tuple[float, float, float] | str:
+        """Reduce a depth cue to (d_arbitrary, d_metric, sigma_m), or a skip reason.
+
+        Depth cues are bulk estimator output, so unresolvable ones return a short
+        reason string (for the caller's aggregated warning) instead of raising:
+        an unposed camera, no world point (single-view keypoint), an ambiguous
+        match, or a non-positive depth (point behind the camera from noise).
+        """
+        cam = self.camera_array.cameras.get(cue.cam_id)
+        if cam is None or cam.rotation is None or cam.translation is None:
+            return "unposed camera"
+
+        world_df = self.world_points.df
+        match = world_df[(world_df["sync_index"] == cue.sync_index) & (world_df["keypoint_id"] == cue.keypoint_id)]
+        if match.empty:
+            return "no world point"
+        if len(match) > 1:
+            return "ambiguous match"
+
+        p_world = match[["x_coord", "y_coord", "z_coord"]].to_numpy()[0]
+        d_arb = float((cam.rotation @ p_world + cam.translation)[2])
+        if d_arb <= 0.0:
+            return "non-positive depth"
+        return d_arb, float(cue.depth_m), float(cue.sigma_m)
 
     def oriented(self, up: dict[int, NDArray]) -> "CaptureVolume":
         """Rotate so the consensus vertical becomes +Z, yaw fixed by the anchor camera.

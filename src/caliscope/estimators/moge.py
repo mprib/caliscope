@@ -72,13 +72,17 @@ def run_moge(
     frame is decoded once (via PyAV) and run through MoGe. The camera's focal
     length is the median of per-frame estimates; a ``DepthObservation`` is emitted
     for every tracked keypoint whose pixel falls on a valid (masked, positive)
-    depth.
+    depth. Observations stay keyed by sync_index (the domain's time key).
 
-    ``points`` carries no frame_index column, so sync_index is treated as the
-    frame index (correct for single-video-per-camera extraction).
+    Decoding uses the ``frame_index`` column when present (from
+    ``extract_image_points_multicam``): sync_index and frame_index diverge when
+    cameras start staggered or drop frames, so decoding by sync_index would sample
+    the depth map at the wrong instant. When ``frame_index`` is absent (the
+    single-video ``extract_image_points`` path), sync_index is the frame index.
     """
     session = _build_session()
     df = points.df
+    has_frame_index = "frame_index" in df.columns
 
     focal_per_cam: dict[int, float] = {}
     depth_observations: list[DepthObservation] = []
@@ -94,10 +98,17 @@ def run_moge(
         if len(sync_indices) == 0:
             continue
 
-        frame_focals: list[float] = []
-        frames = _decode_frames(Path(videos[cam_id]), cam_id, sync_indices)
+        sync_to_frame = _sync_to_frame_map(cam_df, has_frame_index)
+        frame_indices = [sync_to_frame[s] for s in sync_indices]
+        frames = _decode_frames(Path(videos[cam_id]), cam_id, frame_indices)
 
-        for sync_index, rgb in frames.items():
+        frame_focals: list[float] = []
+        for sync_index in sync_indices:
+            rgb = frames.get(sync_to_frame[sync_index])
+            if rgb is None:
+                logger.warning(f"cam_id {cam_id}: frame {sync_to_frame[sync_index]} not decoded; skipping.")
+                continue
+
             point_map, mask_binary, metric_scale = _infer_frame(session, rgb)
 
             focal, shift = recover_focal_shift_numpy(point_map, mask_binary)
@@ -205,6 +216,19 @@ def _keypoint_depths(
             )
         )
     return observations
+
+
+def _sync_to_frame_map(cam_df, has_frame_index: bool) -> dict[int, int]:
+    """Map each sync_index to the video frame index to decode for it.
+
+    With a frame_index column, the mapping comes from the data (frame_index is
+    constant within a (cam_id, sync_index) group). Without it, sync_index is the
+    frame index — the identity map.
+    """
+    if not has_frame_index:
+        return {int(s): int(s) for s in cam_df["sync_index"].unique()}
+    deduped = cam_df.drop_duplicates("sync_index")
+    return {int(s): int(f) for s, f in zip(deduped["sync_index"], deduped["frame_index"])}
 
 
 def _sample_sync_indices(sync_indices: np.ndarray, count: int) -> list[int]:

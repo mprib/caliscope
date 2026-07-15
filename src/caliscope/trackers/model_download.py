@@ -13,12 +13,24 @@ import urllib.request
 import zipfile
 from collections.abc import Callable
 from pathlib import Path
-from typing import TYPE_CHECKING
-
-if TYPE_CHECKING:
-    from caliscope.trackers.model_card import ModelCard
+from typing import Protocol
 
 logger = logging.getLogger(__name__)
+
+
+class ModelSource(Protocol):
+    """Anything downloadable by this module: tracker ModelCards and estimator specs."""
+
+    @property
+    def name(self) -> str: ...
+    @property
+    def model_path(self) -> Path: ...
+    @property
+    def source_url(self) -> str | None: ...
+    @property
+    def sha256(self) -> str | None: ...
+    @property
+    def extraction(self) -> str | None: ...
 
 
 def _download_to_temp(
@@ -159,7 +171,7 @@ def _extract_zip_end2end(zip_path: Path, target_name: str) -> Path:
 
 
 def download_and_extract_model(
-    card: "ModelCard",
+    card: ModelSource,
     target_dir: Path,
     progress_callback: Callable[[int, int], None] | None = None,
     cancellation_check: Callable[[], bool] | None = None,

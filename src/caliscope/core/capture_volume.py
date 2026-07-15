@@ -308,15 +308,9 @@ class CaptureVolume:
                 f"    cameras[{uncalibrated[0]}] = output.camera"
             )
 
-        # Validate: obj_loc presence
-        obj_cols = image_points.df[["obj_loc_x", "obj_loc_y", "obj_loc_z"]]
-        if obj_cols.isna().all().all():
-            raise CalibrationError(
-                "ImagePoints contain no object location data (obj_loc columns are all NaN). "
-                "Extrinsic calibration requires a tracker that provides known 3D positions "
-                "(e.g., CharucoTracker)."
-            )
-
+        # obj_loc presence is no longer validated here: build_paired_pose_network
+        # branches on it, using the PnP path when object geometry is present and
+        # the essential-matrix (epipolar) path when obj_loc is all NaN.
         cameras = deepcopy(camera_array)
         pose_network = build_paired_pose_network(image_points, cameras)
         pose_network.apply_to(cameras)

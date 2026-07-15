@@ -18,6 +18,7 @@ from caliscope.core.bundle_parameterization import IntrinsicEstimate
 from caliscope.core.capture_volume import CaptureVolume
 from caliscope.core.constraints import ConstraintSet, RigidityReport
 from caliscope.core.point_data import ImagePoints
+from caliscope.exceptions import CalibrationError
 from caliscope.core.scale_accuracy import compute_depth_ratios
 from caliscope.task_manager.cancellation import CancellationToken
 
@@ -75,6 +76,21 @@ def calibrate_extrinsics(
         if cam.matrix is None or cam.distortions is None:
             synthesized.add(cam.cam_id)
             cam.synthesize_default_intrinsics()
+
+    # Intrinsic-quality gate for the epipolar path. With no object geometry the
+    # bootstrap falls back to essential-matrix decomposition, which -- unlike PnP
+    # -- has no obj_loc anchor to absorb focal error. Blind intrinsics (f=width/2)
+    # produce geometrically wrong poses, so refuse to proceed on synthesized cams.
+    obj_absent = image_points.df[["obj_loc_x", "obj_loc_y", "obj_loc_z"]].isna().all().all()
+    if obj_absent and synthesized:
+        raise CalibrationError(
+            f"Epipolar bootstrap requires calibrated intrinsics, but cameras {sorted(synthesized)} "
+            f"have none and fell back to blind defaults (f=width/2). The essential-matrix "
+            f"decomposition has no object-geometry anchor to absorb focal-length error, so blind "
+            f"intrinsics yield geometrically wrong poses (not merely mis-scaled ones). Supply real "
+            f"intrinsics first -- run MoGe focal estimation or charuco intrinsic calibration for "
+            f"these cameras -- then re-run extrinsic calibration."
+        )
 
     # 2. Capture initial intrinsic anchors
     anchors: dict[int, tuple[float, float, float]] = {}

@@ -6,9 +6,9 @@ import numpy as np
 import pytest
 
 from caliscope.core.calibrate_extrinsics import (
-    ExtrinsicCalibrationResult,
+    CalibrationRun,
     calibrate_extrinsics,
-    refresh_result,
+    refresh_run,
 )
 from caliscope.synthetic import strip_intrinsics
 from caliscope.synthetic.scene_factories import wand_scene_with_constraints
@@ -26,7 +26,7 @@ class TestEndToEndBlind:
             constraints,
         )
 
-        assert isinstance(result, ExtrinsicCalibrationResult)
+        assert isinstance(result, CalibrationRun)
         assert result.capture_volume.optimization_status is not None
         assert result.capture_volume.optimization_status.converged
         assert result.synthesized_cam_ids == frozenset(cameras.cameras.keys())
@@ -122,7 +122,7 @@ class TestProgressAndCancellation:
             )
 
 
-class TestRefreshResult:
+class TestRefreshRun:
     def test_preserves_anchors_updates_recovered(self):
         scene, constraints = wand_scene_with_constraints(include_static=False)
         cameras = scene.intrinsics_only_cameras()
@@ -137,7 +137,7 @@ class TestRefreshResult:
         filtered = cv.filter_by_percentile_error(2.5)
         reoptimized = filtered.optimize(refine_intrinsics=True)
 
-        refreshed = refresh_result(original, reoptimized)
+        refreshed = refresh_run(original, reoptimized)
 
         for est_orig, est_new in zip(original.intrinsic_estimates, refreshed.intrinsic_estimates):
             assert est_orig.f_initial == est_new.f_initial
@@ -173,6 +173,6 @@ if __name__ == "__main__":
     TestProgressAndCancellation().test_cancelled_token_raises()
     print("  PASSED")
 
-    print("Refresh result...")
-    TestRefreshResult().test_preserves_anchors_updates_recovered()
+    print("Refresh run...")
+    TestRefreshRun().test_preserves_anchors_updates_recovered()
     print("  PASSED")

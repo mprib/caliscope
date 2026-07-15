@@ -21,8 +21,8 @@ Quick start (pre-calibrated cameras):
 Or use the one-call extrinsic calibration pipeline (synthesizes blind
 intrinsics for uncalibrated cameras, runs joint BA with intrinsic recovery):
 
-    result = calibrate_extrinsics(points, cameras, constraints)
-    result.capture_volume.save("capture_volume")
+    run = calibrate_extrinsics(points, cameras, constraints)
+    run.capture_volume.save("capture_volume")
 
 Pass ``progress=None`` to any extraction function to suppress progress output.
 
@@ -38,7 +38,7 @@ from typing import TYPE_CHECKING, Any, Generator
 
 from caliscope.cameras.camera_array import CameraArray, CameraData
 from caliscope.core.calibrate_extrinsics import (
-    ExtrinsicCalibrationResult,
+    CalibrationRun,
     calibrate_extrinsics,
 )
 from caliscope.core.calibrate_intrinsics import (
@@ -89,7 +89,7 @@ __all__ = [
     # Result types
     "IntrinsicCalibrationOutput",
     "IntrinsicCalibrationReport",
-    "ExtrinsicCalibrationResult",
+    "CalibrationRun",
     # Functions
     "extract_image_points",
     "extract_image_points_multicam",

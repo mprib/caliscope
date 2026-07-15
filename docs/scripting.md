@@ -114,8 +114,8 @@ This prints a lower-triangle grid of shared observation counts and flags structu
 
 ```python
 constraints = ConstraintSet.from_charuco(charuco)
-result = calibrate_extrinsics(ext_points, cameras, constraints)
-volume = result.capture_volume
+run = calibrate_extrinsics(ext_points, cameras, constraints)
+volume = run.capture_volume
 ```
 
 The constraints feed the board's known corner geometry into bundle adjustment as rigidity information, which stabilizes the solution and locks world scale.
@@ -127,16 +127,17 @@ Two keyword arguments matter most:
   Refinement is subject to the [depth-ratio gate](extrinsic_calibration_reference.md#the-depth-ratio-gate): if any camera saw the target over too narrow a depth range, refinement is disabled for the whole rig.
 - `filter_percentile` (default `2.5`): the worst percentage of observations removed per camera between the two optimization passes.
 
-The returned `ExtrinsicCalibrationResult` carries the calibrated volume plus diagnostics:
+The returned `CalibrationRun` carries the calibrated volume plus diagnostics:
 
 ```python
-result.capture_volume              # the calibrated CaptureVolume
-result.intrinsic_refinement_gated  # True if refinement was requested but gated off
-result.depth_ratios                # per-camera near/far depth ratios
-result.synthesized_cam_ids         # cameras whose intrinsics started from a blind guess
-result.intrinsic_estimates         # initial vs recovered f, k1, k2 per camera
-result.dropped_static_markers      # static markers excluded for moving (ArUco path)
+run.capture_volume              # the calibrated CaptureVolume
+run.intrinsic_refinement_gated  # True if refinement was requested but gated off
+run.synthesized_cam_ids         # cameras whose intrinsics started from a blind guess
+run.intrinsic_estimates         # initial vs recovered f, k1, k2 per camera
+run.dropped_static_markers      # static markers excluded for moving (ArUco path)
 ```
+
+Per-camera near/far depth ratios are available via `compute_depth_ratios(run.capture_volume)` (`from caliscope.core.scale_accuracy import compute_depth_ratios`).
 
 Check `intrinsic_refinement_gated` when you expected refinement: a `True` here with poor results usually means the target was not moved toward and away from the cameras enough.
 

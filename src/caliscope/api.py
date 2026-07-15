@@ -48,6 +48,7 @@ from caliscope.core.calibrate_intrinsics import (
 from caliscope.core.capture_volume import CaptureVolume
 from caliscope.core.charuco import Charuco
 from caliscope.core.point_data import ImagePoints
+from caliscope.core.scale_cues import CameraDistance, DepthObservation, SegmentLength
 from caliscope.exceptions import CalibrationError
 from caliscope.tracker import Tracker
 from caliscope.trackers.charuco_tracker import CharucoTracker
@@ -86,6 +87,10 @@ __all__ = [
     "CameraArray",
     "ImagePoints",
     "CaptureVolume",
+    # Scale cues
+    "CameraDistance",
+    "SegmentLength",
+    "DepthObservation",
     # Result types
     "IntrinsicCalibrationOutput",
     "IntrinsicCalibrationReport",

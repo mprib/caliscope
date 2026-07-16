@@ -58,7 +58,7 @@ When using a thick board:
 - **Set the measured thickness before extracting landmarks.** If the value changes after extraction, calibration refuses to run until you re-extract (or restore the value).
 - **Mounting convention**: mount the mirror print flipped about its **vertical axis**, edges aligned with the front sheet. Each back corner then sits directly behind its front counterpart, which is the geometry the constraints assume.
 - **Every camera must see both faces at some point in the session.** Camera positions are linked only through shared views of the same face; the thickness constraints then pin the two faces together. A session where each camera only ever sees one face cannot calibrate.
-- **Both faces must be visible simultaneously** (each by at least two cameras) in a good share of frames. Those are the instants that rigidly link the front-viewing and back-viewing cameras. Calibration stops with an error if no such frame exists.
+- **In a good share of frames, at least two cameras must see the front face while at least two others see the back.** A face seen by a single camera cannot be triangulated, and the thickness constraints only act in frames where both faces have triangulated points. Those frames are what rigidly link the front-viewing and back-viewing cameras. Calibration stops with an error if no such frame exists. Because no camera can see both faces at once, this means a thick board requires at least four cameras.
 - **Origin note**: setting the world origin from the board anchors to the front face. The origin plane sits recessed into the board by the thickness when viewed from the mirror side.
 
 Two-sided chessboards are not supported. The chessboard tracker has no mirror detection path. Use a ChArUco board.

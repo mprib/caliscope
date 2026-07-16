@@ -14,6 +14,7 @@ from PySide6.QtCore import QObject, Signal
 from caliscope.cameras.camera_array import CameraArray
 from caliscope.core.point_data import ImagePoints, WorldPoints
 from caliscope.core.capture_volume import CaptureVolume
+from caliscope.core.constraints import ConstraintSet
 from caliscope.core.bootstrap_pose.build_paired_pose_network import (
     build_paired_pose_network,
 )
@@ -146,6 +147,7 @@ class ExplorerPresenter(QObject):
         # State
         self._scene: SyntheticScene = scene if scene is not None else default_ring_scene()
         self._perturbation: IntrinsicPerturbation | None = None
+        self._constraints: ConstraintSet | None = None
         self._filter_config = FilterConfig()
         self._filtered_image_points: ImagePoints | None = None
         self._result: PipelineResult | None = None
@@ -197,10 +199,16 @@ class ExplorerPresenter(QObject):
         self,
         scene: SyntheticScene,
         perturbation: IntrinsicPerturbation | None = None,
+        constraints: ConstraintSet | None = None,
     ) -> None:
-        """Replace the synthetic scene and reset state."""
+        """Replace the synthetic scene and reset state.
+
+        constraints, when supplied, are fed to the CaptureVolume during bundle
+        adjustment (Stage 2). Presets without constraints run exactly as before.
+        """
         self._scene = scene
         self._perturbation = perturbation
+        self._constraints = constraints
         self._filter_config = FilterConfig()
         self._result = None
         self._current_frame = 0
@@ -245,9 +253,10 @@ class ExplorerPresenter(QObject):
         scene = self._scene
         filtered_points = self._filtered_image_points
         perturbation = self._perturbation
+        constraints = self._constraints
 
         def pipeline_worker(token: CancellationToken, handle: TaskHandle) -> PipelineResult:
-            return self._execute_pipeline(scene, filtered_points, token, perturbation)
+            return self._execute_pipeline(scene, filtered_points, token, perturbation, constraints)
 
         self._pipeline_task = self._task_manager.submit(
             pipeline_worker,
@@ -266,6 +275,7 @@ class ExplorerPresenter(QObject):
         image_points: ImagePoints,
         token: CancellationToken,
         perturbation: IntrinsicPerturbation | None = None,
+        constraints: ConstraintSet | None = None,
     ) -> PipelineResult:
         """Execute pipeline stages. Runs in background thread."""
         result = PipelineResult(
@@ -312,6 +322,7 @@ class ExplorerPresenter(QObject):
                 camera_array=result.bootstrapped_cameras,
                 image_points=image_points,
                 world_points=result.bootstrapped_world_points,
+                constraints=constraints,
             )
 
             optimized = capture_volume.optimize(ftol=1e-8, verbose=0)

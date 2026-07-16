@@ -9,7 +9,7 @@ The Calibrate tab has a **"Refine camera intrinsics"** checkbox, on by default.
 When checked, bundle adjustment re-estimates each camera's focal length and leading distortion coefficients (k1, k2) jointly with the camera poses, starting from whatever intrinsics you provided.
 The principal point, tangential distortion (p1, p2), and k3 stay fixed.
 
-Refinement usually improves the result.
+Refinement works when the calibration target moves toward and away from the cameras enough that its change in size in the image improves the focal length estimate.
 Uncheck the box to lock your provided intrinsics when you trust a careful prior calibration more than the extrinsic footage.
 
 Fisheye cameras are excluded from refinement.

@@ -83,7 +83,7 @@ Pass `progress=None` to suppress it.
 `print_intrinsic_report` prints these with color-coded quality badges.
 
 This whole step is optional.
-The extrinsic pipeline can recover intrinsics during bundle adjustment; see [Calibrating without intrinsics](#calibrating-without-intrinsics) below. This path is experimental.
+The extrinsic pipeline can recover intrinsics during bundle adjustment; see [Calibrating without intrinsics](#calibrating-without-intrinsics-experimental) below. This path is experimental.
 
 ## Step 4: Extract time-aligned points for extrinsic calibration
 

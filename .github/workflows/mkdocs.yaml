@@ -3,10 +3,28 @@ on:
   push:
     branches:
       - main
+  pull_request:
 permissions:
   contents: write
 jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          # git-revision-date-localized reads commit history; a shallow clone
+          # makes it warn, which --strict would treat as a failure.
+          fetch-depth: 0
+      - uses: actions/setup-python@v6
+        with:
+          python-version: 3.x
+      - run: pip install mkdocs-material
+      - run: pip install mkdocs-git-revision-date-localized-plugin
+      - run: mkdocs build --strict
+
   deploy:
+    needs: build
+    if: github.event_name == 'push'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7

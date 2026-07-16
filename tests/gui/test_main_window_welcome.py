@@ -154,10 +154,14 @@ def test_close_during_load_cancels_worker(qapp, tmp_path):
     workspace.mkdir()
 
     gate = threading.Event()
+    started = threading.Event()
     captured: dict[str, object] = {}
 
     def blocking_worker(token, handle):
         captured["token"] = token
+        # _WorkerThread.run() sets RUNNING before invoking the worker, so this
+        # event guarantees the handle is RUNNING when the test proceeds.
+        started.set()
         # Hold in RUNNING until cancelled; the gate is a safety release so the thread
         # can't outlive the test. Mirrors production's cooperative cancellation checkpoints.
         for _ in range(200):
@@ -188,11 +192,9 @@ def test_close_during_load_cancels_worker(qapp, tmp_path):
         ):
             window.launch_workspace(str(workspace))
 
-        # Wait until the worker is actually running before closing.
-        for _ in range(200):
-            qapp.processEvents()
-            if handle.state == TaskState.RUNNING and "token" in captured:
-                break
+        # Wait until the worker is actually running before closing. A processEvents
+        # spin is not a wait — thread startup needs real time under a loaded machine.
+        assert started.wait(timeout=5.0), "worker thread never started"
         assert handle.state == TaskState.RUNNING
 
         window.close()  # closeEvent -> coordinator.cleanup() -> task_manager.shutdown()

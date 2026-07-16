@@ -10,18 +10,8 @@ target, and still wires the ArUco marker-set factory for the ArUco target.
 from pathlib import Path
 
 import pytest
-from PySide6.QtCore import QCoreApplication
 
 from caliscope.workspace_coordinator import WorkspaceCoordinator
-
-
-@pytest.fixture
-def qapp():
-    """Ensure QCoreApplication exists for Qt signal/QObject construction."""
-    app = QCoreApplication.instance()
-    if app is None:
-        app = QCoreApplication([])
-    yield app
 
 
 @pytest.fixture

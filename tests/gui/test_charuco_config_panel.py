@@ -1,21 +1,8 @@
 """CharucoConfigPanel round-trip: thickness has no widget and must ride the
 params cache — otherwise any GUI edit would silently zero a TOML-set value."""
 
-import os
-
-os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
-
-import pytest
-from PySide6.QtWidgets import QApplication
-
 from caliscope.core.charuco import Charuco
 from caliscope.gui.widgets.charuco_config_panel import CharucoConfigPanel
-
-
-@pytest.fixture(scope="module")
-def qapp():
-    app = QApplication.instance() or QApplication([])
-    yield app
 
 
 def test_thickness_survives_gui_edit(qapp):

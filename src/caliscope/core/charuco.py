@@ -99,11 +99,20 @@ class Charuco:
         square_size_override_cm=None,
         inverted=False,
         legacy_pattern=False,
+        thickness_cm=0.0,
     ):  # after printing, measure actual and return to override
         """
         Create board based on shape and dimensions
         square_size_override_cm: correct for the actual printed size of the board
+        thickness_cm: substrate thickness of a two-sided (mirrored) board.
+            0.0 means the two faces are treated as the same physical points
+            (paper pressed in glass). Nonzero gives back-face detections their
+            own identity plus cross-face distance constraints. cm matches the
+            other user-facing lengths in this config; converted to meters where
+            geometry is built.
         """
+        if thickness_cm < 0:
+            raise ValueError(f"thickness_cm must be >= 0, got {thickness_cm}")
         self.columns = columns
         self.rows = rows
 
@@ -118,6 +127,11 @@ class Charuco:
         self.square_size_override_cm = square_size_override_cm
         self.inverted = inverted
         self.legacy_pattern = legacy_pattern
+        self.thickness_cm = thickness_cm
+
+    @property
+    def thickness_m(self) -> float:
+        return self.thickness_cm / 100
 
     @classmethod
     def from_squares(
@@ -130,6 +144,7 @@ class Charuco:
         aruco_scale: float = 0.75,
         inverted: bool = False,
         legacy_pattern: bool = False,
+        thickness_cm: float = 0.0,
     ) -> Charuco:
         """Create a Charuco board from grid dimensions and square size.
 
@@ -157,6 +172,7 @@ class Charuco:
             square_size_override_cm=square_size_cm,
             inverted=inverted,
             legacy_pattern=legacy_pattern,
+            thickness_cm=thickness_cm,
         )
 
     @property
@@ -393,6 +409,7 @@ class Charuco:
                 "square_size_override_cm": self.square_size_override_cm,
                 "inverted": self.inverted,
                 "legacy_pattern": self.legacy_pattern,
+                "thickness_cm": self.thickness_cm,
             }
             # Filter None values to prevent rtoml "null" strings
             clean_data = {k: v for k, v in data.items() if v is not None}

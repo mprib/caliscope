@@ -44,6 +44,12 @@ tracker = CharucoTracker(charuco)
 A 3.0 cm square produces corners spaced 0.03 m apart in object space.
 Measure your printed board and use the actual size.
 
+For a two-sided board on a real substrate, pass `thickness_cm` (caliper-measured) so back-face detections are modeled at their true depth — see [Two-Sided Boards and Thickness](calibration_targets.md#two-sided-boards-and-thickness):
+
+```python
+charuco = Charuco.from_squares(columns=4, rows=5, square_size_cm=3.0, thickness_cm=0.6)
+```
+
 ## Step 2: Build a camera array from video metadata
 
 ```python

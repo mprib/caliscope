@@ -33,7 +33,31 @@ The embedded markers give the detector a coarse position lock before subpixel co
 **Mirror Board**: Generates a flipped PNG for the back of a double-sided board.
 Cameras viewing opposite sides can calibrate against each other.
 
-Caliscope automatically builds rigidity constraints from the board's known corner geometry. There is nothing to configure.
+Caliscope automatically builds rigidity constraints from the board's known corner geometry.
+
+### Two-Sided Boards and Thickness
+
+A zero-thickness board gives the best results: print the pattern and its mirror on paper, and press them back-to-back under glass or acrylic.
+Front and back detections then collapse to shared 3D points, which couples opposing cameras far more rigidly than any distance constraint.
+If you can build a thin board, do that and leave thickness at zero.
+
+If the board has a real substrate (foam core, gatorboard), set its thickness so the two faces are modeled as separate, rigidly linked point sets.
+Thickness is set in the charuco TOML (or via the scripting API) — there is deliberately no GUI field, because the value must match the extraction it produced:
+
+```toml
+# calibration/charuco.toml
+thickness_cm = 0.6   # measure the substrate with calipers
+```
+
+Rules that keep a thick-board calibration honest:
+
+- **Measure with calipers** and set the value before extracting landmarks. Changing thickness after extraction desynchronizes the data, and calibration will refuse to run until you re-extract (or restore the value).
+- **Mounting convention**: mount the mirror print flipped about its **vertical axis**, edges aligned with the front sheet. Each back corner then sits directly behind its front counterpart, which is the geometry the constraints assume.
+- **Every camera must see both faces at some point in the session.** Camera positions are linked only through shared views of the same face; the thickness constraints then pin the two faces together. Turning the board through the volume achieves this naturally. A session where each camera only ever sees one face cannot calibrate.
+- **Both faces must be visible simultaneously** (each by at least two cameras) in a good share of frames — those are the instants that rigidly link the front-viewing and back-viewing cameras. Calibration fails loudly if no such frame exists.
+- **Origin note**: setting the world origin from the board anchors to the front face. The origin plane sits recessed into the board by the thickness when viewed from the mirror side.
+
+Two-sided chessboards are not supported — the chessboard tracker has no mirror detection path. Use a ChArUco board.
 
 ---
 

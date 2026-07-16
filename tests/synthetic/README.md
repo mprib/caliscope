@@ -154,6 +154,19 @@ Where `GEOMETRY_FACTOR ≈ 15-20` for typical setups. For `pixel_sigma=0.5`, exp
 
 If RMSE ≈ pixel_sigma, the optimizer converged to the noise floor, validating correctness.
 
+### Constraint Sigmas
+
+Board-geometry `DistanceConstraint` rows use `sigma_m = 0.002` (2mm): print scale is
+known only to the accuracy of the user's square-size measurement, and the corners it
+relates are centimeters-to-decimeters apart.
+
+Cross-face rows on a thick two-sided charuco board (ties at the substrate thickness,
+braces at √(square² + thickness²)) use `thickness_sigma_m = 0.0005` (0.5mm) instead.
+Two reasons: the thickness is a direct caliper measurement, not a scale estimate, and
+these rows are the *sole* rigid link between the front-viewing and back-viewing camera
+groups — a 2mm sigma on a ~6mm thickness (33%) would let the optimizer effectively
+ignore them.
+
 ## References
 
 - Hartley & Zisserman, "Multiple View Geometry" Ch.18 (bundle adjustment theory)

@@ -1215,6 +1215,72 @@ def test_from_charuco_object_ids_all_zero_and_no_centroids():
     assert cs.centroid_distances == ()
 
 
+# -- ConstraintSet.from_charuco: two-sided board thickness (issue #999) --
+
+
+def _thick_charuco() -> Charuco:
+    return Charuco.from_squares(columns=7, rows=5, square_size_cm=5.0, thickness_cm=0.6)
+
+
+def test_from_charuco_thickness_emits_both_trusses_ties_and_braces():
+    """Thickness > 0 adds a back-face truss (object 1), one tie per corner at
+    the thickness, and right/down cross-face braces: R(C-1) right + (R-1)C
+    down for an R x C corner grid.
+    """
+    charuco = _thick_charuco()
+    corners = np.asarray(charuco.board.getChessboardCorners())
+    square = float(charuco.board.getSquareLength())
+    n_cols = len(set(np.round(corners[:, 0] / square).astype(int)))
+    n_rows = len(set(np.round(corners[:, 1] / square).astype(int)))
+    n_corners = len(corners)
+
+    cs = ConstraintSet.from_charuco(charuco)
+
+    truss = n_rows * (n_cols - 1) + (n_rows - 1) * n_cols + 2 * (n_rows - 1) * (n_cols - 1) + 6
+    ties = n_corners
+    braces = n_rows * (n_cols - 1) + (n_rows - 1) * n_cols
+    assert len(cs.distances) == 2 * truss + ties + braces
+
+    front_truss = [d for d in cs.distances if d.object_id_a == 0 and d.object_id_b == 0]
+    back_truss = [d for d in cs.distances if d.object_id_a == 1 and d.object_id_b == 1]
+    cross = [d for d in cs.distances if d.object_id_a == 0 and d.object_id_b == 1]
+    assert len(front_truss) == truss
+    assert len(back_truss) == truss
+    assert len(cross) == ties + braces
+
+
+def test_from_charuco_ties_at_thickness_and_braces_at_hypotenuse():
+    """Cross-face ties measure exactly the thickness; braces measure
+    sqrt(square^2 + thickness^2). Both carry thickness_sigma_m, not the loose
+    corner sigma (a 2mm sigma on a 6mm thickness would gut the sole
+    inter-group link).
+    """
+    charuco = _thick_charuco()
+    square = float(charuco.board.getSquareLength())
+    thickness = charuco.thickness_m
+
+    cs = ConstraintSet.from_charuco(charuco, sigma_m=0.002, thickness_sigma_m=0.0005)
+    cross = [d for d in cs.distances if d.object_id_a == 0 and d.object_id_b == 1]
+
+    ties = [d for d in cross if d.keypoint_id_a == d.keypoint_id_b]
+    braces = [d for d in cross if d.keypoint_id_a != d.keypoint_id_b]
+    assert len(ties) > 0 and len(braces) > 0
+    for tie in ties:
+        assert tie.distance == pytest.approx(thickness, abs=1e-12)
+        assert tie.sigma == 0.0005
+    expected_brace = float(np.hypot(square, thickness))
+    for brace in braces:
+        assert brace.distance == pytest.approx(expected_brace, rel=1e-9)
+        assert brace.sigma == 0.0005
+
+
+def test_from_charuco_zero_thickness_emits_no_back_face_rows():
+    """A zero-thickness board compiles exactly as before: front truss only."""
+    thin = Charuco.from_squares(columns=7, rows=5, square_size_cm=5.0)
+    cs = ConstraintSet.from_charuco(thin)
+    assert all(d.object_id_a == 0 and d.object_id_b == 0 for d in cs.distances)
+
+
 # -- ConstraintSet.from_chessboard --
 
 

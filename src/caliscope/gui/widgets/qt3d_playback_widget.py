@@ -1,9 +1,8 @@
 """
 Qt3D-based 3D visualization widget for triangulated motion capture playback.
 
-Replaces PlaybackVizWidget (PyVista/VTK) with a pure Qt3D render pipeline.
-Qt3D's render loop is event-driven, eliminating the idle CPU overhead of
-VTK's polling interactor.
+Rendering is event-driven: Qt3D draws only when the scene changes, so an idle
+view costs no CPU.
 
 Displays camera frustums and animated 3D point positions from WorldPoints data,
 with playback controls for play/pause, looping, speed adjustment, and frame scrubbing.
@@ -58,8 +57,7 @@ class Qt3DPlaybackWidget(QWidget):
     """
     Qt3D-based widget for animated playback of triangulated 3D points.
 
-    Replaces PlaybackVizWidget (PyVista) with an event-driven Qt3D render
-    pipeline. No idle CPU cost — Qt3D only renders when the scene changes.
+    No idle CPU cost — Qt3D only renders when the scene changes.
 
     Features:
     - Play/pause animation with configurable speed (0.1x to 3.0x)

@@ -44,11 +44,7 @@ def _seed_default_model_cards(models_dir: "Path") -> None:
 
 
 def CLI_parser():
-    # Qt env vars must be set before any Qt or VTK imports
-    # Linux + Wayland: VTK doesn't support native Wayland rendering, force XWayland
-    if sys.platform == "linux" and os.environ.get("XDG_SESSION_TYPE") == "wayland":
-        os.environ.setdefault("QT_QPA_PLATFORM", "xcb")
-
+    # Qt env vars must be set before any Qt imports
     os.environ.setdefault("QT_API", "pyside6")
 
     try:

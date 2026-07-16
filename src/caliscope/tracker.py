@@ -99,7 +99,7 @@ class WireFrameView:
     """Pure data container for wireframe visualization config.
 
     Stores segment definitions and point name→ID mapping.
-    Rendering is handled by the visualization layer (PyVista widgets).
+    Rendering is handled by the visualization layer (Qt3D widgets).
     """
 
     segments: tuple[Segment, ...]

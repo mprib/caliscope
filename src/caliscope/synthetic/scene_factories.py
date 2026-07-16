@@ -5,6 +5,7 @@ from numpy.typing import NDArray
 
 from caliscope.cameras.camera_array import CameraArray, CameraData
 from caliscope.core.aruco_marker import ArucoMarker, ArucoMarkerSet, DistanceLink, MirrorPair
+from caliscope.core.charuco import Charuco
 from caliscope.core.constraints import ConstraintSet
 from caliscope.core.point_data import ImagePoints
 from caliscope.synthetic.calibration_object import CalibrationObject
@@ -834,6 +835,83 @@ def mirror_pair_two_camera_scene(
         random_seed=random_seed,
     )
     return scene, marker_set
+
+
+def two_sided_charuco_scene(
+    thickness_m: float = 0.006,
+    rows: int = 5,
+    columns: int = 7,
+    square_size_cm: float = 5.0,
+    n_frames: int = 40,
+    pixel_noise_sigma: float = 0.5,
+    random_seed: int = 42,
+) -> tuple[SyntheticScene, Charuco]:
+    """Thick two-sided charuco board spinning inside a 4-camera ring.
+
+    Object 0 is the front face (corners at z=0, normal -Z); object 1 the back
+    face (same corner XY at z=+thickness, normal +Z) — matching
+    CharucoTracker's identity scheme and the verified board-frame orientation
+    (front cameras look along board +Z; the substrate extends toward +Z).
+    Corner geometry comes from the real charuco board's
+    getChessboardCorners(), so keypoint ids and obj_loc agree exactly with
+    what ConstraintSet.from_charuco compiles against and what the tracker
+    emits.
+
+    The spin gives each camera views of both faces across the trajectory,
+    which connects the pose graph (the bootstrap links cameras only through
+    shared observations; the cross-face ties live in BA and cannot join
+    disconnected components). At any single sync a camera sees exactly one
+    face, matching the tracker's one-orientation-per-frame behavior, and the
+    spin positions where each face is seen by 2+ cameras simultaneously are
+    what make the cross-face ties fire.
+
+    Returns the scene plus the Charuco whose from_charuco compile carries the
+    matching cross-face constraints.
+    """
+    charuco = Charuco.from_squares(
+        columns=columns,
+        rows=rows,
+        square_size_cm=square_size_cm,
+        thickness_cm=thickness_m * 100,
+    )
+    corners = np.asarray(charuco.board.getChessboardCorners(), dtype=np.float64)
+    if corners.shape[1] == 2:
+        corners = np.column_stack([corners, np.zeros(len(corners))])
+    keypoint_ids = np.arange(len(corners), dtype=np.int64)
+
+    front = CalibrationObject(
+        points=corners,
+        keypoint_ids=keypoint_ids,
+        face_normal=np.array([0.0, 0.0, -1.0]),
+    )
+    back_points = corners.copy()
+    back_points[:, 2] = thickness_m
+    back = CalibrationObject(
+        points=back_points,
+        keypoint_ids=keypoint_ids,
+        face_normal=np.array([0.0, 0.0, 1.0]),
+    )
+
+    # Corner coordinates start at (square, square), so spin the board about
+    # its own centroid rather than the corner-origin of the board frame.
+    center = corners.mean(axis=0)
+    centering = SE3Pose(rotation=np.eye(3), translation=-center)
+    base = _spin_tumble_trajectory(n_frames=n_frames)
+    trajectory = Trajectory(
+        poses=tuple(centering.compose(p) for p in base.poses),
+        origin_frame=base.origin_frame,
+    )
+
+    scene = SyntheticScene(
+        camera_array=CameraSynthesizer().add_ring(n=4, radius=1.2, height=0.0).build(),
+        objects=(
+            SceneObject(object_id=0, calibration_object=front, trajectory=trajectory),
+            SceneObject(object_id=1, calibration_object=back, trajectory=trajectory),
+        ),
+        pixel_noise_sigma=pixel_noise_sigma,
+        random_seed=random_seed,
+    )
+    return scene, charuco
 
 
 def mirror_pair_ring_scene(

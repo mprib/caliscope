@@ -42,7 +42,9 @@ Front and back detections then collapse to shared 3D points, which couples oppos
 If you can build a thin board, do that and leave thickness at zero.
 
 If the board has a real substrate (foam core, gatorboard), set its thickness so the two faces are modeled as separate, rigidly linked point sets.
-Thickness is set in the charuco TOML (or via the scripting API) — there is deliberately no GUI field, because the value must match the extraction it produced:
+Thickness is set in the charuco TOML (or via the scripting API).
+There is deliberately no GUI field: the thickness is baked into the landmark data at extraction time, so a casual edit after extraction would silently invalidate that data.
+Keeping it in the TOML makes changing it a deliberate act:
 
 ```toml
 # calibration/targets/extrinsic_charuco.toml
@@ -53,7 +55,7 @@ When the extrinsic board is set to "same as intrinsic", the extrinsic role reads
 
 Rules that keep a thick-board calibration honest:
 
-- **Measure with calipers** and set the value before extracting landmarks. Changing thickness after extraction desynchronizes the data, and calibration will refuse to run until you re-extract (or restore the value).
+- **Measure with calipers** and set the value before extracting landmarks. If the value changes after extraction, calibration refuses to run until you re-extract (or restore the value).
 - **Mounting convention**: mount the mirror print flipped about its **vertical axis**, edges aligned with the front sheet. Each back corner then sits directly behind its front counterpart, which is the geometry the constraints assume.
 - **Every camera must see both faces at some point in the session.** Camera positions are linked only through shared views of the same face; the thickness constraints then pin the two faces together. Turning the board through the volume achieves this naturally. A session where each camera only ever sees one face cannot calibrate.
 - **Both faces must be visible simultaneously** (each by at least two cameras) in a good share of frames — those are the instants that rigidly link the front-viewing and back-viewing cameras. Calibration fails loudly if no such frame exists.

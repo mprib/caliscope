@@ -563,7 +563,9 @@ class ExtrinsicCalibrationView(QWidget):
 
     def _on_rotate_clicked(self, axis: str, degrees: float) -> None:
         """Handle rotation button click."""
+        self._show_status(f"Rotating {axis} axis…")
         self._presenter.rotate(axis, degrees)
+        self._show_status("Ready", timeout_ms=3000)
 
     def _on_set_origin_clicked(self) -> None:
         """Handle set origin button click."""
@@ -571,14 +573,25 @@ class ExtrinsicCalibrationView(QWidget):
         if opt is None:
             return
 
+        self._show_status("Setting origin…")
+
         if opt.is_static:
             self._presenter.align_to_origin(opt.object_id, None)
-            return
+        elif len(self._valid_sync_indices) > 0:
+            actual_sync_index = int(self._valid_sync_indices[self._frame_slider.value()])
+            self._presenter.align_to_origin(opt.object_id, actual_sync_index)
 
-        if len(self._valid_sync_indices) == 0:
-            return
-        actual_sync_index = int(self._valid_sync_indices[self._frame_slider.value()])
-        self._presenter.align_to_origin(opt.object_id, actual_sync_index)
+        self._show_status("Ready", timeout_ms=3000)
+
+    def _show_status(self, message: str, timeout_ms: int = 0) -> None:
+        from PySide6.QtWidgets import QApplication, QMainWindow
+
+        window = self.window()
+        if isinstance(window, QMainWindow):
+            window.statusBar().showMessage(message, timeout_ms)
+            app = QApplication.instance()
+            if app is not None:
+                app.processEvents()
 
     def _populate_origin_combo(self) -> None:
         """Populate the origin combo from the presenter, preselecting the persisted origin."""

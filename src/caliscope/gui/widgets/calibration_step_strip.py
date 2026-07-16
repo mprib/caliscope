@@ -16,6 +16,7 @@ from PySide6.QtWidgets import QHBoxLayout, QLabel, QSizePolicy, QVBoxLayout, QWi
 from caliscope.core.workflow_status import StepStatus
 from caliscope.gui.presenters.extrinsic_calibration_presenter import CalibrationStepData
 from caliscope.gui.theme import Colors
+from caliscope.gui.widgets.link_label import LinkLabel
 
 _ICONS_DIR = Path(__file__).parent.parent / "icons"
 
@@ -30,34 +31,6 @@ _STATUS_ICON = {
 def _load_colored_svg(icon: QSvgWidget, filename: str, color: str) -> None:
     svg_content = (_ICONS_DIR / filename).read_text()
     icon.load(QByteArray(svg_content.replace("currentColor", color).encode()))
-
-
-class _LinkLabel(QLabel):
-    """A QLabel styled and behaving like a hyperlink."""
-
-    clicked = Signal()
-
-    def __init__(self, parent: QWidget | None = None) -> None:
-        super().__init__(parent)
-        self.setCursor(Qt.CursorShape.PointingHandCursor)
-        self._set_underline(False)
-
-    def _set_underline(self, underline: bool) -> None:
-        decoration = "underline" if underline else "none"
-        self.setStyleSheet(f"color: {Colors.PRIMARY}; font-size: 10px; text-decoration: {decoration};")
-
-    def enterEvent(self, event) -> None:
-        self._set_underline(True)
-        super().enterEvent(event)
-
-    def leaveEvent(self, event) -> None:
-        self._set_underline(False)
-        super().leaveEvent(event)
-
-    def mousePressEvent(self, event) -> None:
-        if event.button() == Qt.MouseButton.LeftButton:
-            self.clicked.emit()
-        super().mousePressEvent(event)
 
 
 class _StepCell(QWidget):
@@ -88,7 +61,7 @@ class _StepCell(QWidget):
         self._detail_label.setStyleSheet(f"color: {Colors.TEXT_MUTED}; font-size: 10px;")
         text_layout.addWidget(self._detail_label)
 
-        self._detail_link = _LinkLabel()
+        self._detail_link = LinkLabel()
         self._detail_link.hide()
         self._detail_link.clicked.connect(self.link_clicked)
         text_layout.addWidget(self._detail_link)

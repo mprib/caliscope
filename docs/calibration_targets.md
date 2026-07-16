@@ -45,9 +45,11 @@ If the board has a real substrate (foam core, gatorboard), set its thickness so 
 Thickness is set in the charuco TOML (or via the scripting API) — there is deliberately no GUI field, because the value must match the extraction it produced:
 
 ```toml
-# calibration/charuco.toml
+# calibration/targets/extrinsic_charuco.toml
 thickness_cm = 0.6   # measure the substrate with calipers
 ```
+
+When the extrinsic board is set to "same as intrinsic", the extrinsic role reads `intrinsic_charuco.toml` — set the value there instead.
 
 Rules that keep a thick-board calibration honest:
 

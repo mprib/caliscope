@@ -1279,6 +1279,23 @@ def test_from_charuco_zero_thickness_emits_no_back_face_rows():
     thin = Charuco.from_squares(columns=7, rows=5, square_size_cm=5.0)
     cs = ConstraintSet.from_charuco(thin)
     assert all(d.object_id_a == 0 and d.object_id_b == 0 for d in cs.distances)
+    assert cs.back_face_thickness_m == 0.0
+
+
+def test_back_face_thickness_survives_toml_round_trip(tmp_path):
+    """from_charuco stamps the thickness onto the set (the calibrate-time
+    identity guard keys on it); aruco/chessboard sets stay None."""
+    cs = ConstraintSet.from_charuco(_thick_charuco())
+    assert cs.back_face_thickness_m == pytest.approx(0.006)
+
+    path = tmp_path / "constraints.toml"
+    cs.to_toml(path)
+    assert ConstraintSet.from_toml(path).back_face_thickness_m == pytest.approx(0.006)
+
+    bare = ConstraintSet(distances=(), static_object_ids=frozenset())
+    assert bare.back_face_thickness_m is None
+    bare.to_toml(path)
+    assert ConstraintSet.from_toml(path).back_face_thickness_m is None
 
 
 # -- ConstraintSet.from_chessboard --

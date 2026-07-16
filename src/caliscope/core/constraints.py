@@ -71,6 +71,13 @@ class ConstraintSet:
     static_object_ids: frozenset[int]
     centroid_distances: tuple[CentroidDistanceConstraint, ...] = ()
     point_remaps: tuple[PointRemap, ...] = ()
+    # Set by from_charuco (never by aruco/chessboard compilers): the board's
+    # substrate thickness in meters, 0.0 for a thin board. Non-None declares a
+    # closed identity universe — the extraction must contain exactly the
+    # object_ids this thickness implies ({0}, or {0, 1} when > 0) — which lets
+    # calibrate_extrinsics fail loudly when thickness changed between
+    # extraction and calibration instead of silently mis-calibrating.
+    back_face_thickness_m: float | None = None
 
     @classmethod
     def from_marker_set(
@@ -374,7 +381,12 @@ class ConstraintSet:
             assert all(d.object_id_a == 1 and d.object_id_b == 1 for d in back_truss)
             cross_face = cls._cross_face_constraints(corners, square_length, charuco.thickness_m, thickness_sigma_m)
             constraints = constraints + back_truss + cross_face
-        return cls(distances=constraints, static_object_ids=frozenset(), centroid_distances=())
+        return cls(
+            distances=constraints,
+            static_object_ids=frozenset(),
+            centroid_distances=(),
+            back_face_thickness_m=charuco.thickness_m,
+        )
 
     @classmethod
     def from_chessboard(cls, chessboard: Chessboard, sigma_m: float = 0.002) -> ConstraintSet:
@@ -439,6 +451,8 @@ class ConstraintSet:
                 }
                 for r in self.point_remaps
             ]
+        if self.back_face_thickness_m is not None:
+            data["back_face_thickness_m"] = self.back_face_thickness_m
         _safe_write_toml(data, path)
 
     @classmethod
@@ -487,6 +501,7 @@ class ConstraintSet:
                 static_object_ids=static_ids,
                 centroid_distances=centroid_distances,
                 point_remaps=point_remaps,
+                back_face_thickness_m=data.get("back_face_thickness_m"),
             )
         except PersistenceError:
             raise

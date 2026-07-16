@@ -47,6 +47,10 @@ from caliscope.core.calibrate_intrinsics import (
 )
 from caliscope.core.capture_volume import CaptureVolume
 from caliscope.core.charuco import Charuco
+
+# Experimental: the markerless anchoring exports below (run_moge,
+# estimate_vertical, and the scale cues). Tested on one set of footage.
+# They need further testing and auditing, and may change.
 from caliscope.estimators.moge import MoGeResult, run_moge
 from caliscope.estimators.vertical import VerticalEstimate, estimate_vertical
 from caliscope.core.point_data import ImagePoints

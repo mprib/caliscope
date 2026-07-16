@@ -42,26 +42,26 @@ Front and back detections then collapse to shared 3D points, which couples oppos
 If you can build a thin board, do that and leave thickness at zero.
 
 If the board has a real substrate (foam core, gatorboard), set its thickness so the two faces are modeled as separate, rigidly linked point sets.
-Thickness is set in the charuco TOML (or via the scripting API).
-There is deliberately no GUI field: the thickness is baked into the landmark data at extraction time, so a casual edit after extraction would silently invalidate that data.
-Keeping it in the TOML makes changing it a deliberate act:
+Thickness is set in the charuco TOML (or via the scripting API):
 
 ```toml
 # calibration/targets/extrinsic_charuco.toml
-thickness_cm = 0.6   # measure the substrate with calipers
+thickness_cm = 0.6   # measured substrate thickness
 ```
 
-When the extrinsic board is set to "same as intrinsic", the extrinsic role reads `intrinsic_charuco.toml` — set the value there instead.
+There is deliberately no GUI field: the thickness is baked into the landmark data at extraction time, and an accidental edit after extraction makes that data wrong.
 
-Rules that keep a thick-board calibration honest:
+When the extrinsic board is set to "same as intrinsic", the extrinsic role reads `intrinsic_charuco.toml`. Set the value there instead.
 
-- **Measure with calipers** and set the value before extracting landmarks. If the value changes after extraction, calibration refuses to run until you re-extract (or restore the value).
+When using a thick board:
+
+- **Set the measured thickness before extracting landmarks.** If the value changes after extraction, calibration refuses to run until you re-extract (or restore the value).
 - **Mounting convention**: mount the mirror print flipped about its **vertical axis**, edges aligned with the front sheet. Each back corner then sits directly behind its front counterpart, which is the geometry the constraints assume.
-- **Every camera must see both faces at some point in the session.** Camera positions are linked only through shared views of the same face; the thickness constraints then pin the two faces together. Turning the board through the volume achieves this naturally. A session where each camera only ever sees one face cannot calibrate.
-- **Both faces must be visible simultaneously** (each by at least two cameras) in a good share of frames — those are the instants that rigidly link the front-viewing and back-viewing cameras. Calibration fails loudly if no such frame exists.
+- **Every camera must see both faces at some point in the session.** Camera positions are linked only through shared views of the same face; the thickness constraints then pin the two faces together. A session where each camera only ever sees one face cannot calibrate.
+- **Both faces must be visible simultaneously** (each by at least two cameras) in a good share of frames. Those are the instants that rigidly link the front-viewing and back-viewing cameras. Calibration stops with an error if no such frame exists.
 - **Origin note**: setting the world origin from the board anchors to the front face. The origin plane sits recessed into the board by the thickness when viewed from the mirror side.
 
-Two-sided chessboards are not supported — the chessboard tracker has no mirror detection path. Use a ChArUco board.
+Two-sided chessboards are not supported. The chessboard tracker has no mirror detection path. Use a ChArUco board.
 
 ---
 

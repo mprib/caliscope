@@ -59,16 +59,26 @@ class CharucoTracker(Tracker):
         ids = np.array([], dtype=np.int32)
         img_loc = np.empty((0, 2), dtype=np.float64)
 
+        detected_mirrored = False
         for is_mirrored in try_order:
             gray_input = cv2.flip(gray, 1) if is_mirrored else gray
             ids, img_loc = self.find_corners_single_frame(gray_input, mirror=is_mirrored)
             if ids.any():
                 self._last_mirrored[cam_id] = is_mirrored
+                detected_mirrored = is_mirrored
                 break
 
-        obj_loc = self.get_obj_loc(ids)
+        # Identity split for a two-sided board with substrate thickness: the
+        # back face is a distinct object (object_id=1) whose corners sit at
+        # z=+t, directly behind their front counterparts (verified by the
+        # correspondence test in tests/test_charuco_tracker.py). At zero
+        # thickness both faces share identity so BA fuses them into the same
+        # world points — the strongest coupling, and the historical behavior.
+        is_back_face = detected_mirrored and self.charuco.thickness_m > 0
+        obj_loc = self.get_obj_loc(ids, back_face=is_back_face)
+        object_id_value = 1 if is_back_face else 0
         return PointPacket(
-            object_id=np.zeros(len(ids), dtype=np.int32),
+            object_id=np.full(len(ids), object_id_value, dtype=np.int32),
             keypoint_id=ids,
             img_loc=img_loc,
             obj_loc=obj_loc,
@@ -110,13 +120,21 @@ class CharucoTracker(Tracker):
 
         return ids, img_loc
 
-    def get_obj_loc(self, ids: np.ndarray):
-        """Objective position of charuco corners in a board frame of reference"""
+    def get_obj_loc(self, ids: np.ndarray, back_face: bool = False):
+        """Objective position of charuco corners in a board frame of reference.
+
+        ids are always front-face corner indices (0..n-1) — back-face
+        detections keep the same keypoint ids. back_face stamps z=+thickness:
+        in the charuco board frame front cameras look along +Z, so the
+        substrate extends toward +Z behind the printed front face.
+        """
         if len(ids) > 0:
-            corners = self.board.getChessboardCorners()[ids, :]
+            corners = np.array(self.board.getChessboardCorners()[ids, :])
             # Ensure 3D coordinates (planar boards may return 2D)
             if corners.shape[1] == 2:
                 corners = np.column_stack([corners, np.zeros(len(ids))])
+            if back_face:
+                corners[:, 2] = self.charuco.thickness_m
             return corners
         else:
             return np.empty((0, 3), dtype=np.float64)

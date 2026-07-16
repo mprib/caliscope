@@ -203,6 +203,62 @@ def test_back_view_corners_sit_directly_behind(scene):
     assert rmse_partner > 20.0, f"test is not decisive: mirror-partner RMSE {rmse_partner:.2f}px is too close"
 
 
+def test_zero_thickness_back_view_keeps_shared_identity(scene):
+    """Regression guard on the historical collapse: at thickness 0 both faces
+    share object_id 0 and z=0, so BA fuses them into the same world points."""
+    charuco, board_img, board_w_m, board_h_m, to_px = scene
+    rotation, center = _back_camera(board_w_m, board_h_m)
+    frame = _render_plane(board_img, board_w_m, board_h_m, to_px, 0.0, rotation, center)
+
+    tracker = CharucoTracker(charuco)
+    packet = tracker._detect(frame, cam_id=0)
+
+    assert len(packet.keypoint_id) >= 6
+    assert tracker._last_mirrored[0] is True
+    assert np.all(packet.object_id == 0)
+    assert np.all(packet.obj_loc[:, 2] == 0.0)
+
+
+def test_thick_board_back_view_gets_back_face_identity(scene):
+    """Thickness > 0 + mirrored detection -> object_id=1, keypoint ids
+    unchanged (0..n-1), obj_loc stamped z=+t — and that obj_loc reprojects
+    onto the observed img_loc, which is the spec's self-consistency claim."""
+    _, board_img, board_w_m, board_h_m, to_px = scene
+    thick = _make_charuco()
+    thick.thickness_cm = THICKNESS_M * 100
+    rotation, center = _back_camera(board_w_m, board_h_m)
+    frame = _render_plane(board_img, board_w_m, board_h_m, to_px, THICKNESS_M, rotation, center)
+
+    tracker = CharucoTracker(thick)
+    packet = tracker._detect(frame, cam_id=0)
+
+    assert len(packet.keypoint_id) >= 6
+    assert np.all(packet.object_id == 1)
+    assert packet.keypoint_id.max() < (thick.columns - 1) * (thick.rows - 1)
+    assert np.allclose(packet.obj_loc[:, 2], THICKNESS_M)
+
+    reprojected = _project(packet.obj_loc, rotation, center)
+    rmse = float(np.sqrt(np.mean(np.sum((reprojected - packet.img_loc) ** 2, axis=1))))
+    assert rmse < 2.0, f"back-face obj_loc does not reproject onto img_loc (RMSE {rmse:.2f}px)"
+
+
+def test_thick_board_front_view_unchanged(scene):
+    """Thickness only affects mirrored detections: a front view of a thick
+    board keeps object_id 0 and z=0."""
+    _, board_img, board_w_m, board_h_m, to_px = scene
+    thick = _make_charuco()
+    thick.thickness_cm = THICKNESS_M * 100
+    rotation, center = _front_camera(board_w_m, board_h_m)
+    frame = _render_plane(board_img, board_w_m, board_h_m, to_px, 0.0, rotation, center)
+
+    tracker = CharucoTracker(thick)
+    packet = tracker._detect(frame, cam_id=0)
+
+    assert len(packet.keypoint_id) >= 6
+    assert np.all(packet.object_id == 0)
+    assert np.all(packet.obj_loc[:, 2] == 0.0)
+
+
 def test_mirror_hint_is_remembered_per_camera(scene):
     """The flip-hint cache: after a mirrored detection, the next frame for the
     same cam_id tries the mirrored orientation first; a different cam_id is

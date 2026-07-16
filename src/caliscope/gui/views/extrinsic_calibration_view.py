@@ -573,11 +573,16 @@ class ExtrinsicCalibrationView(QWidget):
         if opt is None:
             return
 
+        # A frame-based origin needs a frame; with no valid sync indices there is
+        # nothing to align to, so avoid flashing a "Setting origin…" status for a no-op.
+        if not opt.is_static and len(self._valid_sync_indices) == 0:
+            return
+
         self._show_status("Setting origin…")
 
         if opt.is_static:
             self._presenter.align_to_origin(opt.object_id, None)
-        elif len(self._valid_sync_indices) > 0:
+        else:
             actual_sync_index = int(self._valid_sync_indices[self._frame_slider.value()])
             self._presenter.align_to_origin(opt.object_id, actual_sync_index)
 

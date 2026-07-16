@@ -76,7 +76,7 @@ if __name__ == "__main__":
     os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
     from PySide6.QtWidgets import QApplication
 
-    app = QApplication([])
+    app = QApplication.instance() or QApplication([])
 
     test_construction_empty_recents(app)
     print("PASS: test_construction_empty_recents")

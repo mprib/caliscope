@@ -12,7 +12,6 @@ from PySide6.QtWidgets import (
     QLabel,
     QProgressBar,
     QPushButton,
-    QScrollArea,
     QSizePolicy,
     QVBoxLayout,
     QWidget,
@@ -36,18 +35,7 @@ class WelcomeWidget(QWidget):
         self._setup_ui()
 
     def _setup_ui(self) -> None:
-        root = QVBoxLayout(self)
-        root.setContentsMargins(0, 0, 0, 0)
-
-        scroll = QScrollArea()
-        scroll.setWidgetResizable(True)
-        scroll.setFrameShape(QScrollArea.Shape.NoFrame)
-        root.addWidget(scroll)
-
-        inner = QWidget()
-        scroll.setWidget(inner)
-
-        outer = QVBoxLayout(inner)
+        outer = QVBoxLayout(self)
 
         outer.addStretch(1)
 

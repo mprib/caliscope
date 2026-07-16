@@ -38,6 +38,10 @@ class MainWindow(QMainWindow):
 
         self.app_settings = rtoml.load(APP_SETTINGS_PATH)
 
+        # Bumped on every launch_workspace so a relaunch invalidates any pending
+        # deferred tab build from a previous project (see _build_next_deferred_tab).
+        self._build_generation: int = 0
+
         self.setWindowTitle("Caliscope")
         self.setWindowIcon(QIcon(str(ICONS_DIR / "box3d-center.svg")))
         self.setMinimumSize(500, 500)
@@ -63,7 +67,27 @@ class MainWindow(QMainWindow):
         """
         logger.info("Application exit initiated")
 
+        # Invalidate any pending deferred tab tick or queued completed signal so
+        # neither builds tabs against the coordinator cleaned up below.
+        self._build_generation += 1
+
+        self._cleanup_tabs()
+
+        # Coordinator cleanup (TaskManager shutdown)
+        if hasattr(self, "coordinator"):
+            self.coordinator.cleanup()
+
+        logger.info("Application cleanup complete")
+        super().closeEvent(event)
+
+    def _cleanup_tabs(self) -> None:
+        """Release per-tab resources (background threads, Qt3D scene graphs).
+
+        Shared by closeEvent and launch_workspace so the two teardown paths
+        can't drift. Safe to call before any tabs exist.
+        """
         from caliscope.gui.cameras_tab_widget import CamerasTabWidget
+        from caliscope.gui.extrinsic_calibration_tab import ExtrinsicCalibrationTab
         from caliscope.gui.multi_camera_processing_tab import MultiCameraProcessingTab
         from caliscope.gui.reconstruction_tab import ReconstructionTab
 
@@ -73,16 +97,18 @@ class MainWindow(QMainWindow):
         multi = getattr(self, "multi_camera_tab", None)
         if isinstance(multi, MultiCameraProcessingTab):
             multi.cleanup()
+        extrinsic = getattr(self, "extrinsic_calibration_tab", None)
+        if isinstance(extrinsic, ExtrinsicCalibrationTab):
+            extrinsic.cleanup()
         recon = getattr(self, "reconstruction_tab", None)
         if isinstance(recon, ReconstructionTab):
             recon.cleanup()
 
-        # Coordinator cleanup (TaskManager shutdown)
-        if hasattr(self, "coordinator"):
-            self.coordinator.cleanup()
-
-        logger.info("Application cleanup complete")
-        super().closeEvent(event)
+        # Drop the attributes so a second call (project switch, then app close)
+        # never touches widgets whose C++ side setCentralWidget already deleted.
+        for name in ("cameras_tab_widget", "multi_camera_tab", "extrinsic_calibration_tab", "reconstruction_tab"):
+            if hasattr(self, name):
+                delattr(self, name)
 
     def connect_menu_actions(self):
         self.open_project_action.triggered.connect(self.create_new_project_folder)
@@ -114,7 +140,12 @@ class MainWindow(QMainWindow):
         self.exit_pyxy3d_action = QAction("Exit", self)
         self.file_menu.addAction(self.exit_pyxy3d_action)
 
-    def build_central_tabs(self, _result: object = None) -> None:
+    def build_central_tabs(self, gen: int) -> None:
+        # Same invalidation contract as _build_next_deferred_tab: a relaunch or
+        # app close bumped the generation, so a queued completed signal from a
+        # torn-down coordinator must not build tabs against it.
+        if gen != self._build_generation:
+            return
         self.central_tab = QTabWidget(self)
         self.setCentralWidget(self.central_tab)
 
@@ -130,10 +161,11 @@ class MainWindow(QMainWindow):
         self.coordinator.status_changed.connect(self._refresh_tab_enablement)
         self._previous_tab_index: int = 0
         self.central_tab.currentChanged.connect(self._on_tab_changed)
-        self.open_project_action.setEnabled(True)
-        self.open_recent_project_submenu.setEnabled(True)
 
-        # Remaining tabs added one per event loop tick so the UI stays responsive
+        # Remaining tabs added one per event loop tick so the UI stays responsive.
+        # Capture the current build generation so a relaunch mid-build abandons this
+        # chain instead of touching a torn-down coordinator (see _build_next_deferred_tab).
+        gen = self._build_generation
         self._deferred_tab_builders: deque[tuple[str, Callable[[], None]]] = deque(
             [
                 ("Cameras", self._add_cameras_tab),
@@ -142,11 +174,14 @@ class MainWindow(QMainWindow):
                 ("Reconstruction", self._add_reconstruction_tab),
             ]
         )
-        QTimer.singleShot(0, self._build_next_deferred_tab)
+        QTimer.singleShot(0, lambda: self._build_next_deferred_tab(gen))
 
-    def _build_next_deferred_tab(self) -> None:
+    def _build_next_deferred_tab(self, gen: int) -> None:
+        # A relaunch bumped the generation; abandon this stale build chain.
+        if gen != self._build_generation:
+            return
         if not self._deferred_tab_builders:
-            self.statusBar().showMessage("Ready", 3000)
+            self._on_deferred_build_complete()
             return
         label, builder = self._deferred_tab_builders.popleft()
         self.statusBar().showMessage(f"Building {label} tab…")
@@ -155,11 +190,26 @@ class MainWindow(QMainWindow):
             app.processEvents()
         builder()
         if self._deferred_tab_builders:
-            QTimer.singleShot(0, self._build_next_deferred_tab)
+            QTimer.singleShot(0, lambda: self._build_next_deferred_tab(gen))
         else:
-            self.statusBar().showMessage("Ready", 3000)
+            self._on_deferred_build_complete()
 
-    def _add_cameras_tab(self) -> None:
+    def _on_deferred_build_complete(self) -> None:
+        """Deferred tab chain finished: restore Open Project access, clear status.
+
+        Open Project stays disabled through the whole build so a second launch
+        can't race a half-built tab set.
+        """
+        self.open_project_action.setEnabled(True)
+        self.open_recent_project_submenu.setEnabled(True)
+        self.statusBar().showMessage("Ready", 3000)
+
+    # Each _make_*_tab constructs a tab widget (real or placeholder) and reports
+    # whether it should be enabled. The _add_* builders append at the end during the
+    # initial deferred build; _replace_placeholder_tab swaps one in at its existing
+    # index once it becomes enabled. Construction lives here so the two paths share it.
+
+    def _make_cameras_tab(self) -> tuple[QWidget, bool]:
         from caliscope.gui.cameras_tab_widget import CamerasTabWidget
         from caliscope.gui.widgets.cameras_info_placeholder import CamerasInfoPlaceholder
 
@@ -169,9 +219,10 @@ class MainWindow(QMainWindow):
         else:
             logger.info("No intrinsic videos - Cameras tab shows skip-intrinsics placeholder")
             self.cameras_tab_widget = CamerasInfoPlaceholder()
-        self.central_tab.addTab(self.cameras_tab_widget, "Cameras")
+        # Cameras stays interactive even as a placeholder (it explains skip-intrinsics).
+        return self.cameras_tab_widget, True
 
-    def _add_multi_camera_tab(self) -> None:
+    def _make_multi_camera_tab(self) -> tuple[QWidget, bool]:
         from caliscope.gui.multi_camera_processing_tab import MultiCameraProcessingTab
 
         enabled = self.coordinator.multi_camera_tab_enabled
@@ -180,10 +231,9 @@ class MainWindow(QMainWindow):
             self.multi_camera_tab: QWidget = MultiCameraProcessingTab(self.coordinator)
         else:
             self.multi_camera_tab = QWidget()
-        self.central_tab.addTab(self.multi_camera_tab, "Multi-Camera")
-        self.central_tab.setTabEnabled(self.find_tab_index_by_title("Multi-Camera"), enabled)
+        return self.multi_camera_tab, enabled
 
-    def _add_calibrate_tab(self) -> None:
+    def _make_calibrate_tab(self) -> tuple[QWidget, bool]:
         from caliscope.gui.extrinsic_calibration_tab import ExtrinsicCalibrationTab
 
         enabled = self.coordinator.capture_volume_tab_enabled
@@ -193,10 +243,9 @@ class MainWindow(QMainWindow):
             self.extrinsic_calibration_tab.navigation_requested.connect(self._navigate_to_tab)  # type: ignore[union-attr]
         else:
             self.extrinsic_calibration_tab = QWidget()
-        self.central_tab.addTab(self.extrinsic_calibration_tab, "Calibrate")
-        self.central_tab.setTabEnabled(self.find_tab_index_by_title("Calibrate"), enabled)
+        return self.extrinsic_calibration_tab, enabled
 
-    def _add_reconstruction_tab(self) -> None:
+    def _make_reconstruction_tab(self) -> tuple[QWidget, bool]:
         from caliscope.gui.reconstruction_tab import ReconstructionTab
 
         enabled = self.coordinator.reconstruction_tab_enabled
@@ -209,7 +258,25 @@ class MainWindow(QMainWindow):
             )
         else:
             self.reconstruction_tab = QWidget()
-        self.central_tab.addTab(self.reconstruction_tab, "Reconstruction")
+        return self.reconstruction_tab, enabled
+
+    def _add_cameras_tab(self) -> None:
+        widget, _enabled = self._make_cameras_tab()
+        self.central_tab.addTab(widget, "Cameras")
+
+    def _add_multi_camera_tab(self) -> None:
+        widget, enabled = self._make_multi_camera_tab()
+        self.central_tab.addTab(widget, "Multi-Camera")
+        self.central_tab.setTabEnabled(self.find_tab_index_by_title("Multi-Camera"), enabled)
+
+    def _add_calibrate_tab(self) -> None:
+        widget, enabled = self._make_calibrate_tab()
+        self.central_tab.addTab(widget, "Calibrate")
+        self.central_tab.setTabEnabled(self.find_tab_index_by_title("Calibrate"), enabled)
+
+    def _add_reconstruction_tab(self) -> None:
+        widget, enabled = self._make_reconstruction_tab()
+        self.central_tab.addTab(widget, "Reconstruction")
         self.central_tab.setTabEnabled(self.find_tab_index_by_title("Reconstruction"), enabled)
 
     def _replace_placeholder_tab(self, tab_name: str) -> None:
@@ -217,53 +284,31 @@ class MainWindow(QMainWindow):
         from caliscope.gui.extrinsic_calibration_tab import ExtrinsicCalibrationTab
         from caliscope.gui.multi_camera_processing_tab import MultiCameraProcessingTab
         from caliscope.gui.reconstruction_tab import ReconstructionTab
-        from caliscope.gui.widgets.cameras_info_placeholder import CamerasInfoPlaceholder
+
+        real_tab_types: dict[str, type[QWidget]] = {
+            "Cameras": CamerasTabWidget,
+            "Multi-Camera": MultiCameraProcessingTab,
+            "Calibrate": ExtrinsicCalibrationTab,
+            "Reconstruction": ReconstructionTab,
+        }
+        makers: dict[str, Callable[[], tuple[QWidget, bool]]] = {
+            "Cameras": self._make_cameras_tab,
+            "Multi-Camera": self._make_multi_camera_tab,
+            "Calibrate": self._make_calibrate_tab,
+            "Reconstruction": self._make_reconstruction_tab,
+        }
 
         idx = self.find_tab_index_by_title(tab_name)
         if idx < 0:
             return
         old = self.central_tab.widget(idx)
+        if isinstance(old, real_tab_types[tab_name]):
+            return
 
-        if tab_name == "Cameras":
-            if isinstance(old, CamerasTabWidget):
-                return
-            if self.coordinator.cameras_tab_enabled:
-                logger.info("Building Cameras tab with intrinsic calibration")
-                self.cameras_tab_widget = CamerasTabWidget(self.coordinator)
-            else:
-                logger.info("No intrinsic videos - Cameras tab shows skip-intrinsics placeholder")
-                self.cameras_tab_widget = CamerasInfoPlaceholder()
-            self.central_tab.removeTab(idx)
-            self.central_tab.insertTab(idx, self.cameras_tab_widget, "Cameras")
-
-        elif tab_name == "Multi-Camera":
-            if isinstance(old, MultiCameraProcessingTab):
-                return
-            logger.info("Building Multi-Camera processing tab")
-            self.multi_camera_tab = MultiCameraProcessingTab(self.coordinator)
-            self.central_tab.removeTab(idx)
-            self.central_tab.insertTab(idx, self.multi_camera_tab, "Multi-Camera")
-
-        elif tab_name == "Calibrate":
-            if isinstance(old, ExtrinsicCalibrationTab):
-                return
-            logger.info("Creating ExtrinsicCalibrationTab")
-            self.extrinsic_calibration_tab = ExtrinsicCalibrationTab(self.coordinator)
-            self.extrinsic_calibration_tab.navigation_requested.connect(self._navigate_to_tab)
-            self.central_tab.removeTab(idx)
-            self.central_tab.insertTab(idx, self.extrinsic_calibration_tab, "Calibrate")
-
-        elif tab_name == "Reconstruction":
-            if isinstance(old, ReconstructionTab):
-                return
-            logger.info("Creating reconstruction tab")
-            presenter = self.coordinator.create_reconstruction_presenter()
-            self.reconstruction_tab = ReconstructionTab(presenter)
-            self.coordinator.capture_volume_updated.connect(
-                lambda: presenter.refresh_camera_array(self.coordinator.camera_array)
-            )
-            self.central_tab.removeTab(idx)
-            self.central_tab.insertTab(idx, self.reconstruction_tab, "Reconstruction")
+        widget, enabled = makers[tab_name]()
+        self.central_tab.removeTab(idx)
+        self.central_tab.insertTab(idx, widget, tab_name)
+        self.central_tab.setTabEnabled(idx, enabled)
 
         if old is not None:
             old.deleteLater()
@@ -316,6 +361,23 @@ class MainWindow(QMainWindow):
 
     def launch_workspace(self, path_to_workspace: str) -> TaskHandle | None:
         """Launch workspace and return TaskHandle for additional callbacks."""
+        # Invalidate any in-flight deferred tab build from a previous project so its
+        # timer chain can't touch the coordinator we are about to tear down.
+        self._build_generation += 1
+
+        # If a project is already open, release its tabs' resources while the
+        # coordinator is still alive (same order as closeEvent), then swap in a
+        # fresh welcome screen — setCentralWidget deletes the old central widget,
+        # and Qt3D scene graphs must be torn down before that. The swap gives
+        # set_loading/_on_load_failed a valid target on every load path.
+        central = self.centralWidget()
+        if not isinstance(central, WelcomeWidget):
+            self._cleanup_tabs()
+            central = WelcomeWidget(self.recent_projects())
+            central.open_project_requested.connect(self.create_new_project_folder)
+            central.recent_project_selected.connect(self.launch_workspace)
+            self.setCentralWidget(central)
+
         # Tear down existing coordinator to avoid orphaned thread pools
         if hasattr(self, "coordinator"):
             self.coordinator.cleanup()
@@ -323,9 +385,7 @@ class MainWindow(QMainWindow):
 
         # Show loading state on welcome widget and flush the paint
         # before the blocking WorkspaceCoordinator constructor
-        central = self.centralWidget()
-        if isinstance(central, WelcomeWidget):
-            central.set_loading(path_to_workspace)
+        central.set_loading(path_to_workspace)
 
         self.open_project_action.setEnabled(False)
         self.open_recent_project_submenu.setEnabled(False)
@@ -337,6 +397,9 @@ class MainWindow(QMainWindow):
         from caliscope.workspace_coordinator import WorkspaceCoordinator
 
         logger.info(f"Launching session with config file stored in {path_to_workspace}")
+        # Leak-safety invariant: a settings error raises inside WorkspaceCoordinator.__init__
+        # before its TaskManager is constructed, so the synchronous failure path below leaks
+        # nothing (no threads exist yet to orphan).
         try:
             self.coordinator = WorkspaceCoordinator(Path(path_to_workspace))
             logger.info("Initiate coordinator loading")
@@ -345,7 +408,7 @@ class MainWindow(QMainWindow):
             self._on_load_failed(type(e).__name__, str(e))
             return None
 
-        handle.completed.connect(lambda _result: self.build_central_tabs())
+        handle.completed.connect(lambda _result, gen=self._build_generation: self.build_central_tabs(gen))
         handle.failed.connect(self._on_load_failed)
         self.coordinator.start_load(handle)
         return handle

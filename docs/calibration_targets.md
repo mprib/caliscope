@@ -15,7 +15,7 @@ Some targets serve both intrinsic and extrinsic calibration; others serve only o
 
 The [ChArUco board](https://docs.opencv.org/3.4/df/d4a/tutorial_charuco_detection.html) is the recommended target.
 It combines a chessboard pattern with embedded ArUco markers, enabling both intrinsic and extrinsic calibration from the same target.
-The embedded markers give the detector a coarse position lock before subpixel corner refinement, which makes it robust to partial occlusion and motion blur.
+The markers identify each corner, so a partial view of the board still yields usable points.
 
 ### Configuration
 
@@ -39,6 +39,7 @@ Caliscope automatically builds rigidity constraints from the board's known corne
 
 A zero-thickness board gives the best results: print the pattern and its mirror on paper, and press them back-to-back under glass or acrylic.
 Front and back detections then collapse to shared 3D points, which couples opposing cameras far more rigidly than any distance constraint.
+It also halves the camera floor, from four down to two.
 If you can build a thin board, do that and leave thickness at zero.
 
 If the board has a real substrate (foam core, gatorboard), set its thickness so the two faces are modeled as separate, rigidly linked point sets.
@@ -57,8 +58,8 @@ When using a thick board:
 
 - **Set the measured thickness before extracting landmarks.** If the value changes after extraction, calibration refuses to run until you re-extract (or restore the value).
 - **Mounting convention**: mount the mirror print flipped about its **vertical axis**, edges aligned with the front sheet. Each back corner then sits directly behind its front counterpart, which is the geometry the constraints assume.
-- **Every camera must see both faces at some point in the session.** Camera positions are linked only through shared views of the same face; the thickness constraints then pin the two faces together. A session where each camera only ever sees one face cannot calibrate.
-- **In a good share of frames, at least two cameras must see the front face while at least two others see the back.** A face seen by a single camera cannot be triangulated, and the thickness constraints only act in frames where both faces have triangulated points. Those frames are what rigidly link the front-viewing and back-viewing cameras. Calibration stops with an error if no such frame exists. Because no camera can see both faces at once, this means a thick board requires at least four cameras.
+- **Turn the board so the front-viewing and back-viewing cameras trade places over the session.** Cameras are linked only by seeing the same face at the same instant. If one fixed group of cameras only ever sees the front and another only ever sees the back, the two groups never link: the calibration poses the larger group and leaves the rest unposed. Turning the board through the volume bridges them.
+- **A thick board needs at least four cameras, where a zero-thickness board needs two.** In a good share of frames, at least two cameras must see the front face while at least two others see the back. A face seen by a single camera cannot be triangulated, and the thickness constraints only act in frames where both faces have triangulated points. Those frames are what rigidly link the front-viewing and back-viewing cameras. Calibration stops with an error if no such frame exists. Since no camera can see both faces at once, that means two per face. A zero-thickness board escapes this: its faces share the same 3D points, so one camera on each side sees the same points and triangulates them directly.
 - **Origin note**: setting the world origin from the board anchors to the front face. The origin plane sits recessed into the board by the thickness when viewed from the mirror side.
 
 Two-sided chessboards are not supported. The chessboard tracker has no mirror detection path. Use a ChArUco board.
@@ -82,7 +83,7 @@ See [The ArUco Calibration Set](aruco_calibration_set.md) for the full guide.
 
 ## Chessboard
 
-A standard checkerboard pattern. Simpler to print than a ChArUco board, but the detector has no ArUco markers for coarse lock, so it is more sensitive to motion blur.
+A standard checkerboard pattern. Simpler to print than a ChArUco board, but the whole board must be visible: OpenCV's chessboard detector is all-or-nothing, so a corner cut off by the frame edge or covered by a hand loses the entire view.
 
 **Row and Column Count**: Same convention as ChArUco boards. Values are not interchangeable.
 

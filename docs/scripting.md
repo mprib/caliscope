@@ -44,6 +44,12 @@ tracker = CharucoTracker(charuco)
 A 3.0 cm square produces corners spaced 0.03 m apart in object space.
 Measure your printed board and use the actual size.
 
+For a two-sided board on a real substrate, pass the measured `thickness_cm` so back-face detections are modeled at their true depth. See [Two-Sided Boards and Thickness](calibration_targets.md#two-sided-boards-and-thickness) for mounting and coverage requirements:
+
+```python
+charuco = Charuco.from_squares(columns=4, rows=5, square_size_cm=3.0, thickness_cm=0.6)
+```
+
 ## Step 2: Build a camera array from video metadata
 
 ```python
@@ -77,7 +83,7 @@ Pass `progress=None` to suppress it.
 `print_intrinsic_report` prints these with color-coded quality badges.
 
 This whole step is optional.
-The extrinsic pipeline can recover intrinsics during bundle adjustment; see [Calibrating without intrinsics](#calibrating-without-intrinsics) below. This path is experimental.
+The extrinsic pipeline can recover intrinsics during bundle adjustment; see [Calibrating without intrinsics](#calibrating-without-intrinsics-experimental) below. This path is experimental.
 
 ## Step 4: Extract time-aligned points for extrinsic calibration
 

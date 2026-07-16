@@ -40,6 +40,7 @@ from __future__ import annotations
 import logging
 from collections.abc import Callable
 from dataclasses import dataclass
+from functools import lru_cache
 
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
@@ -59,9 +60,14 @@ from PySide6.QtWidgets import (
 )
 
 from caliscope.cameras.camera_array import CameraArray
+from caliscope.core.constraints import ConstraintSet
 from caliscope.synthetic.camera_synthesizer import IntrinsicPerturbation
 from caliscope.synthetic.explorer.presenter import ExplorerPresenter, PipelineResult
-from caliscope.synthetic.explorer.widgets import CoverageHeatmapWidget, StoryboardView
+from caliscope.synthetic.explorer.widgets import (
+    CoverageHeatmapWidget,
+    PerCameraObservationsView,
+    StoryboardView,
+)
 from caliscope.synthetic.synthetic_scene import SyntheticScene
 from caliscope.synthetic.scene_factories import (
     aruco_multi_object_scene,
@@ -71,6 +77,7 @@ from caliscope.synthetic.scene_factories import (
     machine_vision_scene,
     quick_test_scene,
     sparse_coverage_scene,
+    two_sided_charuco_scene,
     visibility_culling_scene,
     wand_scene,
 )
@@ -83,10 +90,31 @@ logger = logging.getLogger(__name__)
 class ScenePreset:
     factory: Callable[[], SyntheticScene]
     perturbation: IntrinsicPerturbation | None = None
+    constraints_factory: Callable[[], ConstraintSet] | None = None
 
 
 def _preset(factory: Callable[[], SyntheticScene]) -> ScenePreset:
     return ScenePreset(factory=factory)
+
+
+@lru_cache(maxsize=1)
+def _two_sided_charuco_bundle() -> tuple[SyntheticScene, ConstraintSet]:
+    """Build the two-sided board scene and its matching constraints together.
+
+    Both come from a single two_sided_charuco_scene() call so the board the
+    constraints compile against can never drift from the board that generated
+    the observations.
+    """
+    scene, charuco = two_sided_charuco_scene()
+    return scene, ConstraintSet.from_charuco(charuco)
+
+
+def _two_sided_charuco_scene() -> SyntheticScene:
+    return _two_sided_charuco_bundle()[0]
+
+
+def _two_sided_charuco_constraints() -> ConstraintSet:
+    return _two_sided_charuco_bundle()[1]
 
 
 SCENE_PRESETS: dict[str, ScenePreset] = {
@@ -98,6 +126,10 @@ SCENE_PRESETS: dict[str, ScenePreset] = {
     "ArUco Multi-Object (mobile + static marker)": _preset(aruco_multi_object_scene),
     "Wand Scene (2 linked + 2 static ArUcos)": _preset(wand_scene),
     "Charuco Target (double-sided board)": _preset(charuco_target_scene),
+    "Two-Sided Charuco (6mm thick board)": ScenePreset(
+        factory=_two_sided_charuco_scene,
+        constraints_factory=_two_sided_charuco_constraints,
+    ),
     "Machine Vision Lens (KITTI-class barrel)": _preset(machine_vision_scene),
     "Perturbed Intrinsics (3% focal error)": ScenePreset(
         factory=default_ring_scene,
@@ -238,9 +270,18 @@ class ExplorerTab(QWidget):
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(4)
 
-        # Storyboard (4-panel 3D view)
+        # Storyboard (4-panel 3D view) beside the per-camera 2D observations.
+        content_splitter = QSplitter(Qt.Orientation.Horizontal)
+
         self._storyboard = StoryboardView()
-        layout.addWidget(self._storyboard, stretch=1)
+        content_splitter.addWidget(self._storyboard)
+
+        self._per_camera_view = PerCameraObservationsView()
+        content_splitter.addWidget(self._per_camera_view)
+
+        content_splitter.setStretchFactor(0, 3)
+        content_splitter.setStretchFactor(1, 2)
+        layout.addWidget(content_splitter, stretch=1)
 
         # Frame slider at bottom
         slider_layout = QHBoxLayout()
@@ -281,13 +322,15 @@ class ExplorerTab(QWidget):
         preset_names = list(SCENE_PRESETS.keys())
         if 0 <= index < len(preset_names):
             preset = SCENE_PRESETS[preset_names[index]]
-            self._presenter.set_scene(preset.factory(), preset.perturbation)
+            constraints = preset.constraints_factory() if preset.constraints_factory else None
+            self._presenter.set_scene(preset.factory(), preset.perturbation, constraints)
             self._status_label.setText("Ready")
             self._status_label.setStyleSheet("color: #888; font-style: italic;")
 
     def _on_scene_changed(self, scene: SyntheticScene) -> None:
         """Handle scene rebuild from presenter."""
         self._storyboard.set_scene(scene)
+        self._per_camera_view.set_scene(scene)
 
         n_frames = scene.n_frames
         self._frame_slider.blockSignals(True)
@@ -423,6 +466,7 @@ class ExplorerTab(QWidget):
         self._frame_slider.blockSignals(False)
 
         self._storyboard.set_frame(frame)
+        self._per_camera_view.set_frame(frame)
         self._update_frame_display(frame, self._presenter.n_frames)
 
     def _update_frame_display(self, frame: int, total: int) -> None:

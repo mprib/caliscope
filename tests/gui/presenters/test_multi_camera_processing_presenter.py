@@ -12,7 +12,6 @@ from unittest.mock import MagicMock
 
 import numpy as np
 import pytest
-from PySide6.QtCore import QCoreApplication
 
 from caliscope import __root__
 from caliscope.cameras.camera_array import CameraData
@@ -25,15 +24,6 @@ from caliscope.cameras.camera_array import CameraArray
 from caliscope.task_manager.task_state import TaskState
 
 TEST_SESSION = Path(__root__) / "tests" / "sessions" / "4_cam_recording"
-
-
-@pytest.fixture
-def qapp():
-    """Ensure QCoreApplication exists for Qt signal tests."""
-    app = QCoreApplication.instance()
-    if app is None:
-        app = QCoreApplication([])
-    yield app
 
 
 @pytest.fixture

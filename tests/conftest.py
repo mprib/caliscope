@@ -91,6 +91,28 @@ def setup_app_logging():
     setup_logging()
 
 
+@pytest.fixture(scope="session")
+def qapp():
+    """Session-wide Qt application.
+
+    Always a full QApplication: QWidget construction requires one, and once a
+    QCoreApplication exists in the process it cannot be upgraded — a later
+    `QApplication.instance()` check would return the lesser app and widget
+    construction aborts the interpreter. Do not create Qt applications in
+    individual test files; request this fixture instead.
+    """
+    import os
+
+    os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+    from PySide6.QtWidgets import QApplication
+
+    app = QApplication.instance()
+    if app is None:
+        app = QApplication([])
+    assert isinstance(app, QApplication), "a bare QCoreApplication was created before the qapp fixture"
+    yield app
+
+
 @pytest.fixture
 def test_video_path() -> Path:
     """Path to a test video file for FrameSource tests."""

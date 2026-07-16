@@ -71,6 +71,13 @@ class ConstraintSet:
     static_object_ids: frozenset[int]
     centroid_distances: tuple[CentroidDistanceConstraint, ...] = ()
     point_remaps: tuple[PointRemap, ...] = ()
+    # Set by from_charuco (never by aruco/chessboard compilers): the board's
+    # substrate thickness in meters, 0.0 for a thin board. Non-None declares a
+    # closed identity universe — the extraction must contain exactly the
+    # object_ids this thickness implies ({0}, or {0, 1} when > 0) — which lets
+    # calibrate_extrinsics fail loudly when thickness changed between
+    # extraction and calibration instead of silently mis-calibrating.
+    back_face_thickness_m: float | None = None
 
     @classmethod
     def from_marker_set(
@@ -208,13 +215,14 @@ class ConstraintSet:
 
     @staticmethod
     def _truss_distance_constraints(
-        corners: np.ndarray, spacing: float, sigma_m: float
+        corners: np.ndarray, spacing: float, sigma_m: float, object_id: int = 0
     ) -> tuple[DistanceConstraint, ...]:
         """Local-truss + extreme-corner-brace distance constraints for a grid.
 
         corners is (N, 3) in meters; spacing is the grid pitch in meters.
-        object_id is 0 for every corner (matching the Charuco/Chessboard tracker
-        identity scheme: object_id=0, keypoint_id=corner index).
+        object_id defaults to 0 (matching the Charuco/Chessboard tracker
+        identity scheme: object_id=0, keypoint_id=corner index); the back face
+        of a thick two-sided board passes object_id=1.
 
         Corners are located on the grid by rounding each coordinate to the
         nearest multiple of spacing, so the layout is recovered from geometry
@@ -284,9 +292,9 @@ class ConstraintSet:
 
         return tuple(
             DistanceConstraint(
-                object_id_a=0,
+                object_id_a=object_id,
                 keypoint_id_a=a,
-                object_id_b=0,
+                object_id_b=object_id,
                 keypoint_id_b=b,
                 distance=float(np.linalg.norm(corners[a] - corners[b])),
                 sigma=sigma_m,
@@ -294,15 +302,72 @@ class ConstraintSet:
             for a, b in edges
         )
 
+    @staticmethod
+    def _cross_face_constraints(
+        corners: np.ndarray, spacing: float, thickness_m: float, sigma_m: float
+    ) -> tuple[DistanceConstraint, ...]:
+        """Ties and braces rigidly relating the two faces of a thick board.
+
+        Per-corner ties (front N <-> back N at distance t) pin only the
+        magnitude of the inter-face offset: with the back face rigid, any
+        lateral offset d with |d| = t satisfies every tie exactly — a
+        continuous 2-DoF shear null space. The right-neighbor brace
+        (front N <-> back right neighbor at sqrt(s^2 + t^2)) zeroes the
+        offset's x-component and the down-neighbor brace its y-component,
+        leaving only the offset along the board normal. This is the
+        cross-face analog of the in-face fold braces above. Corners are
+        located on the grid by the same spacing-rounding as the truss.
+        """
+        x_keys = np.round(corners[:, 0] / spacing).astype(np.int64)
+        y_keys = np.round(corners[:, 1] / spacing).astype(np.int64)
+        coord_to_idx = {(int(xk), int(yk)): idx for idx, (xk, yk) in enumerate(zip(x_keys, y_keys))}
+
+        brace_length = float(np.hypot(spacing, thickness_m))
+        rows: list[DistanceConstraint] = []
+        for idx, (x_key, y_key) in enumerate(zip(x_keys, y_keys)):
+            rows.append(
+                DistanceConstraint(
+                    object_id_a=0,
+                    keypoint_id_a=idx,
+                    object_id_b=1,
+                    keypoint_id_b=idx,
+                    distance=thickness_m,
+                    sigma=sigma_m,
+                )
+            )
+            right = coord_to_idx.get((int(x_key) + 1, int(y_key)))
+            down = coord_to_idx.get((int(x_key), int(y_key) + 1))
+            for neighbor in (right, down):
+                if neighbor is not None:
+                    rows.append(
+                        DistanceConstraint(
+                            object_id_a=0,
+                            keypoint_id_a=idx,
+                            object_id_b=1,
+                            keypoint_id_b=neighbor,
+                            distance=brace_length,
+                            sigma=sigma_m,
+                        )
+                    )
+        return tuple(rows)
+
     @classmethod
-    def from_charuco(cls, charuco: Charuco, sigma_m: float = 0.002) -> ConstraintSet:
+    def from_charuco(cls, charuco: Charuco, sigma_m: float = 0.002, thickness_sigma_m: float = 0.0005) -> ConstraintSet:
         """Compile board-geometry distance constraints for BA.
 
-        object_id is 0 for every corner, matching CharucoTracker's identity
-        scheme (object_id=0, keypoint_id=chessboard corner index).
-        static_object_ids is empty — the board moves. Produces only
-        DistanceConstraints, never centroids (a charuco board has no separate
-        markers to link by centroid).
+        Front-face corners are object_id 0, matching CharucoTracker's identity
+        scheme (keypoint_id = chessboard corner index). When the board has
+        substrate thickness (two-sided board on foam core etc.), the back face
+        is object_id 1 and three more constraint groups are emitted: the back
+        face's own truss, per-corner cross-face ties at the thickness, and
+        right/down cross-face braces that kill the tie-only shear null space
+        (see _cross_face_constraints).
+
+        thickness_sigma_m is deliberately tighter than sigma_m: the thickness
+        is a single caliper measurement, not a print-scale estimate, and the
+        cross-face rows are the sole rigid link between the front- and
+        back-viewing camera groups. static_object_ids is empty — the board
+        moves. Never produces centroids (no separate markers to link).
 
         Corner ids come from `charuco.board.getChessboardCorners()`, the same
         (N, 3) array CharucoTracker indexes by `keypoint_id`. Truss density and
@@ -311,7 +376,17 @@ class ConstraintSet:
         corners = np.asarray(charuco.board.getChessboardCorners())
         square_length = float(charuco.board.getSquareLength())
         constraints = cls._truss_distance_constraints(corners, square_length, sigma_m)
-        return cls(distances=constraints, static_object_ids=frozenset(), centroid_distances=())
+        if charuco.thickness_m > 0:
+            back_truss = cls._truss_distance_constraints(corners, square_length, sigma_m, object_id=1)
+            assert all(d.object_id_a == 1 and d.object_id_b == 1 for d in back_truss)
+            cross_face = cls._cross_face_constraints(corners, square_length, charuco.thickness_m, thickness_sigma_m)
+            constraints = constraints + back_truss + cross_face
+        return cls(
+            distances=constraints,
+            static_object_ids=frozenset(),
+            centroid_distances=(),
+            back_face_thickness_m=charuco.thickness_m,
+        )
 
     @classmethod
     def from_chessboard(cls, chessboard: Chessboard, sigma_m: float = 0.002) -> ConstraintSet:
@@ -376,6 +451,8 @@ class ConstraintSet:
                 }
                 for r in self.point_remaps
             ]
+        if self.back_face_thickness_m is not None:
+            data["back_face_thickness_m"] = self.back_face_thickness_m
         _safe_write_toml(data, path)
 
     @classmethod
@@ -424,6 +501,7 @@ class ConstraintSet:
                 static_object_ids=static_ids,
                 centroid_distances=centroid_distances,
                 point_remaps=point_remaps,
+                back_face_thickness_m=data.get("back_face_thickness_m"),
             )
         except PersistenceError:
             raise

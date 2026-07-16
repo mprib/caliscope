@@ -74,6 +74,9 @@ class CharucoConfigPanel(QWidget):
             "aruco_scale": charuco.aruco_scale,
             "square_size_override_cm": charuco.square_size_override_cm,
             "legacy_pattern": charuco.legacy_pattern,
+            # Deliberately not a widget: thickness is TOML/API-configured.
+            # Riding the cache keeps a GUI edit from silently zeroing it.
+            "thickness_cm": charuco.thickness_cm,
         }
 
     def _setup_ui(self) -> None:
@@ -205,6 +208,7 @@ class CharucoConfigPanel(QWidget):
             square_size_override_cm=round(self._square_size_spin.value(), 2),
             inverted=self._invert_checkbox.isChecked(),
             legacy_pattern=self._charuco_params["legacy_pattern"],
+            thickness_cm=self._charuco_params["thickness_cm"],
         )
 
     def set_square_size(self, cm: float) -> None:

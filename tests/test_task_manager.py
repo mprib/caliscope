@@ -1,12 +1,11 @@
 """Tests for TaskManager.
 
 Uses mock workers to test lifecycle without real operations.
-Requires Qt (PySide6) but no xvfb - uses QCoreApplication only.
+Qt signals need an application; the shared session `qapp` provides it.
 """
 
 import time
 
-import pytest
 from PySide6.QtCore import QCoreApplication
 
 from caliscope.task_manager import (
@@ -14,15 +13,6 @@ from caliscope.task_manager import (
     TaskManager,
     TaskState,
 )
-
-
-@pytest.fixture(scope="module")
-def qapp():
-    """Create QCoreApplication for signal/slot system."""
-    app = QCoreApplication.instance()
-    if app is None:
-        app = QCoreApplication([])
-    yield app
 
 
 def _wait_for_condition(condition_fn, timeout: float, qapp):

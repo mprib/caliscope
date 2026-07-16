@@ -11,7 +11,6 @@ from pathlib import Path
 from unittest.mock import MagicMock
 
 import pytest
-from PySide6.QtCore import QCoreApplication
 
 from caliscope import __root__
 from caliscope.gui.presenters.reconstruction_presenter import (
@@ -29,15 +28,6 @@ _CHARUCO_SESSION = Path(__root__) / "tests" / "sessions" / "post_optimization"
 
 # Tracker key used throughout this test module
 _TEST_TRACKER = "CHARUCO"
-
-
-@pytest.fixture
-def qapp():
-    """Ensure QCoreApplication exists for Qt signal tests."""
-    app = QCoreApplication.instance()
-    if app is None:
-        app = QCoreApplication([])
-    yield app
 
 
 @pytest.fixture

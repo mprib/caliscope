@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import pytest
-from PySide6.QtCore import QCoreApplication, QEventLoop, QTimer
+from PySide6.QtCore import QEventLoop, QTimer
 
 from caliscope.synthetic.explorer.presenter import (
     ExplorerPresenter,
@@ -13,15 +13,6 @@ from caliscope.synthetic.scene_factories import quick_test_scene
 from caliscope.synthetic.synthetic_scene import SyntheticScene
 from caliscope.synthetic import CalibrationObject, CameraSynthesizer, Trajectory
 from caliscope.task_manager.task_manager import TaskManager
-
-
-@pytest.fixture
-def qapp():
-    """Ensure QCoreApplication exists for Qt signal tests."""
-    app = QCoreApplication.instance()
-    if app is None:
-        app = QCoreApplication([])
-    yield app
 
 
 @pytest.fixture

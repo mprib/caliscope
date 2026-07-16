@@ -8,8 +8,7 @@ It contains raw input data only: intrinsic calibration videos, extrinsic calibra
 You configure calibration targets and run the pipeline yourself.
 
 The intrinsic calibration videos use a chessboard rather than a charuco board.
-A charuco board's embedded ArUco markers give the detector a coarse position lock before subpixel corner refinement, which makes it more robust to motion blur and partial occlusion.
-The sample's ~1 px reprojection error may partly reflect this.
+A chessboard only yields points when the whole board is visible, so it gives up frames a charuco board would keep.
 The extrinsic calibration uses a charuco board.
 
 For a scripting-based alternative to the GUI walkthrough, see `scripts/demo_api.py` which runs the same calibration pipeline programmatically.

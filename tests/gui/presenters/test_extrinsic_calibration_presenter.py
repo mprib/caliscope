@@ -9,22 +9,10 @@ labeling is driven by the target type the coordinator hands the presenter.
 from pathlib import Path
 from unittest.mock import MagicMock
 
-import pytest
-from PySide6.QtCore import QCoreApplication
-
 from caliscope.cameras.camera_array import CameraArray
 from caliscope.gui.presenters.extrinsic_calibration_presenter import (
     ExtrinsicCalibrationPresenter,
 )
-
-
-@pytest.fixture
-def qapp():
-    """Ensure QCoreApplication exists for Qt signal tests."""
-    app = QCoreApplication.instance()
-    if app is None:
-        app = QCoreApplication([])
-    yield app
 
 
 def _make_presenter(extrinsic_target_type=None) -> ExtrinsicCalibrationPresenter:

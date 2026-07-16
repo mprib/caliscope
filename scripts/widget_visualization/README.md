@@ -458,14 +458,21 @@ legend.setStyleSheet("color: #888; font-size: 11px;")
 - **Use process_events_for()** before every capture
 - **Scripts are disposable** — don't precious them
 
-## PyVista/VTK Notes
+## Qt3D Notes
 
-Software rendering may produce black 3D views (VTK limitation). Qt controls still render correctly.
+Under software rendering (notably `xvfb-run`), Qt3D views are observed to grab
+black while the Qt controls around them capture correctly. The cause has not
+been established — treat it as a known limit of headless capture, not a
+diagnosed bug. To check 3D scene content, run on a real display instead.
+
+Pure-QPainter widgets (e.g. `PerCameraObservationsView`) capture correctly
+headless, which is why they carry the load in automated screenshot checks.
 
 **Can verify in software mode:**
 - Widget embeds properly
 - Controls render and respond
 - Icon loading works
+- QPainter-drawn 2D content
 
 **Cannot verify reliably:**
 - 3D scene content

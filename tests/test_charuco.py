@@ -11,6 +11,7 @@ layer is thin display glue and is left untested by design.
 from pathlib import Path
 
 import pytest
+import rtoml
 
 from caliscope.core.charuco import (
     Charuco,
@@ -132,6 +133,36 @@ def test_from_toml_corrects_hand_edited_undersized_dictionary(tmp_path: Path):
     assert charuco.dictionary == "DICT_4X4_250"
     # And the loaded board renders at the preview scale without crashing.
     assert charuco.board_img(pixmap_scale=200).size > 0
+
+
+# -- Two-sided board thickness (issue #999) -----------------------------------
+
+
+def test_thickness_round_trips_through_toml(tmp_path: Path):
+    path = tmp_path / "charuco.toml"
+    board = Charuco.from_squares(columns=4, rows=5, square_size_cm=5.0, thickness_cm=0.6)
+    board.to_toml(path)
+
+    reloaded = Charuco.from_toml(path)
+    assert reloaded.thickness_cm == 0.6
+    assert reloaded.thickness_m == pytest.approx(0.006)
+
+
+def test_thickness_missing_from_toml_defaults_to_zero(tmp_path: Path):
+    """Pre-thickness TOMLs load unchanged as zero-thickness boards."""
+    path = tmp_path / "charuco.toml"
+    Charuco.from_squares(columns=4, rows=5, square_size_cm=5.0).to_toml(path)
+    data = rtoml.load(path)
+    del data["thickness_cm"]
+    rtoml.dump(data, path)
+
+    reloaded = Charuco.from_toml(path)
+    assert reloaded.thickness_cm == 0.0
+
+
+def test_negative_thickness_rejected():
+    with pytest.raises(ValueError, match="thickness_cm"):
+        Charuco.from_squares(columns=4, rows=5, square_size_cm=5.0, thickness_cm=-0.5)
 
 
 if __name__ == "__main__":

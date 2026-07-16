@@ -103,6 +103,14 @@ def calibrate_extrinsics(
             float(cam.distortions[1]),
         )
 
+    # Two-sided charuco identity guard: the id scheme was frozen into the
+    # extraction CSV, but constraints compile fresh from config — a thickness
+    # change between the two silently drops every cross-face row (the join
+    # just loses them) while the observations fuse or float as if the old
+    # value still held. Calibration would report success and be wrong.
+    if constraints is not None and constraints.back_face_thickness_m is not None:
+        _validate_two_sided_extraction(image_points, constraints.back_face_thickness_m)
+
     # Apply zero-thickness MirrorPair remaps before any bootstrap or PnP call, so
     # every downstream stage (bootstrap, static guard re-bootstrap, optimize,
     # filter, persisted capture_volume/image_points.csv) sees remapped data. A
@@ -115,6 +123,24 @@ def calibrate_extrinsics(
     # 3. Bootstrap
     _progress(15, "Bootstrapping poses")
     capture_volume = CaptureVolume.bootstrap(image_points, cameras, constraints=constraints)
+
+    # Cross-face linkage diagnostic for a thick two-sided board: ties and
+    # braces fire only at sync indices where BOTH faces were triangulated
+    # (>= 2 cameras on each, simultaneously). A session that shows one face
+    # at a time produces zero inter-group linkage — the opposing camera
+    # groups would calibrate on gauge freedom, so refuse to continue.
+    if constraints is not None and (constraints.back_face_thickness_m or 0) > 0:
+        firing = _count_firing_cross_face_rows(capture_volume.world_points.df, constraints.distances)
+        total = sum(1 for d in constraints.distances if d.object_id_a != d.object_id_b)
+        logger.info(f"Cross-face constraints firing: {firing}/{total} rows across all sync indices")
+        if firing == 0:
+            raise CalibrationError(
+                "No cross-face constraint fires: no sync index has both the front and the "
+                "mirrored face triangulated (each face needs >= 2 cameras simultaneously). "
+                "The front-viewing and back-viewing camera groups have no rigid link, so "
+                "calibration would be arbitrary. Capture footage where the board is seen "
+                "from both sides at the same instants."
+            )
 
     _check_cancelled()
 
@@ -296,3 +322,69 @@ def _max_intra_distance_mm(constraints: ConstraintSet, object_id: int) -> float:
         if dc.object_id_a == object_id and dc.object_id_b == object_id:
             max_d = max(max_d, dc.distance)
     return max_d * 1000.0
+
+
+def _validate_two_sided_extraction(image_points: ImagePoints, thickness_m: float) -> None:
+    """Assert the extraction's identity scheme matches the configured thickness.
+
+    A charuco extraction emits object_id 1 (back face, obj_loc z=+thickness)
+    iff thickness > 0 at extraction time. Constraints compile fresh from
+    config at calibration time, so any drift between the two shows up here as
+    an object-universe or z-value mismatch. Raises CalibrationError with the
+    remedy; silent proceed is ruled out (a mismatch mis-calibrates while
+    reporting success).
+    """
+    observed = {int(o) for o in image_points.df["object_id"].unique()}
+    expected = {0, 1} if thickness_m > 0 else {0}
+    if observed != expected:
+        if thickness_m > 0 and 1 not in observed:
+            detail = (
+                "board thickness is set but the extraction has no back-face observations "
+                "(object_id 1). Either the extraction predates the thickness setting "
+                "(re-extract), or no camera ever saw the mirrored face (a two-sided "
+                "calibration needs both faces in view; if only one face was filmed, "
+                "set thickness to 0)."
+            )
+        elif thickness_m == 0 and 1 in observed:
+            detail = (
+                "the extraction contains back-face observations (object_id 1) but board "
+                "thickness is 0. Re-extract, or restore the thickness the extraction "
+                "was made with."
+            )
+        else:
+            detail = "re-extract with the current board configuration."
+        raise CalibrationError(
+            f"Extraction/config identity mismatch: observed object_ids {sorted(observed)}, "
+            f"configured thickness implies {sorted(expected)} — {detail}"
+        )
+
+    if thickness_m > 0:
+        back_z = image_points.df.loc[image_points.df["object_id"] == 1, "obj_loc_z"]
+        extracted_t = float(back_z.iloc[0])
+        if abs(extracted_t - thickness_m) > 1e-9:
+            raise CalibrationError(
+                f"Board thickness changed since extraction: extraction carries back-face "
+                f"obj_loc z={extracted_t * 100:.2f}cm but configured thickness is "
+                f"{thickness_m * 100:.2f}cm. Re-extract, or restore the original thickness."
+            )
+
+
+def _count_firing_cross_face_rows(world_df, distances: tuple) -> int:
+    """Count cross-object constraint rows with at least one firing sync index.
+
+    A row fires at sync_index s when both endpoints have a triangulated world
+    point at s — the same join build_constraint_arrays performs.
+    """
+    lookup: dict[tuple[int, int], set[int]] = {}
+    for si, oid, kid in zip(world_df["sync_index"], world_df["object_id"], world_df["keypoint_id"]):
+        lookup.setdefault((int(oid), int(kid)), set()).add(int(si))
+
+    firing = 0
+    for d in distances:
+        if d.object_id_a == d.object_id_b:
+            continue
+        syncs_a = lookup.get((d.object_id_a, d.keypoint_id_a), set())
+        syncs_b = lookup.get((d.object_id_b, d.keypoint_id_b), set())
+        if syncs_a & syncs_b:
+            firing += 1
+    return firing

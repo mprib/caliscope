@@ -8,7 +8,7 @@ Intrinsic calibration determines the internal optical properties of each camera:
 Caliscope supports both **ChArUco** and **chessboard** patterns for intrinsic calibration. ChArUco boards tolerate partial occlusion and provide unique corner identification, so they tend to produce better results. See [Calibration Targets](calibration_targets.md) for details on creating your calibration board.
 
 Physical board size does not affect intrinsic results.
-See [Calibration Targets](calibration_targets.md#intrinsic-calibration-size-independent) for why.
+See [Calibration Targets](calibration_targets.md#physical-size-and-world-scale) for why.
 
 ## Processing Steps
 

@@ -180,7 +180,7 @@ class MainWindow(QMainWindow):
         # Subscribe to status_changed for dynamic tab enablement
         self.coordinator.status_changed.connect(self._refresh_tab_enablement)
 
-        # Track current tab for VTK suspend/resume (QTabWidget doesn't fire hideEvent)
+        # Track current tab for Qt3D suspend/resume (QTabWidget doesn't fire hideEvent)
         self._previous_tab_index: int = 0
         self.central_tab.currentChanged.connect(self._on_tab_changed)
 

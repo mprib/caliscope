@@ -573,7 +573,7 @@ class ExtrinsicCalibrationPresenter(QObject):
 
         Note: This only updates the presenter's internal tracking of the current
         sync index. It does NOT emit view_model_updated - the view should directly
-        update the PyVista widget for efficient frame-by-frame rendering.
+        update the Qt3D widget for efficient frame-by-frame rendering.
 
         Args:
             index: Sync index to display

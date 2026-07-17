@@ -390,7 +390,14 @@ class CameraArray:
         return not self.unposed_cameras
 
     def all_intrinsics_calibrated(self) -> bool:
-        """Checks if ALL cameras in the array have intrinsic data."""
+        """Checks if ALL cameras in the array have intrinsic data.
+
+        An empty array is not calibrated — `all()` over no cameras is vacuously
+        True, which would report a zero-camera project as COMPLETE. Guard the
+        empty case explicitly, matching `all_cameras_have_resolution`.
+        """
+        if not self.cameras:
+            return False
         return all(cam.matrix is not None and cam.distortions is not None for cam in self.cameras.values())
 
     def all_cameras_have_resolution(self) -> bool:

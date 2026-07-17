@@ -223,7 +223,10 @@ class WorkspaceCoordinator(QObject):
             TaskHandle for connecting completion callbacks.
         """
 
-        def worker(_token, _handle):
+        def worker(token, _handle):
+            if token.is_cancelled:
+                return
+
             # Load camera array if any calibration videos exist
             has_intrinsic = self.workspace_guide.all_instrinsic_mp4s_available()
             has_extrinsic = self.workspace_guide.all_extrinsic_mp4s_available()
@@ -232,6 +235,9 @@ class WorkspaceCoordinator(QObject):
                 self.load_camera_array()
             else:
                 logger.info("Skipping camera array load (no calibration videos)")
+
+            if token.is_cancelled:
+                return
 
             # Overlay bundle-authoritative camera state if a bundle exists
             if self.capture_volume_repository.camera_array_path.exists():
@@ -242,6 +248,9 @@ class WorkspaceCoordinator(QObject):
                             self.camera_array.cameras[cam_id] = bundle_cam
                     logger.info("Overlaid bundle-authoritative camera state")
 
+            if token.is_cancelled:
+                return
+
             if self.capture_volume_tab_enabled:
                 logger.info("Extrinsic calibration available (loaded via capture_volume property)")
             else:
@@ -249,8 +258,10 @@ class WorkspaceCoordinator(QObject):
 
         handle = self.task_manager.submit(worker, name="load_workspace", auto_start=False)
         handle.completed.connect(lambda _: self.status_changed.emit())
-        self.task_manager.start_task(handle.task_id)
         return handle
+
+    def start_load(self, handle: TaskHandle) -> None:
+        self.task_manager.start_task(handle.task_id)
 
     def all_instrinsic_mp4s_available(self) -> bool:
         """Check if all intrinsic calibration videos are present."""

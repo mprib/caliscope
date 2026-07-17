@@ -17,28 +17,19 @@ DOCS_URL = "https://mprib.github.io/caliscope/extrinsic_calibration/#skipping-in
 _PLACEHOLDER_HTML = f"""
 <h3>No intrinsic calibration videos</h3>
 
-<p>This tab calibrates each camera's intrinsics (focal length, distortion) from
-per-camera videos in <code>calibration/intrinsic/</code>, and this project does not
-have one for every camera in the extrinsic set.</p>
-
-<p><b>That can be intentional.</b> Extrinsic calibration can recover focal length
-and distortion jointly with the camera poses — optional, if you capture for it:</p>
+<p>This tab calibrates each camera's lens (focal length, distortion) from videos in
+<code>calibration/intrinsic/</code>. This project has none — and that can be fine.
+Extrinsic calibration can recover lens parameters on its own if the capture supports it:</p>
 
 <ul>
-<li><b>Sweep the target through depth.</b> Move it toward and away from the
-cameras, not just across their views. Without depth variation, focal length
-cannot be recovered and the calibration falls back to a rough guess.</li>
-<li><b>Measure marker sizes accurately.</b> Marker size supplies both world scale
-and the rigid geometry that holds the solve together. Static anchor markers
-strengthen it further.</li>
-<li><b>Use markers large enough</b> to detect reliably across the volume.</li>
-<li><b>No fisheye cameras.</b> Fisheye lenses require intrinsic calibration here
-first; an extrinsic-only calibration fails for them outright.</li>
+<li>Move the target toward and away from the cameras, not just across the view.</li>
+<li>Measure marker sizes accurately — they set the world scale.</li>
+<li>No fisheye lenses. Those need intrinsic calibration first.</li>
 </ul>
 
-<p>If that matches your capture, continue on the <b>Calibrate</b> tab.
-To calibrate intrinsics here instead, add per-camera videos as
-<code>calibration/intrinsic/cam_N.mp4</code> and this tab will activate.</p>
+<p>If that matches your capture, continue on the <b>Calibrate</b> tab. To calibrate
+intrinsics here instead, add <code>calibration/intrinsic/cam_N.mp4</code> videos and
+this tab will activate.</p>
 
 <p><a href="{DOCS_URL}">Skipping intrinsic calibration — documentation</a></p>
 """

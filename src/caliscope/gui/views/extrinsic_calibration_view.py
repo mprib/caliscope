@@ -463,11 +463,18 @@ class ExtrinsicCalibrationView(QWidget):
 
         if is_running:
             self._action_btn.setText("Cancel")
+            self._action_btn.setEnabled(True)
+            self._action_btn.setToolTip("")
         elif has_capture_volume:
             self._action_btn.setText("Recalibrate")
+            self._action_btn.setEnabled(True)
+            self._action_btn.setToolTip("")
         else:
             self._action_btn.setText("Calibrate")
-        self._action_btn.setEnabled(True)
+            # Nothing to calibrate until extraction has produced image_points.csv.
+            has_data = self._presenter.has_extraction_data
+            self._action_btn.setEnabled(has_data)
+            self._action_btn.setToolTip("" if has_data else "Run extraction on the Multi-Camera tab first")
 
         self._progress_bar.setVisible(is_running)
         self._progress_label.setVisible(is_running)
@@ -563,7 +570,9 @@ class ExtrinsicCalibrationView(QWidget):
 
     def _on_rotate_clicked(self, axis: str, degrees: float) -> None:
         """Handle rotation button click."""
+        self._show_status(f"Rotating {axis} axis…")
         self._presenter.rotate(axis, degrees)
+        self._show_status("Ready", timeout_ms=3000)
 
     def _on_set_origin_clicked(self) -> None:
         """Handle set origin button click."""
@@ -571,14 +580,30 @@ class ExtrinsicCalibrationView(QWidget):
         if opt is None:
             return
 
-        if opt.is_static:
-            self._presenter.align_to_origin(opt.object_id, None)
+        # A frame-based origin needs a frame; with no valid sync indices there is
+        # nothing to align to, so avoid flashing a "Setting origin…" status for a no-op.
+        if not opt.is_static and len(self._valid_sync_indices) == 0:
             return
 
-        if len(self._valid_sync_indices) == 0:
-            return
-        actual_sync_index = int(self._valid_sync_indices[self._frame_slider.value()])
-        self._presenter.align_to_origin(opt.object_id, actual_sync_index)
+        self._show_status("Setting origin…")
+
+        if opt.is_static:
+            self._presenter.align_to_origin(opt.object_id, None)
+        else:
+            actual_sync_index = int(self._valid_sync_indices[self._frame_slider.value()])
+            self._presenter.align_to_origin(opt.object_id, actual_sync_index)
+
+        self._show_status("Ready", timeout_ms=3000)
+
+    def _show_status(self, message: str, timeout_ms: int = 0) -> None:
+        from PySide6.QtWidgets import QApplication, QMainWindow
+
+        window = self.window()
+        if isinstance(window, QMainWindow):
+            window.statusBar().showMessage(message, timeout_ms)
+            app = QApplication.instance()
+            if app is not None:
+                app.processEvents()
 
     def _populate_origin_combo(self) -> None:
         """Populate the origin combo from the presenter, preselecting the persisted origin."""
@@ -642,6 +667,11 @@ class ExtrinsicCalibrationView(QWidget):
         """Handle progress update from presenter."""
         self._progress_bar.setValue(percent)
         self._progress_label.setText(message)
+        # Paint now: the presenter blocks the main thread right after emitting
+        # "Preparing visualization…" (quality panel, view model, Qt3D rebuild),
+        # so a queued paint event would never run until the freeze ends.
+        self._progress_bar.repaint()
+        self._progress_label.repaint()
 
     def _on_quality_updated(self, data: CalibrationQualityData) -> None:
         """Handle quality data update from presenter."""

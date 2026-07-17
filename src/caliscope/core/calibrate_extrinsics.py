@@ -249,8 +249,9 @@ def calibrate_extrinsics(
     _progress(90, "Re-optimizing")
     capture_volume = capture_volume.optimize(refine_intrinsics=effective_refine)
 
-    # 9. Assemble result
-    _progress(100, "Done")
+    # 9. Assemble result. Not "Done": the GUI still builds the quality panel
+    # and 3D visualization after this returns.
+    _progress(100, "Optimization complete")
     return _build_run(
         capture_volume=capture_volume,
         anchors=anchors,

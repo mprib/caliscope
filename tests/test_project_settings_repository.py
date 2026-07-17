@@ -3,20 +3,23 @@ from pathlib import Path
 from caliscope.repositories.project_settings_repository import ProjectSettingsRepository
 
 
-def test_refine_intrinsics_defaults_true(tmp_path: Path) -> None:
+def test_refine_intrinsics_defaults_false(tmp_path: Path) -> None:
+    # Intrinsic refinement during extrinsic calibration is the more experimental
+    # path — opt-in, not opt-out.
     repo = ProjectSettingsRepository(tmp_path / "project_settings.toml")
-    assert repo.get_refine_intrinsics() is True
+    assert repo.get_refine_intrinsics() is False
 
 
 def test_refine_intrinsics_persists(tmp_path: Path) -> None:
     settings_path = tmp_path / "project_settings.toml"
     repo = ProjectSettingsRepository(settings_path)
 
-    repo.set_refine_intrinsics(False)
-    assert repo.get_refine_intrinsics() is False
+    # Persist the non-default value so this test can't pass on the default alone.
+    repo.set_refine_intrinsics(True)
+    assert repo.get_refine_intrinsics() is True
 
     reloaded = ProjectSettingsRepository(settings_path)
-    assert reloaded.get_refine_intrinsics() is False
+    assert reloaded.get_refine_intrinsics() is True
 
 
 def test_origin_object_id_defaults_none(tmp_path: Path) -> None:

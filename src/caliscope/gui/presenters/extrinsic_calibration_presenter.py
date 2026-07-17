@@ -230,7 +230,9 @@ class ExtrinsicCalibrationPresenter(QObject):
         # Processing state (managed internally)
         self._capture_volume: CaptureVolume | None = existing_capture_volume
         self._calibration_run: CalibrationRun | None = None
-        self._refine_intrinsics: bool = True
+        # Seed from the settings repository (the single source of the default)
+        # rather than a hardcoded literal, so the two can't diverge.
+        self._refine_intrinsics: bool = self.refine_intrinsics
         self._task_handle: TaskHandle | None = None
         self._filter_summary: str | None = None
         self._latest_scale_report: VolumetricScaleReport | None = None
@@ -290,6 +292,15 @@ class ExtrinsicCalibrationPresenter(QObject):
     def current_sync_index(self) -> int:
         """Current frame index for 3D visualization."""
         return self._current_sync_index
+
+    @property
+    def has_extraction_data(self) -> bool:
+        """Whether extraction output (image_points.csv) has been loaded.
+
+        Calibration cannot run without it; the view uses this to gate the
+        Calibrate button. Computed from internal reality, never cached.
+        """
+        return self._initial_image_points is not None
 
     @property
     def intrinsics_available(self) -> bool:
@@ -665,7 +676,6 @@ class ExtrinsicCalibrationPresenter(QObject):
     def _on_calibration_completed(self, run: CalibrationRun) -> None:
         """Handle successful full calibration completion."""
         capture_volume = run.capture_volume
-        logger.info(f"Calibration complete. RMSE: {capture_volume.reprojection_report.overall_rmse:.3f}px")
 
         self._calibration_run = run
         self._capture_volume = capture_volume
@@ -675,7 +685,13 @@ class ExtrinsicCalibrationPresenter(QObject):
         if len(sync_indices) > 0:
             self._current_sync_index = int(sync_indices[0])
 
-        self._emit_state_changed()
+        # Everything below blocks the main thread (reprojection report, scale
+        # accuracy, view model, Qt3D rebuild) — tell the user before it does.
+        # The state change comes last so the progress row stays visible until
+        # the visualization is actually served.
+        self.progress_updated.emit(100, "Preparing visualization…")
+        logger.info(f"Calibration complete. RMSE: {capture_volume.reprojection_report.overall_rmse:.3f}px")
+
         self._refresh_quality_panel()
         self._refresh_coverage()
         self._refresh_view_model()
@@ -683,18 +699,21 @@ class ExtrinsicCalibrationPresenter(QObject):
         self._refresh_workflow_strip()
         self.capture_volume_changed.emit(capture_volume)
         self.calibration_run_updated.emit(run)
+        self._emit_state_changed()
 
     def _on_reoptimization_completed(self, capture_volume: CaptureVolume) -> None:
         """Handle successful filter re-optimization completion."""
-        logger.info(f"Re-optimization complete. RMSE: {capture_volume.reprojection_report.overall_rmse:.3f}px")
-
         self._capture_volume = capture_volume
         self._task_handle = None
 
         if self._calibration_run is not None:
             self._calibration_run = refresh_run(self._calibration_run, capture_volume)
 
-        self._emit_state_changed()
+        # Same ordering rationale as _on_calibration_completed: announce before
+        # the blocking refreshes, reveal the result state after them.
+        self.progress_updated.emit(100, "Preparing visualization…")
+        logger.info(f"Re-optimization complete. RMSE: {capture_volume.reprojection_report.overall_rmse:.3f}px")
+
         self._refresh_quality_panel()
         self._refresh_coverage()
         self._refresh_view_model()
@@ -704,6 +723,7 @@ class ExtrinsicCalibrationPresenter(QObject):
 
         if self._calibration_run is not None:
             self.calibration_run_updated.emit(self._calibration_run)
+        self._emit_state_changed()
 
     def _on_calibration_failed(self, exc_type: str, message: str) -> None:
         """Handle calibration failure."""
@@ -899,7 +919,7 @@ class ExtrinsicCalibrationPresenter(QObject):
             n_obs = len(self._initial_image_points.df)
             extract = (StepStatus.COMPLETE, f"{n_obs:,} observations")
         else:
-            extract = (StepStatus.NOT_STARTED, "run extraction on the Cameras tab")
+            extract = (StepStatus.NOT_STARTED, "run extraction on the Multi-Camera tab")
 
         # Calibrate step
         state = self.state
@@ -977,6 +997,35 @@ class ExtrinsicCalibrationPresenter(QObject):
         except Exception as e:
             logger.warning(f"Could not load initial image points: {e}")
             self._initial_image_points = None
+
+    def refresh_extraction_status(self) -> None:
+        """Pick up extraction output that appeared after the tab was built.
+
+        Wired to the coordinator's status_changed signal. Extraction runs on the
+        Multi-Camera tab, often after this presenter was constructed, so
+        _initial_image_points can be None at __init__ and stay that way until the
+        image_points.csv is written. On the None->loaded transition this re-emits
+        the derived state the view consumes at startup (coverage matrix, workflow
+        strip, calibration state) so the Extract step flips to complete and the
+        Calibrate button enables.
+
+        Cheap no-op when points are already loaded or a calibration task is
+        active — this fires on every status_changed, so it must not re-read the
+        CSV unconditionally. Re-extraction diffing is out of scope; only the
+        first successful load is handled here.
+        """
+        if self._initial_image_points is not None:
+            return
+        if self._is_task_active():
+            return
+
+        self._load_initial_image_points()
+        if self._initial_image_points is None:
+            return
+
+        self._refresh_initial_coverage()
+        self._emit_state_changed()
+        self._refresh_workflow_strip()
 
     def emit_initial_state(self) -> None:
         """Emit initial state for UI display after signal connections.

@@ -124,8 +124,12 @@ class ProjectSettingsRepository:
         self.save(settings)
 
     def get_refine_intrinsics(self) -> bool:
-        """Get flag for refining intrinsics during extrinsic bundle adjustment (default: True)."""
-        return bool(self._cache.get("refine_intrinsics", True))
+        """Get flag for refining intrinsics during extrinsic bundle adjustment (default: False).
+
+        Refining intrinsics during calibration is the more experimental path, so
+        it is opt-in rather than opt-out.
+        """
+        return bool(self._cache.get("refine_intrinsics", False))
 
     def set_refine_intrinsics(self, refine: bool) -> None:
         """Update refine intrinsics flag and persist immediately."""

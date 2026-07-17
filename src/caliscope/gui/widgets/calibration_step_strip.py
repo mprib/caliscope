@@ -2,7 +2,8 @@
 
 Displays Extract -> Calibrate -> Set origin as a single-line status strip.
 Purely a status display, not a wizard — only the Extract step is clickable,
-and only while it hasn't run yet.
+and only while it hasn't run yet. The Extract link points at the Multi-Camera
+tab, where extraction runs.
 """
 
 from __future__ import annotations
@@ -86,7 +87,7 @@ class CalibrationStepStrip(QWidget):
     """Compact horizontal strip: Extract -> Calibrate -> Set origin.
 
     Status display only. The Extract step becomes a clickable link to the
-    Cameras tab while extraction hasn't been run yet; the other two steps
+    Multi-Camera tab while extraction hasn't been run yet; the other two steps
     are never clickable.
     """
 
@@ -105,7 +106,7 @@ class CalibrationStepStrip(QWidget):
         layout.setSpacing(6)
 
         self._extract_cell = _StepCell("Extract")
-        self._extract_cell.link_clicked.connect(lambda: self.navigation_requested.emit("Cameras"))
+        self._extract_cell.link_clicked.connect(lambda: self.navigation_requested.emit("Multi-Camera"))
         layout.addWidget(self._extract_cell, stretch=1)
 
         layout.addWidget(self._make_separator())

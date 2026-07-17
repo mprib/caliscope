@@ -68,6 +68,12 @@ class ExtrinsicCalibrationTab(QWidget):
         if self._presenter is None:
             return
 
+        # Extraction runs on the Multi-Camera tab, possibly after this tab was
+        # built. status_changed fires after image_points.csv is written (and on
+        # watched filesystem changes); the presenter re-checks for extraction
+        # output so the workflow strip and Calibrate button catch up.
+        self._coordinator.status_changed.connect(self._presenter.refresh_extraction_status)
+
     # -------------------------------------------------------------------------
     # Rendering Lifecycle
     # -------------------------------------------------------------------------
@@ -97,6 +103,12 @@ class ExtrinsicCalibrationTab(QWidget):
             self._view = None
 
         if self._presenter is not None:
+            # The coordinator outlives this tab, so drop the status_changed
+            # connection before discarding the presenter to avoid firing into it.
+            try:
+                self._coordinator.status_changed.disconnect(self._presenter.refresh_extraction_status)
+            except (RuntimeError, TypeError):
+                pass
             logger.info("Cleaning up extrinsic calibration presenter")
             self._presenter.cleanup()
             self._presenter = None

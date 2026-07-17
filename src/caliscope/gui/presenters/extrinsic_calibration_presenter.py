@@ -230,7 +230,9 @@ class ExtrinsicCalibrationPresenter(QObject):
         # Processing state (managed internally)
         self._capture_volume: CaptureVolume | None = existing_capture_volume
         self._calibration_run: CalibrationRun | None = None
-        self._refine_intrinsics: bool = True
+        # Seed from the settings repository (the single source of the default)
+        # rather than a hardcoded literal, so the two can't diverge.
+        self._refine_intrinsics: bool = self.refine_intrinsics
         self._task_handle: TaskHandle | None = None
         self._filter_summary: str | None = None
         self._latest_scale_report: VolumetricScaleReport | None = None
@@ -290,6 +292,15 @@ class ExtrinsicCalibrationPresenter(QObject):
     def current_sync_index(self) -> int:
         """Current frame index for 3D visualization."""
         return self._current_sync_index
+
+    @property
+    def has_extraction_data(self) -> bool:
+        """Whether extraction output (image_points.csv) has been loaded.
+
+        Calibration cannot run without it; the view uses this to gate the
+        Calibrate button. Computed from internal reality, never cached.
+        """
+        return self._initial_image_points is not None
 
     @property
     def intrinsics_available(self) -> bool:
@@ -899,7 +910,7 @@ class ExtrinsicCalibrationPresenter(QObject):
             n_obs = len(self._initial_image_points.df)
             extract = (StepStatus.COMPLETE, f"{n_obs:,} observations")
         else:
-            extract = (StepStatus.NOT_STARTED, "run extraction on the Cameras tab")
+            extract = (StepStatus.NOT_STARTED, "run extraction on the Multi-Camera tab")
 
         # Calibrate step
         state = self.state
@@ -977,6 +988,35 @@ class ExtrinsicCalibrationPresenter(QObject):
         except Exception as e:
             logger.warning(f"Could not load initial image points: {e}")
             self._initial_image_points = None
+
+    def refresh_extraction_status(self) -> None:
+        """Pick up extraction output that appeared after the tab was built.
+
+        Wired to the coordinator's status_changed signal. Extraction runs on the
+        Multi-Camera tab, often after this presenter was constructed, so
+        _initial_image_points can be None at __init__ and stay that way until the
+        image_points.csv is written. On the None->loaded transition this re-emits
+        the derived state the view consumes at startup (coverage matrix, workflow
+        strip, calibration state) so the Extract step flips to complete and the
+        Calibrate button enables.
+
+        Cheap no-op when points are already loaded or a calibration task is
+        active — this fires on every status_changed, so it must not re-read the
+        CSV unconditionally. Re-extraction diffing is out of scope; only the
+        first successful load is handled here.
+        """
+        if self._initial_image_points is not None:
+            return
+        if self._is_task_active():
+            return
+
+        self._load_initial_image_points()
+        if self._initial_image_points is None:
+            return
+
+        self._refresh_initial_coverage()
+        self._emit_state_changed()
+        self._refresh_workflow_strip()
 
     def emit_initial_state(self) -> None:
         """Emit initial state for UI display after signal connections.

@@ -239,6 +239,17 @@ class TestAllCamerasHaveResolution:
         assert arr.all_cameras_have_resolution() is True
 
 
+class TestAllIntrinsicsCalibrated:
+    def test_empty_array_returns_false(self):
+        # `all()` over no cameras is vacuously True; a zero-camera project must
+        # not report intrinsic calibration as complete.
+        assert CameraArray({}).all_intrinsics_calibrated() is False
+
+    def test_false_when_camera_lacks_intrinsics(self):
+        arr = CameraArray({0: CameraData(cam_id=0, size=(1920, 1080))})
+        assert arr.all_intrinsics_calibrated() is False
+
+
 if __name__ == "__main__":
     from caliscope.logger import setup_logging
 

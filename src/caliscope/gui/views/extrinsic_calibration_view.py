@@ -463,11 +463,18 @@ class ExtrinsicCalibrationView(QWidget):
 
         if is_running:
             self._action_btn.setText("Cancel")
+            self._action_btn.setEnabled(True)
+            self._action_btn.setToolTip("")
         elif has_capture_volume:
             self._action_btn.setText("Recalibrate")
+            self._action_btn.setEnabled(True)
+            self._action_btn.setToolTip("")
         else:
             self._action_btn.setText("Calibrate")
-        self._action_btn.setEnabled(True)
+            # Nothing to calibrate until extraction has produced image_points.csv.
+            has_data = self._presenter.has_extraction_data
+            self._action_btn.setEnabled(has_data)
+            self._action_btn.setToolTip("" if has_data else "Run extraction on the Multi-Camera tab first")
 
         self._progress_bar.setVisible(is_running)
         self._progress_label.setVisible(is_running)

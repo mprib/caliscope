@@ -215,6 +215,33 @@ class TestSynthesizeDefaultIntrinsics:
             cam.synthesize_default_intrinsics()
 
 
+class TestFromIntrinsics:
+    def test_square_pixels_with_default_center(self):
+        cam = CameraData.from_intrinsics(cam_id=0, size=(1920, 1080), focal_length=910.0)
+
+        assert cam.matrix is not None
+        assert cam.distortions is not None
+        np.testing.assert_array_equal(
+            cam.matrix,
+            np.array([[910.0, 0.0, 960.0], [0.0, 910.0, 540.0], [0.0, 0.0, 1.0]]),
+        )
+        np.testing.assert_array_equal(cam.distortions, np.zeros(5))
+        assert cam.rotation is None and cam.translation is None
+
+    def test_non_square_pixels_with_explicit_center(self):
+        cam = CameraData.from_intrinsics(cam_id=1, size=(1280, 720), fx=1077.5, fy=1078.1, cx=637.9, cy=366.1)
+
+        assert cam.matrix is not None
+        np.testing.assert_array_equal(
+            cam.matrix,
+            np.array([[1077.5, 0.0, 637.9], [0.0, 1078.1, 366.1], [0.0, 0.0, 1.0]]),
+        )
+
+    def test_rejects_ambiguous_focal_spec(self):
+        with pytest.raises(ValueError, match="not both"):
+            CameraData.from_intrinsics(cam_id=0, size=(1920, 1080), focal_length=910.0, fx=900.0, fy=905.0)
+
+
 class TestAllCamerasHaveResolution:
     def test_empty_array_returns_false(self):
         arr = CameraArray({})

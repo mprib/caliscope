@@ -34,7 +34,7 @@ from caliscope.gui.vizualize.calibration.capture_volume_visualizer import (  # n
 )
 
 from utils import capture_widget, clear_output_dir  # noqa: E402
-from caliscope.gui.tab_names import TabName  # noqa: E402
+from caliscope.gui.tab_names import TabName
 
 # Sample project path - fully calibrated
 SAMPLE_PROJECT = Path("/home/mprib/caliscope_projects/new_minimal_project")

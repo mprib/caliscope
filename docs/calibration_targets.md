@@ -88,14 +88,15 @@ A standard checkerboard pattern. Simpler to print than a ChArUco board, but the 
 **Row and Column Count**: Same convention as ChArUco boards. Values are not interchangeable.
 
 The GUI offers chessboard for intrinsic calibration only.
-The pipeline supports extrinsic use through the [scripting API](scripting.md#chessboard-extrinsics), with one caution about corner ordering.
+The pipeline supports extrinsic use through the [scripting API](scripting.md#chessboard-extrinsics).
 
-A chessboard has no markers, so the detector infers corner ids from the pattern itself.
-A board with both inner-corner counts even, or both odd, looks identical after a half turn, so no detector can number its corners consistently across views that differ by roughly a half turn.
-When that happens, the ids reverse between views and triangulation silently pairs mismatched corners.
-Intrinsic calibration is unaffected because each view is solved on its own.
-For extrinsic use, pick a board with one odd and one even inner-corner count.
-Its coloring changes under a half turn, and OpenCV uses that to keep corner ids consistent.
+!!! warning "Board shape matters for extrinsic use"
+    Pick a chessboard with one odd and one even inner-corner count.
+    A board of N by M squares has N-1 by M-1 inner corners.
+    A board with both counts even, or both odd, looks identical after a half turn.
+    Its corner ids can then reverse between cameras whose views differ by that much, which corrupts triangulation.
+    Intrinsic calibration is unaffected.
+    See [Chessboard extrinsics](scripting.md#chessboard-extrinsics) for details.
 
 ---
 

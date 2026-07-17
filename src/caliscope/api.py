@@ -46,6 +46,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, Generator
 
 from caliscope.cameras.camera_array import CameraArray, CameraData
+from caliscope.core.aruco_marker import ArucoMarkerSet
 from caliscope.core.calibrate_extrinsics import (
     CalibrationRun,
     calibrate_extrinsics,
@@ -54,7 +55,6 @@ from caliscope.core.calibrate_intrinsics import (
     IntrinsicCalibrationOutput,
     IntrinsicCalibrationReport,
 )
-from caliscope.core.aruco_marker import ArucoMarkerSet
 from caliscope.core.capture_volume import CaptureVolume
 from caliscope.core.charuco import Charuco
 from caliscope.core.chessboard import Chessboard

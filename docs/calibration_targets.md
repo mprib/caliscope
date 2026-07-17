@@ -58,7 +58,7 @@ When using a thick board:
 
 - **Set the measured thickness before extracting landmarks.** If the value changes after extraction, calibration refuses to run until you re-extract (or restore the value).
 - **Mounting convention**: mount the mirror print flipped about its **vertical axis**, edges aligned with the front sheet. Each back corner then sits directly behind its front counterpart, which is the geometry the constraints assume.
-- **Turn the board so the front-viewing and back-viewing cameras trade places over the session.** Cameras are linked only by seeing the same face at the same instant. If one fixed group of cameras only ever sees the front and another only ever sees the back, the two groups never link: the calibration poses the larger group and leaves the rest unposed. Turning the board through the volume bridges them.
+- **Turn the board so the front-viewing and back-viewing cameras trade places over the session.** Camera poses are initialized by stereo pairs that see the same face at the same instant. If one fixed group of cameras only ever sees the front and another only ever sees the back, the two groups never link: the calibration poses the larger group and leaves the rest unposed. Turning the board through the volume bridges them.
 - **A thick board needs at least four cameras, where a zero-thickness board needs two.** In a good share of frames, at least two cameras must see the front face while at least two others see the back. A face seen by a single camera cannot be triangulated, and the thickness constraints only act in frames where both faces have triangulated points. Those frames are what rigidly link the front-viewing and back-viewing cameras. Calibration stops with an error if no such frame exists. Since no camera can see both faces at once, that means two per face. A zero-thickness board escapes this: its faces share the same 3D points, so one camera on each side sees the same points and triangulates them directly.
 - **Origin note**: setting the world origin from the board anchors to the front face. The origin plane sits recessed into the board by the thickness when viewed from the mirror side.
 
@@ -69,7 +69,7 @@ Two-sided chessboards are not supported. The chessboard tracker has no mirror de
 ## ArUco Markers
 
 ArUco markers are useful for large capture volumes where a ChArUco board's small squares blur together at distance.
-Large-format prints or multiple markers surveyed into the scene stay detectable across wide spaces.
+Large-format prints or multiple markers laid out in the scene stay detectable across wide spaces.
 
 ArUco markers cannot drive intrinsic calibration.
 Intrinsic calibration requires many coplanar points observed from varied angles and distances.
@@ -103,7 +103,6 @@ The pipeline supports extrinsic use through the [scripting API](scripting.md#che
 ## Physical Size and World Scale
 
 Intrinsic calibration does not use physical size.
-The lens model depends only on pixel geometry.
 You can measure your target after intrinsic calibration, or use different-sized boards for the two stages.
 
 !!! info "Physical size defines world scale"
@@ -122,4 +121,4 @@ Leave it disabled if you need different boards for intrinsic and extrinsic calib
 
 Mount on rigid, flat backing (cardboard, foam board, or glass).
 Use a matte finish to reduce glare.
-Measure the actual printed dimensions with calipers before entering values in the GUI.
+Measure carefully before entering values in the GUI.

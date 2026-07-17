@@ -16,6 +16,7 @@ from PySide6.QtWidgets import QHBoxLayout, QLabel, QSizePolicy, QVBoxLayout, QWi
 
 from caliscope.core.workflow_status import StepStatus
 from caliscope.gui.presenters.extrinsic_calibration_presenter import CalibrationStepData
+from caliscope.gui.tab_names import TabName
 from caliscope.gui.theme import Colors
 from caliscope.gui.widgets.link_label import LinkLabel
 
@@ -106,7 +107,7 @@ class CalibrationStepStrip(QWidget):
         layout.setSpacing(6)
 
         self._extract_cell = _StepCell("Extract")
-        self._extract_cell.link_clicked.connect(lambda: self.navigation_requested.emit("Multi-Camera"))
+        self._extract_cell.link_clicked.connect(lambda: self.navigation_requested.emit(TabName.MULTI_CAMERA))
         layout.addWidget(self._extract_cell, stretch=1)
 
         layout.addWidget(self._make_separator())

@@ -24,6 +24,7 @@ from PySide6.QtWidgets import (
 
 from caliscope import APP_SETTINGS_PATH, LOG_DIR
 from caliscope.gui import ICONS_DIR
+from caliscope.gui.tab_names import TabName
 from caliscope.gui.widgets.welcome_widget import WelcomeWidget
 
 if TYPE_CHECKING:
@@ -156,7 +157,7 @@ class MainWindow(QMainWindow):
         logger.info("Building Project setup tab")
         self.project_tab = ProjectSetupView(self.coordinator)
         self.project_tab.tab_navigation_requested.connect(self._navigate_to_tab)
-        self.central_tab.addTab(self.project_tab, "Project")
+        self.central_tab.addTab(self.project_tab, TabName.PROJECT)
 
         self.coordinator.status_changed.connect(self._refresh_tab_enablement)
         self._previous_tab_index: int = 0
@@ -168,10 +169,10 @@ class MainWindow(QMainWindow):
         gen = self._build_generation
         self._deferred_tab_builders: deque[tuple[str, Callable[[], None]]] = deque(
             [
-                ("Cameras", self._add_cameras_tab),
-                ("Multi-Camera", self._add_multi_camera_tab),
-                ("Calibrate", self._add_calibrate_tab),
-                ("Reconstruction", self._add_reconstruction_tab),
+                (TabName.CAMERAS, self._add_cameras_tab),
+                (TabName.MULTI_CAMERA, self._add_multi_camera_tab),
+                (TabName.CALIBRATE, self._add_calibrate_tab),
+                (TabName.RECONSTRUCTION, self._add_reconstruction_tab),
             ]
         )
         QTimer.singleShot(0, lambda: self._build_next_deferred_tab(gen))
@@ -262,40 +263,40 @@ class MainWindow(QMainWindow):
 
     def _add_cameras_tab(self) -> None:
         widget, _enabled = self._make_cameras_tab()
-        self.central_tab.addTab(widget, "Cameras")
+        self.central_tab.addTab(widget, TabName.CAMERAS)
 
     def _add_multi_camera_tab(self) -> None:
         widget, enabled = self._make_multi_camera_tab()
-        self.central_tab.addTab(widget, "Multi-Camera")
-        self.central_tab.setTabEnabled(self.find_tab_index_by_title("Multi-Camera"), enabled)
+        self.central_tab.addTab(widget, TabName.MULTI_CAMERA)
+        self.central_tab.setTabEnabled(self.find_tab_index_by_title(TabName.MULTI_CAMERA), enabled)
 
     def _add_calibrate_tab(self) -> None:
         widget, enabled = self._make_calibrate_tab()
-        self.central_tab.addTab(widget, "Calibrate")
-        self.central_tab.setTabEnabled(self.find_tab_index_by_title("Calibrate"), enabled)
+        self.central_tab.addTab(widget, TabName.CALIBRATE)
+        self.central_tab.setTabEnabled(self.find_tab_index_by_title(TabName.CALIBRATE), enabled)
 
     def _add_reconstruction_tab(self) -> None:
         widget, enabled = self._make_reconstruction_tab()
-        self.central_tab.addTab(widget, "Reconstruction")
-        self.central_tab.setTabEnabled(self.find_tab_index_by_title("Reconstruction"), enabled)
+        self.central_tab.addTab(widget, TabName.RECONSTRUCTION)
+        self.central_tab.setTabEnabled(self.find_tab_index_by_title(TabName.RECONSTRUCTION), enabled)
 
-    def _replace_placeholder_tab(self, tab_name: str) -> None:
+    def _replace_placeholder_tab(self, tab_name: TabName) -> None:
         from caliscope.gui.cameras_tab_widget import CamerasTabWidget
         from caliscope.gui.extrinsic_calibration_tab import ExtrinsicCalibrationTab
         from caliscope.gui.multi_camera_processing_tab import MultiCameraProcessingTab
         from caliscope.gui.reconstruction_tab import ReconstructionTab
 
-        real_tab_types: dict[str, type[QWidget]] = {
-            "Cameras": CamerasTabWidget,
-            "Multi-Camera": MultiCameraProcessingTab,
-            "Calibrate": ExtrinsicCalibrationTab,
-            "Reconstruction": ReconstructionTab,
+        real_tab_types: dict[TabName, type[QWidget]] = {
+            TabName.CAMERAS: CamerasTabWidget,
+            TabName.MULTI_CAMERA: MultiCameraProcessingTab,
+            TabName.CALIBRATE: ExtrinsicCalibrationTab,
+            TabName.RECONSTRUCTION: ReconstructionTab,
         }
-        makers: dict[str, Callable[[], tuple[QWidget, bool]]] = {
-            "Cameras": self._make_cameras_tab,
-            "Multi-Camera": self._make_multi_camera_tab,
-            "Calibrate": self._make_calibrate_tab,
-            "Reconstruction": self._make_reconstruction_tab,
+        makers: dict[TabName, Callable[[], tuple[QWidget, bool]]] = {
+            TabName.CAMERAS: self._make_cameras_tab,
+            TabName.MULTI_CAMERA: self._make_multi_camera_tab,
+            TabName.CALIBRATE: self._make_calibrate_tab,
+            TabName.RECONSTRUCTION: self._make_reconstruction_tab,
         }
 
         idx = self.find_tab_index_by_title(tab_name)
@@ -322,15 +323,15 @@ class MainWindow(QMainWindow):
         # Update enabled state for each tab. The Cameras tab is exempt: it
         # stays enabled and shows a placeholder until intrinsic videos exist.
         self.central_tab.setTabEnabled(
-            self.find_tab_index_by_title("Multi-Camera"),
+            self.find_tab_index_by_title(TabName.MULTI_CAMERA),
             self.coordinator.multi_camera_tab_enabled,
         )
         self.central_tab.setTabEnabled(
-            self.find_tab_index_by_title("Calibrate"),
+            self.find_tab_index_by_title(TabName.CALIBRATE),
             self.coordinator.capture_volume_tab_enabled,
         )
         self.central_tab.setTabEnabled(
-            self.find_tab_index_by_title("Reconstruction"),
+            self.find_tab_index_by_title(TabName.RECONSTRUCTION),
             self.coordinator.reconstruction_tab_enabled,
         )
 
@@ -340,13 +341,13 @@ class MainWindow(QMainWindow):
     def _maybe_replace_dummy_tabs(self) -> None:
         """Replace dummy widgets with real tabs when they become enabled."""
         if self.coordinator.cameras_tab_enabled:
-            self._replace_placeholder_tab("Cameras")
+            self._replace_placeholder_tab(TabName.CAMERAS)
         if self.coordinator.multi_camera_tab_enabled:
-            self._replace_placeholder_tab("Multi-Camera")
+            self._replace_placeholder_tab(TabName.MULTI_CAMERA)
         if self.coordinator.capture_volume_tab_enabled:
-            self._replace_placeholder_tab("Calibrate")
+            self._replace_placeholder_tab(TabName.CALIBRATE)
         if self.coordinator.reconstruction_tab_enabled:
-            self._replace_placeholder_tab("Reconstruction")
+            self._replace_placeholder_tab(TabName.RECONSTRUCTION)
 
     def build_docked_logger(self):
         from caliscope.gui.log_widget import LogWidget
@@ -421,12 +422,14 @@ class MainWindow(QMainWindow):
         self.open_project_action.setEnabled(True)
         self.open_recent_project_submenu.setEnabled(True)
 
-    def find_tab_index_by_title(self, title):
-        # Iterate through tabs to find the index of the tab with the given title
+    def find_tab_index_by_title(self, title: str) -> int:
         for index in range(self.central_tab.count()):
             if self.central_tab.tabText(index) == title:
                 return index
-        return -1  # Return -1 if the tab is not found
+        # A miss feeds -1 into Qt calls that silently no-op (setTabEnabled,
+        # setCurrentIndex), so this warning is the only trace of a stale title.
+        logger.warning(f"Tab lookup missed: no tab titled {title!r}")
+        return -1
 
     def _navigate_to_tab(self, tab_name: str) -> None:
         """Navigate to requested tab by name.
@@ -434,11 +437,9 @@ class MainWindow(QMainWindow):
         Called when "Go to Tab" buttons are clicked in the Project tab.
         Only navigates if the target tab is enabled.
         """
-        for i in range(self.central_tab.count()):
-            if self.central_tab.tabText(i) == tab_name:
-                if self.central_tab.isTabEnabled(i):
-                    self.central_tab.setCurrentIndex(i)
-                break
+        idx = self.find_tab_index_by_title(tab_name)
+        if idx >= 0 and self.central_tab.isTabEnabled(idx):
+            self.central_tab.setCurrentIndex(idx)
 
     def _on_tab_changed(self, new_index: int) -> None:
         """Suspend/resume 3D rendering when switching tabs.

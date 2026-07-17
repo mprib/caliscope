@@ -2,7 +2,6 @@ from dataclasses import dataclass
 from enum import StrEnum
 from typing import Any, Callable, cast
 
-import numpy as np
 from numpy.typing import NDArray
 
 
@@ -98,18 +97,3 @@ class TrackedFrame:
         else:
             table = None
         return table
-
-
-@dataclass(slots=True, frozen=True)
-class XYZPacket:
-    sync_index: int
-    object_ids: NDArray[np.int64]  # (n,)
-    keypoint_ids: NDArray[np.int64]  # (n,)
-    point_xyz: NDArray[np.float64]  # (n,3)
-
-    def get_point_xyz(self, object_id: int, keypoint_id: int) -> np.ndarray:
-        mask = (self.object_ids == object_id) & (self.keypoint_ids == keypoint_id)
-        return self.point_xyz[mask]
-
-    def get_segment_ends(self, obj_A: int, kp_A: int, obj_B: int, kp_B: int) -> np.ndarray:
-        return np.vstack([self.get_point_xyz(obj_A, kp_A), self.get_point_xyz(obj_B, kp_B)])

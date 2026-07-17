@@ -3,8 +3,13 @@ Chessboard corner tracker.
 
 Uses OpenCV's findChessboardCorners with sub-pixel refinement. Serves
 intrinsic calibration always; when its Chessboard carries a square_size_cm the
-emitted obj_loc is metric, so the same tracker also drives extrinsic
-calibration (the Calibration Target Interchangeability contract).
+emitted obj_loc is metric, so the same tracker can drive extrinsic
+calibration. keypoint_id follows findChessboardCorners output order. A board
+with both inner-corner counts even or both odd is 180-degree symmetric, so
+views a half turn apart number the same physical corners in reverse and
+extrinsic use requires consistent camera orientations; with one odd and one
+even count OpenCV resolves orientation from the coloring (see
+test_chessboard.py orientation tests).
 
 Unlike CharucoTracker, there is no mirror search — chessboard patterns
 don't need it for intrinsic calibration (frames without detection are skipped).

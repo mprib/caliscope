@@ -221,3 +221,30 @@ ext_points = extract_image_points_multicam(extrinsic_videos, tracker)
 result = calibrate_extrinsics(ext_points, cameras, constraints)
 ```
 Calibrate fisheye cameras intrinsically first, then run the same extrinsic pipeline.
+
+## Chessboard extrinsics
+
+A plain chessboard can drive the same extrinsic pipeline.
+The GUI does not offer this path.
+It is for camera layouts that meet the orientation condition below.
+
+```python
+from caliscope.api import Chessboard, ChessboardTracker, ConstraintSet
+
+chessboard = Chessboard(rows=6, columns=9, square_size_cm=3.0)
+tracker = ChessboardTracker(chessboard)
+constraints = ConstraintSet.from_chessboard(chessboard)
+
+ext_points = extract_image_points_multicam(extrinsic_videos, tracker)
+run = calibrate_extrinsics(ext_points, cameras, constraints)
+```
+
+`rows` and `columns` count internal corners, not squares.
+`square_size_cm` is required here: `ConstraintSet.from_chessboard` raises without it, since unit-spaced constraints would pin the wrong world scale.
+Detection is all-or-nothing, so a frame where any corner is cut off or covered contributes nothing.
+
+!!! warning "Corner ordering and board symmetry"
+    A board with both inner-corner counts even, or both odd, looks identical after a half turn.
+    If it appears near a half turn apart in two cameras' views (one camera rolled 180 degrees, or cameras looking down at a flat board from opposite ends of a room), the corner ids reverse between the views and triangulation silently pairs mismatched corners.
+    Use a board with one odd and one even inner-corner count, such as the 9x6 above: OpenCV resolves its orientation from the square coloring, so ids stay consistent.
+    With a symmetric board, all cameras must view it in a roughly consistent orientation, and ChArUco or ArUco targets are the safer choice.

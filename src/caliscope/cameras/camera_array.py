@@ -48,6 +48,49 @@ class CameraData:
         props = read_video_properties(Path(video_path))
         return cls(cam_id=cam_id, size=(props["width"], props["height"]))
 
+    @classmethod
+    def from_intrinsics(
+        cls,
+        cam_id: int,
+        size: tuple[int, int],
+        focal_length: float | None = None,
+        *,
+        fx: float | None = None,
+        fy: float | None = None,
+        cx: float | None = None,
+        cy: float | None = None,
+        distortions: np.ndarray | None = None,
+    ) -> CameraData:
+        """Create a CameraData with a pinhole matrix built from scalar intrinsics.
+
+        Pass ``focal_length`` for square pixels, or both ``fx`` and ``fy`` for
+        non-square. The principal point defaults to the image center. No
+        extrinsics are set.
+        """
+        if focal_length is not None:
+            if fx is not None or fy is not None:
+                raise ValueError("Pass either focal_length or fx/fy, not both.")
+            fx, fy = focal_length, focal_length
+        elif fx is None or fy is None:
+            raise ValueError("Pass either focal_length or both fx and fy.")
+
+        width, height = size
+        cx = width / 2.0 if cx is None else cx
+        cy = height / 2.0 if cy is None else cy
+        matrix = np.array(
+            [
+                [fx, 0.0, cx],
+                [0.0, fy, cy],
+                [0.0, 0.0, 1.0],
+            ]
+        )
+        return cls(
+            cam_id=cam_id,
+            size=size,
+            matrix=matrix,
+            distortions=np.zeros(5) if distortions is None else distortions,
+        )
+
     @property
     def transformation(self):
         """

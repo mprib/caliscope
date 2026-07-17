@@ -18,11 +18,10 @@ A complete working script is in `scripts/demo_api.py`.
 ```python
 from pathlib import Path
 from caliscope.api import (
-    Charuco, CharucoTracker, CameraArray, CaptureVolume,
+    Charuco, CharucoTracker, CameraArray, CaptureVolume, ConstraintSet,
     extract_image_points, extract_image_points_multicam,
     calibrate_intrinsics, calibrate_extrinsics,
 )
-from caliscope.core.constraints import ConstraintSet
 from caliscope.reporting import (
     print_intrinsic_report, print_extrinsic_report, print_camera_pair_coverage,
 )
@@ -207,10 +206,10 @@ When a camera in the array has no intrinsics, `calibrate_extrinsics` synthesizes
 See [Skipping Intrinsic Calibration](extrinsic_calibration_reference.md#skipping-intrinsic-calibration) for prerequisites.
 
 ```python
-from caliscope.api import CameraArray, calibrate_extrinsics, extract_image_points_multicam
-from caliscope.core.aruco_marker import ArucoMarkerSet
-from caliscope.core.constraints import ConstraintSet
-from caliscope.trackers.aruco_tracker import ArucoTracker
+from caliscope.api import (
+    ArucoMarkerSet, ArucoTracker, CameraArray, ConstraintSet,
+    calibrate_extrinsics, extract_image_points_multicam,
+)
 
 cameras = CameraArray.from_video_metadata(extrinsic_videos)
 marker_set = ArucoMarkerSet.from_toml("calibration/targets/aruco_marker_set.toml")

@@ -182,9 +182,7 @@ The name encodes the grid and count: `DICT_4X4_100` is a 4x4-bit pattern with 10
 ## Scripting API
 
 ```python
-from caliscope.api import calibrate_extrinsics
-from caliscope.core.aruco_marker import ArucoMarkerSet
-from caliscope.core.constraints import ConstraintSet
+from caliscope.api import ArucoMarkerSet, ConstraintSet, calibrate_extrinsics
 
 marker_set = ArucoMarkerSet.from_toml(toml_path)
 constraints = ConstraintSet.from_marker_set(marker_set)

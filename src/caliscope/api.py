@@ -27,6 +27,15 @@ intrinsics for uncalibrated cameras, runs joint BA with intrinsic recovery):
 Pass ``progress=None`` to any extraction function to suppress progress output.
 
 All spatial coordinates are in meters when using Charuco-based calibration.
+
+Export policy: this module exports what the documented scripting workflows
+(docs/scripting.md, docs/aruco_calibration_set.md) need to run -- calibration
+targets, trackers, constraint sets, camera and point containers, calibration
+entry points, their result types, and CalibrationError. Diagnostic helpers
+stay in their own modules even when docs mention them; a deep import there is
+deliberate, not drift. Caliscope has three public surfaces that do not
+overlap: ``caliscope`` (package paths), ``caliscope.api`` (domain and
+calibration), and ``caliscope.reporting`` (terminal output).
 """
 
 from __future__ import annotations
@@ -45,8 +54,11 @@ from caliscope.core.calibrate_intrinsics import (
     IntrinsicCalibrationOutput,
     IntrinsicCalibrationReport,
 )
+from caliscope.core.aruco_marker import ArucoMarkerSet
 from caliscope.core.capture_volume import CaptureVolume
 from caliscope.core.charuco import Charuco
+from caliscope.core.chessboard import Chessboard
+from caliscope.core.constraints import ConstraintSet
 
 # Experimental: the markerless anchoring exports below (run_moge,
 # estimate_vertical, and the scale cues). Tested on one set of footage.
@@ -57,7 +69,9 @@ from caliscope.core.point_data import ImagePoints
 from caliscope.core.scale_cues import CameraDistance, DepthObservation, SegmentLength
 from caliscope.exceptions import CalibrationError
 from caliscope.tracker import Tracker
+from caliscope.trackers.aruco_tracker import ArucoTracker
 from caliscope.trackers.charuco_tracker import CharucoTracker
+from caliscope.trackers.chessboard_tracker import ChessboardTracker
 
 if TYPE_CHECKING:
     from caliscope.reporting import ProgressCallback
@@ -86,9 +100,16 @@ def _auto_progress(progress: Any) -> Generator[ProgressCallback | None, None, No
 
 
 __all__ = [
-    # Domain classes
+    # Calibration targets and trackers
     "Charuco",
     "CharucoTracker",
+    "ArucoMarkerSet",
+    "ArucoTracker",
+    "Chessboard",
+    "ChessboardTracker",
+    "Tracker",
+    "ConstraintSet",
+    # Domain classes
     "CameraData",
     "CameraArray",
     "ImagePoints",

@@ -676,7 +676,6 @@ class ExtrinsicCalibrationPresenter(QObject):
     def _on_calibration_completed(self, run: CalibrationRun) -> None:
         """Handle successful full calibration completion."""
         capture_volume = run.capture_volume
-        logger.info(f"Calibration complete. RMSE: {capture_volume.reprojection_report.overall_rmse:.3f}px")
 
         self._calibration_run = run
         self._capture_volume = capture_volume
@@ -686,7 +685,13 @@ class ExtrinsicCalibrationPresenter(QObject):
         if len(sync_indices) > 0:
             self._current_sync_index = int(sync_indices[0])
 
-        self._emit_state_changed()
+        # Everything below blocks the main thread (reprojection report, scale
+        # accuracy, view model, Qt3D rebuild) — tell the user before it does.
+        # The state change comes last so the progress row stays visible until
+        # the visualization is actually served.
+        self.progress_updated.emit(100, "Preparing visualization…")
+        logger.info(f"Calibration complete. RMSE: {capture_volume.reprojection_report.overall_rmse:.3f}px")
+
         self._refresh_quality_panel()
         self._refresh_coverage()
         self._refresh_view_model()
@@ -694,18 +699,21 @@ class ExtrinsicCalibrationPresenter(QObject):
         self._refresh_workflow_strip()
         self.capture_volume_changed.emit(capture_volume)
         self.calibration_run_updated.emit(run)
+        self._emit_state_changed()
 
     def _on_reoptimization_completed(self, capture_volume: CaptureVolume) -> None:
         """Handle successful filter re-optimization completion."""
-        logger.info(f"Re-optimization complete. RMSE: {capture_volume.reprojection_report.overall_rmse:.3f}px")
-
         self._capture_volume = capture_volume
         self._task_handle = None
 
         if self._calibration_run is not None:
             self._calibration_run = refresh_run(self._calibration_run, capture_volume)
 
-        self._emit_state_changed()
+        # Same ordering rationale as _on_calibration_completed: announce before
+        # the blocking refreshes, reveal the result state after them.
+        self.progress_updated.emit(100, "Preparing visualization…")
+        logger.info(f"Re-optimization complete. RMSE: {capture_volume.reprojection_report.overall_rmse:.3f}px")
+
         self._refresh_quality_panel()
         self._refresh_coverage()
         self._refresh_view_model()
@@ -715,6 +723,7 @@ class ExtrinsicCalibrationPresenter(QObject):
 
         if self._calibration_run is not None:
             self.calibration_run_updated.emit(self._calibration_run)
+        self._emit_state_changed()
 
     def _on_calibration_failed(self, exc_type: str, message: str) -> None:
         """Handle calibration failure."""

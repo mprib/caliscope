@@ -667,6 +667,11 @@ class ExtrinsicCalibrationView(QWidget):
         """Handle progress update from presenter."""
         self._progress_bar.setValue(percent)
         self._progress_label.setText(message)
+        # Paint now: the presenter blocks the main thread right after emitting
+        # "Preparing visualization…" (quality panel, view model, Qt3D rebuild),
+        # so a queued paint event would never run until the freeze ends.
+        self._progress_bar.repaint()
+        self._progress_label.repaint()
 
     def _on_quality_updated(self, data: CalibrationQualityData) -> None:
         """Handle quality data update from presenter."""

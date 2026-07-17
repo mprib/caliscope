@@ -33,6 +33,23 @@ CHARUCO_SESSION = Path(__root__, "tests", "sessions", "charuco_calibration")
 
 
 # ---------------------------------------------------------------------------
+# Public API surface
+# ---------------------------------------------------------------------------
+
+
+def test_all_exports_resolve():
+    """Every name in __all__ is an attribute of caliscope.api.
+
+    Guards against drift between __all__ and the import block: a name added
+    to one but not the other fails here instead of at a user's import site.
+    """
+    import caliscope.api as api
+
+    missing = [name for name in api.__all__ if not hasattr(api, name)]
+    assert not missing, f"__all__ names not importable from caliscope.api: {missing}"
+
+
+# ---------------------------------------------------------------------------
 # Charuco
 # ---------------------------------------------------------------------------
 

@@ -2,7 +2,7 @@
 
 Displays Extract -> Calibrate -> Set origin as a single-line status strip.
 Purely a status display, not a wizard — only the Extract step is clickable,
-and only while it hasn't run yet. The Extract link points at the Multi-Camera
+and only while it hasn't run yet. The Extract link points at the Extract
 tab, where extraction runs.
 """
 
@@ -16,6 +16,7 @@ from PySide6.QtWidgets import QHBoxLayout, QLabel, QSizePolicy, QVBoxLayout, QWi
 
 from caliscope.core.workflow_status import StepStatus
 from caliscope.gui.presenters.extrinsic_calibration_presenter import CalibrationStepData
+from caliscope.gui.tab_names import TabName
 from caliscope.gui.theme import Colors
 from caliscope.gui.widgets.link_label import LinkLabel
 
@@ -87,7 +88,7 @@ class CalibrationStepStrip(QWidget):
     """Compact horizontal strip: Extract -> Calibrate -> Set origin.
 
     Status display only. The Extract step becomes a clickable link to the
-    Multi-Camera tab while extraction hasn't been run yet; the other two steps
+    Extract tab while extraction hasn't been run yet; the other two steps
     are never clickable.
     """
 
@@ -106,7 +107,7 @@ class CalibrationStepStrip(QWidget):
         layout.setSpacing(6)
 
         self._extract_cell = _StepCell("Extract")
-        self._extract_cell.link_clicked.connect(lambda: self.navigation_requested.emit("Multi-Camera"))
+        self._extract_cell.link_clicked.connect(lambda: self.navigation_requested.emit(TabName.EXTRACT))
         layout.addWidget(self._extract_cell, stretch=1)
 
         layout.addWidget(self._make_separator())

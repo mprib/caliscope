@@ -1,8 +1,10 @@
 """
 Chessboard domain tests: dataclass, persistence, and tracker.
 
-Design decision: chessboard is used for intrinsic calibration only.
-Extrinsic calibration uses ArUco (inherently unambiguous orientation).
+Design decision (2026-07-16): the GUI offers chessboard for intrinsic
+calibration only. Extrinsic use is supported through the scripting API,
+subject to the corner-id consistency constraint (see the orientation tests
+at the bottom of this file and docs/scripting.md).
 """
 
 from dataclasses import FrozenInstanceError
@@ -200,6 +202,71 @@ def test_cross_camera_consistency(tracker: ChessboardTracker) -> None:
             reference_ids,
             err_msg=f"Corner ordering mismatch: {packets[0][0]} vs {path}",
         )
+
+
+def _render_board(rows_sq: int, cols_sq: int, sq_px: int = 60, margin: int = 80) -> np.ndarray:
+    """Synthetic frontal chessboard render, white margin, BGR."""
+    h, w = rows_sq * sq_px + 2 * margin, cols_sq * sq_px + 2 * margin
+    img = np.full((h, w), 255, dtype=np.uint8)
+    for r in range(rows_sq):
+        for c in range(cols_sq):
+            if (r + c) % 2 == 0:
+                y, x = margin + r * sq_px, margin + c * sq_px
+                img[y : y + sq_px, x : x + sq_px] = 0
+    return cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
+
+
+def _perspective_warp(img: np.ndarray) -> np.ndarray:
+    """Mild perspective warp so canonicalization is not an artifact of an
+    axis-aligned render."""
+    h, w = img.shape[:2]
+    src = np.array([[0, 0], [w, 0], [w, h], [0, h]], dtype=np.float32)
+    dst = np.array([[40, 25], [w - 15, 60], [w - 50, h - 30], [20, h - 70]], dtype=np.float32)
+    homography = cv2.getPerspectiveTransform(src, dst)
+    return cv2.warpPerspective(img, homography, (w, h), borderValue=(255, 255, 255))
+
+
+def _half_turn_ordering(rows: int, columns: int, warp: bool = False) -> str:
+    """Detect a rendered board upright and rotated 180, map the rotated corners
+    back to upright coordinates, and report whether ids stayed on the same
+    physical corners ("canonical") or reversed ("flipped")."""
+    board_tracker = ChessboardTracker(Chessboard(rows=rows, columns=columns, square_size_cm=3.0))
+    img = _render_board(rows + 1, columns + 1)
+    if warp:
+        img = _perspective_warp(img)
+    h, w = img.shape[:2]
+
+    upright = board_tracker.get_points(img)
+    rotated = board_tracker.get_points(cv2.rotate(img, cv2.ROTATE_180))
+    n = rows * columns
+    assert len(upright.img_loc) == n and len(rotated.img_loc) == n, "detection failed on synthetic render"
+
+    back = np.column_stack([w - 1 - rotated.img_loc[:, 0], h - 1 - rotated.img_loc[:, 1]])
+    d_same = np.linalg.norm(back - upright.img_loc, axis=1).max()
+    d_flip = np.linalg.norm(back - upright.img_loc[::-1], axis=1).max()
+    return "canonical" if d_same < d_flip else "flipped"
+
+
+@pytest.mark.parametrize("rows,columns", [(6, 9), (5, 8)])
+def test_mixed_parity_board_orientation_is_canonical(rows: int, columns: int):
+    """A mixed-parity inner-corner board's coloring changes under a half turn,
+    and OpenCV uses that to keep corner ids on the same physical corners. The
+    chessboard extrinsics docs rely on this behavior; if an OpenCV upgrade
+    breaks it, the docs are wrong and this canary should catch it."""
+    assert _half_turn_ordering(rows=rows, columns=columns) == "canonical"
+
+
+def test_mixed_parity_orientation_canonical_under_perspective():
+    """Canonicalization holds for an oblique view, not just a frontal render."""
+    assert _half_turn_ordering(rows=6, columns=9, warp=True) == "canonical"
+
+
+@pytest.mark.parametrize("rows,columns", [(6, 8), (5, 7)])
+def test_same_parity_board_orientation_flips(rows: int, columns: int):
+    """A board with both inner-corner counts even (or both odd) is identical
+    after a half turn, so ids follow appearance and reverse between views. This
+    is the failure mode the docs warn about."""
+    assert _half_turn_ordering(rows=rows, columns=columns) == "flipped"
 
 
 if __name__ == "__main__":

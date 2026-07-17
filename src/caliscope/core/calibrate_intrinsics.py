@@ -2,8 +2,8 @@
 
 This module provides stateless functions for calibrating camera intrinsic
 parameters (camera matrix and distortion coefficients) from charuco corner
-observations. Unlike the legacy IntrinsicCalibrator class, these functions
-have no side effects and return immutable results.
+observations. These functions have no side effects and return immutable
+results.
 
 The design follows "Level 1 purity": pure functions that return results,
 with mutation handled by the caller (typically a Presenter or Controller).

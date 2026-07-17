@@ -34,6 +34,7 @@ from caliscope.gui.vizualize.calibration.capture_volume_visualizer import (  # n
 )
 
 from utils import capture_widget, clear_output_dir  # noqa: E402
+from caliscope.gui.tab_names import TabName
 
 # Sample project path - fully calibrated
 SAMPLE_PROJECT = Path("/home/mprib/caliscope_projects/new_minimal_project")
@@ -68,7 +69,7 @@ class FullWorkflowTest:
         print("Step 1: Initial state captured")
 
         # Navigate to Cameras tab
-        cameras_index = self.window.find_tab_index_by_title("Cameras")
+        cameras_index = self.window.find_tab_index_by_title(TabName.INTRINSICS)
         if cameras_index >= 0 and self.window.central_tab.isTabEnabled(cameras_index):
             self.window.central_tab.setCurrentIndex(cameras_index)
             QTimer.singleShot(500, self.capture_cameras_tab)
@@ -139,7 +140,7 @@ class FullWorkflowTest:
 
     def try_capture_volume(self):
         """Step 6: Try to capture Capture Volume tab if enabled."""
-        cv_index = self.window.find_tab_index_by_title("Capture Volume")
+        cv_index = self.window.find_tab_index_by_title(TabName.EXTRINSICS)
         if cv_index >= 0 and self.window.central_tab.isTabEnabled(cv_index):
             self.window.central_tab.setCurrentIndex(cv_index)
             # Longer delay for OpenGL initialization

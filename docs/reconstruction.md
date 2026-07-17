@@ -10,7 +10,7 @@ See [Custom ONNX Trackers](onnx_trackers.md) for setup.
 
 ## Workflow
 
-1. Navigate to the **Reconstruction** tab
+1. Navigate to the **Reconstruct** tab
 2. Select the recording you want to process from the list
    - Recordings are detected automatically from subfolders within `recordings/` that contain synchronized videos
    - You may need to reload the workspace if recordings were added while the application was running

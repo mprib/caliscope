@@ -9,9 +9,10 @@ class Chessboard:
     """Chessboard calibration pattern definition.
 
     Represents the internal corner grid of a chessboard pattern. Serves
-    intrinsic calibration always; with square_size_cm set it also produces
-    metric object points and so drives extrinsic calibration (the Calibration
-    Target Interchangeability contract).
+    intrinsic calibration always. With square_size_cm set it also produces
+    metric object points for extrinsic calibration, subject to the corner-id
+    consistency constraint described in ChessboardTracker (boards with both
+    corner counts even or both odd are 180-degree ambiguous).
 
     Attributes:
         rows: Number of internal corners vertically (e.g., 6 for 7 rows of squares)

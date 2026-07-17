@@ -2,7 +2,7 @@
 
 Caliscope can load custom ONNX pose estimation models for 2D landmark tracking. You can use models trained on your specific subjects (particular species, body regions, behavioral features) without modifying Caliscope's source code. A TOML "model card" file describes the model's input requirements and output format.
 
-After installation, ONNX models appear alongside the built-in trackers in the reconstruction tab's dropdown menu.
+After installation, ONNX models appear alongside the built-in trackers in the Reconstruct tab's dropdown menu.
 
 ## Requirements
 
@@ -16,7 +16,7 @@ The `.onnx` weight files are not shipped; they can be downloaded in-app or place
 
 For built-in models that include a `[source]` section in their model card, Caliscope can download the weights directly:
 
-1. Open the Reconstruction tab
+1. Open the Reconstruct tab
 2. Select an ONNX tracker from the dropdown
 3. If the weights are not yet present, a download button appears with the model's license information
 4. Click to download. The weights are fetched from the upstream source and placed in the models directory
@@ -44,7 +44,7 @@ You can also download weights manually and place the `.onnx` file in the models 
    - Valid model cards are registered and appear in the tracker dropdown
 
 5. **Verify the model appears**
-   - Open Caliscope and navigate to the Reconstruction tab
+   - Open Caliscope and navigate to the Reconstruct tab
    - Your custom model should appear in the tracker selection dropdown
 
 ## Models Directory

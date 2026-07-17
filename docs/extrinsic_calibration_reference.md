@@ -5,7 +5,7 @@ For the step-by-step workflow, see [Extrinsic Calibration](extrinsic_calibration
 
 ## Intrinsic Refinement
 
-The Calibrate tab has a **"Refine camera intrinsics"** checkbox, on by default.
+The Extrinsics tab has a **"Refine camera intrinsics"** checkbox, on by default.
 When checked, bundle adjustment re-estimates each camera's focal length and leading distortion coefficients (k1, k2) jointly with the camera poses, starting from whatever intrinsics you provided.
 The principal point, tangential distortion (p1, p2), and k3 stay fixed.
 

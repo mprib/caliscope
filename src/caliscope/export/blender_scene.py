@@ -32,13 +32,12 @@ from pathlib import Path
 
 import numpy as np
 
-from caliscope.cameras.camera_array import CameraArray, CameraData
+from caliscope.cameras.camera_array import CameraArray
 from caliscope.core.point_data import STATIC_SYNC_INDEX, WorldPoints
 from caliscope.tracker import WireFrameView
 
 logger = logging.getLogger(__name__)
 
-FRUSTUM_DEPTH_M = 0.5
 KEYPOINT_RADIUS_M = 0.025
 FLOOR_SIZE_M = 8.0
 
@@ -201,8 +200,6 @@ def main():
     first_camera = None
     for cam in PAYLOAD["cameras"]:
         camera = build_camera(cam["name"], cam["width"], cam["focal_px"], cam["matrix"])
-        frustum = build_mesh_object(f"{{cam['name']}}_frustum", cam["frustum_vertices"], cam["frustum_edges"])
-        frustum.display_type = "WIRE"
         if cam.get("video"):
             add_footage_background(camera, cam["video"], blend_path.parent)
         if first_camera is None:
@@ -234,21 +231,6 @@ def _blender_camera_matrix(rotation: np.ndarray, translation: np.ndarray) -> np.
     extrinsic[:3, 3] = -rotation.T @ translation
     flip = np.diag([1.0, -1.0, -1.0, 1.0])
     return extrinsic @ flip
-
-
-def _frustum_geometry(camera: CameraData, depth_m: float) -> tuple[list, list]:
-    """Wireframe pyramid from the camera center through the image corners at depth_m."""
-    assert camera.rotation is not None and camera.translation is not None and camera.matrix is not None
-    width, height = camera.size
-    center = -camera.rotation.T @ camera.translation
-    inverse_k = np.linalg.inv(camera.matrix)
-    vertices = [center.tolist()]
-    for u, v in [(0.0, 0.0), (width, 0.0), (width, height), (0.0, height)]:
-        ray_cam = inverse_k @ np.array([u, v, 1.0])
-        corner_world = center + camera.rotation.T @ (ray_cam * (depth_m / ray_cam[2]))
-        vertices.append(corner_world.tolist())
-    edges = [[0, 1], [0, 2], [0, 3], [0, 4], [1, 2], [2, 3], [3, 4], [4, 1]]
-    return vertices, edges
 
 
 def _keypoint_trajectories(world_points: WorldPoints) -> tuple[list[int], list[int], np.ndarray]:
@@ -364,7 +346,6 @@ def write_blender_scene(
         camera = camera_array.cameras[cam_id]
         assert camera.rotation is not None and camera.translation is not None and camera.matrix is not None
         fx, fy = float(camera.matrix[0, 0]), float(camera.matrix[1, 1])
-        frustum_vertices, frustum_edges = _frustum_geometry(camera, FRUSTUM_DEPTH_M)
         video = videos.get(cam_id)
         cameras_payload.append(
             {
@@ -373,8 +354,6 @@ def write_blender_scene(
                 "height": camera.size[1],
                 "focal_px": (fx + fy) / 2.0,
                 "matrix": _blender_camera_matrix(camera.rotation, camera.translation).tolist(),
-                "frustum_vertices": frustum_vertices,
-                "frustum_edges": frustum_edges,
                 "video": str(Path(video).resolve()) if video is not None else None,
             }
         )

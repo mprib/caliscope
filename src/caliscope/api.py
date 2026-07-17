@@ -68,6 +68,7 @@ from caliscope.estimators.vertical import VerticalEstimate, estimate_vertical
 from caliscope.core.point_data import ImagePoints
 from caliscope.core.scale_cues import CameraDistance, DepthObservation, SegmentLength
 from caliscope.exceptions import CalibrationError
+from caliscope.export.blender_scene import write_blender_scene
 from caliscope.tracker import Tracker
 from caliscope.trackers.aruco_tracker import ArucoTracker
 from caliscope.trackers.charuco_tracker import CharucoTracker
@@ -131,6 +132,7 @@ __all__ = [
     "calibrate_extrinsics",
     "run_moge",
     "estimate_vertical",
+    "write_blender_scene",
     # Exceptions
     "CalibrationError",
 ]

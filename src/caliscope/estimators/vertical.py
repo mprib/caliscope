@@ -142,9 +142,9 @@ def preprocess_frame(frame_bgr: NDArray) -> tuple[NDArray, float, float]:
 
 
 def _load_session(model_path: Path):
-    """Create a CPU onnxruntime session, lazily importing onnxruntime."""
+    """Create an onnxruntime session, lazily importing onnxruntime."""
     try:
-        import onnxruntime as ort  # type: ignore[reportMissingImports]  # no type stubs
+        import onnxruntime  # type: ignore[reportMissingImports]  # noqa: F401  # no type stubs
     except ModuleNotFoundError as e:
         raise ModuleNotFoundError(
             "Vertical estimation requires onnxruntime, which is not installed.\n"
@@ -153,8 +153,10 @@ def _load_session(model_path: Path):
             "(GUI users: pip install caliscope[gui] includes tracking.)"
         ) from e
 
+    from caliscope.onnx_session import create_inference_session
+
     logger.info(f"Loading GeoCalib field net: {model_path}")
-    return ort.InferenceSession(str(model_path), providers=["CPUExecutionProvider"])
+    return create_inference_session(model_path)
 
 
 def _run_field_net(session, image: NDArray, input_name: str) -> tuple[NDArray, ...]:

@@ -133,7 +133,7 @@ def _build_session():
     importable on a lean install without the ``[tracking]`` extra.
     """
     try:
-        import onnxruntime as ort  # type: ignore[reportMissingImports]  # no type stubs
+        import onnxruntime  # type: ignore[reportMissingImports]  # noqa: F401  # no type stubs
     except ModuleNotFoundError as e:
         raise ModuleNotFoundError(
             "MoGe estimation requires onnxruntime, which is not installed.\n"
@@ -144,7 +144,9 @@ def _build_session():
 
     model_path = ensure_model(MOGE_MODEL_SPEC)
     logger.info(f"Loading MoGe ONNX model: {model_path}")
-    return ort.InferenceSession(str(model_path), providers=["CPUExecutionProvider"])
+    from caliscope.onnx_session import create_inference_session
+
+    return create_inference_session(model_path)
 
 
 def _infer_frame(session, rgb: np.ndarray) -> tuple[np.ndarray, np.ndarray, float]:

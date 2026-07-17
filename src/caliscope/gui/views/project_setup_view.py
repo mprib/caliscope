@@ -407,19 +407,19 @@ class ProjectSetupView(QWidget):
         layout.addWidget(self._camera_count_label)
 
         # Create workflow step rows
-        self._intrinsic_row = WorkflowStepRow("Intrinsic Calibration", TabName.CAMERAS)
+        self._intrinsic_row = WorkflowStepRow("Intrinsic Calibration", TabName.INTRINSICS)
         self._intrinsic_row.navigation_requested.connect(self.tab_navigation_requested)
         layout.addWidget(self._intrinsic_row)
 
-        self._extraction_row = WorkflowStepRow("2D Landmark Extraction", TabName.MULTI_CAMERA)
+        self._extraction_row = WorkflowStepRow("2D Landmark Extraction", TabName.EXTRACT)
         self._extraction_row.navigation_requested.connect(self.tab_navigation_requested)
         layout.addWidget(self._extraction_row)
 
-        self._extrinsic_row = WorkflowStepRow("Extrinsic Calibration", TabName.CALIBRATE)
+        self._extrinsic_row = WorkflowStepRow("Extrinsic Calibration", TabName.EXTRINSICS)
         self._extrinsic_row.navigation_requested.connect(self.tab_navigation_requested)
         layout.addWidget(self._extrinsic_row)
 
-        self._reconstruction_row = WorkflowStepRow("Reconstruction", TabName.RECONSTRUCTION)
+        self._reconstruction_row = WorkflowStepRow("Reconstruction", TabName.RECONSTRUCT)
         self._reconstruction_row.navigation_requested.connect(self.tab_navigation_requested)
         layout.addWidget(self._reconstruction_row)
 
@@ -818,7 +818,8 @@ class ProjectSetupView(QWidget):
                 detail = (
                     "No intrinsic videos — optional if you capture for it. "
                     "Extrinsic calibration can recover intrinsics (fisheye cameras excepted); "
-                    "see the Cameras tab for prerequisites, then continue on the Calibrate tab."
+                    f"see the {TabName.INTRINSICS} tab for prerequisites, "
+                    f"then continue on the {TabName.EXTRINSICS} tab."
                 )
             elif status.intrinsic_videos_missing:
                 cam_labels = ", ".join(str(p) for p in status.intrinsic_videos_missing[:3])

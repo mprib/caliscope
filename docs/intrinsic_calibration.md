@@ -13,7 +13,7 @@ See [Calibration Targets](calibration_targets.md#physical-size-and-world-scale) 
 ## Processing Steps
 
 1. Place calibration videos in `calibration/intrinsic/` with filenames in the format `cam_N.mp4` (e.g., `cam_0.mp4`, `cam_1.mp4`) as described in [Project Setup](project_setup.md#stage-1-intrinsic-calibration)
-2. The Cameras tab will enable automatically when videos are detected
+2. The Intrinsics tab will enable automatically when videos are detected
 3. On the specific camera sub-tab, confirm that the video loaded correctly
 4. Confirm by scrolling through the video that the calibration board corners are being recognized (red dots placed on them)
 5. **Option 1: Manual Board Selection**

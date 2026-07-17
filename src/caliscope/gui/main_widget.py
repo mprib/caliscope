@@ -169,10 +169,10 @@ class MainWindow(QMainWindow):
         gen = self._build_generation
         self._deferred_tab_builders: deque[tuple[str, Callable[[], None]]] = deque(
             [
-                (TabName.CAMERAS, self._add_cameras_tab),
-                (TabName.MULTI_CAMERA, self._add_multi_camera_tab),
-                (TabName.CALIBRATE, self._add_calibrate_tab),
-                (TabName.RECONSTRUCTION, self._add_reconstruction_tab),
+                (TabName.INTRINSICS, self._add_cameras_tab),
+                (TabName.EXTRACT, self._add_multi_camera_tab),
+                (TabName.EXTRINSICS, self._add_calibrate_tab),
+                (TabName.RECONSTRUCT, self._add_reconstruction_tab),
             ]
         )
         QTimer.singleShot(0, lambda: self._build_next_deferred_tab(gen))
@@ -215,10 +215,10 @@ class MainWindow(QMainWindow):
         from caliscope.gui.widgets.cameras_info_placeholder import CamerasInfoPlaceholder
 
         if self.coordinator.cameras_tab_enabled:
-            logger.info("Building Cameras tab with intrinsic calibration")
+            logger.info("Building Intrinsics tab with intrinsic calibration")
             self.cameras_tab_widget: QWidget = CamerasTabWidget(self.coordinator)
         else:
-            logger.info("No intrinsic videos - Cameras tab shows skip-intrinsics placeholder")
+            logger.info("No intrinsic videos - Intrinsics tab shows skip-intrinsics placeholder")
             self.cameras_tab_widget = CamerasInfoPlaceholder()
         # Cameras stays interactive even as a placeholder (it explains skip-intrinsics).
         return self.cameras_tab_widget, True
@@ -228,7 +228,7 @@ class MainWindow(QMainWindow):
 
         enabled = self.coordinator.multi_camera_tab_enabled
         if enabled:
-            logger.info("Building Multi-Camera processing tab")
+            logger.info("Building Extract tab (multi-camera processing)")
             self.multi_camera_tab: QWidget = MultiCameraProcessingTab(self.coordinator)
         else:
             self.multi_camera_tab = QWidget()
@@ -263,22 +263,22 @@ class MainWindow(QMainWindow):
 
     def _add_cameras_tab(self) -> None:
         widget, _enabled = self._make_cameras_tab()
-        self.central_tab.addTab(widget, TabName.CAMERAS)
+        self.central_tab.addTab(widget, TabName.INTRINSICS)
 
     def _add_multi_camera_tab(self) -> None:
         widget, enabled = self._make_multi_camera_tab()
-        self.central_tab.addTab(widget, TabName.MULTI_CAMERA)
-        self.central_tab.setTabEnabled(self.find_tab_index_by_title(TabName.MULTI_CAMERA), enabled)
+        self.central_tab.addTab(widget, TabName.EXTRACT)
+        self.central_tab.setTabEnabled(self.find_tab_index_by_title(TabName.EXTRACT), enabled)
 
     def _add_calibrate_tab(self) -> None:
         widget, enabled = self._make_calibrate_tab()
-        self.central_tab.addTab(widget, TabName.CALIBRATE)
-        self.central_tab.setTabEnabled(self.find_tab_index_by_title(TabName.CALIBRATE), enabled)
+        self.central_tab.addTab(widget, TabName.EXTRINSICS)
+        self.central_tab.setTabEnabled(self.find_tab_index_by_title(TabName.EXTRINSICS), enabled)
 
     def _add_reconstruction_tab(self) -> None:
         widget, enabled = self._make_reconstruction_tab()
-        self.central_tab.addTab(widget, TabName.RECONSTRUCTION)
-        self.central_tab.setTabEnabled(self.find_tab_index_by_title(TabName.RECONSTRUCTION), enabled)
+        self.central_tab.addTab(widget, TabName.RECONSTRUCT)
+        self.central_tab.setTabEnabled(self.find_tab_index_by_title(TabName.RECONSTRUCT), enabled)
 
     def _replace_placeholder_tab(self, tab_name: TabName) -> None:
         from caliscope.gui.cameras_tab_widget import CamerasTabWidget
@@ -287,16 +287,16 @@ class MainWindow(QMainWindow):
         from caliscope.gui.reconstruction_tab import ReconstructionTab
 
         real_tab_types: dict[TabName, type[QWidget]] = {
-            TabName.CAMERAS: CamerasTabWidget,
-            TabName.MULTI_CAMERA: MultiCameraProcessingTab,
-            TabName.CALIBRATE: ExtrinsicCalibrationTab,
-            TabName.RECONSTRUCTION: ReconstructionTab,
+            TabName.INTRINSICS: CamerasTabWidget,
+            TabName.EXTRACT: MultiCameraProcessingTab,
+            TabName.EXTRINSICS: ExtrinsicCalibrationTab,
+            TabName.RECONSTRUCT: ReconstructionTab,
         }
         makers: dict[TabName, Callable[[], tuple[QWidget, bool]]] = {
-            TabName.CAMERAS: self._make_cameras_tab,
-            TabName.MULTI_CAMERA: self._make_multi_camera_tab,
-            TabName.CALIBRATE: self._make_calibrate_tab,
-            TabName.RECONSTRUCTION: self._make_reconstruction_tab,
+            TabName.INTRINSICS: self._make_cameras_tab,
+            TabName.EXTRACT: self._make_multi_camera_tab,
+            TabName.EXTRINSICS: self._make_calibrate_tab,
+            TabName.RECONSTRUCT: self._make_reconstruction_tab,
         }
 
         idx = self.find_tab_index_by_title(tab_name)
@@ -320,18 +320,18 @@ class MainWindow(QMainWindow):
         Called when Coordinator.status_changed fires (filesystem change,
         calibration complete, etc.).
         """
-        # Update enabled state for each tab. The Cameras tab is exempt: it
+        # Update enabled state for each tab. The Intrinsics tab is exempt: it
         # stays enabled and shows a placeholder until intrinsic videos exist.
         self.central_tab.setTabEnabled(
-            self.find_tab_index_by_title(TabName.MULTI_CAMERA),
+            self.find_tab_index_by_title(TabName.EXTRACT),
             self.coordinator.multi_camera_tab_enabled,
         )
         self.central_tab.setTabEnabled(
-            self.find_tab_index_by_title(TabName.CALIBRATE),
+            self.find_tab_index_by_title(TabName.EXTRINSICS),
             self.coordinator.capture_volume_tab_enabled,
         )
         self.central_tab.setTabEnabled(
-            self.find_tab_index_by_title(TabName.RECONSTRUCTION),
+            self.find_tab_index_by_title(TabName.RECONSTRUCT),
             self.coordinator.reconstruction_tab_enabled,
         )
 
@@ -341,13 +341,13 @@ class MainWindow(QMainWindow):
     def _maybe_replace_dummy_tabs(self) -> None:
         """Replace dummy widgets with real tabs when they become enabled."""
         if self.coordinator.cameras_tab_enabled:
-            self._replace_placeholder_tab(TabName.CAMERAS)
+            self._replace_placeholder_tab(TabName.INTRINSICS)
         if self.coordinator.multi_camera_tab_enabled:
-            self._replace_placeholder_tab(TabName.MULTI_CAMERA)
+            self._replace_placeholder_tab(TabName.EXTRACT)
         if self.coordinator.capture_volume_tab_enabled:
-            self._replace_placeholder_tab(TabName.CALIBRATE)
+            self._replace_placeholder_tab(TabName.EXTRINSICS)
         if self.coordinator.reconstruction_tab_enabled:
-            self._replace_placeholder_tab(TabName.RECONSTRUCTION)
+            self._replace_placeholder_tab(TabName.RECONSTRUCT)
 
     def build_docked_logger(self):
         from caliscope.gui.log_widget import LogWidget

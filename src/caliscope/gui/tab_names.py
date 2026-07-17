@@ -13,7 +13,7 @@ from enum import StrEnum
 
 class TabName(StrEnum):
     PROJECT = "Project"
-    CAMERAS = "Cameras"
-    MULTI_CAMERA = "Multi-Camera"
-    CALIBRATE = "Calibrate"
-    RECONSTRUCTION = "Reconstruction"
+    INTRINSICS = "Intrinsics"
+    EXTRACT = "Extract"
+    EXTRINSICS = "Extrinsics"
+    RECONSTRUCT = "Reconstruct"

@@ -1,0 +1,374 @@
+[model]
+name = "RTMPose-m COCO-WholeBody"
+model_path = "rtmpose_m_coco_wholebody.onnx"
+format = "simcc"
+input_size = [192, 256]
+confidence_threshold = 0.3
+
+[source]
+url = "https://download.openmmlab.com/mmpose/v1/projects/rtmposev1/onnx_sdk/rtmpose-m_simcc-ucoco_dw-ucoco_270e-256x192-c8b76419_20230728.zip"
+extraction = "zip_end2end"
+license = "Apache-2.0"
+license_url = "https://github.com/open-mmlab/mmpose/blob/main/LICENSE"
+file_size_mb = 64
+sha256 = "a4e4d56e9dc043e2171c73f5918f334509a47fde60182c1961370c7160334ac0"
+
+# 133 COCO-WholeBody keypoints: 23 body+feet, 68 face, 42 hands.
+[points]
+nose = 0
+left_eye = 1
+right_eye = 2
+left_ear = 3
+right_ear = 4
+left_shoulder = 5
+right_shoulder = 6
+left_elbow = 7
+right_elbow = 8
+left_wrist = 9
+right_wrist = 10
+left_hip = 11
+right_hip = 12
+left_knee = 13
+right_knee = 14
+left_ankle = 15
+right_ankle = 16
+left_big_toe = 17
+left_small_toe = 18
+left_heel = 19
+right_big_toe = 20
+right_small_toe = 21
+right_heel = 22
+face_0 = 23
+face_1 = 24
+face_2 = 25
+face_3 = 26
+face_4 = 27
+face_5 = 28
+face_6 = 29
+face_7 = 30
+face_8 = 31
+face_9 = 32
+face_10 = 33
+face_11 = 34
+face_12 = 35
+face_13 = 36
+face_14 = 37
+face_15 = 38
+face_16 = 39
+face_17 = 40
+face_18 = 41
+face_19 = 42
+face_20 = 43
+face_21 = 44
+face_22 = 45
+face_23 = 46
+face_24 = 47
+face_25 = 48
+face_26 = 49
+face_27 = 50
+face_28 = 51
+face_29 = 52
+face_30 = 53
+face_31 = 54
+face_32 = 55
+face_33 = 56
+face_34 = 57
+face_35 = 58
+face_36 = 59
+face_37 = 60
+face_38 = 61
+face_39 = 62
+face_40 = 63
+face_41 = 64
+face_42 = 65
+face_43 = 66
+face_44 = 67
+face_45 = 68
+face_46 = 69
+face_47 = 70
+face_48 = 71
+face_49 = 72
+face_50 = 73
+face_51 = 74
+face_52 = 75
+face_53 = 76
+face_54 = 77
+face_55 = 78
+face_56 = 79
+face_57 = 80
+face_58 = 81
+face_59 = 82
+face_60 = 83
+face_61 = 84
+face_62 = 85
+face_63 = 86
+face_64 = 87
+face_65 = 88
+face_66 = 89
+face_67 = 90
+left_hand_root = 91
+left_thumb1 = 92
+left_thumb2 = 93
+left_thumb3 = 94
+left_thumb4 = 95
+left_forefinger1 = 96
+left_forefinger2 = 97
+left_forefinger3 = 98
+left_forefinger4 = 99
+left_middle_finger1 = 100
+left_middle_finger2 = 101
+left_middle_finger3 = 102
+left_middle_finger4 = 103
+left_ring_finger1 = 104
+left_ring_finger2 = 105
+left_ring_finger3 = 106
+left_ring_finger4 = 107
+left_pinky_finger1 = 108
+left_pinky_finger2 = 109
+left_pinky_finger3 = 110
+left_pinky_finger4 = 111
+right_hand_root = 112
+right_thumb1 = 113
+right_thumb2 = 114
+right_thumb3 = 115
+right_thumb4 = 116
+right_forefinger1 = 117
+right_forefinger2 = 118
+right_forefinger3 = 119
+right_forefinger4 = 120
+right_middle_finger1 = 121
+right_middle_finger2 = 122
+right_middle_finger3 = 123
+right_middle_finger4 = 124
+right_ring_finger1 = 125
+right_ring_finger2 = 126
+right_ring_finger3 = 127
+right_ring_finger4 = 128
+right_pinky_finger1 = 129
+right_pinky_finger2 = 130
+right_pinky_finger3 = 131
+right_pinky_finger4 = 132
+
+[segments.shoulders]
+color = "y"
+points = ["left_shoulder", "right_shoulder"]
+
+[segments.left_arm]
+color = "g"
+points = ["left_shoulder", "left_elbow"]
+
+[segments.left_forearm]
+color = "g"
+points = ["left_elbow", "left_wrist"]
+
+[segments.right_arm]
+color = "r"
+points = ["right_shoulder", "right_elbow"]
+
+[segments.right_forearm]
+color = "r"
+points = ["right_elbow", "right_wrist"]
+
+[segments.pelvis]
+color = "y"
+points = ["left_hip", "right_hip"]
+
+[segments.left_flank]
+color = "y"
+points = ["left_hip", "left_shoulder"]
+
+[segments.right_flank]
+color = "y"
+points = ["right_hip", "right_shoulder"]
+
+[segments.left_thigh]
+color = "g"
+points = ["left_hip", "left_knee"]
+
+[segments.left_shank]
+color = "g"
+points = ["left_knee", "left_ankle"]
+
+[segments.right_thigh]
+color = "r"
+points = ["right_hip", "right_knee"]
+
+[segments.right_shank]
+color = "r"
+points = ["right_knee", "right_ankle"]
+
+[segments.left_foot]
+color = "g"
+points = ["left_heel", "left_big_toe"]
+
+[segments.right_foot]
+color = "r"
+points = ["right_heel", "right_big_toe"]
+
+[segments.left_hand]
+color = "g"
+points = ["left_wrist", "left_hand_root"]
+
+[segments.left_thumb_1]
+color = "g"
+points = ["left_hand_root", "left_thumb1"]
+
+[segments.left_thumb_2]
+color = "g"
+points = ["left_thumb1", "left_thumb2"]
+
+[segments.left_thumb_3]
+color = "g"
+points = ["left_thumb2", "left_thumb3"]
+
+[segments.left_thumb_4]
+color = "g"
+points = ["left_thumb3", "left_thumb4"]
+
+[segments.left_forefinger_1]
+color = "g"
+points = ["left_hand_root", "left_forefinger1"]
+
+[segments.left_forefinger_2]
+color = "g"
+points = ["left_forefinger1", "left_forefinger2"]
+
+[segments.left_forefinger_3]
+color = "g"
+points = ["left_forefinger2", "left_forefinger3"]
+
+[segments.left_forefinger_4]
+color = "g"
+points = ["left_forefinger3", "left_forefinger4"]
+
+[segments.left_middle_finger_1]
+color = "g"
+points = ["left_hand_root", "left_middle_finger1"]
+
+[segments.left_middle_finger_2]
+color = "g"
+points = ["left_middle_finger1", "left_middle_finger2"]
+
+[segments.left_middle_finger_3]
+color = "g"
+points = ["left_middle_finger2", "left_middle_finger3"]
+
+[segments.left_middle_finger_4]
+color = "g"
+points = ["left_middle_finger3", "left_middle_finger4"]
+
+[segments.left_ring_finger_1]
+color = "g"
+points = ["left_hand_root", "left_ring_finger1"]
+
+[segments.left_ring_finger_2]
+color = "g"
+points = ["left_ring_finger1", "left_ring_finger2"]
+
+[segments.left_ring_finger_3]
+color = "g"
+points = ["left_ring_finger2", "left_ring_finger3"]
+
+[segments.left_ring_finger_4]
+color = "g"
+points = ["left_ring_finger3", "left_ring_finger4"]
+
+[segments.left_pinky_finger_1]
+color = "g"
+points = ["left_hand_root", "left_pinky_finger1"]
+
+[segments.left_pinky_finger_2]
+color = "g"
+points = ["left_pinky_finger1", "left_pinky_finger2"]
+
+[segments.left_pinky_finger_3]
+color = "g"
+points = ["left_pinky_finger2", "left_pinky_finger3"]
+
+[segments.left_pinky_finger_4]
+color = "g"
+points = ["left_pinky_finger3", "left_pinky_finger4"]
+
+[segments.right_hand]
+color = "r"
+points = ["right_wrist", "right_hand_root"]
+
+[segments.right_thumb_1]
+color = "r"
+points = ["right_hand_root", "right_thumb1"]
+
+[segments.right_thumb_2]
+color = "r"
+points = ["right_thumb1", "right_thumb2"]
+
+[segments.right_thumb_3]
+color = "r"
+points = ["right_thumb2", "right_thumb3"]
+
+[segments.right_thumb_4]
+color = "r"
+points = ["right_thumb3", "right_thumb4"]
+
+[segments.right_forefinger_1]
+color = "r"
+points = ["right_hand_root", "right_forefinger1"]
+
+[segments.right_forefinger_2]
+color = "r"
+points = ["right_forefinger1", "right_forefinger2"]
+
+[segments.right_forefinger_3]
+color = "r"
+points = ["right_forefinger2", "right_forefinger3"]
+
+[segments.right_forefinger_4]
+color = "r"
+points = ["right_forefinger3", "right_forefinger4"]
+
+[segments.right_middle_finger_1]
+color = "r"
+points = ["right_hand_root", "right_middle_finger1"]
+
+[segments.right_middle_finger_2]
+color = "r"
+points = ["right_middle_finger1", "right_middle_finger2"]
+
+[segments.right_middle_finger_3]
+color = "r"
+points = ["right_middle_finger2", "right_middle_finger3"]
+
+[segments.right_middle_finger_4]
+color = "r"
+points = ["right_middle_finger3", "right_middle_finger4"]
+
+[segments.right_ring_finger_1]
+color = "r"
+points = ["right_hand_root", "right_ring_finger1"]
+
+[segments.right_ring_finger_2]
+color = "r"
+points = ["right_ring_finger1", "right_ring_finger2"]
+
+[segments.right_ring_finger_3]
+color = "r"
+points = ["right_ring_finger2", "right_ring_finger3"]
+
+[segments.right_ring_finger_4]
+color = "r"
+points = ["right_ring_finger3", "right_ring_finger4"]
+
+[segments.right_pinky_finger_1]
+color = "r"
+points = ["right_hand_root", "right_pinky_finger1"]
+
+[segments.right_pinky_finger_2]
+color = "r"
+points = ["right_pinky_finger1", "right_pinky_finger2"]
+
+[segments.right_pinky_finger_3]
+color = "r"
+points = ["right_pinky_finger2", "right_pinky_finger3"]
+
+[segments.right_pinky_finger_4]
+color = "r"
+points = ["right_pinky_finger3", "right_pinky_finger4"]

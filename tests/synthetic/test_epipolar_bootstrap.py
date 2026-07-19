@@ -74,6 +74,25 @@ def _two_camera_box_scene(random_seed: int = 42) -> SyntheticScene:
     )
 
 
+def _gapped_cam_id_box_scene(random_seed: int = 42) -> SyntheticScene:
+    """Three cameras with non-contiguous cam_ids {1, 2, 5} viewing the box.
+
+    A six-camera ring with cameras 0, 3, and 4 dropped. Canary for code that
+    conflates cam_id (an arbitrary name) with array index (a contiguous slot):
+    contiguous-id scenes let that bug pass silently.
+    """
+    camera_array = CameraSynthesizer().add_ring(n=6, radius=2.0, height=0.5).drop_cam_ids(0, 3, 4).build()
+    calibration_object = box_target(width=0.4, height=0.4, depth=0.4)
+    trajectory = Trajectory.orbital(n_frames=20, radius=0.2, arc_extent_deg=360.0, tumble_rate=1.0)
+    return SyntheticScene.single(
+        camera_array=camera_array,
+        calibration_object=calibration_object,
+        trajectory=trajectory,
+        pixel_noise_sigma=0.5,
+        random_seed=random_seed,
+    )
+
+
 @dataclass(frozen=True)
 class Case:
     run: ProductionRun
@@ -92,6 +111,12 @@ def _two_cam_case() -> Case:
     return Case(run=run, scene=scene)
 
 
+def _gapped_cam_id_case() -> Case:
+    scene = _gapped_cam_id_box_scene(random_seed=42)
+    run = run_production_pipeline(scene, image_points=_null_obj_loc(scene.image_points_noisy))
+    return Case(run=run, scene=scene)
+
+
 @pytest.fixture(scope="module")
 def four_cam_case() -> Case:
     return _four_cam_case()
@@ -100,6 +125,11 @@ def four_cam_case() -> Case:
 @pytest.fixture(scope="module")
 def two_cam_case() -> Case:
     return _two_cam_case()
+
+
+@pytest.fixture(scope="module")
+def gapped_cam_id_case() -> Case:
+    return _gapped_cam_id_case()
 
 
 class TestFourCameraEpipolar:
@@ -141,6 +171,22 @@ class TestTwoCameraEpipolar:
         # the two-camera minimal-redundancy precedent (TestMirrorPairZeroThickness,
         # 20mm). Baseline scale is arbitrary; the Procrustes alignment absorbs it.
         for cam_id, err in two_cam_case.run.pose_errors.items():
+            assert err.rotation_deg < 0.5, f"cam {cam_id}: rotation {err.rotation_deg:.3f} deg > 0.5 deg"
+            assert err.translation_m < 0.010, f"cam {cam_id}: translation {err.translation_m * 1000:.2f} mm > 10 mm"
+
+
+class TestNonContiguousCamIds:
+    def test_all_cameras_posed(self, gapped_cam_id_case: Case) -> None:
+        posed = set(gapped_cam_id_case.run.result.capture_volume.camera_array.posed_cameras)
+        assert posed == {1, 2, 5}
+
+    def test_pose_recovery(self, gapped_cam_id_case: Case) -> None:
+        # 0.5 deg / 10 mm: the two-camera epipolar bounds. Three cameras from a
+        # six-ring give sparser pair redundancy than the full 4-cam ring, so the
+        # looser translation bound applies. The subject under test is id handling,
+        # not accuracy: a cam_id/index conflation shows up as a crash or a
+        # grossly wrong pose, far outside these bounds.
+        for cam_id, err in gapped_cam_id_case.run.pose_errors.items():
             assert err.rotation_deg < 0.5, f"cam {cam_id}: rotation {err.rotation_deg:.3f} deg > 0.5 deg"
             assert err.translation_m < 0.010, f"cam {cam_id}: translation {err.translation_m * 1000:.2f} mm > 10 mm"
 
@@ -243,6 +289,12 @@ if __name__ == "__main__":
     TestTwoCameraEpipolar().test_both_cameras_posed(two)
     TestTwoCameraEpipolar().test_pose_recovery(two)
     print(f"  worst rot {two.run.max_rotation_deg:.4f} deg, trans {two.run.max_translation_m * 1000:.3f} mm")
+
+    print("Non-contiguous cam_ids {1, 2, 5}...")
+    gapped = _gapped_cam_id_case()
+    TestNonContiguousCamIds().test_all_cameras_posed(gapped)
+    TestNonContiguousCamIds().test_pose_recovery(gapped)
+    print(f"  worst rot {gapped.run.max_rotation_deg:.4f} deg, trans {gapped.run.max_translation_m * 1000:.3f} mm")
 
     print("Gates...")
     TestEpipolarGates().test_uncalibrated_intrinsics_raises()

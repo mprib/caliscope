@@ -142,9 +142,9 @@ def preprocess_frame(frame_bgr: NDArray) -> tuple[NDArray, float, float]:
 
 
 def _load_session(model_path: Path):
-    """Create a CPU onnxruntime session, lazily importing onnxruntime."""
+    """Create an onnxruntime session, lazily importing onnxruntime."""
     try:
-        import onnxruntime as ort  # type: ignore[reportMissingImports]  # no type stubs
+        import onnxruntime  # type: ignore[reportMissingImports]  # noqa: F401  # no type stubs
     except ModuleNotFoundError as e:
         raise ModuleNotFoundError(
             "Vertical estimation requires onnxruntime, which is not installed.\n"
@@ -153,8 +153,10 @@ def _load_session(model_path: Path):
             "(GUI users: pip install caliscope[gui] includes tracking.)"
         ) from e
 
+    from caliscope.onnx_session import create_inference_session
+
     logger.info(f"Loading GeoCalib field net: {model_path}")
-    return ort.InferenceSession(str(model_path), providers=["CPUExecutionProvider"])
+    return create_inference_session(model_path)
 
 
 def _run_field_net(session, image: NDArray, input_name: str) -> tuple[NDArray, ...]:
@@ -203,6 +205,24 @@ def _up_vectors_for_camera(
     return ups
 
 
+def _process_camera_vertical(
+    session,
+    input_name: str,
+    cam_id: int,
+    video: Path,
+    focal_x: float,
+    focal_y: float,
+    frames_per_camera: int,
+) -> tuple[int, NDArray, float, list[NDArray]]:
+    """Run vertical estimation for one camera. Returns (cam_id, consensus_up, spread, raw_ups)."""
+    ups = _up_vectors_for_camera(session, input_name, video, cam_id, focal_x, focal_y, frames_per_camera)
+    stacked = np.array(ups)
+    consensus = stacked.mean(axis=0)
+    consensus = consensus / np.linalg.norm(consensus)
+    spread = float(np.median([_angle_deg(up, consensus) for up in ups]))
+    return cam_id, consensus, spread, ups
+
+
 def estimate_vertical(
     videos: Mapping[int, Path | str],
     cameras: CameraArray,
@@ -216,43 +236,57 @@ def estimate_vertical(
     Downloads the field-net weights on first use. Runs ``frames_per_camera``
     evenly spaced frames per camera; the up vector is the normalized mean over
     those frames and the spread is their median angular deviation from it.
+
+    Cameras are processed concurrently. The ONNX session is thread-safe for
+    ``run()`` calls; video decoding is per-camera with no shared state.
     """
+    import concurrent.futures
+    from concurrent.futures import ThreadPoolExecutor
+
     model_path = ensure_model(GEOCALIB_FIELDS_SPEC)
     session = _load_session(model_path)
     input_name = session.get_inputs()[0].name
 
-    up_per_cam: dict[int, NDArray] = {}
-    spread_per_cam: dict[int, float] = {}
-
+    cam_args: list[tuple[int, Path, float, float]] = []
     for cam_id, video in videos.items():
         camera = cameras[cam_id]
         if camera.matrix is None:
             raise ValueError(
                 f"Camera {cam_id} lacks an intrinsic matrix; vertical estimation "
-                "needs a focal prior. Calibrate intrinsics or supply MoGe focals."
+                "needs a focal prior. Calibrate intrinsics first."
             )
-        focal_x = float(camera.matrix[0, 0])
-        focal_y = float(camera.matrix[1, 1])
-
-        ups = _up_vectors_for_camera(
-            session,
-            input_name,
-            Path(video),
-            cam_id,
-            focal_x,
-            focal_y,
-            frames_per_camera,
+        cam_args.append(
+            (
+                cam_id,
+                Path(video),
+                float(camera.matrix[0, 0]),
+                float(camera.matrix[1, 1]),
+            )
         )
 
-        stacked = np.array(ups)
-        consensus = stacked.mean(axis=0)
-        consensus = consensus / np.linalg.norm(consensus)
-        spread = float(np.median([_angle_deg(up, consensus) for up in ups]))
+    up_per_cam: dict[int, NDArray] = {}
+    spread_per_cam: dict[int, float] = {}
 
-        up_per_cam[cam_id] = consensus
-        spread_per_cam[cam_id] = spread
-        logger.info(
-            f"cam {cam_id}: up {consensus.round(4).tolist()}, frame spread {spread:.4f} deg over {len(ups)} frames"
-        )
+    with ThreadPoolExecutor(max_workers=len(cam_args)) as executor:
+        futures = {
+            executor.submit(
+                _process_camera_vertical,
+                session,
+                input_name,
+                cam_id,
+                video,
+                fx,
+                fy,
+                frames_per_camera,
+            ): cam_id
+            for cam_id, video, fx, fy in cam_args
+        }
+        for future in concurrent.futures.as_completed(futures):
+            cam_id, consensus, spread, ups = future.result()
+            up_per_cam[cam_id] = consensus
+            spread_per_cam[cam_id] = spread
+            logger.info(
+                f"cam {cam_id}: up {consensus.round(4).tolist()}, frame spread {spread:.4f} deg over {len(ups)} frames"
+            )
 
     return VerticalEstimate(up_per_cam=up_per_cam, spread_per_cam=spread_per_cam)

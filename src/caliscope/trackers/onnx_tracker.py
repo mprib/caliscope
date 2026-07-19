@@ -47,7 +47,7 @@ class OnnxTracker(Tracker):
         # not for importing this module. This keeps the module import-safe on a
         # lean install (caliscope without the [tracking] extra).
         try:
-            import onnxruntime as ort  # type: ignore[reportMissingImports]  # no type stubs
+            import onnxruntime  # type: ignore[reportMissingImports]  # noqa: F401  # no type stubs
         except ModuleNotFoundError as e:
             raise ModuleNotFoundError(
                 "Neural pose tracking requires onnxruntime, which is not installed.\n"
@@ -56,12 +56,10 @@ class OnnxTracker(Tracker):
                 "(GUI users: pip install caliscope[gui] includes tracking.)"
             ) from e
 
-        # Create onnxruntime session (CPU only)
+        from caliscope.onnx_session import create_inference_session
+
         logger.info(f"Loading ONNX model: {card.model_path}")
-        self.session = ort.InferenceSession(
-            str(card.model_path),
-            providers=["CPUExecutionProvider"],
-        )
+        self.session = create_inference_session(card.model_path)
 
         # Get input name from model
         self.input_name = self.session.get_inputs()[0].name

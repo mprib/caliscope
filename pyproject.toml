@@ -29,6 +29,12 @@ caliscope = "caliscope.__main__:CLI_parser"
 tracking = [
     "onnxruntime>=1.16.0",
 ]
+# Mutually exclusive with [tracking]: both packages import as `onnxruntime`,
+# so install one per environment. Sessions auto-select CUDA when this build
+# is present (see caliscope/onnx_session.py); no further configuration.
+tracking-gpu = [
+    "onnxruntime-gpu>=1.16.0",
+]
 gui = [
     "caliscope[tracking]",
     "pyside6-essentials>=6.10.1",

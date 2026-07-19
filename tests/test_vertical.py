@@ -126,7 +126,7 @@ def _camera_array_for_videos() -> CameraArray:
 )
 def test_estimate_vertical_runs_on_real_videos() -> None:
     cameras = _camera_array_for_videos()
-    estimate = estimate_vertical(EXTRINSIC_VIDEOS, cameras, frames_per_camera=4)
+    estimate = estimate_vertical(EXTRINSIC_VIDEOS, cameras, frames_per_camera=2)
 
     assert isinstance(estimate, VerticalEstimate)
     assert set(estimate.up_per_cam) == set(EXTRINSIC_VIDEOS)

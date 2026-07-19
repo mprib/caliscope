@@ -88,7 +88,7 @@ def calibrate_extrinsics(
             f"have none and fell back to blind defaults (f=width/2). The essential-matrix "
             f"decomposition has no object-geometry anchor to absorb focal-length error, so blind "
             f"intrinsics yield geometrically wrong poses (not merely mis-scaled ones). Supply real "
-            f"intrinsics first -- run MoGe focal estimation or charuco intrinsic calibration for "
+            f"intrinsics first -- run charuco intrinsic calibration for "
             f"these cameras -- then re-run extrinsic calibration."
         )
 

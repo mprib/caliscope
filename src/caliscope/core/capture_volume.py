@@ -1251,6 +1251,31 @@ class CaptureVolume:
             _optimization_status=self._optimization_status,
         )
 
+    def centered(self) -> "CaptureVolume":
+        """Translate so the XY origin is the centroid of posed camera centers.
+
+        Z is untouched. Call after ``grounded()`` to keep the floor at Z=0
+        while distributing cameras evenly around the origin.
+        """
+        centers = np.array([self._camera_center(cid) for cid in self.camera_array.posed_cameras])
+        centroid_xy = centers[:, :2].mean(axis=0)
+        offset = np.array([centroid_xy[0], centroid_xy[1], 0.0], dtype=np.float64)
+
+        transform = SimilarityTransform(
+            rotation=np.eye(3, dtype=np.float64),
+            translation=-offset,
+            scale=1.0,
+        )
+        new_camera_array, new_world_points = apply_similarity_transform(self.camera_array, self.world_points, transform)
+
+        return CaptureVolume(
+            camera_array=new_camera_array,
+            image_points=self.image_points,
+            world_points=new_world_points,
+            constraints=self.constraints,
+            _optimization_status=self._optimization_status,
+        )
+
 
 if __name__ == "__main__":
     from pathlib import Path

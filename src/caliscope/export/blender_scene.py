@@ -139,14 +139,21 @@ def animate_shape_keys_at(obj, vertices, frames):
     prefs.keyframe_new_interpolation_type = previous_interpolation
 
 
-def build_camera(name, width, focal_px, camera_matrix):
-    """The verified OpenCV-matching recipe: sensor width in px units, lens in px."""
+def build_camera(name, width, height, focal_px, cx, cy, camera_matrix):
+    """The OpenCV-matching recipe: sensor width in px units, lens in px.
+
+    A Blender camera has no principal point, only shift_x/shift_y, expressed as
+    a fraction of the sensor-fit dimension (width here, since sensor_fit is
+    HORIZONTAL). Leaving them at zero places the optical axis at image centre,
+    which displaces projected geometry from the background footage by exactly
+    the principal point offset.
+    """
     cam_data = bpy.data.cameras.new(name)
     cam_data.sensor_fit = "HORIZONTAL"
     cam_data.sensor_width = float(width)
     cam_data.lens = float(focal_px)
-    cam_data.shift_x = 0.0
-    cam_data.shift_y = 0.0
+    cam_data.shift_x = (float(width) / 2.0 - float(cx)) / float(width)
+    cam_data.shift_y = (float(cy) - float(height) / 2.0) / float(width)
     cam = bpy.data.objects.new(name, cam_data)
     bpy.context.scene.collection.objects.link(cam)
     cam.matrix_world = Matrix(camera_matrix)
@@ -199,7 +206,9 @@ def main():
     blend_path = Path(__file__).resolve().parent / "{blend_name}"
     first_camera = None
     for cam in PAYLOAD["cameras"]:
-        camera = build_camera(cam["name"], cam["width"], cam["focal_px"], cam["matrix"])
+        camera = build_camera(
+            cam["name"], cam["width"], cam["height"], cam["focal_px"], cam["cx"], cam["cy"], cam["matrix"]
+        )
         if cam.get("video"):
             add_footage_background(camera, cam["video"], blend_path.parent)
         if first_camera is None:
@@ -346,6 +355,7 @@ def write_blender_scene(
         camera = camera_array.cameras[cam_id]
         assert camera.rotation is not None and camera.translation is not None and camera.matrix is not None
         fx, fy = float(camera.matrix[0, 0]), float(camera.matrix[1, 1])
+        cx, cy = float(camera.matrix[0, 2]), float(camera.matrix[1, 2])
         video = videos.get(cam_id)
         cameras_payload.append(
             {
@@ -353,6 +363,8 @@ def write_blender_scene(
                 "width": camera.size[0],
                 "height": camera.size[1],
                 "focal_px": (fx + fy) / 2.0,
+                "cx": cx,
+                "cy": cy,
                 "matrix": _blender_camera_matrix(camera.rotation, camera.translation).tolist(),
                 "video": str(Path(video).resolve()) if video is not None else None,
             }

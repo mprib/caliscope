@@ -7,6 +7,9 @@ handful of world points, and matching minimal image points.
 
 from __future__ import annotations
 
+import logging
+import re
+
 import numpy as np
 import pandas as pd
 import pytest
@@ -332,6 +335,26 @@ def test_oriented_levels_known_tilt():
     segment = p11 - p10
     # The vertical segment now points straight up +Z with length 2.
     assert np.allclose(segment, [0.0, 0.0, 2.0], atol=1e-10)
+
+
+def test_oriented_logs_cross_camera_disagreement(caplog: pytest.LogCaptureFixture):
+    volume, up, _ = _tilted_rig()
+
+    # Nudge camera 2's vote by a known 6 degrees. Cameras 0 and 1 still vote the
+    # true vertical, so the worst pairwise disagreement is the injected angle.
+    axis = np.cross(up[2], np.array([1.0, 0.0, 0.0]))
+    axis = axis / np.linalg.norm(axis)
+    nudge = Rotation.from_rotvec(np.radians(6.0) * axis).as_matrix()
+    up[2] = nudge @ up[2]
+
+    with caplog.at_level(logging.INFO, logger="caliscope.core.capture_volume"):
+        volume.oriented(up=up)
+
+    lines = [r.message for r in caplog.records if "pairwise disagreement" in r.message]
+    assert lines, "expected a vertical-agreement log line"
+    match = re.search(r"max pairwise disagreement ([0-9.]+)", lines[0])
+    assert match is not None
+    assert abs(float(match.group(1)) - 6.0) < 0.5
 
 
 # ---------------------------------------------------------------------------

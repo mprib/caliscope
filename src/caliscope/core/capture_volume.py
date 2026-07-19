@@ -39,7 +39,7 @@ from caliscope.core.scale_cues import CameraDistance, DepthObservation, SegmentL
 
 import pandas as pd
 
-logger = logging.getLogger(__file__)
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -1182,6 +1182,11 @@ class CaptureVolume:
         normalized to a consensus vertical. The anchor camera (lowest posed cam_id)
         supplies the yaw: its optical axis, projected onto the horizontal plane,
         becomes +Y. Scale and translation are untouched.
+
+        Cross-camera agreement of the world-frame ups is the accuracy signal for
+        the vertical, so each camera's angle from the consensus and the maximum
+        pairwise disagreement are logged in degrees. Real rigs typically land
+        within roughly 1-3 degrees per camera.
         """
         if not up:
             raise ValueError("oriented() requires at least one up vector.")
@@ -1199,6 +1204,24 @@ class CaptureVolume:
         if norm < 1e-9:
             raise ValueError("Consensus up vector is degenerate (per-camera verticals cancel).")
         consensus_up = consensus / norm
+
+        unit_ups = [w / np.linalg.norm(w) for w in world_ups]
+        angles_deg = {
+            cam_id: float(np.degrees(np.arccos(np.clip(np.dot(u, consensus_up), -1.0, 1.0))))
+            for cam_id, u in zip(up.keys(), unit_ups)
+        }
+        max_pairwise_deg = max(
+            (
+                float(np.degrees(np.arccos(np.clip(np.dot(unit_ups[i], unit_ups[j]), -1.0, 1.0))))
+                for i in range(len(unit_ups))
+                for j in range(i + 1, len(unit_ups))
+            ),
+            default=0.0,
+        )
+        per_cam = ", ".join(f"cam {cam_id}: {deg:.2f}" for cam_id, deg in angles_deg.items())
+        logger.info(
+            f"Vertical agreement (deg from consensus): {per_cam}; max pairwise disagreement {max_pairwise_deg:.2f}"
+        )
 
         anchor_cam = self.camera_array.cameras[self._anchor_cam_id()]
         assert anchor_cam.rotation is not None  # _anchor_cam_id returns a posed camera

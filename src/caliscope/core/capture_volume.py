@@ -1225,14 +1225,17 @@ class CaptureVolume:
     def grounded(self, mode: Literal["lowest_point"] = "lowest_point") -> "CaptureVolume":
         """Translate so the ground sits at Z=0 and the XY origin lies under the anchor camera.
 
-        ``mode="lowest_point"`` places the world point of least Z at Z=0 (call after
-        ``oriented()`` so Z is vertical). XY origin is set under the anchor camera
-        (lowest posed cam_id). No rotation or scale change.
+        ``mode="lowest_point"`` places the floor at Z=0, taken as a robust low
+        percentile (1st, as an order statistic) of world Z so a single spurious
+        low triangulation cannot bury the floor. On small point sets the order
+        statistic degrades to the exact minimum. Call after ``oriented()`` so Z
+        is vertical. XY origin is set under the anchor camera (lowest posed
+        cam_id). No rotation or scale change.
         """
         if mode != "lowest_point":
             raise ValueError(f"grounded() only supports mode='lowest_point', got {mode!r}.")
 
-        min_z = float(self.world_points.df["z_coord"].min())
+        min_z = float(np.percentile(self.world_points.df["z_coord"].to_numpy(), 1.0, method="lower"))
         anchor_center = self._camera_center(self._anchor_cam_id())
         offset = np.array([anchor_center[0], anchor_center[1], min_z], dtype=np.float64)
 

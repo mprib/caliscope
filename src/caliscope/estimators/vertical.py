@@ -253,7 +253,7 @@ def estimate_vertical(
         if camera.matrix is None:
             raise ValueError(
                 f"Camera {cam_id} lacks an intrinsic matrix; vertical estimation "
-                "needs a focal prior. Calibrate intrinsics or supply MoGe focals."
+                "needs a focal prior. Calibrate intrinsics first."
             )
         cam_args.append(
             (

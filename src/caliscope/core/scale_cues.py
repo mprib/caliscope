@@ -34,7 +34,7 @@ class SegmentLength:
 
 @dataclass(frozen=True)
 class DepthObservation:
-    """Metric depth of one keypoint in one camera at one moment (e.g., MoGe)."""
+    """Metric depth of one keypoint in one camera at one moment."""
 
     cam_id: int
     keypoint_id: int

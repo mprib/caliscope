@@ -1,6 +1,6 @@
 """Shared onnxruntime session factory with automatic provider selection.
 
-All caliscope inference (pose trackers, MoGe, GeoCalib) runs on onnxruntime.
+All caliscope inference (pose trackers, GeoCalib) runs on onnxruntime.
 Sessions prefer CUDA when the installed onnxruntime build exposes it (the
 onnxruntime-gpu package on a CUDA machine) and fall back to CPU otherwise.
 No configuration: the installed package decides.

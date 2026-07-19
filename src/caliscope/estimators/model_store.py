@@ -1,6 +1,6 @@
 """Estimator model specs and on-demand download.
 
-Estimator ONNX models (MoGe, GeoCalib fields) don't fit the tracker
+Estimator ONNX models (GeoCalib fields) don't fit the tracker
 ``ModelCard`` schema (no keypoints, no SimCC/heatmap format, dynamic
 resolution), so each estimator declares a frozen ``EstimatorModelSpec``
 constant instead of a TOML card. Weights live in the same ``MODELS_DIR``

@@ -1,5 +1,4 @@
 import logging
-from collections import OrderedDict
 from pathlib import Path
 from datetime import datetime
 from typing import Literal
@@ -66,7 +65,6 @@ class WorkspaceCoordinator(QObject):
     persistence implementation details.
     """
 
-    new_camera_data = Signal(int, OrderedDict)  # cam_id, camera_display_dictionary
     intrinsic_target_changed = Signal()  # Emitted when intrinsic target config is updated
     extrinsic_target_changed = Signal()  # Emitted when extrinsic target config is updated
     capture_volume_updated = Signal()  # Immediate: in-memory state changed, use for UI refresh
@@ -471,13 +469,6 @@ class WorkspaceCoordinator(QObject):
         self.camera_array.cameras[cam_id] = CameraData(cam_id=cam_id, size=size)
         self.camera_repository.save(self.camera_array)
 
-    def push_camera_data(self, cam_id):
-        """Emit signal with updated camera display data."""
-        logger.info(f"Pushing camera data for cam_id {cam_id}")
-        camera_display_data = self.camera_array.cameras[cam_id].get_display_data()
-        logger.info(f"camera display data is {camera_display_data}")
-        self.new_camera_data.emit(cam_id, camera_display_data)
-
     def create_intrinsic_presenter(self, cam_id: int) -> IntrinsicCalibrationPresenter:
         """Create presenter for intrinsic calibration of a single camera.
 
@@ -659,7 +650,6 @@ class WorkspaceCoordinator(QObject):
 
         self.camera_array.cameras[cam_id].rotation_count = rotation_count
         self.camera_repository.save(self.camera_array)
-        self.push_camera_data(cam_id)
         logger.debug(f"Persisted camera rotation: cam_id {cam_id} -> {rotation_count * 90}°")
 
     def persist_intrinsic_calibration(
@@ -672,7 +662,6 @@ class WorkspaceCoordinator(QObject):
         Updates the in-memory camera array and saves to disk. Also caches
         the calibration report for overlay restoration when switching cameras
         and persists it to disk for reload on app restart.
-        Emits new_camera_data signal so UI components can update their display.
 
         Args:
             output: Complete calibration output with camera and report
@@ -694,7 +683,6 @@ class WorkspaceCoordinator(QObject):
             self._intrinsic_points[cam_id] = collected_points
 
         logger.info(f"Persisted intrinsic calibration for cam_id {cam_id}: rmse={output.report.rmse:.3f}px")
-        self.push_camera_data(cam_id)
         self.status_changed.emit()
 
     def get_intrinsic_report(self, cam_id: int) -> IntrinsicCalibrationReport | None:

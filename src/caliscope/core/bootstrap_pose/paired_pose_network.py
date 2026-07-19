@@ -192,7 +192,7 @@ class PairedPoseNetwork:
         # Find largest connected component (Legacy behavior used this to filter main group)
         main_group_cam_ids = self._find_largest_connected_component(cam_ids)
 
-        if anchor_cam:
+        if anchor_cam is not None:
             error_score, best_cameras_config = self._build_anchored_config(camera_array, anchor_cam)
         else:
             anchor_cam, best_cameras_config = self.get_best_anchored_camera_array(main_group_cam_ids, camera_array)

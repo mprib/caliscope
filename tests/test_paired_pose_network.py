@@ -17,7 +17,8 @@ import pytest
 from caliscope import __root__
 from caliscope.core.bootstrap_pose.paired_pose_network import PairedPoseNetwork
 from caliscope.core.bootstrap_pose.build_paired_pose_network import build_paired_pose_network
-from caliscope.cameras.camera_array import CameraArray
+from caliscope.core.bootstrap_pose.stereopairs import StereoPair
+from caliscope.cameras.camera_array import CameraArray, CameraData
 from caliscope.core.point_data import ImagePoints
 
 logger = logging.getLogger(__name__)
@@ -211,6 +212,48 @@ def test_stereopair_graph_against_gold_standard():
 
     # 4. Execute Comparison
     verify_results(paired_pose_network, gold_stereocal_all_results)
+
+
+def _rotation_about_z(angle_rad: float) -> NDArray[np.float64]:
+    c, s = np.cos(angle_rad), np.sin(angle_rad)
+    return np.array([[c, -s, 0], [s, c, 0], [0, 0, 1]], dtype=np.float64)
+
+
+def test_apply_to_respects_anchor_cam_zero():
+    """Camera 0 passed as explicit anchor must land at the origin.
+
+    The network is built so auto-selection would prefer camera 1 (lowest
+    total error), so this fails if anchor_cam=0 is treated as "not provided".
+    """
+    pair_01 = StereoPair(
+        primary_cam_id=0,
+        secondary_cam_id=1,
+        error_score=1.0,
+        rotation=_rotation_about_z(np.radians(10)),
+        translation=np.array([1.0, 0.0, 0.0]),
+    )
+    pair_12 = StereoPair(
+        primary_cam_id=1,
+        secondary_cam_id=2,
+        error_score=1.0,
+        rotation=_rotation_about_z(np.radians(-10)),
+        translation=np.array([0.0, 1.0, 0.0]),
+    )
+    network = PairedPoseNetwork.from_raw_estimates({pair_01.pair: pair_01, pair_12.pair: pair_12})
+    camera_array = CameraArray(cameras={cam_id: CameraData(cam_id=cam_id, size=(1920, 1080)) for cam_id in (0, 1, 2)})
+
+    network.apply_to(camera_array, anchor_cam=0)
+
+    cam_0 = camera_array.cameras[0]
+    assert cam_0.rotation is not None and cam_0.translation is not None
+    np.testing.assert_allclose(cam_0.rotation, np.eye(3), atol=1e-12)
+    np.testing.assert_allclose(cam_0.translation, np.zeros(3), atol=1e-12)
+
+    # Camera 1 is posed directly from the 0->1 pair
+    cam_1 = camera_array.cameras[1]
+    assert cam_1.rotation is not None and cam_1.translation is not None
+    np.testing.assert_allclose(cam_1.rotation, pair_01.rotation, atol=1e-12)
+    np.testing.assert_allclose(cam_1.translation, pair_01.translation, atol=1e-12)
 
 
 if __name__ == "__main__":

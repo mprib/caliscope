@@ -7,6 +7,9 @@ handful of world points, and matching minimal image points.
 
 from __future__ import annotations
 
+import logging
+import re
+
 import numpy as np
 import pandas as pd
 import pytest
@@ -334,6 +337,26 @@ def test_oriented_levels_known_tilt():
     assert np.allclose(segment, [0.0, 0.0, 2.0], atol=1e-10)
 
 
+def test_oriented_logs_cross_camera_disagreement(caplog: pytest.LogCaptureFixture):
+    volume, up, _ = _tilted_rig()
+
+    # Nudge camera 2's vote by a known 6 degrees. Cameras 0 and 1 still vote the
+    # true vertical, so the worst pairwise disagreement is the injected angle.
+    axis = np.cross(up[2], np.array([1.0, 0.0, 0.0]))
+    axis = axis / np.linalg.norm(axis)
+    nudge = Rotation.from_rotvec(np.radians(6.0) * axis).as_matrix()
+    up[2] = nudge @ up[2]
+
+    with caplog.at_level(logging.INFO, logger="caliscope.core.capture_volume"):
+        volume.oriented(up=up)
+
+    lines = [r.message for r in caplog.records if "pairwise disagreement" in r.message]
+    assert lines, "expected a vertical-agreement log line"
+    match = re.search(r"max pairwise disagreement ([0-9.]+)", lines[0])
+    assert match is not None
+    assert abs(float(match.group(1)) - 6.0) < 0.5
+
+
 # ---------------------------------------------------------------------------
 # Grounding
 # ---------------------------------------------------------------------------
@@ -356,6 +379,44 @@ def test_grounded_puts_floor_at_zero_and_cam0_over_origin():
     c0 = camera_center(grounded, 0)
     assert abs(c0[0]) < 1e-10
     assert abs(c0[1]) < 1e-10
+
+
+def test_grounded_floor_robust_to_low_outlier():
+    cameras = {
+        0: make_camera(0, np.eye(3), np.array([5.0, 7.0, 3.0])),
+        1: make_camera(1, np.eye(3), np.array([8.0, 7.0, 3.0])),
+    }
+    # A clean band of 200 points between z=1 and z=2, plus one spurious
+    # triangulation far below the real floor.
+    band_z = np.linspace(1.0, 2.0, 200)
+    rows = [world_row(i, 10, (1.0, 1.0, float(z))) for i, z in enumerate(band_z)]
+    rows.append(world_row(999, 10, (1.0, 1.0, -3.0)))
+    volume = make_volume(cameras, rows)
+
+    grounded = volume.grounded("lowest_point")
+
+    df = grounded.world_points.df
+    band_min = float(df[df["sync_index"] != 999]["z_coord"].min())
+    # The outlier does not drag the floor: the clean band rests at ~0, not +4.
+    assert abs(band_min) < 0.02
+    outlier_z = float(df[df["sync_index"] == 999]["z_coord"].iloc[0])
+    assert outlier_z < 0.0
+
+
+def test_grounded_floor_matches_min_on_clean_dense_volume():
+    cameras = {
+        0: make_camera(0, np.eye(3), np.array([5.0, 7.0, 3.0])),
+        1: make_camera(1, np.eye(3), np.array([8.0, 7.0, 3.0])),
+    }
+    band_z = np.linspace(1.0, 2.0, 200)
+    rows = [world_row(i, 10, (1.0, 1.0, float(z))) for i, z in enumerate(band_z)]
+    volume = make_volume(cameras, rows)
+
+    grounded = volume.grounded("lowest_point")
+
+    # With no outlier the percentile floor sits within a point-spacing of the
+    # true minimum (~0.005 here).
+    assert abs(float(grounded.world_points.df["z_coord"].min())) < 0.02
 
 
 def test_grounded_rejects_unknown_mode():

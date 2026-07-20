@@ -152,8 +152,11 @@ def calibrate_intrinsics(
         obj_pts = [p.astype(np.float32) for p in obj_points_list]
         img_pts = [p.astype(np.float32) for p in img_points_list]
 
-        # Pre-initialize output matrices (required by type checker, works at runtime)
-        camera_matrix = np.zeros((3, 3), dtype=np.float64)
+        camera_matrix = np.eye(3, dtype=np.float64)
+        camera_matrix[0, 0] = max(width, height)
+        camera_matrix[1, 1] = max(width, height)
+        camera_matrix[0, 2] = (width - 1) * 0.5
+        camera_matrix[1, 2] = (height - 1) * 0.5
         dist_coeffs = np.zeros(5, dtype=np.float64)
 
         error, mtx, dist, rvecs, tvecs = cv2.calibrateCamera(
@@ -162,6 +165,7 @@ def calibrate_intrinsics(
             (width, height),
             camera_matrix,
             dist_coeffs,
+            flags=cv2.CALIB_USE_INTRINSIC_GUESS,
         )
         # calibrateCamera returns dist as (1, 5), flatten it
         dist = dist.ravel()

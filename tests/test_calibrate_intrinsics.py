@@ -43,8 +43,7 @@ class TestCalibrateIntrinsics:
         """Calibration produces reasonable camera matrix and distortions."""
         image_points, cam0_frames = _load_test_data()
 
-        # Use first 20 frames for calibration
-        selected = cam0_frames[:20]
+        selected = cam0_frames[:30]
 
         result = calibrate_intrinsics(
             image_points,

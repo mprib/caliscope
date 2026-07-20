@@ -110,8 +110,8 @@ class CharucoTracker(Tracker):
             except Exception as e:
                 logger.debug(f"Sub pixel detection failed: {e}")
 
-            ids = _ids[:, 0]
-            img_loc = _img_loc[:, 0]
+            ids = _ids.squeeze()
+            img_loc = _img_loc.squeeze(axis=1) if _img_loc.ndim == 3 else _img_loc
 
             # flip coordinates if mirrored image fed in
             frame_width = gray_frame.shape[1]

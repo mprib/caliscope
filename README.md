@@ -19,7 +19,7 @@ Caliscope efficiently estimates these parameters with a scriptable Python API as
 
 ## Demo
 
-Note that the workflow below is from v0.9.0. There have recently been a number of improvements and I hope to have more recent samples/walkthroughs soon.
+Note that the workflow below is from v0.9.0. There have recently been a number of improvements. I hope to have more recent samples/walkthroughs soon.
 
 https://github.com/user-attachments/assets/b8bb78de-866e-4ba2-b5c7-674e3a33dd9e
 

@@ -1,0 +1,1575 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Multicamera calibration and 3D motion capture for researchers">
+      
+      
+      
+        <link rel="canonical" href="https://mprib.github.io/caliscope/experiments/fable-brief-joint-calibration/">
+      
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../images/box3d-center.svg">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+    
+    
+      
+        <title>Fable brief joint calibration - Caliscope</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.ec1eaa64.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="blue" data-md-color-accent="green">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#joint-calibration-experiment-results-and-production-brief" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="Caliscope" class="md-header__button md-logo" aria-label="Caliscope" data-md-component="logo">
+      
+  <img src="../../images/box3d-center.svg" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Caliscope
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Fable brief joint calibration
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="blue" data-md-color-accent="green"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M17 6H7c-3.31 0-6 2.69-6 6s2.69 6 6 6h10c3.31 0 6-2.69 6-6s-2.69-6-6-6m0 10H7c-2.21 0-4-1.79-4-4s1.79-4 4-4h10c2.21 0 4 1.79 4 4s-1.79 4-4 4M7 9c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="blue" data-md-color-accent="green"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M17 7H7a5 5 0 0 0-5 5 5 5 0 0 0 5 5h10a5 5 0 0 0 5-5 5 5 0 0 0-5-5m0 8a3 3 0 0 1-3-3 3 3 0 0 1 3-3 3 3 0 0 1 3 3 3 3 0 0 1-3 3"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/mprib/caliscope" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    caliscope
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="Caliscope" class="md-nav__button md-logo" aria-label="Caliscope" data-md-component="logo">
+      
+  <img src="../../images/box3d-center.svg" alt="logo">
+
+    </a>
+    Caliscope
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/mprib/caliscope" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    caliscope
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../installation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Installation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting Started
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Getting Started
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../project_setup/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Project Setup
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../sample_project/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Sample Project
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Calibration
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Calibration
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../calibration_targets/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Calibration Targets
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../intrinsic_calibration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Intrinsic Calibration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../extrinsic_calibration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Extrinsic Calibration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../extrinsic_calibration_reference/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Extrinsic Reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../aruco_calibration_set/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ArUco Calibration Set
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Reconstruction
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Reconstruction
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reconstruction/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tracking & Triangulation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../onnx_trackers/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Custom ONNX Trackers
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../scripting/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Scripting API
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#a-note-on-creative-latitude" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        A Note on Creative Latitude
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#background-how-we-got-here" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Background: How We Got Here
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-finding" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The Finding
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="The Finding">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#why-this-matters-before-and-after" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Why this matters: before and after
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-core-insight-depth-variation-makes-f-observable" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The Core Insight: Depth Variation Makes f Observable
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#what-was-proved" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What Was Proved
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="What Was Proved">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#phase-1a-free-k2-synthetic" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 1a: Free k2 (synthetic)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#phase-1b-noise-and-bootstrap-fragility-synthetic" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 1b: Noise and bootstrap fragility (synthetic)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#phase-1c-multi-marker-wand-synthetic" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 1c: Multi-marker wand (synthetic)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#phase-1d-real-data-971-outdoor-footage" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 1d: Real data (#971 outdoor footage)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#what-the-user-experience-could-be" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What the User Experience Could Be
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="What the User Experience Could Be">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#current-workflow-requires-intrinsic-calibration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Current workflow (requires intrinsic calibration)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#proposed-workflow-no-intrinsic-calibration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Proposed workflow (no intrinsic calibration)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#what-the-user-sees-after-calibration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What the user sees after calibration
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#architecture-decisions-for-fable" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Architecture Decisions for Fable
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Architecture Decisions for Fable">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#1-one-residual-function-not-two" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. One residual function, not two
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#2-intrinsic-write-back-is-the-central-integration-point" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Intrinsic write-back is the central integration point
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#3-default-intrinsics-synthesis" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. Default intrinsics synthesis
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#4-which-intrinsic-parameters-are-free" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. Which intrinsic parameters are free?
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#5-when-should-intrinsics-be-freed-vs-fixed" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5. When should intrinsics be freed vs fixed?
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#6-charuco-as-a-first-class-target" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6. Charuco as a first-class target
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#7-filter-then-re-optimize-with-free-intrinsics" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7. Filter-then-re-optimize with free intrinsics
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#8-what-happens-when-bounds-are-hit" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        8. What happens when bounds are hit?
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#9-fisheye-support" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        9. Fisheye support
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#10-gui-tab-structure" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        10. GUI tab structure
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#11-rigidity-based-outlier-filtering" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        11. Rigidity-based outlier filtering
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#assumptions-and-risks-not-yet-tested" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Assumptions and Risks Not Yet Tested
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#reference-documents" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Reference Documents
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<p><title>Joint Calibration — Fable Brief</title></p>
+<h1 id="joint-calibration-experiment-results-and-production-brief">Joint Calibration: Experiment Results and Production Brief<a class="headerlink" href="#joint-calibration-experiment-results-and-production-brief" title="Permanent link">&para;</a></h1>
+<p>Prepared: 2026-07-04.
+Epic branch: <code>epic/joint-calibration</code>.
+Prior art survey: <code>specs/joint-intrinsic-extrinsic-ba-roadmap.md</code>.</p>
+<h2 id="a-note-on-creative-latitude">A Note on Creative Latitude<a class="headerlink" href="#a-note-on-creative-latitude" title="Permanent link">&para;</a></h2>
+<p>This brief presents experiment results and poses architecture questions.
+It is not a locked-down spec.
+Fable has creative latitude on UI design, workflow structure, and quality presentation.
+If something in this brief seems wrong or suboptimal, push back — the author trusts Fable's taste and expects Fable to improve on these proposals where it sees opportunity.</p>
+<h2 id="background-how-we-got-here">Background: How We Got Here<a class="headerlink" href="#background-how-we-got-here" title="Permanent link">&para;</a></h2>
+<p>For #971, we built multi-ArUco calibration with static markers and rigidity constraints.
+The constraint system locks world scale through known inter-corner distances.
+Static markers anchor the scene geometry.
+Moving markers provide coverage across the capture volume.</p>
+<p>The rigidity precision on #971 data wasn't where we wanted it.
+Suspicion: the intrinsic calibration (separate charuco step) was the weak link.
+Imperfect intrinsics get baked into the extrinsic solve with no way to correct them.</p>
+<p>So Fable dispatched us on a research mission: can the bundle adjustment recover intrinsics jointly with extrinsics?
+If so, we eliminate a source of error and simplify the workflow.</p>
+<p>We discovered something stronger than expected.
+Not only can the solver recover intrinsics — it doesn't even need a prior intrinsic calibration.
+A blind guess (f = image_width/2, k1=0, k2=0) is sufficient.
+The solver recovers focal length and distortion from the observation geometry alone.</p>
+<h2 id="the-finding">The Finding<a class="headerlink" href="#the-finding" title="Permanent link">&para;</a></h2>
+<p>On the #971 real data, starting from a 40% wrong focal length guess and zero distortion knowledge, the solver achieved 5.8mm rigidity precision on 1-meter markers.
+That is 0.58% of the marker size.</p>
+<p>With charuco-calibrated intrinsics, the same data achieved 15.4mm rigidity before optimization.
+The joint solver improved that to 4.6mm — better than the charuco-calibrated starting point.
+The joint solver found a better intrinsic solution than the separate charuco calibration.</p>
+<h3 id="why-this-matters-before-and-after">Why this matters: before and after<a class="headerlink" href="#why-this-matters-before-and-after" title="Permanent link">&para;</a></h3>
+<p>D7 characterization on synthetic data with a 3% focal length error:</p>
+<table>
+<thead>
+<tr>
+<th>Metric</th>
+<th>Fixed-intrinsics BA</th>
+<th>Joint BA</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Translation error</td>
+<td>14.2mm</td>
+<td>1.3mm</td>
+</tr>
+<tr>
+<td>Rotation error</td>
+<td>0.80°</td>
+<td>0.03°</td>
+</tr>
+<tr>
+<td>f recovery</td>
+<td>not attempted</td>
+<td>&lt; 0.22% error</td>
+</tr>
+</tbody>
+</table>
+<p>The fixed-intrinsic solver has no way to correct a wrong focal length.
+The joint solver absorbs it.</p>
+<h2 id="the-core-insight-depth-variation-makes-f-observable">The Core Insight: Depth Variation Makes f Observable<a class="headerlink" href="#the-core-insight-depth-variation-makes-f-observable" title="Permanent link">&para;</a></h2>
+<p>Focal length and camera-to-scene distance are coupled in the projection equation.
+A 10% increase in f with a 10% increase in depth produces nearly identical projections for a distant planar target at fixed depth.
+Moving markers at varying depths break this coupling because the f-distance ambiguity produces different predictions for near versus far observations.</p>
+<p>This is why moving markers are essential.
+Static markers alone gave 17-19mm rigidity on the real data.
+Adding moving markers dropped it to 4.6-5.8mm.
+Scene geometry — specifically depth variation — is the primary defense for f observability, not solver sophistication or robust loss functions.</p>
+<p>A lateral-only trajectory (constant depth) cannot resolve f.
+The wand must sweep through depth, not just side to side.
+The system should report a depth-ratio metric and warn (softly, no hard gate) when depth variation is insufficient.</p>
+<h2 id="what-was-proved">What Was Proved<a class="headerlink" href="#what-was-proved" title="Permanent link">&para;</a></h2>
+<p>Four phases of experiments, each building on the last.</p>
+<h3 id="phase-1a-free-k2-synthetic">Phase 1a: Free k2 (synthetic)<a class="headerlink" href="#phase-1a-free-k2-synthetic" title="Permanent link">&para;</a></h3>
+<p>Added the second radial distortion coefficient (k2) as a free parameter alongside focal length (f) and primary distortion (k1).
+9 parameters per camera: [rvec(3), tvec(3), f, k1, k2].</p>
+<p>k2 resolves cleanly.
+It does not absorb into f or k1.
+k1 and k2 trade along a correlation ridge (individual coefficients shift slightly from truth) but total radial distortion correction is preserved.
+Reprojection and pose accuracy are identical to the k2-fixed baseline.</p>
+<p>15-point characterization grid (f_scale × distortion perturbation): all points converge to the same floor.
+One local minimum at f_scale=0.70 with zero distortion perturbation; any small distortion kick escapes it.</p>
+<h3 id="phase-1b-noise-and-bootstrap-fragility-synthetic">Phase 1b: Noise and bootstrap fragility (synthetic)<a class="headerlink" href="#phase-1b-noise-and-bootstrap-fragility-synthetic" title="Permanent link">&para;</a></h3>
+<p>Noise degradation is linear from 0.5px to 3.0px.
+No cliff, no phase transition.
+At 3px noise (high end for real ArUco detection): 0.22 deg rotation error, 8mm translation error.</p>
+<p>Bootstrap (PnP initialization) never fails, even at f=500 (64% below truth).
+The practical limit is the solver's own bounds: f_guess must be within ~65-180% of truth for the bounds to include the answer.
+f = image_width/2 is a safe universal starting point.</p>
+<p>Bounds alone suffice.
+Priors and regularization are unnecessary.</p>
+<h3 id="phase-1c-multi-marker-wand-synthetic">Phase 1c: Multi-marker wand (synthetic)<a class="headerlink" href="#phase-1c-multi-marker-wand-synthetic" title="Permanent link">&para;</a></h3>
+<p>Product workflow scene: two 30cm ArUco markers on a rigid wand (50cm separation) plus four static floor markers between cameras.</p>
+<p>Results at 0.5px noise, blind f guess:</p>
+<table>
+<thead>
+<tr>
+<th>Scene</th>
+<th>f error</th>
+<th>rotation error</th>
+<th>rigidity RMSE</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>70-corner charuco</td>
+<td>0.25%</td>
+<td>0.039 deg</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Wand only (8 corners)</td>
+<td>0.39%</td>
+<td>0.088 deg</td>
+<td>0.39mm</td>
+</tr>
+<tr>
+<td>Wand + 4 static (24 corners)</td>
+<td>0.11%</td>
+<td>0.016 deg</td>
+<td>0.36mm</td>
+</tr>
+</tbody>
+</table>
+<p>The ArUco wand+static scene outperforms the 70-corner charuco on f recovery and pose accuracy.
+Static markers anchor the geometry.
+Moving markers provide the depth variation that makes f observable.</p>
+<p>Below ~20 corners, constraints are essential.
+A single ArUco (4 corners) without constraints drifts to 2.7mm; with constraints it matches the 70-corner charuco floor at 1.3mm.
+Constraints are not optional for the ArUco workflow.</p>
+<p>Key findings during development:
+- Marker size matters: 30cm markers at ~1m camera distance are the practical minimum. 10cm is too small for reliable triangulation.
+- Static marker placement matters: floor markers between cameras work well. Arbitrary floating positions can produce bad triangulation.
+- Rigid body composition must apply the wand offset in local frame, not world frame.</p>
+<h3 id="phase-1d-real-data-971-outdoor-footage">Phase 1d: Real data (#971 outdoor footage)<a class="headerlink" href="#phase-1d-real-data-971-outdoor-footage" title="Permanent link">&para;</a></h3>
+<p>3 cameras (3840×2160), 8 ArUco markers (1.0m, DICT_4X4_50), markers 0-3 moving, 4-7 static.
+11,864 observations.
+Cameras had prior charuco-calibrated intrinsics (f ≈ 3050-3400px).</p>
+<table>
+<thead>
+<tr>
+<th>Configuration</th>
+<th>f source</th>
+<th>rigidity RMSE</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>All markers, correct intrinsics</td>
+<td>charuco-calibrated</td>
+<td>4.59mm</td>
+</tr>
+<tr>
+<td>All markers, blind guess</td>
+<td>f=1920, k1=0, k2=0</td>
+<td>5.78mm</td>
+</tr>
+<tr>
+<td>Static only, correct intrinsics</td>
+<td>charuco-calibrated</td>
+<td>17.19mm</td>
+</tr>
+<tr>
+<td>Static only, blind guess</td>
+<td>f=1920, k1=0, k2=0</td>
+<td>19.07mm</td>
+</tr>
+</tbody>
+</table>
+<p>The solver converges from a 37-44% wrong blind guess on real data.
+Moving markers are essential for f observability — static-only achieves 17-19mm versus 4.6-5.8mm with moving markers included.</p>
+<p>The joint solver moved f by 10-40px from the charuco-calibrated values and improved rigidity from 15.4mm to 4.6mm.
+This suggests the joint solver found a better intrinsic solution than the separate charuco calibration — adapted to the specific observation geometry.</p>
+<h2 id="what-the-user-experience-could-be">What the User Experience Could Be<a class="headerlink" href="#what-the-user-experience-could-be" title="Permanent link">&para;</a></h2>
+<h3 id="current-workflow-requires-intrinsic-calibration">Current workflow (requires intrinsic calibration)<a class="headerlink" href="#current-workflow-requires-intrinsic-calibration" title="Permanent link">&para;</a></h3>
+<ol>
+<li>Print a large charuco board</li>
+<li>Record intrinsic calibration video for each camera (wave board, fill the frame)</li>
+<li>Run intrinsic calibration (per-camera, minutes each)</li>
+<li>Record extrinsic calibration video (all cameras, wave board through volume)</li>
+<li>Run extrinsic calibration</li>
+<li>Record motion capture session</li>
+<li>Track and triangulate</li>
+</ol>
+<h3 id="proposed-workflow-no-intrinsic-calibration">Proposed workflow (no intrinsic calibration)<a class="headerlink" href="#proposed-workflow-no-intrinsic-calibration" title="Permanent link">&para;</a></h3>
+<ol>
+<li>Print ArUco markers (letter-paper size, ~30cm)</li>
+<li>Place some markers on the floor between cameras (static reference)</li>
+<li>Wave a wand (two markers on a stick) through the capture volume</li>
+<li>Press calibrate</li>
+<li>Record motion capture session</li>
+<li>Track and triangulate</li>
+</ol>
+<p>Steps 2-4 replace steps 1-5 of the current workflow.
+The charuco board is eliminated.
+The separate intrinsic calibration step is eliminated.</p>
+<h3 id="what-the-user-sees-after-calibration">What the user sees after calibration<a class="headerlink" href="#what-the-user-sees-after-calibration" title="Permanent link">&para;</a></h3>
+<p>The calibration produced intrinsics (f, k1, k2) and extrinsics (camera poses) simultaneously.
+The user needs to trust the result without understanding the math.</p>
+<p><strong>Traffic-light summary.</strong>
+Before any detail, a one-line verdict: "Calibration quality: Good (5.8mm on 1.0m markers, 0.58%)" with green/yellow/red color coding based on rigidity as a percentage of marker size.
+The casual user reads this and stops.
+The expert clicks through to the details below.</p>
+<p><strong>Distortion visualization.</strong>
+Two tiers.
+MVP: a synthetic distortion grid rendered purely from the recovered f/k1/k2 coefficients — concentric circles showing barrel/pincushion correction.
+No video frames needed, lightweight, can go in the quality panel.
+Follow-up: a dialog that grabs a frame from each extrinsic video and shows raw versus undistorted side-by-side.</p>
+<p><strong>Rigidity report.</strong>
+The solver knows the true distances between marker corners (they're the constraints).
+After optimization, measure how well the triangulated 3D corners match those known distances.
+Show per-marker rigidity RMSE.
+Note: rigidity validates shape preservation. Absolute scale is validated separately through the known marker dimensions.</p>
+<p>One visualization idea: a 3D viewer showing the idealized marker geometry overlaid on the recovered geometry, scrubbable across frames or with all frames superimposed.
+This is a nice-to-have, not a requirement — Fable should decide if the complexity is justified.</p>
+<p><strong>Recovered intrinsics table.</strong>
+Show per-camera focal length and distortion coefficients.
+If the user provided intrinsics (optional), show the delta — how much the solver adjusted them.
+A contextual note like "Focal length recovered: 3048px (typical for this sensor)" helps users who skipped intrinsic calibration understand what they got.</p>
+<p><strong>Trajectory quality indicator.</strong>
+Report the depth ratio (max depth / min depth) across frames.
+Warn softly if depth variation is insufficient for f observability.
+No hard gate — just a note in the quality report.</p>
+<h2 id="architecture-decisions-for-fable">Architecture Decisions for Fable<a class="headerlink" href="#architecture-decisions-for-fable" title="Permanent link">&para;</a></h2>
+<p>These are the questions the spec needs to answer.</p>
+<h3 id="1-one-residual-function-not-two">1. One residual function, not two<a class="headerlink" href="#1-one-residual-function-not-two" title="Permanent link">&para;</a></h3>
+<p>The current production <code>CaptureVolume.optimize()</code> uses normalized-coordinate residuals with fixed intrinsics (pre-undistort, project with identity K).
+The experimental optimizer uses pixel-space residuals with free intrinsics (cv2.projectPoints with trial f/k1/k2).</p>
+<p>There is currently zero shared code between the two paths.
+The pixel-space approach subsumes the normalized approach (fix f/k1/k2 at their initial values and it's equivalent).</p>
+<p>The spec should commit to the pixel-space residual as the single production path.
+The normalized-coordinate path becomes dead code.
+This is the single most important architectural decision.</p>
+<h3 id="2-intrinsic-write-back-is-the-central-integration-point">2. Intrinsic write-back is the central integration point<a class="headerlink" href="#2-intrinsic-write-back-is-the-central-integration-point" title="Permanent link">&para;</a></h3>
+<p>The experimental optimizer recovers f/k1/k2 but does not write them back to <code>CameraData.matrix</code> or <code>CameraData.distortions</code>.
+Every downstream consumer — undistortion, reprojection reports, reconstruction — reads intrinsics from <code>CameraData</code>.
+If the joint solver refines f from 1920 to 3050 but <code>CameraData.matrix[0,0]</code> still says 1920, everything downstream is wrong.</p>
+<p>The spec must define:
+- When the write-back happens (after optimization? after filter + re-optimize?)
+- Whether <code>CameraData</code> grows new fields or overwrites <code>matrix</code>/<code>distortions</code>
+- How cx/cy and p1/p2/k3 (held fixed by the solver) are preserved in the written model
+- How <code>CameraArray.update_extrinsic_params()</code> (currently hardcoded to 6 params per camera) adapts to 9 params</p>
+<h3 id="3-default-intrinsics-synthesis">3. Default intrinsics synthesis<a class="headerlink" href="#3-default-intrinsics-synthesis" title="Permanent link">&para;</a></h3>
+<p><code>CaptureVolume.bootstrap()</code> requires intrinsics for PnP pose estimation — it raises <code>CalibrationError</code> if <code>matrix is None</code>.
+For the "no intrinsic calibration" workflow, the system must synthesize a guess camera matrix before bootstrap.</p>
+<p>The spec should define where this happens.
+Options: a <code>CameraData.with_default_intrinsics(width, height)</code> factory, a fallback in <code>bootstrap()</code>, or GUI-level synthesis when extrinsic videos are loaded.
+Camera resolution comes from the extrinsic video headers (PyAV can read this without decoding).</p>
+<h3 id="4-which-intrinsic-parameters-are-free">4. Which intrinsic parameters are free?<a class="headerlink" href="#4-which-intrinsic-parameters-are-free" title="Permanent link">&para;</a></h3>
+<p>Currently proven: f (single focal length, fx=fy), k1, k2.
+Not yet tested: separate fx/fy, principal point (cx, cy), tangential distortion (p1, p2), k3.</p>
+<p>Recommendation: start with {f, k1, k2} as proven.
+Consider cx/cy later if users report asymmetric lens issues.
+Keep p1, p2, k3 fixed — they require dense image coverage to observe, which ArUco markers don't provide.
+Cameras with significant tangential distortion (p1/p2) may see worse results than the synthetic predictions suggest.</p>
+<h3 id="5-when-should-intrinsics-be-freed-vs-fixed">5. When should intrinsics be freed vs fixed?<a class="headerlink" href="#5-when-should-intrinsics-be-freed-vs-fixed" title="Permanent link">&para;</a></h3>
+<p>If the user provides intrinsics (from a prior calibration or import), should the solver refine them or hold them fixed?</p>
+<p>Recommendation: refine by default.
+Refinement adapts intrinsics to the specific observation geometry, which usually improves calibration quality, but may diverge from intrinsics optimized over dense charuco coverage.
+The Phase 1d real data showed the solver improving on charuco-calibrated intrinsics.
+Show the delta so the user knows what changed.
+Provide an easy-to-find "lock intrinsics" option for users who trust their calibration.</p>
+<h3 id="6-charuco-as-a-first-class-target">6. Charuco as a first-class target<a class="headerlink" href="#6-charuco-as-a-first-class-target" title="Permanent link">&para;</a></h3>
+<p>Charuco boards give better subpixel corner refinement than plain ArUco.
+Serious users will prefer them for precision work.
+Both targets should feed into the same joint solver.</p>
+<p><code>ConstraintSet.from_charuco_board()</code> gives charuco users the same rigidity enforcement and joint intrinsic recovery that ArUco users get.
+Same solver, same quality reporting, different target geometry.
+The factory is small — charuco geometry is well-defined.</p>
+<h3 id="7-filter-then-re-optimize-with-free-intrinsics">7. Filter-then-re-optimize with free intrinsics<a class="headerlink" href="#7-filter-then-re-optimize-with-free-intrinsics" title="Permanent link">&para;</a></h3>
+<p>The production pipeline does: optimize → filter 2.5% worst → optimize again.
+With the joint solver, the second pass should also refine intrinsics.
+Should the bounds tighten on the second pass?
+The first pass recovers approximate f/k1/k2; tighter bounds around those values would improve stability.</p>
+<h3 id="8-what-happens-when-bounds-are-hit">8. What happens when bounds are hit?<a class="headerlink" href="#8-what-happens-when-bounds-are-hit" title="Permanent link">&para;</a></h3>
+<p><code>JointOptimizationResult.hit_bounds</code> is tracked but the system doesn't act on it.
+Options:
+- Warn the user ("focal length recovery hit solver bounds — consider providing intrinsic calibration")
+- Auto-widen bounds and re-run
+- Fall back to fixed-intrinsic optimization</p>
+<p>This is a UX decision with architecture implications.</p>
+<h3 id="9-fisheye-support">9. Fisheye support<a class="headerlink" href="#9-fisheye-support" title="Permanent link">&para;</a></h3>
+<p>The current solver uses <code>cv2.projectPoints</code> (Brown-Conrady polynomial model).
+Fisheye lenses (&gt;120° FOV) need <code>cv2.fisheye.projectPoints</code> (equidistant model).
+<code>CameraData.fisheye</code> boolean already exists.</p>
+<p>The API dispatch is simple but the models use fundamentally different distortion parameterizations.
+The {f, k1, k2} parameter set means different things in each model.
+Bounds, initial guesses, and convergence basins are all different.
+A mixed rig (some standard, some fisheye) needs per-camera parameter interpretation in bound setup, intrinsic extraction, and UI display.</p>
+<p>Recommendation: implement as a follow-on task. Backlog task <code>fisheye-joint-ba</code> is filed.</p>
+<h3 id="10-gui-tab-structure">10. GUI tab structure<a class="headerlink" href="#10-gui-tab-structure" title="Permanent link">&para;</a></h3>
+<p>The intrinsic calibration tab becomes optional.
+The existing tab-gating logic (<code>all_intrinsics_calibrated()</code>) must change.</p>
+<p>The recommended approach: keep all tabs, relax the intrinsic gate from "required" to "optional enhancement."
+The <code>StepStatus.AVAILABLE</code> indicator (blue) already exists and means "available but not required."
+The extrinsic tab gate changes from "cameras must have intrinsics" to "cameras must have a resolution" (derived from extrinsic video headers).</p>
+<h3 id="11-rigidity-based-outlier-filtering">11. Rigidity-based outlier filtering<a class="headerlink" href="#11-rigidity-based-outlier-filtering" title="Permanent link">&para;</a></h3>
+<p>A prior finding: the current reprojection-error filter achieves only ~68% precision/recall on 5% contamination because BA absorbs outliers into camera poses.
+Constraint violations are pose-independent and see the damage BA hides.
+A composite score (reprojection error + constraint violation) may separate outliers more cleanly.
+This is an open question worth exploring during implementation — the constraint infrastructure is already in place.</p>
+<h3 id="assumptions-and-risks-not-yet-tested">Assumptions and Risks Not Yet Tested<a class="headerlink" href="#assumptions-and-risks-not-yet-tested" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>2-camera configurations</strong>: untested. The minimum camera count for bootstrap is 2, but convergence basin and accuracy are uncharacterized below 3 cameras.</li>
+<li><strong>Rolling shutter</strong>: not modeled. Consumer cameras have ~33ms full-frame readout. At moderate wand speeds this is probably below ArUco detection noise, but it's an unverified assumption.</li>
+<li><strong>Degenerate camera arrangements</strong>: near-collinear cameras or very narrow baselines relative to scene depth are untested.</li>
+</ul>
+<h2 id="reference-documents">Reference Documents<a class="headerlink" href="#reference-documents" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Document</th>
+<th>Path</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Epic roadmap</td>
+<td><code>specs/epic-joint-calibration.md</code></td>
+</tr>
+<tr>
+<td>Prior art survey</td>
+<td><code>specs/joint-intrinsic-extrinsic-ba-roadmap.md</code></td>
+</tr>
+<tr>
+<td>Phase 1a results</td>
+<td><code>docs/experiments/phase-1a-free-k2.md</code></td>
+</tr>
+<tr>
+<td>Phase 1c results</td>
+<td><code>docs/experiments/phase-1c-multi-marker.md</code></td>
+</tr>
+<tr>
+<td>Phase 1d results</td>
+<td><code>docs/experiments/phase-1d-real-data.md</code></td>
+</tr>
+<tr>
+<td>Experimental optimizer</td>
+<td><code>src/caliscope/synthetic/experimental_ba.py</code></td>
+</tr>
+<tr>
+<td>Test suite</td>
+<td><code>tests/synthetic/test_intrinsic_recovery.py</code></td>
+</tr>
+<tr>
+<td>Wand scene factory</td>
+<td><code>src/caliscope/synthetic/scene_factories.py</code></td>
+</tr>
+<tr>
+<td>D7 session journal</td>
+<td><code>journal/2026-07-03.md</code> (session 9)</td>
+</tr>
+<tr>
+<td>Session 2 journal</td>
+<td><code>journal/2026-07-04-s2.md</code></td>
+</tr>
+<tr>
+<td>CV engineer review</td>
+<td>Adversarial review, 2026-07-04 (session notes)</td>
+</tr>
+<tr>
+<td>UX review</td>
+<td>Adversarial review, 2026-07-04 (session notes)</td>
+</tr>
+<tr>
+<td>Senior dev review</td>
+<td>Adversarial review, 2026-07-04 (session notes)</td>
+</tr>
+</tbody>
+</table>
+
+
+
+
+
+
+
+  
+    
+  
+  
+
+
+  <aside class="md-source-file">
+    
+      
+  <span class="md-source-file__fact">
+    <span class="md-icon" title="Last update">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
+    </span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="July 22, 2026 13:47:23 UTC">July 22, 2026</span>
+  </span>
+
+    
+    
+    
+    
+  </aside>
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+    <div class="md-copyright__highlight">
+      &copy; 2026 <a href="https://github.com/mprib"  target="_blank" rel="noopener">Mac Prible</a>
+
+    </div>
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": [], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+    
+  </body>
+</html>

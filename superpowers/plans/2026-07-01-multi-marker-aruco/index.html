@@ -1,0 +1,1655 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Multicamera calibration and 3D motion capture for researchers">
+      
+      
+      
+        <link rel="canonical" href="https://mprib.github.io/caliscope/superpowers/plans/2026-07-01-multi-marker-aruco/">
+      
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../../images/box3d-center.svg">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+    
+    
+      
+        <title>Multi-Marker ArUco Calibration Implementation Plan - Caliscope</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../../assets/stylesheets/main.ec1eaa64.min.css">
+      
+        
+        <link rel="stylesheet" href="../../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="blue" data-md-color-accent="green">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#multi-marker-aruco-calibration-implementation-plan" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../../.." title="Caliscope" class="md-header__button md-logo" aria-label="Caliscope" data-md-component="logo">
+      
+  <img src="../../../images/box3d-center.svg" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Caliscope
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Multi-Marker ArUco Calibration Implementation Plan
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="blue" data-md-color-accent="green"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M17 6H7c-3.31 0-6 2.69-6 6s2.69 6 6 6h10c3.31 0 6-2.69 6-6s-2.69-6-6-6m0 10H7c-2.21 0-4-1.79-4-4s1.79-4 4-4h10c2.21 0 4 1.79 4 4s-1.79 4-4 4M7 9c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="blue" data-md-color-accent="green"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M17 7H7a5 5 0 0 0-5 5 5 5 0 0 0 5 5h10a5 5 0 0 0 5-5 5 5 0 0 0-5-5m0 8a3 3 0 0 1-3-3 3 3 0 0 1 3-3 3 3 0 0 1 3 3 3 3 0 0 1-3 3"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/mprib/caliscope" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    caliscope
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../../.." title="Caliscope" class="md-nav__button md-logo" aria-label="Caliscope" data-md-component="logo">
+      
+  <img src="../../../images/box3d-center.svg" alt="logo">
+
+    </a>
+    Caliscope
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/mprib/caliscope" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    caliscope
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../installation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Installation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting Started
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Getting Started
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../project_setup/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Project Setup
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../sample_project/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Sample Project
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Calibration
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Calibration
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../calibration_targets/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Calibration Targets
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../intrinsic_calibration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Intrinsic Calibration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../extrinsic_calibration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Extrinsic Calibration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../extrinsic_calibration_reference/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Extrinsic Reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../aruco_calibration_set/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ArUco Calibration Set
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Reconstruction
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Reconstruction
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../reconstruction/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tracking & Triangulation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../onnx_trackers/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Custom ONNX Trackers
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../scripting/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Scripting API
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#global-constraints" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Global Constraints
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Global Constraints">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#task-1-arucomarker-and-arucomarkerset-dataclasses-toml-persistence" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Task 1: ArucoMarker and ArucoMarkerSet dataclasses + TOML persistence
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#task-2-arucotracker-migration-multi-marker-filtering-test" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Task 2: ArucoTracker migration + multi-marker filtering test
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#task-3-repository-workspace-coordinator-migration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Task 3: Repository + workspace coordinator migration
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#task-4-pnp-bootstrap-key-widening-legacy-stereocalibrate-deletion" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Task 4: PnP bootstrap key-widening + legacy stereoCalibrate deletion
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#task-5-guard-align_to_object-and-scale-accuracy-for-multi-marker" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Task 5: Guard align_to_object and scale accuracy for multi-marker
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#task-6-gui-migration-summary-panel-preview-save-all" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Task 6: GUI migration — summary panel, preview, save-all
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#task-7-delete-arucotarget-sweep-remaining-references" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Task 7: Delete ArucoTarget + sweep remaining references
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#self-review-checklist" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Self-Review Checklist
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="multi-marker-aruco-calibration-implementation-plan">Multi-Marker ArUco Calibration Implementation Plan<a class="headerlink" href="#multi-marker-aruco-calibration-implementation-plan" title="Permanent link">&para;</a></h1>
+<blockquote>
+<p><strong>For agentic workers:</strong> REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (<code>- [ ]</code>) syntax for tracking.</p>
+</blockquote>
+<p><strong>Goal:</strong> Replace <code>ArucoTarget</code> with <code>ArucoMarkerSet</code> (N markers of varying sizes) for large-volume extrinsic calibration.</p>
+<p><strong>Architecture:</strong> New frozen dataclasses <code>ArucoMarker</code> and <code>ArucoMarkerSet</code> replace the single-marker <code>ArucoTarget</code>. TOML format changes from <code>[corners.N]</code> arrays to <code>[[markers]]</code> table array. PnP bootstrap keys are widened to include <code>object_id</code>. Legacy stereoCalibrate path is deleted.</p>
+<p><strong>Tech Stack:</strong> Python 3.10+, OpenCV ArUco, rtoml, PySide6, frozen dataclasses</p>
+<p><strong>Spec:</strong> <code>specs/multi-marker-aruco.md</code></p>
+<h2 id="global-constraints">Global Constraints<a class="headerlink" href="#global-constraints" title="Permanent link">&para;</a></h2>
+<ul>
+<li>Branch: <code>feature/multi-marker-aruco</code> off <code>epic/aruco-calibration</code></li>
+<li>No backward compatibility with old <code>aruco_target.toml</code> format (beta rules)</li>
+<li><code>@dataclass(frozen=True)</code> without <code>slots=True</code> (cached_property needs <code>__dict__</code>)</li>
+<li>Dictionary capacity validated at construction time (fail-fast)</li>
+<li>All marker IDs must fit within the ArUco dictionary's capacity</li>
+<li>basedpyright clean on all changed files</li>
+<li>Full test suite green, no relaxed tolerances</li>
+</ul>
+<hr />
+<h3 id="task-1-arucomarker-and-arucomarkerset-dataclasses-toml-persistence">Task 1: ArucoMarker and ArucoMarkerSet dataclasses + TOML persistence<a class="headerlink" href="#task-1-arucomarker-and-arucomarkerset-dataclasses-toml-persistence" title="Permanent link">&para;</a></h3>
+<p><strong>Files:</strong>
+- Create: <code>src/caliscope/core/aruco_marker.py</code>
+- Test: <code>tests/test_aruco_marker.py</code></p>
+<p><strong>Interfaces:</strong>
+- Produces:
+  - <code>ArucoMarker(marker_id: int, size_m: float)</code> with <code>corners: NDArray[np.float64]</code> cached property
+  - <code>ArucoMarkerSet(dictionary: int, markers: dict[int, ArucoMarker])</code> with <code>from_toml(path)</code>, <code>to_toml(path)</code>, <code>generate_marker_image(marker_id, pixel_size) -&gt; NDArray</code></p>
+<ul class="task-list">
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> <strong>Step 1: Write failing tests for ArucoMarker</strong></li>
+</ul>
+<div class="highlight"><pre><span></span><code><span class="c1"># tests/test_aruco_marker.py</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">pytest</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">caliscope.core.aruco_marker</span><span class="w"> </span><span class="kn">import</span> <span class="n">ArucoMarker</span><span class="p">,</span> <span class="n">ArucoMarkerSet</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">test_aruco_marker_corners_from_size</span><span class="p">():</span>
+    <span class="n">marker</span> <span class="o">=</span> <span class="n">ArucoMarker</span><span class="p">(</span><span class="n">marker_id</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">size_m</span><span class="o">=</span><span class="mf">0.10</span><span class="p">)</span>
+    <span class="n">corners</span> <span class="o">=</span> <span class="n">marker</span><span class="o">.</span><span class="n">corners</span>
+    <span class="k">assert</span> <span class="n">corners</span><span class="o">.</span><span class="n">shape</span> <span class="o">==</span> <span class="p">(</span><span class="mi">4</span><span class="p">,</span> <span class="mi">3</span><span class="p">)</span>
+    <span class="n">s</span> <span class="o">=</span> <span class="mf">0.05</span>  <span class="c1"># half-size</span>
+    <span class="n">expected</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([[</span><span class="o">-</span><span class="n">s</span><span class="p">,</span> <span class="o">+</span><span class="n">s</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span> <span class="p">[</span><span class="o">+</span><span class="n">s</span><span class="p">,</span> <span class="o">+</span><span class="n">s</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span> <span class="p">[</span><span class="o">+</span><span class="n">s</span><span class="p">,</span> <span class="o">-</span><span class="n">s</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span> <span class="p">[</span><span class="o">-</span><span class="n">s</span><span class="p">,</span> <span class="o">-</span><span class="n">s</span><span class="p">,</span> <span class="mi">0</span><span class="p">]])</span>
+    <span class="n">np</span><span class="o">.</span><span class="n">testing</span><span class="o">.</span><span class="n">assert_allclose</span><span class="p">(</span><span class="n">corners</span><span class="p">,</span> <span class="n">expected</span><span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">test_aruco_marker_rejects_nonpositive_size</span><span class="p">():</span>
+    <span class="k">with</span> <span class="n">pytest</span><span class="o">.</span><span class="n">raises</span><span class="p">(</span><span class="ne">ValueError</span><span class="p">,</span> <span class="n">match</span><span class="o">=</span><span class="s2">&quot;positive&quot;</span><span class="p">):</span>
+        <span class="n">ArucoMarker</span><span class="p">(</span><span class="n">marker_id</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">size_m</span><span class="o">=</span><span class="mf">0.0</span><span class="p">)</span>
+    <span class="k">with</span> <span class="n">pytest</span><span class="o">.</span><span class="n">raises</span><span class="p">(</span><span class="ne">ValueError</span><span class="p">,</span> <span class="n">match</span><span class="o">=</span><span class="s2">&quot;positive&quot;</span><span class="p">):</span>
+        <span class="n">ArucoMarker</span><span class="p">(</span><span class="n">marker_id</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">size_m</span><span class="o">=-</span><span class="mf">0.05</span><span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">test_aruco_marker_frozen</span><span class="p">():</span>
+    <span class="n">marker</span> <span class="o">=</span> <span class="n">ArucoMarker</span><span class="p">(</span><span class="n">marker_id</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">size_m</span><span class="o">=</span><span class="mf">0.05</span><span class="p">)</span>
+    <span class="k">with</span> <span class="n">pytest</span><span class="o">.</span><span class="n">raises</span><span class="p">(</span><span class="ne">AttributeError</span><span class="p">):</span>
+        <span class="n">marker</span><span class="o">.</span><span class="n">size_m</span> <span class="o">=</span> <span class="mf">0.1</span>  <span class="c1"># type: ignore[misc]</span>
+</code></pre></div>
+<ul class="task-list">
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> <strong>Step 2: Write failing tests for ArucoMarkerSet</strong></li>
+</ul>
+<div class="highlight"><pre><span></span><code><span class="c1"># append to tests/test_aruco_marker.py</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">cv2</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">test_marker_set_construction</span><span class="p">():</span>
+    <span class="n">markers</span> <span class="o">=</span> <span class="p">{</span><span class="mi">0</span><span class="p">:</span> <span class="n">ArucoMarker</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mf">0.165</span><span class="p">),</span> <span class="mi">3</span><span class="p">:</span> <span class="n">ArucoMarker</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mf">0.10</span><span class="p">)}</span>
+    <span class="n">ms</span> <span class="o">=</span> <span class="n">ArucoMarkerSet</span><span class="p">(</span><span class="n">dictionary</span><span class="o">=</span><span class="n">cv2</span><span class="o">.</span><span class="n">aruco</span><span class="o">.</span><span class="n">DICT_4X4_100</span><span class="p">,</span> <span class="n">markers</span><span class="o">=</span><span class="n">markers</span><span class="p">)</span>
+    <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">ms</span><span class="o">.</span><span class="n">markers</span><span class="p">)</span> <span class="o">==</span> <span class="mi">2</span>
+    <span class="k">assert</span> <span class="n">ms</span><span class="o">.</span><span class="n">markers</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">size_m</span> <span class="o">==</span> <span class="mf">0.165</span>
+    <span class="k">assert</span> <span class="n">ms</span><span class="o">.</span><span class="n">markers</span><span class="p">[</span><span class="mi">3</span><span class="p">]</span><span class="o">.</span><span class="n">size_m</span> <span class="o">==</span> <span class="mf">0.10</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">test_marker_set_rejects_empty</span><span class="p">():</span>
+    <span class="k">with</span> <span class="n">pytest</span><span class="o">.</span><span class="n">raises</span><span class="p">(</span><span class="ne">ValueError</span><span class="p">,</span> <span class="n">match</span><span class="o">=</span><span class="s2">&quot;at least one&quot;</span><span class="p">):</span>
+        <span class="n">ArucoMarkerSet</span><span class="p">(</span><span class="n">dictionary</span><span class="o">=</span><span class="n">cv2</span><span class="o">.</span><span class="n">aruco</span><span class="o">.</span><span class="n">DICT_4X4_50</span><span class="p">,</span> <span class="n">markers</span><span class="o">=</span><span class="p">{})</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">test_marker_set_rejects_overcapacity_id</span><span class="p">():</span>
+    <span class="k">with</span> <span class="n">pytest</span><span class="o">.</span><span class="n">raises</span><span class="p">(</span><span class="ne">ValueError</span><span class="p">,</span> <span class="n">match</span><span class="o">=</span><span class="s2">&quot;capacity&quot;</span><span class="p">):</span>
+        <span class="n">ArucoMarkerSet</span><span class="p">(</span>
+            <span class="n">dictionary</span><span class="o">=</span><span class="n">cv2</span><span class="o">.</span><span class="n">aruco</span><span class="o">.</span><span class="n">DICT_4X4_50</span><span class="p">,</span>
+            <span class="n">markers</span><span class="o">=</span><span class="p">{</span><span class="mi">99</span><span class="p">:</span> <span class="n">ArucoMarker</span><span class="p">(</span><span class="mi">99</span><span class="p">,</span> <span class="mf">0.05</span><span class="p">)},</span>
+        <span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">test_marker_set_toml_round_trip</span><span class="p">(</span><span class="n">tmp_path</span><span class="p">):</span>
+    <span class="n">markers</span> <span class="o">=</span> <span class="p">{</span><span class="mi">0</span><span class="p">:</span> <span class="n">ArucoMarker</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mf">0.165</span><span class="p">),</span> <span class="mi">3</span><span class="p">:</span> <span class="n">ArucoMarker</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mf">0.10</span><span class="p">),</span> <span class="mi">7</span><span class="p">:</span> <span class="n">ArucoMarker</span><span class="p">(</span><span class="mi">7</span><span class="p">,</span> <span class="mf">0.165</span><span class="p">)}</span>
+    <span class="n">original</span> <span class="o">=</span> <span class="n">ArucoMarkerSet</span><span class="p">(</span><span class="n">dictionary</span><span class="o">=</span><span class="n">cv2</span><span class="o">.</span><span class="n">aruco</span><span class="o">.</span><span class="n">DICT_4X4_100</span><span class="p">,</span> <span class="n">markers</span><span class="o">=</span><span class="n">markers</span><span class="p">)</span>
+    <span class="n">path</span> <span class="o">=</span> <span class="n">tmp_path</span> <span class="o">/</span> <span class="s2">&quot;aruco_marker_set.toml&quot;</span>
+    <span class="n">original</span><span class="o">.</span><span class="n">to_toml</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
+    <span class="n">loaded</span> <span class="o">=</span> <span class="n">ArucoMarkerSet</span><span class="o">.</span><span class="n">from_toml</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
+    <span class="k">assert</span> <span class="n">loaded</span><span class="o">.</span><span class="n">dictionary</span> <span class="o">==</span> <span class="n">original</span><span class="o">.</span><span class="n">dictionary</span>
+    <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">loaded</span><span class="o">.</span><span class="n">markers</span><span class="p">)</span> <span class="o">==</span> <span class="mi">3</span>
+    <span class="k">for</span> <span class="n">mid</span> <span class="ow">in</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">7</span><span class="p">]:</span>
+        <span class="n">np</span><span class="o">.</span><span class="n">testing</span><span class="o">.</span><span class="n">assert_allclose</span><span class="p">(</span><span class="n">loaded</span><span class="o">.</span><span class="n">markers</span><span class="p">[</span><span class="n">mid</span><span class="p">]</span><span class="o">.</span><span class="n">corners</span><span class="p">,</span> <span class="n">original</span><span class="o">.</span><span class="n">markers</span><span class="p">[</span><span class="n">mid</span><span class="p">]</span><span class="o">.</span><span class="n">corners</span><span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">test_marker_set_from_toml_missing_file</span><span class="p">(</span><span class="n">tmp_path</span><span class="p">):</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">caliscope.persistence</span><span class="w"> </span><span class="kn">import</span> <span class="n">PersistenceError</span>
+    <span class="k">with</span> <span class="n">pytest</span><span class="o">.</span><span class="n">raises</span><span class="p">(</span><span class="n">PersistenceError</span><span class="p">):</span>
+        <span class="n">ArucoMarkerSet</span><span class="o">.</span><span class="n">from_toml</span><span class="p">(</span><span class="n">tmp_path</span> <span class="o">/</span> <span class="s2">&quot;nope.toml&quot;</span><span class="p">)</span>
+</code></pre></div>
+<ul class="task-list">
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> <strong>Step 3: Run tests to verify they fail</strong></li>
+</ul>
+<p>Run: <code>uv run pytest tests/test_aruco_marker.py -v</code>
+Expected: ImportError — <code>aruco_marker</code> module does not exist</p>
+<ul class="task-list">
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> <strong>Step 4: Implement ArucoMarker</strong></li>
+</ul>
+<div class="highlight"><pre><span></span><code><span class="c1"># src/caliscope/core/aruco_marker.py</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">dataclasses</span><span class="w"> </span><span class="kn">import</span> <span class="n">dataclass</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">functools</span><span class="w"> </span><span class="kn">import</span> <span class="n">cached_property</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">cv2</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">rtoml</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">numpy.typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">NDArray</span>
+
+
+<span class="nd">@dataclass</span><span class="p">(</span><span class="n">frozen</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">ArucoMarker</span><span class="p">:</span>
+    <span class="n">marker_id</span><span class="p">:</span> <span class="nb">int</span>
+    <span class="n">size_m</span><span class="p">:</span> <span class="nb">float</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">__post_init__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">size_m</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;size_m must be positive, got </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">size_m</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+    <span class="nd">@cached_property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">corners</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">]:</span>
+        <span class="n">s</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">size_m</span> <span class="o">/</span> <span class="mi">2</span>
+        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span>
+            <span class="p">[[</span><span class="o">-</span><span class="n">s</span><span class="p">,</span> <span class="o">+</span><span class="n">s</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">],</span> <span class="p">[</span><span class="o">+</span><span class="n">s</span><span class="p">,</span> <span class="o">+</span><span class="n">s</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">],</span> <span class="p">[</span><span class="o">+</span><span class="n">s</span><span class="p">,</span> <span class="o">-</span><span class="n">s</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">],</span> <span class="p">[</span><span class="o">-</span><span class="n">s</span><span class="p">,</span> <span class="o">-</span><span class="n">s</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">]],</span>
+            <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">,</span>
+        <span class="p">)</span>
+</code></pre></div>
+<ul class="task-list">
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> <strong>Step 5: Implement ArucoMarkerSet with validation and TOML persistence</strong></li>
+</ul>
+<div class="highlight"><pre><span></span><code><span class="c1"># append to src/caliscope/core/aruco_marker.py</span>
+
+<span class="nd">@dataclass</span><span class="p">(</span><span class="n">frozen</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">ArucoMarkerSet</span><span class="p">:</span>
+    <span class="n">dictionary</span><span class="p">:</span> <span class="nb">int</span>
+    <span class="n">markers</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="n">ArucoMarker</span><span class="p">]</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">__post_init__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">markers</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;ArucoMarkerSet requires at least one marker&quot;</span><span class="p">)</span>
+        <span class="n">aruco_dict</span> <span class="o">=</span> <span class="n">cv2</span><span class="o">.</span><span class="n">aruco</span><span class="o">.</span><span class="n">getPredefinedDictionary</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">dictionary</span><span class="p">)</span>
+        <span class="n">capacity</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">aruco_dict</span><span class="o">.</span><span class="n">bytesList</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">mid</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">markers</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">mid</span> <span class="o">&lt;</span> <span class="mi">0</span> <span class="ow">or</span> <span class="n">mid</span> <span class="o">&gt;=</span> <span class="n">capacity</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;Marker ID </span><span class="si">{</span><span class="n">mid</span><span class="si">}</span><span class="s2"> exceeds dictionary capacity (</span><span class="si">{</span><span class="n">capacity</span><span class="si">}</span><span class="s2">)&quot;</span>
+                <span class="p">)</span>
+
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">from_toml</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ArucoMarkerSet</span><span class="p">:</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">caliscope.persistence</span><span class="w"> </span><span class="kn">import</span> <span class="n">PersistenceError</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">():</span>
+            <span class="k">raise</span> <span class="n">PersistenceError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;ArucoMarkerSet file not found: </span><span class="si">{</span><span class="n">path</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">data</span> <span class="o">=</span> <span class="n">rtoml</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
+            <span class="n">dictionary</span> <span class="o">=</span> <span class="n">data</span><span class="p">[</span><span class="s2">&quot;dictionary&quot;</span><span class="p">]</span>
+            <span class="n">markers</span> <span class="o">=</span> <span class="p">{}</span>
+            <span class="k">for</span> <span class="n">entry</span> <span class="ow">in</span> <span class="n">data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;markers&quot;</span><span class="p">,</span> <span class="p">[]):</span>
+                <span class="n">mid</span> <span class="o">=</span> <span class="n">entry</span><span class="p">[</span><span class="s2">&quot;id&quot;</span><span class="p">]</span>
+                <span class="n">size_m</span> <span class="o">=</span> <span class="n">entry</span><span class="p">[</span><span class="s2">&quot;size_m&quot;</span><span class="p">]</span>
+                <span class="n">markers</span><span class="p">[</span><span class="n">mid</span><span class="p">]</span> <span class="o">=</span> <span class="n">ArucoMarker</span><span class="p">(</span><span class="n">marker_id</span><span class="o">=</span><span class="n">mid</span><span class="p">,</span> <span class="n">size_m</span><span class="o">=</span><span class="n">size_m</span><span class="p">)</span>
+            <span class="k">return</span> <span class="bp">cls</span><span class="p">(</span><span class="n">dictionary</span><span class="o">=</span><span class="n">dictionary</span><span class="p">,</span> <span class="n">markers</span><span class="o">=</span><span class="n">markers</span><span class="p">)</span>
+        <span class="k">except</span> <span class="n">PersistenceError</span><span class="p">:</span>
+            <span class="k">raise</span>
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">PersistenceError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;Failed to load ArucoMarkerSet from </span><span class="si">{</span><span class="n">path</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span>
+            <span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">e</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">to_toml</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">caliscope.persistence</span><span class="w"> </span><span class="kn">import</span> <span class="n">PersistenceError</span><span class="p">,</span> <span class="n">_safe_write_toml</span>
+
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">path</span><span class="o">.</span><span class="n">parent</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">parents</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+            <span class="n">data</span> <span class="o">=</span> <span class="p">{</span>
+                <span class="s2">&quot;dictionary&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">dictionary</span><span class="p">,</span>
+                <span class="s2">&quot;markers&quot;</span><span class="p">:</span> <span class="p">[</span>
+                    <span class="p">{</span><span class="s2">&quot;id&quot;</span><span class="p">:</span> <span class="n">m</span><span class="o">.</span><span class="n">marker_id</span><span class="p">,</span> <span class="s2">&quot;size_m&quot;</span><span class="p">:</span> <span class="n">m</span><span class="o">.</span><span class="n">size_m</span><span class="p">}</span>
+                    <span class="k">for</span> <span class="n">m</span> <span class="ow">in</span> <span class="nb">sorted</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">markers</span><span class="o">.</span><span class="n">values</span><span class="p">(),</span> <span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">m</span><span class="p">:</span> <span class="n">m</span><span class="o">.</span><span class="n">marker_id</span><span class="p">)</span>
+                <span class="p">],</span>
+            <span class="p">}</span>
+            <span class="n">_safe_write_toml</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">path</span><span class="p">)</span>
+        <span class="k">except</span> <span class="n">PersistenceError</span><span class="p">:</span>
+            <span class="k">raise</span>
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">PersistenceError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;Failed to save ArucoMarkerSet to </span><span class="si">{</span><span class="n">path</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span>
+            <span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">e</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">generate_marker_image</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">marker_id</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">pixel_size</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">NDArray</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">marker_id</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">markers</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">KeyError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;Marker </span><span class="si">{</span><span class="n">marker_id</span><span class="si">}</span><span class="s2"> not in set (available: </span><span class="si">{</span><span class="nb">sorted</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">markers</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span><span class="si">}</span><span class="s2">)&quot;</span>
+            <span class="p">)</span>
+        <span class="n">marker</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">markers</span><span class="p">[</span><span class="n">marker_id</span><span class="p">]</span>
+        <span class="n">aruco_dict</span> <span class="o">=</span> <span class="n">cv2</span><span class="o">.</span><span class="n">aruco</span><span class="o">.</span><span class="n">getPredefinedDictionary</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">dictionary</span><span class="p">)</span>
+        <span class="n">marker_img</span> <span class="o">=</span> <span class="n">cv2</span><span class="o">.</span><span class="n">aruco</span><span class="o">.</span><span class="n">generateImageMarker</span><span class="p">(</span><span class="n">aruco_dict</span><span class="p">,</span> <span class="n">marker_id</span><span class="p">,</span> <span class="n">pixel_size</span><span class="p">)</span>
+
+        <span class="n">border</span> <span class="o">=</span> <span class="n">pixel_size</span> <span class="o">//</span> <span class="mi">2</span>
+        <span class="n">bordered</span> <span class="o">=</span> <span class="n">cv2</span><span class="o">.</span><span class="n">copyMakeBorder</span><span class="p">(</span>
+            <span class="n">marker_img</span><span class="p">,</span> <span class="n">border</span><span class="p">,</span> <span class="n">border</span><span class="p">,</span> <span class="n">border</span><span class="p">,</span> <span class="n">border</span><span class="p">,</span>
+            <span class="n">cv2</span><span class="o">.</span><span class="n">BORDER_CONSTANT</span><span class="p">,</span> <span class="n">value</span><span class="o">=</span><span class="p">(</span><span class="mf">255.0</span><span class="p">,),</span>
+        <span class="p">)</span>
+        <span class="n">annotated</span> <span class="o">=</span> <span class="n">cv2</span><span class="o">.</span><span class="n">cvtColor</span><span class="p">(</span><span class="n">bordered</span><span class="p">,</span> <span class="n">cv2</span><span class="o">.</span><span class="n">COLOR_GRAY2BGR</span><span class="p">)</span>
+
+        <span class="n">font</span> <span class="o">=</span> <span class="n">cv2</span><span class="o">.</span><span class="n">FONT_HERSHEY_SIMPLEX</span>
+        <span class="n">font_scale</span> <span class="o">=</span> <span class="n">pixel_size</span> <span class="o">/</span> <span class="mi">400</span>
+        <span class="n">thickness</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="nb">int</span><span class="p">(</span><span class="n">pixel_size</span> <span class="o">/</span> <span class="mi">100</span><span class="p">))</span>
+        <span class="n">label_thick</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">thickness</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span>
+
+        <span class="n">size_cm</span> <span class="o">=</span> <span class="n">marker</span><span class="o">.</span><span class="n">size_m</span> <span class="o">*</span> <span class="mi">100</span>
+        <span class="n">info_y</span> <span class="o">=</span> <span class="n">border</span> <span class="o">+</span> <span class="n">pixel_size</span> <span class="o">+</span> <span class="n">border</span> <span class="o">-</span> <span class="nb">int</span><span class="p">(</span><span class="n">font_scale</span> <span class="o">*</span> <span class="mi">5</span><span class="p">)</span>
+        <span class="n">cv2</span><span class="o">.</span><span class="n">putText</span><span class="p">(</span>
+            <span class="n">annotated</span><span class="p">,</span>
+            <span class="sa">f</span><span class="s2">&quot;ID: </span><span class="si">{</span><span class="n">marker_id</span><span class="si">}</span><span class="s2">  Size: </span><span class="si">{</span><span class="n">size_cm</span><span class="si">:</span><span class="s2">.1f</span><span class="si">}</span><span class="s2"> cm&quot;</span><span class="p">,</span>
+            <span class="p">(</span><span class="n">border</span><span class="p">,</span> <span class="n">info_y</span><span class="p">),</span>
+            <span class="n">font</span><span class="p">,</span> <span class="n">font_scale</span> <span class="o">*</span> <span class="mf">0.5</span><span class="p">,</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span> <span class="n">label_thick</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="n">annotated</span>
+</code></pre></div>
+<ul class="task-list">
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> <strong>Step 6: Run tests to verify they pass</strong></li>
+</ul>
+<p>Run: <code>uv run pytest tests/test_aruco_marker.py -v</code>
+Expected: All pass</p>
+<ul class="task-list">
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> <strong>Step 7: Type check</strong></li>
+</ul>
+<p>Run: <code>uv run basedpyright src/caliscope/core/aruco_marker.py tests/test_aruco_marker.py</code>
+Expected: 0 errors</p>
+<ul class="task-list">
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> <strong>Step 8: Commit</strong></li>
+</ul>
+<div class="highlight"><pre><span></span><code>git<span class="w"> </span>add<span class="w"> </span>src/caliscope/core/aruco_marker.py<span class="w"> </span>tests/test_aruco_marker.py
+git<span class="w"> </span>commit<span class="w"> </span>-m<span class="w"> </span><span class="s2">&quot;feat: add ArucoMarker and ArucoMarkerSet with TOML persistence&quot;</span>
+</code></pre></div>
+<hr />
+<h3 id="task-2-arucotracker-migration-multi-marker-filtering-test">Task 2: ArucoTracker migration + multi-marker filtering test<a class="headerlink" href="#task-2-arucotracker-migration-multi-marker-filtering-test" title="Permanent link">&para;</a></h3>
+<p><strong>Files:</strong>
+- Modify: <code>src/caliscope/trackers/aruco_tracker.py</code>
+- Modify: <code>tests/test_aruco_target.py</code> → rename to <code>tests/test_aruco_marker.py</code> (merge)
+- Test: <code>tests/test_aruco_marker.py</code> (append multi-marker filtering test)</p>
+<p><strong>Interfaces:</strong>
+- Consumes: <code>ArucoMarkerSet</code> from Task 1
+- Produces: <code>ArucoTracker(dictionary, inverted, marker_set: ArucoMarkerSet | None)</code></p>
+<ul class="task-list">
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> <strong>Step 1: Write multi-marker filtering test</strong></li>
+</ul>
+<div class="highlight"><pre><span></span><code><span class="c1"># append to tests/test_aruco_marker.py</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">test_tracker_multi_marker_uses_per_marker_size</span><span class="p">():</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Two markers of different sizes produce different obj_loc corners.&quot;&quot;&quot;</span>
+    <span class="n">small</span> <span class="o">=</span> <span class="n">ArucoMarker</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mf">0.05</span><span class="p">)</span>
+    <span class="n">large</span> <span class="o">=</span> <span class="n">ArucoMarker</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mf">0.10</span><span class="p">)</span>
+    <span class="n">marker_set</span> <span class="o">=</span> <span class="n">ArucoMarkerSet</span><span class="p">(</span>
+        <span class="n">dictionary</span><span class="o">=</span><span class="n">cv2</span><span class="o">.</span><span class="n">aruco</span><span class="o">.</span><span class="n">DICT_4X4_100</span><span class="p">,</span>
+        <span class="n">markers</span><span class="o">=</span><span class="p">{</span><span class="mi">0</span><span class="p">:</span> <span class="n">small</span><span class="p">,</span> <span class="mi">3</span><span class="p">:</span> <span class="n">large</span><span class="p">},</span>
+    <span class="p">)</span>
+
+    <span class="c1"># Generate a synthetic image with both markers</span>
+    <span class="n">img</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">((</span><span class="mi">600</span><span class="p">,</span> <span class="mi">800</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">uint8</span><span class="p">)</span> <span class="o">*</span> <span class="mi">255</span>
+    <span class="n">aruco_dict</span> <span class="o">=</span> <span class="n">cv2</span><span class="o">.</span><span class="n">aruco</span><span class="o">.</span><span class="n">getPredefinedDictionary</span><span class="p">(</span><span class="n">cv2</span><span class="o">.</span><span class="n">aruco</span><span class="o">.</span><span class="n">DICT_4X4_100</span><span class="p">)</span>
+    <span class="n">marker_0_img</span> <span class="o">=</span> <span class="n">cv2</span><span class="o">.</span><span class="n">aruco</span><span class="o">.</span><span class="n">generateImageMarker</span><span class="p">(</span><span class="n">aruco_dict</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">100</span><span class="p">)</span>
+    <span class="n">marker_3_img</span> <span class="o">=</span> <span class="n">cv2</span><span class="o">.</span><span class="n">aruco</span><span class="o">.</span><span class="n">generateImageMarker</span><span class="p">(</span><span class="n">aruco_dict</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">100</span><span class="p">)</span>
+    <span class="n">img</span><span class="p">[</span><span class="mi">100</span><span class="p">:</span><span class="mi">200</span><span class="p">,</span> <span class="mi">100</span><span class="p">:</span><span class="mi">200</span><span class="p">]</span> <span class="o">=</span> <span class="n">marker_0_img</span>
+    <span class="n">img</span><span class="p">[</span><span class="mi">100</span><span class="p">:</span><span class="mi">200</span><span class="p">,</span> <span class="mi">400</span><span class="p">:</span><span class="mi">500</span><span class="p">]</span> <span class="o">=</span> <span class="n">marker_3_img</span>
+
+    <span class="kn">from</span><span class="w"> </span><span class="nn">caliscope.trackers.aruco_tracker</span><span class="w"> </span><span class="kn">import</span> <span class="n">ArucoTracker</span>
+    <span class="n">tracker</span> <span class="o">=</span> <span class="n">ArucoTracker</span><span class="p">(</span><span class="n">marker_set</span><span class="o">=</span><span class="n">marker_set</span><span class="p">)</span>
+    <span class="n">packet</span> <span class="o">=</span> <span class="n">tracker</span><span class="o">.</span><span class="n">get_points</span><span class="p">(</span><span class="n">img</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">packet</span><span class="o">.</span><span class="n">obj_loc</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">packet</span><span class="o">.</span><span class="n">obj_loc</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="c1"># Check that marker 0 and marker 3 have different corner magnitudes</span>
+        <span class="n">mask_0</span> <span class="o">=</span> <span class="n">packet</span><span class="o">.</span><span class="n">object_id</span> <span class="o">==</span> <span class="mi">0</span>
+        <span class="n">mask_3</span> <span class="o">=</span> <span class="n">packet</span><span class="o">.</span><span class="n">object_id</span> <span class="o">==</span> <span class="mi">3</span>
+        <span class="k">if</span> <span class="n">mask_0</span><span class="o">.</span><span class="n">any</span><span class="p">()</span> <span class="ow">and</span> <span class="n">mask_3</span><span class="o">.</span><span class="n">any</span><span class="p">():</span>
+            <span class="n">corners_0</span> <span class="o">=</span> <span class="n">packet</span><span class="o">.</span><span class="n">obj_loc</span><span class="p">[</span><span class="n">mask_0</span><span class="p">]</span>
+            <span class="n">corners_3</span> <span class="o">=</span> <span class="n">packet</span><span class="o">.</span><span class="n">obj_loc</span><span class="p">[</span><span class="n">mask_3</span><span class="p">]</span>
+            <span class="c1"># Small marker corners are ±0.025, large are ±0.05</span>
+            <span class="n">max_0</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">corners_0</span><span class="p">[:,</span> <span class="p">:</span><span class="mi">2</span><span class="p">]))</span>
+            <span class="n">max_3</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">corners_3</span><span class="p">[:,</span> <span class="p">:</span><span class="mi">2</span><span class="p">]))</span>
+            <span class="k">assert</span> <span class="n">max_0</span> <span class="o">==</span> <span class="n">pytest</span><span class="o">.</span><span class="n">approx</span><span class="p">(</span><span class="mf">0.025</span><span class="p">,</span> <span class="nb">abs</span><span class="o">=</span><span class="mf">1e-6</span><span class="p">)</span>
+            <span class="k">assert</span> <span class="n">max_3</span> <span class="o">==</span> <span class="n">pytest</span><span class="o">.</span><span class="n">approx</span><span class="p">(</span><span class="mf">0.05</span><span class="p">,</span> <span class="nb">abs</span><span class="o">=</span><span class="mf">1e-6</span><span class="p">)</span>
+</code></pre></div>
+<ul class="task-list">
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> <strong>Step 2: Run test to verify it fails</strong></li>
+</ul>
+<p>Run: <code>uv run pytest tests/test_aruco_marker.py::test_tracker_multi_marker_uses_per_marker_size -v</code>
+Expected: FAIL (ArucoTracker still expects <code>aruco_target</code> parameter)</p>
+<ul class="task-list">
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> <strong>Step 3: Migrate ArucoTracker to use ArucoMarkerSet</strong></li>
+</ul>
+<p>In <code>src/caliscope/trackers/aruco_tracker.py</code>:
+- Change import from <code>ArucoTarget</code> to <code>ArucoMarkerSet</code>
+- Rename constructor parameter <code>aruco_target</code> to <code>marker_set</code>
+- Update <code>_apply_target_filter</code>:
+  - <code>set(self.aruco_target.marker_ids)</code> → <code>set(self.marker_set.markers.keys())</code>
+  - <code>self.aruco_target.corners[int(oid)][int(kid)]</code> → <code>self.marker_set.markers[int(oid)].corners[int(kid)]</code>
+- Update all <code>self.aruco_target</code> references to <code>self.marker_set</code></p>
+<ul class="task-list">
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> <strong>Step 4: Migrate existing tests from test_aruco_target.py</strong></li>
+</ul>
+<p>Move the tracker-related tests to <code>tests/test_aruco_marker.py</code>, updating them to use <code>ArucoMarkerSet</code> construction instead of <code>ArucoTarget.single_marker()</code>. For example:</p>
+<div class="highlight"><pre><span></span><code><span class="c1"># Old:</span>
+<span class="n">target</span> <span class="o">=</span> <span class="n">ArucoTarget</span><span class="o">.</span><span class="n">single_marker</span><span class="p">(</span><span class="n">marker_id</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">marker_size_m</span><span class="o">=</span><span class="mf">0.05</span><span class="p">)</span>
+<span class="n">tracker</span> <span class="o">=</span> <span class="n">ArucoTracker</span><span class="p">(</span><span class="n">aruco_target</span><span class="o">=</span><span class="n">target</span><span class="p">)</span>
+
+<span class="c1"># New:</span>
+<span class="n">marker_set</span> <span class="o">=</span> <span class="n">ArucoMarkerSet</span><span class="p">(</span>
+    <span class="n">dictionary</span><span class="o">=</span><span class="n">cv2</span><span class="o">.</span><span class="n">aruco</span><span class="o">.</span><span class="n">DICT_4X4_100</span><span class="p">,</span>
+    <span class="n">markers</span><span class="o">=</span><span class="p">{</span><span class="mi">0</span><span class="p">:</span> <span class="n">ArucoMarker</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mf">0.05</span><span class="p">)},</span>
+<span class="p">)</span>
+<span class="n">tracker</span> <span class="o">=</span> <span class="n">ArucoTracker</span><span class="p">(</span><span class="n">marker_set</span><span class="o">=</span><span class="n">marker_set</span><span class="p">)</span>
+</code></pre></div>
+<ul class="task-list">
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> <strong>Step 5: Run all aruco tests</strong></li>
+</ul>
+<p>Run: <code>uv run pytest tests/test_aruco_marker.py -v</code>
+Expected: All pass</p>
+<ul class="task-list">
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> <strong>Step 6: Type check</strong></li>
+</ul>
+<p>Run: <code>uv run basedpyright src/caliscope/trackers/aruco_tracker.py</code>
+Expected: 0 errors</p>
+<ul class="task-list">
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> <strong>Step 7: Commit</strong></li>
+</ul>
+<div class="highlight"><pre><span></span><code>git<span class="w"> </span>add<span class="w"> </span>src/caliscope/trackers/aruco_tracker.py<span class="w"> </span>tests/test_aruco_marker.py
+git<span class="w"> </span>commit<span class="w"> </span>-m<span class="w"> </span><span class="s2">&quot;refactor: migrate ArucoTracker from ArucoTarget to ArucoMarkerSet&quot;</span>
+</code></pre></div>
+<hr />
+<h3 id="task-3-repository-workspace-coordinator-migration">Task 3: Repository + workspace coordinator migration<a class="headerlink" href="#task-3-repository-workspace-coordinator-migration" title="Permanent link">&para;</a></h3>
+<p><strong>Files:</strong>
+- Modify: <code>src/caliscope/repositories/calibration_targets_repository.py</code>
+- Modify: <code>src/caliscope/workspace_coordinator.py</code></p>
+<p><strong>Interfaces:</strong>
+- Consumes: <code>ArucoMarkerSet</code>, <code>ArucoMarker</code> from Task 1
+- Produces: <code>CalibrationTargetsRepository.load_aruco_marker_set()</code>, <code>.save_aruco_marker_set()</code>, <code>.aruco_marker_set_exists()</code></p>
+<ul class="task-list">
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> <strong>Step 1: Migrate CalibrationTargetsRepository</strong></li>
+</ul>
+<p>In <code>src/caliscope/repositories/calibration_targets_repository.py</code>:
+- Change import: <code>ArucoTarget</code> → <code>ArucoMarker, ArucoMarkerSet</code>
+- Rename methods:
+  - <code>load_aruco_target</code> → <code>load_aruco_marker_set</code>, return type <code>ArucoMarkerSet</code>
+  - <code>save_aruco_target</code> → <code>save_aruco_marker_set</code>, param type <code>ArucoMarkerSet</code>
+  - <code>aruco_target_exists</code> → <code>aruco_marker_set_exists</code>
+- Change filename constant: <code>"aruco_target.toml"</code> → <code>"aruco_marker_set.toml"</code> (4 places)
+- In <code>initialize_defaults</code>: replace <code>ArucoTarget.single_marker(...)</code> with:
+  <div class="highlight"><pre><span></span><code><span class="n">default_aruco</span> <span class="o">=</span> <span class="n">ArucoMarkerSet</span><span class="p">(</span>
+    <span class="n">dictionary</span><span class="o">=</span><span class="n">cv2</span><span class="o">.</span><span class="n">aruco</span><span class="o">.</span><span class="n">DICT_4X4_100</span><span class="p">,</span>
+    <span class="n">markers</span><span class="o">=</span><span class="p">{</span><span class="mi">0</span><span class="p">:</span> <span class="n">ArucoMarker</span><span class="p">(</span><span class="n">marker_id</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">size_m</span><span class="o">=</span><span class="mf">0.05</span><span class="p">)},</span>
+<span class="p">)</span>
+</code></pre></div>
+- Add legacy-file warning in <code>initialize_defaults</code>:
+  <div class="highlight"><pre><span></span><code><span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">aruco_marker_set_exists</span><span class="p">():</span>
+    <span class="n">legacy</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_dir</span> <span class="o">/</span> <span class="s2">&quot;aruco_target.toml&quot;</span>
+    <span class="k">if</span> <span class="n">legacy</span><span class="o">.</span><span class="n">exists</span><span class="p">():</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+            <span class="s2">&quot;Found legacy aruco_target.toml; this format is no longer supported. &quot;</span>
+            <span class="s2">&quot;Please recreate your marker set in the new aruco_marker_set.toml format.&quot;</span>
+        <span class="p">)</span>
+</code></pre></div>
+- Update docstring file layout to mention <code>aruco_marker_set.toml</code></p>
+<ul class="task-list">
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> <strong>Step 2: Migrate workspace_coordinator.py</strong></li>
+</ul>
+<p>In <code>src/caliscope/workspace_coordinator.py</code>:
+- Change import: <code>ArucoTarget</code> → <code>ArucoMarker, ArucoMarkerSet</code>
+- In <code>update_extrinsic_aruco_target</code> → rename to <code>update_extrinsic_aruco_marker_set</code>, change param type, call <code>save_aruco_marker_set</code>
+- In <code>create_extrinsic_tracker</code>:
+  - <code>aruco_target_exists()</code> → <code>aruco_marker_set_exists()</code>
+  - Replace <code>ArucoTarget.single_marker(...)</code> with <code>ArucoMarkerSet(...)</code> construction
+  - <code>save_aruco_target</code> → <code>save_aruco_marker_set</code>
+  - <code>load_aruco_target</code> → <code>load_aruco_marker_set</code>
+  - <code>ArucoTracker(dictionary=target.dictionary, aruco_target=target)</code> → <code>ArucoTracker(dictionary=marker_set.dictionary, marker_set=marker_set)</code></p>
+<ul class="task-list">
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> <strong>Step 3: Type check both files</strong></li>
+</ul>
+<p>Run: <code>uv run basedpyright src/caliscope/repositories/calibration_targets_repository.py src/caliscope/workspace_coordinator.py</code>
+Expected: 0 errors</p>
+<ul class="task-list">
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> <strong>Step 4: Run targeted tests</strong></li>
+</ul>
+<p>Run: <code>uv run pytest tests/test_aruco_marker.py tests/ -k "aruco or target or calibration" -v</code>
+Expected: All pass</p>
+<ul class="task-list">
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> <strong>Step 5: Commit</strong></li>
+</ul>
+<div class="highlight"><pre><span></span><code>git<span class="w"> </span>add<span class="w"> </span>src/caliscope/repositories/calibration_targets_repository.py<span class="w"> </span>src/caliscope/workspace_coordinator.py
+git<span class="w"> </span>commit<span class="w"> </span>-m<span class="w"> </span><span class="s2">&quot;refactor: migrate repository and coordinator to ArucoMarkerSet&quot;</span>
+</code></pre></div>
+<hr />
+<h3 id="task-4-pnp-bootstrap-key-widening-legacy-stereocalibrate-deletion">Task 4: PnP bootstrap key-widening + legacy stereoCalibrate deletion<a class="headerlink" href="#task-4-pnp-bootstrap-key-widening-legacy-stereocalibrate-deletion" title="Permanent link">&para;</a></h3>
+<p><strong>Files:</strong>
+- Modify: <code>src/caliscope/core/bootstrap_pose/pose_network_builder.py:261,289,455-477</code>
+- Delete: <code>src/caliscope/core/bootstrap_pose/legacy_stereocal_paired_pose_network.py</code>
+- Modify: <code>src/caliscope/core/bootstrap_pose/build_paired_pose_network.py</code>
+- Modify: <code>src/caliscope/gui/presenters/extrinsic_calibration_presenter.py</code> (remove <code>method="pnp"</code> kwarg)
+- Modify: <code>src/caliscope/synthetic/explorer/presenter.py</code> (remove <code>method="pnp"</code> kwarg)
+- Modify: <code>tests/test_paired_pose_network.py</code> (remove <code>method="pnp"</code> kwarg)
+- Modify: <code>tests/synthetic/test_unposed_cameras.py</code> (convert stereocalibrate tests to PnP)</p>
+<p><strong>Interfaces:</strong>
+- Consumes: <code>PoseNetworkBuilder</code> pipeline
+- Produces: <code>compute_camera_to_object_poses_pnp</code> returns <code>dict[tuple[int, int, int], ...]</code> keyed by <code>(cam_id, sync_index, object_id)</code></p>
+<ul class="task-list">
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> <strong>Step 1: Widen PnP result key in pose_network_builder.py</strong></li>
+</ul>
+<p>At line 261, stop discarding <code>object_id</code>:
+<div class="highlight"><pre><span></span><code><span class="c1"># Before:</span>
+<span class="k">for</span> <span class="p">(</span><span class="n">cam_id</span><span class="p">,</span> <span class="n">sync_index</span><span class="p">,</span> <span class="n">_object_id</span><span class="p">),</span> <span class="n">group</span> <span class="ow">in</span> <span class="n">grouped</span><span class="p">:</span>
+<span class="c1"># After:</span>
+<span class="k">for</span> <span class="p">(</span><span class="n">cam_id</span><span class="p">,</span> <span class="n">sync_index</span><span class="p">,</span> <span class="n">object_id</span><span class="p">),</span> <span class="n">group</span> <span class="ow">in</span> <span class="n">grouped</span><span class="p">:</span>
+</code></pre></div></p>
+<p>At line 289, include <code>object_id</code> in the key:
+<div class="highlight"><pre><span></span><code><span class="c1"># Before:</span>
+<span class="n">poses</span><span class="p">[(</span><span class="n">cam_id</span><span class="p">,</span> <span class="n">sync_index</span><span class="p">)]</span> <span class="o">=</span> <span class="p">(</span><span class="n">R</span><span class="p">,</span> <span class="n">t</span><span class="p">,</span> <span class="n">rmse</span><span class="p">)</span>
+<span class="c1"># After:</span>
+<span class="n">poses</span><span class="p">[(</span><span class="n">cam_id</span><span class="p">,</span> <span class="n">sync_index</span><span class="p">,</span> <span class="n">object_id</span><span class="p">)]</span> <span class="o">=</span> <span class="p">(</span><span class="n">R</span><span class="p">,</span> <span class="n">t</span><span class="p">,</span> <span class="n">rmse</span><span class="p">)</span>
+</code></pre></div></p>
+<p>Update the return type annotation at line 213:
+<div class="highlight"><pre><span></span><code><span class="c1"># Before:</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">],</span> <span class="nb">tuple</span><span class="p">[</span><span class="o">...</span><span class="p">]]</span>
+<span class="c1"># After:</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">],</span> <span class="nb">tuple</span><span class="p">[</span><span class="o">...</span><span class="p">]]</span>
+</code></pre></div></p>
+<p>Update <code>_camera_to_object_poses</code> type annotation in <code>PoseNetworkBuilder.__init__</code> (line 62-64):
+<div class="highlight"><pre><span></span><code><span class="c1"># Before:</span>
+<span class="bp">self</span><span class="o">.</span><span class="n">_camera_to_object_poses</span><span class="p">:</span> <span class="p">(</span>
+    <span class="nb">dict</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">],</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">],</span> <span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">],</span> <span class="nb">float</span><span class="p">]]</span> <span class="o">|</span> <span class="kc">None</span>
+<span class="p">)</span> <span class="o">=</span> <span class="kc">None</span>
+<span class="c1"># After:</span>
+<span class="bp">self</span><span class="o">.</span><span class="n">_camera_to_object_poses</span><span class="p">:</span> <span class="p">(</span>
+    <span class="nb">dict</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">],</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">],</span> <span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">],</span> <span class="nb">float</span><span class="p">]]</span> <span class="o">|</span> <span class="kc">None</span>
+<span class="p">)</span> <span class="o">=</span> <span class="kc">None</span>
+</code></pre></div></p>
+<ul class="task-list">
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> <strong>Step 2: Update compute_relative_poses to match on (sync_index, object_id)</strong></li>
+</ul>
+<p>At lines 454-498, update the function signature and matching logic:
+<div class="highlight"><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">compute_relative_poses</span><span class="p">(</span>
+    <span class="n">camera_to_object_poses</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">],</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">],</span> <span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">],</span> <span class="nb">float</span><span class="p">]],</span>
+    <span class="n">camera_array</span><span class="p">:</span> <span class="n">CameraArray</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">],</span> <span class="nb">int</span><span class="p">],</span> <span class="n">StereoPair</span><span class="p">]:</span>
+    <span class="o">...</span>
+    <span class="k">for</span> <span class="n">cam_id_a</span><span class="p">,</span> <span class="n">cam_id_b</span> <span class="ow">in</span> <span class="n">pairs</span><span class="p">:</span>
+        <span class="c1"># Find (sync_index, object_id) tuples where both cameras have poses</span>
+        <span class="n">so_a</span> <span class="o">=</span> <span class="p">{(</span><span class="n">s</span><span class="p">,</span> <span class="n">o</span><span class="p">)</span> <span class="k">for</span> <span class="n">c</span><span class="p">,</span> <span class="n">s</span><span class="p">,</span> <span class="n">o</span> <span class="ow">in</span> <span class="n">camera_to_object_poses</span><span class="o">.</span><span class="n">keys</span><span class="p">()</span> <span class="k">if</span> <span class="n">c</span> <span class="o">==</span> <span class="n">cam_id_a</span><span class="p">}</span>
+        <span class="n">so_b</span> <span class="o">=</span> <span class="p">{(</span><span class="n">s</span><span class="p">,</span> <span class="n">o</span><span class="p">)</span> <span class="k">for</span> <span class="n">c</span><span class="p">,</span> <span class="n">s</span><span class="p">,</span> <span class="n">o</span> <span class="ow">in</span> <span class="n">camera_to_object_poses</span><span class="o">.</span><span class="n">keys</span><span class="p">()</span> <span class="k">if</span> <span class="n">c</span> <span class="o">==</span> <span class="n">cam_id_b</span><span class="p">}</span>
+        <span class="n">common_so</span> <span class="o">=</span> <span class="n">so_a</span><span class="o">.</span><span class="n">intersection</span><span class="p">(</span><span class="n">so_b</span><span class="p">)</span>
+
+        <span class="k">for</span> <span class="n">sync_index</span><span class="p">,</span> <span class="n">object_id</span> <span class="ow">in</span> <span class="n">common_so</span><span class="p">:</span>
+            <span class="n">R_a</span><span class="p">,</span> <span class="n">t_a</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">camera_to_object_poses</span><span class="p">[(</span><span class="n">cam_id_a</span><span class="p">,</span> <span class="n">sync_index</span><span class="p">,</span> <span class="n">object_id</span><span class="p">)]</span>
+            <span class="n">R_b</span><span class="p">,</span> <span class="n">t_b</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">camera_to_object_poses</span><span class="p">[(</span><span class="n">cam_id_b</span><span class="p">,</span> <span class="n">sync_index</span><span class="p">,</span> <span class="n">object_id</span><span class="p">)]</span>
+            <span class="o">...</span>
+</code></pre></div></p>
+<ul class="task-list">
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> <strong>Step 3: Delete legacy stereoCalibrate path</strong></li>
+</ul>
+<div class="highlight"><pre><span></span><code>rm<span class="w"> </span>src/caliscope/core/bootstrap_pose/legacy_stereocal_paired_pose_network.py
+</code></pre></div>
+<ul class="task-list">
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> <strong>Step 4: Simplify build_paired_pose_network.py</strong></li>
+</ul>
+<p>Replace contents of <code>src/caliscope/core/bootstrap_pose/build_paired_pose_network.py</code>:
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">logging</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">caliscope.cameras.camera_array</span><span class="w"> </span><span class="kn">import</span> <span class="n">CameraArray</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">caliscope.core.bootstrap_pose.paired_pose_network</span><span class="w"> </span><span class="kn">import</span> <span class="n">PairedPoseNetwork</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">caliscope.core.point_data</span><span class="w"> </span><span class="kn">import</span> <span class="n">ImagePoints</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">caliscope.core.bootstrap_pose.pose_network_builder</span><span class="w"> </span><span class="kn">import</span> <span class="n">PoseNetworkBuilder</span>
+
+<span class="n">logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">build_paired_pose_network</span><span class="p">(</span>
+    <span class="n">image_points</span><span class="p">:</span> <span class="n">ImagePoints</span><span class="p">,</span>
+    <span class="n">camera_array</span><span class="p">:</span> <span class="n">CameraArray</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">PairedPoseNetwork</span><span class="p">:</span>
+    <span class="n">builder</span> <span class="o">=</span> <span class="n">PoseNetworkBuilder</span><span class="p">(</span><span class="n">camera_array</span><span class="p">,</span> <span class="n">image_points</span><span class="p">)</span>
+    <span class="k">return</span> <span class="p">(</span>
+        <span class="n">builder</span>
+        <span class="o">.</span><span class="n">estimate_camera_to_object_poses</span><span class="p">()</span>
+        <span class="o">.</span><span class="n">estimate_relative_poses</span><span class="p">()</span>
+        <span class="o">.</span><span class="n">filter_outliers</span><span class="p">(</span><span class="n">threshold</span><span class="o">=</span><span class="mf">1.5</span><span class="p">)</span>
+        <span class="o">.</span><span class="n">build</span><span class="p">()</span>
+    <span class="p">)</span>
+</code></pre></div></p>
+<ul class="task-list">
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> <strong>Step 5: Remove method="pnp" kwargs from callers</strong></li>
+</ul>
+<p>In <code>src/caliscope/gui/presenters/extrinsic_calibration_presenter.py</code>: remove <code>method="pnp"</code> from <code>build_paired_pose_network(...)</code> call.</p>
+<p>In <code>src/caliscope/synthetic/explorer/presenter.py</code>: remove <code>method="pnp"</code> from <code>build_paired_pose_network(...)</code> call.</p>
+<p>In <code>tests/test_paired_pose_network.py</code>: remove <code>method="pnp"</code> from <code>build_paired_pose_network(...)</code> call.</p>
+<ul class="task-list">
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> <strong>Step 6: Convert stereocalibrate tests in test_unposed_cameras.py</strong></li>
+</ul>
+<p>In <code>tests/synthetic/test_unposed_cameras.py</code>: change all <code>method="stereocalibrate"</code> to remove the <code>method</code> kwarg (PnP is now the only path). Remove the import of <code>build_legacy_stereocal_paired_pose_network</code> if present.</p>
+<ul class="task-list">
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> <strong>Step 7: Type check</strong></li>
+</ul>
+<p>Run: <code>uv run basedpyright src/caliscope/core/bootstrap_pose/pose_network_builder.py src/caliscope/core/bootstrap_pose/build_paired_pose_network.py</code>
+Expected: 0 errors</p>
+<ul class="task-list">
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> <strong>Step 8: Run PnP-related tests</strong></li>
+</ul>
+<p>Run: <code>uv run pytest tests/test_paired_pose_network.py tests/synthetic/test_unposed_cameras.py -v</code>
+Expected: All pass</p>
+<ul class="task-list">
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> <strong>Step 9: Commit</strong></li>
+</ul>
+<div class="highlight"><pre><span></span><code>git<span class="w"> </span>add<span class="w"> </span>-A<span class="w"> </span>src/caliscope/core/bootstrap_pose/<span class="w"> </span>src/caliscope/gui/presenters/extrinsic_calibration_presenter.py<span class="w"> </span>src/caliscope/synthetic/explorer/presenter.py<span class="w"> </span>tests/test_paired_pose_network.py<span class="w"> </span>tests/synthetic/test_unposed_cameras.py
+git<span class="w"> </span>commit<span class="w"> </span>-m<span class="w"> </span><span class="s2">&quot;fix: widen PnP key to (cam_id, sync_index, object_id), delete legacy stereoCalibrate&quot;</span>
+</code></pre></div>
+<hr />
+<h3 id="task-5-guard-align_to_object-and-scale-accuracy-for-multi-marker">Task 5: Guard align_to_object and scale accuracy for multi-marker<a class="headerlink" href="#task-5-guard-align_to_object-and-scale-accuracy-for-multi-marker" title="Permanent link">&para;</a></h3>
+<p><strong>Files:</strong>
+- Modify: <code>src/caliscope/core/capture_volume.py:585,671</code></p>
+<p><strong>Interfaces:</strong>
+- Consumes: <code>CaptureVolume.image_points</code>, <code>CaptureVolume.world_points</code>
+- Produces: <code>ValueError</code> when multiple <code>object_id</code> values present</p>
+<ul class="task-list">
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> <strong>Step 1: Add multi-object_id guard to compute_volumetric_scale_accuracy</strong></li>
+</ul>
+<p>At the top of <code>compute_volumetric_scale_accuracy</code> (after line 597), add:
+<div class="highlight"><pre><span></span><code><span class="n">unique_objects</span> <span class="o">=</span> <span class="n">img_df</span><span class="p">[</span><span class="s2">&quot;object_id&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">unique</span><span class="p">()</span>
+<span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">unique_objects</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+        <span class="sa">f</span><span class="s2">&quot;Scale accuracy requires single-object data, got object_ids </span><span class="si">{</span><span class="nb">sorted</span><span class="p">(</span><span class="n">unique_objects</span><span class="p">)</span><span class="si">}</span><span class="s2">. &quot;</span>
+        <span class="s2">&quot;Multi-marker scale accuracy requires Branch 3 constraint file.&quot;</span>
+    <span class="p">)</span>
+</code></pre></div></p>
+<ul class="task-list">
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> <strong>Step 2: Add multi-object_id guard to align_to_object</strong></li>
+</ul>
+<p>At the top of <code>align_to_object</code> (after getting the data for <code>sync_index</code>), add the same guard on the points at that sync_index.</p>
+<ul class="task-list">
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> <strong>Step 3: Type check</strong></li>
+</ul>
+<p>Run: <code>uv run basedpyright src/caliscope/core/capture_volume.py</code>
+Expected: 0 errors</p>
+<ul class="task-list">
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> <strong>Step 4: Commit</strong></li>
+</ul>
+<div class="highlight"><pre><span></span><code>git<span class="w"> </span>add<span class="w"> </span>src/caliscope/core/capture_volume.py
+git<span class="w"> </span>commit<span class="w"> </span>-m<span class="w"> </span><span class="s2">&quot;guard: align_to_object and scale_accuracy reject multi-marker data&quot;</span>
+</code></pre></div>
+<hr />
+<h3 id="task-6-gui-migration-summary-panel-preview-save-all">Task 6: GUI migration — summary panel, preview, save-all<a class="headerlink" href="#task-6-gui-migration-summary-panel-preview-save-all" title="Permanent link">&para;</a></h3>
+<p><strong>Files:</strong>
+- Modify: <code>src/caliscope/gui/widgets/aruco_target_config_panel.py</code> → rewrite as <code>aruco_marker_set_panel.py</code>
+- Modify: <code>src/caliscope/gui/utils/aruco_preview.py</code>
+- Modify: <code>src/caliscope/gui/views/project_setup_view.py</code></p>
+<p><strong>Interfaces:</strong>
+- Consumes: <code>ArucoMarkerSet</code> from Task 1, repository from Task 3
+- Produces: <code>ArucoMarkerSetPanel(marker_set: ArucoMarkerSet, targets_dir: Path)</code> widget, <code>render_aruco_pixmap(marker_set, marker_id, size)</code> utility</p>
+<ul class="task-list">
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> <strong>Step 1: Update aruco_preview.py</strong></li>
+</ul>
+<div class="highlight"><pre><span></span><code><span class="c1"># src/caliscope/gui/utils/aruco_preview.py</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">cv2</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">PySide6.QtCore</span><span class="w"> </span><span class="kn">import</span> <span class="n">Qt</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">PySide6.QtGui</span><span class="w"> </span><span class="kn">import</span> <span class="n">QImage</span><span class="p">,</span> <span class="n">QPixmap</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">caliscope.core.aruco_marker</span><span class="w"> </span><span class="kn">import</span> <span class="n">ArucoMarkerSet</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">render_aruco_pixmap</span><span class="p">(</span><span class="n">marker_set</span><span class="p">:</span> <span class="n">ArucoMarkerSet</span><span class="p">,</span> <span class="n">marker_id</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">size</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">QPixmap</span><span class="p">:</span>
+    <span class="n">marker</span> <span class="o">=</span> <span class="n">marker_set</span><span class="o">.</span><span class="n">markers</span><span class="p">[</span><span class="n">marker_id</span><span class="p">]</span>
+    <span class="n">ppm</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">size</span> <span class="o">/</span> <span class="n">marker</span><span class="o">.</span><span class="n">size_m</span> <span class="o">*</span> <span class="mf">4.0</span><span class="p">)</span>
+    <span class="n">pixel_size</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">marker</span><span class="o">.</span><span class="n">size_m</span> <span class="o">*</span> <span class="n">ppm</span><span class="p">)</span>
+    <span class="n">bgr</span> <span class="o">=</span> <span class="n">marker_set</span><span class="o">.</span><span class="n">generate_marker_image</span><span class="p">(</span><span class="n">marker_id</span><span class="p">,</span> <span class="n">pixel_size</span><span class="p">)</span>
+
+    <span class="n">rgb</span> <span class="o">=</span> <span class="n">cv2</span><span class="o">.</span><span class="n">cvtColor</span><span class="p">(</span><span class="n">bgr</span><span class="p">,</span> <span class="n">cv2</span><span class="o">.</span><span class="n">COLOR_BGR2RGB</span><span class="p">)</span>
+    <span class="n">h</span><span class="p">,</span> <span class="n">w</span><span class="p">,</span> <span class="n">ch</span> <span class="o">=</span> <span class="n">rgb</span><span class="o">.</span><span class="n">shape</span>
+    <span class="n">bytes_per_line</span> <span class="o">=</span> <span class="n">ch</span> <span class="o">*</span> <span class="n">w</span>
+    <span class="n">qimage</span> <span class="o">=</span> <span class="n">QImage</span><span class="p">(</span><span class="n">rgb</span><span class="o">.</span><span class="n">data</span><span class="p">,</span> <span class="n">w</span><span class="p">,</span> <span class="n">h</span><span class="p">,</span> <span class="n">bytes_per_line</span><span class="p">,</span> <span class="n">QImage</span><span class="o">.</span><span class="n">Format</span><span class="o">.</span><span class="n">Format_RGB888</span><span class="p">)</span>
+    <span class="n">pixmap</span> <span class="o">=</span> <span class="n">QPixmap</span><span class="o">.</span><span class="n">fromImage</span><span class="p">(</span><span class="n">qimage</span><span class="o">.</span><span class="n">copy</span><span class="p">())</span>
+    <span class="k">return</span> <span class="n">pixmap</span><span class="o">.</span><span class="n">scaled</span><span class="p">(</span>
+        <span class="n">size</span><span class="p">,</span> <span class="n">size</span><span class="p">,</span>
+        <span class="n">Qt</span><span class="o">.</span><span class="n">AspectRatioMode</span><span class="o">.</span><span class="n">KeepAspectRatio</span><span class="p">,</span>
+        <span class="n">Qt</span><span class="o">.</span><span class="n">TransformationMode</span><span class="o">.</span><span class="n">SmoothTransformation</span><span class="p">,</span>
+    <span class="p">)</span>
+</code></pre></div>
+<ul class="task-list">
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> <strong>Step 2: Rewrite aruco_target_config_panel.py as summary panel</strong></li>
+</ul>
+<p>Replace <code>src/caliscope/gui/widgets/aruco_target_config_panel.py</code> with a new <code>ArucoMarkerSetPanel</code> that shows:
+- Marker count, IDs, and sizes as a read-only summary label
+- "Open Folder" button (opens TOML directory in system file browser)
+- "Reload" button (re-reads TOML, emits <code>config_changed</code>)
+- "Save All Markers" button (saves one PNG per marker)</p>
+<p>The panel receives <code>ArucoMarkerSet</code> and the targets directory path. No interactive editing — the TOML is the interface.</p>
+<ul class="task-list">
+<li class="task-list-item">
+<p><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> <strong>Step 3: Update project_setup_view.py</strong></p>
+</li>
+<li>
+<p>Change import from <code>ArucoTargetConfigPanel</code> to new panel class</p>
+</li>
+<li>Update <code>_build_extrinsic_section</code> to construct new panel</li>
+<li>Update <code>_on_extrinsic_aruco_changed</code> — the new panel's <code>config_changed</code> signal triggers a reload from the repository</li>
+<li>Update <code>_update_extrinsic_aruco_preview</code> to use the new <code>render_aruco_pixmap</code> signature</li>
+<li>Replace <code>_save_aruco_png</code> with the panel's built-in save-all functionality</li>
+<li>
+<p>Replace <code>self._coordinator.update_extrinsic_aruco_target(target)</code> with <code>self._coordinator.update_extrinsic_aruco_marker_set(marker_set)</code></p>
+</li>
+<li class="task-list-item">
+<p><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> <strong>Step 4: Type check all GUI files</strong></p>
+</li>
+</ul>
+<p>Run: <code>uv run basedpyright src/caliscope/gui/widgets/aruco_target_config_panel.py src/caliscope/gui/utils/aruco_preview.py src/caliscope/gui/views/project_setup_view.py</code>
+Expected: 0 errors</p>
+<ul class="task-list">
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> <strong>Step 5: Commit</strong></li>
+</ul>
+<div class="highlight"><pre><span></span><code>git<span class="w"> </span>add<span class="w"> </span>src/caliscope/gui/widgets/aruco_target_config_panel.py<span class="w"> </span>src/caliscope/gui/utils/aruco_preview.py<span class="w"> </span>src/caliscope/gui/views/project_setup_view.py
+git<span class="w"> </span>commit<span class="w"> </span>-m<span class="w"> </span><span class="s2">&quot;refactor: replace ArUco config panel with marker set summary panel&quot;</span>
+</code></pre></div>
+<hr />
+<h3 id="task-7-delete-arucotarget-sweep-remaining-references">Task 7: Delete ArucoTarget + sweep remaining references<a class="headerlink" href="#task-7-delete-arucotarget-sweep-remaining-references" title="Permanent link">&para;</a></h3>
+<p><strong>Files:</strong>
+- Delete: <code>src/caliscope/core/aruco_target.py</code>
+- Delete: <code>tests/test_aruco_target.py</code>
+- Sweep: any remaining <code>ArucoTarget</code> or <code>aruco_target</code> import/reference</p>
+<p><strong>Interfaces:</strong>
+- Consumes: All previous tasks must be complete
+- Produces: Zero references to <code>ArucoTarget</code> in the codebase</p>
+<ul class="task-list">
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> <strong>Step 1: Delete the old files</strong></li>
+</ul>
+<div class="highlight"><pre><span></span><code>rm<span class="w"> </span>src/caliscope/core/aruco_target.py<span class="w"> </span>tests/test_aruco_target.py
+</code></pre></div>
+<ul class="task-list">
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> <strong>Step 2: Grep for remaining references</strong></li>
+</ul>
+<div class="highlight"><pre><span></span><code>grep<span class="w"> </span>-rn<span class="w"> </span><span class="s2">&quot;ArucoTarget\|aruco_target\|from caliscope.core.aruco_target&quot;</span><span class="w"> </span>--include<span class="o">=</span><span class="s2">&quot;*.py&quot;</span><span class="w"> </span>src/<span class="w"> </span>tests/
+</code></pre></div>
+<p>Fix any remaining references found.</p>
+<ul class="task-list">
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> <strong>Step 3: Full test suite</strong></li>
+</ul>
+<p>Run: <code>xvfb-run --auto-servernum uv run pytest -n auto --dist=loadfile</code>
+Expected: All pass</p>
+<ul class="task-list">
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> <strong>Step 4: Full type check on changed files</strong></li>
+</ul>
+<p>Run: <code>uv run basedpyright src/caliscope/core/aruco_marker.py src/caliscope/trackers/aruco_tracker.py src/caliscope/repositories/calibration_targets_repository.py src/caliscope/workspace_coordinator.py src/caliscope/core/bootstrap_pose/pose_network_builder.py src/caliscope/core/bootstrap_pose/build_paired_pose_network.py src/caliscope/core/capture_volume.py src/caliscope/gui/widgets/aruco_target_config_panel.py src/caliscope/gui/utils/aruco_preview.py src/caliscope/gui/views/project_setup_view.py</code>
+Expected: 0 errors</p>
+<ul class="task-list">
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> <strong>Step 5: Commit</strong></li>
+</ul>
+<div class="highlight"><pre><span></span><code>git<span class="w"> </span>add<span class="w"> </span>-A
+git<span class="w"> </span>commit<span class="w"> </span>-m<span class="w"> </span><span class="s2">&quot;chore: delete ArucoTarget, sweep remaining references&quot;</span>
+</code></pre></div>
+<hr />
+<h2 id="self-review-checklist">Self-Review Checklist<a class="headerlink" href="#self-review-checklist" title="Permanent link">&para;</a></h2>
+<ul class="task-list">
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> <strong>Spec coverage:</strong> Every section of <code>specs/multi-marker-aruco.md</code> maps to a task. Domain model (T1), TOML format (T1), tracker changes (T2), PnP fix (T4), stereoCalibrate deletion (T4), align_to_object guard (T5), GUI (T6), file deletion (T7), multi-marker filtering test (T2), integration tests (verified via T4+T7 full suite).</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> <strong>Placeholder scan:</strong> No TBDs, no "similar to Task N", all steps have code.</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> <strong>Type consistency:</strong> <code>ArucoMarkerSet</code>/<code>ArucoMarker</code> names consistent across tasks. <code>marker_set</code> parameter name consistent. <code>load_aruco_marker_set</code>/<code>save_aruco_marker_set</code>/<code>aruco_marker_set_exists</code> method names consistent.</li>
+</ul>
+
+
+
+
+
+
+
+  
+    
+  
+  
+
+
+  <aside class="md-source-file">
+    
+      
+  <span class="md-source-file__fact">
+    <span class="md-icon" title="Last update">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
+    </span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="July 22, 2026 13:47:23 UTC">July 22, 2026</span>
+  </span>
+
+    
+    
+    
+    
+  </aside>
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+    <div class="md-copyright__highlight">
+      &copy; 2026 <a href="https://github.com/mprib"  target="_blank" rel="noopener">Mac Prible</a>
+
+    </div>
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../../..", "features": [], "search": "../../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+    
+  </body>
+</html>

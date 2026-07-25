@@ -243,6 +243,7 @@ volume = volume.translate(z=0.02)
 
 Shape and scale do not change, only where the rig sits in world coordinates.
 Positive z raises everything.
+This is the primitive `grounded` and `centered` are built on, exposed for the shifts they do not cover.
 
 ### Anchoring without a board
 
@@ -259,13 +260,15 @@ Call them in that order.
 `grounded` assumes Z is already vertical, and `centered` assumes the floor is already at zero.
 `oriented` takes a per-camera up vector, which `estimate_vertical` produces from the video.
 
-`grounded` rests the lowest triangulated point on Z=0, and that point is a marker, not the floor.
-A toe marker rides above the ground on the shoe and its own thickness.
-Measure that height and lift the volume by it:
+By default `grounded` rests the lowest triangulated point on Z=0, and that point is a marker, not the floor.
+A toe marker rides above the ground on the shoe and its own thickness, so the floor ends up buried.
+Measure that height and hand it over:
 
 ```python
-volume = volume.grounded().translate(z=0.02)
+volume = volume.grounded(lowest_point_height_m=0.02)
 ```
+
+The marker then sits at 0.02 and the floor it stands on is zero.
 
 ## Step 7: Inspect results
 

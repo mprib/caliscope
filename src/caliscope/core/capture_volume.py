@@ -1014,11 +1014,10 @@ class CaptureVolume:
         The rig's shape and scale are untouched; only where it sits in world
         coordinates moves. Positive z raises everything.
 
-        The companion to ``rotate``, and the correction ``grounded`` cannot make
-        for you. ``grounded`` drops the lowest triangulated point to Z=0, but
-        that point is a marker, not the floor: a toe marker rides above the
-        ground on the shoe and its own thickness. Lift the volume by that
-        measured height to put the real floor at zero.
+        The companion to ``rotate``, and the primitive the anchoring transforms
+        are built on: ``grounded`` and ``centered`` both resolve to a call here.
+        For the common case of a marker sitting above the floor, prefer
+        ``grounded(lowest_point_height_m=...)`` over a manual shift.
 
         Args:
             x: Offset along the world X axis, in meters.
@@ -1282,7 +1281,12 @@ class CaptureVolume:
             _optimization_status=self._optimization_status,
         )
 
-    def grounded(self, mode: Literal["lowest_point"] = "lowest_point") -> "CaptureVolume":
+    def grounded(
+        self,
+        mode: Literal["lowest_point"] = "lowest_point",
+        *,
+        lowest_point_height_m: float = 0.0,
+    ) -> "CaptureVolume":
         """Translate so the ground sits at Z=0 and the XY origin lies under the anchor camera.
 
         ``mode="lowest_point"`` places the floor at Z=0, taken as a robust low
@@ -1291,27 +1295,26 @@ class CaptureVolume:
         statistic degrades to the exact minimum. Call after ``oriented()`` so Z
         is vertical. XY origin is set under the anchor camera (lowest posed
         cam_id). No rotation or scale change.
+
+        Args:
+            mode: How the floor is located. Only ``"lowest_point"`` is supported.
+            lowest_point_height_m: How far the lowest point actually sits above
+                the ground, in meters. The lowest point is a marker or keypoint,
+                not the floor: a toe marker rides above it on the shoe and its
+                own thickness. Give that measured height and the floor lands at
+                Z=0 with the point resting above it, instead of the point being
+                buried at zero. Defaults to 0.0, the historical behavior.
         """
         if mode != "lowest_point":
             raise ValueError(f"grounded() only supports mode='lowest_point', got {mode!r}.")
 
         min_z = float(np.percentile(self.world_points.df["z_coord"].to_numpy(), 1.0, method="lower"))
         anchor_center = self._camera_center(self._anchor_cam_id())
-        offset = np.array([anchor_center[0], anchor_center[1], min_z], dtype=np.float64)
 
-        transform = SimilarityTransform(
-            rotation=np.eye(3, dtype=np.float64),
-            translation=-offset,
-            scale=1.0,
-        )
-        new_camera_array, new_world_points = apply_similarity_transform(self.camera_array, self.world_points, transform)
-
-        return CaptureVolume(
-            camera_array=new_camera_array,
-            image_points=self.image_points,
-            world_points=new_world_points,
-            constraints=self.constraints,
-            _optimization_status=self._optimization_status,
+        return self.translate(
+            x=-anchor_center[0],
+            y=-anchor_center[1],
+            z=-min_z + lowest_point_height_m,
         )
 
     def centered(self) -> "CaptureVolume":
@@ -1322,22 +1325,8 @@ class CaptureVolume:
         """
         centers = np.array([self._camera_center(cid) for cid in self.camera_array.posed_cameras])
         centroid_xy = centers[:, :2].mean(axis=0)
-        offset = np.array([centroid_xy[0], centroid_xy[1], 0.0], dtype=np.float64)
 
-        transform = SimilarityTransform(
-            rotation=np.eye(3, dtype=np.float64),
-            translation=-offset,
-            scale=1.0,
-        )
-        new_camera_array, new_world_points = apply_similarity_transform(self.camera_array, self.world_points, transform)
-
-        return CaptureVolume(
-            camera_array=new_camera_array,
-            image_points=self.image_points,
-            world_points=new_world_points,
-            constraints=self.constraints,
-            _optimization_status=self._optimization_status,
-        )
+        return self.translate(x=-centroid_xy[0], y=-centroid_xy[1])
 
 
 if __name__ == "__main__":

@@ -137,6 +137,7 @@ def extract_image_points(
     tracker: Tracker,
     *,
     frame_step: int = 1,
+    rotation_count: int = 0,
     progress: ProgressCallback | None = _AUTO,
 ) -> ImagePoints:
     """Extract 2D landmark observations from a single camera video.
@@ -151,6 +152,13 @@ def extract_image_points(
         frame_step: Process every Nth frame (default 1 = every frame).
             For intrinsic calibration, frame_step=5 is typical since
             only ~30 diverse frames are needed.
+        rotation_count: Quarter turns applied before detection, matching
+            ``CameraData.rotation_count`` (1 = 90 degrees clockwise, negative
+            for counter-clockwise). Returned image coordinates are always in
+            the original frame, so calibration is unaffected by the choice.
+            Charuco, ArUco, and chessboard trackers ignore this because their
+            detectors are already rotation-invariant; ONNX pose trackers use
+            it to put an upright body in front of a model trained on one.
         progress: Callback invoked per-frame for progress reporting.
             Defaults to a Rich progress bar.  Pass ``None`` to suppress output.
 
@@ -173,7 +181,6 @@ def extract_image_points(
 
     with _auto_progress(progress) as progress:
         all_rows: list[dict] = []
-        rotation_count = 0
 
         props = read_video_properties(video_path)
         frame_count = props["frame_count"]
@@ -246,6 +253,7 @@ def extract_image_points_multicam(
     *,
     frame_step: int = 1,
     timestamps: Path | str | None = None,
+    rotation_counts: Mapping[int, int] | None = None,
     progress: ProgressCallback | None = _AUTO,
 ) -> ImagePoints:
     """Extract synchronized 2D landmark observations from multiple camera videos.
@@ -272,6 +280,9 @@ def extract_image_points_multicam(
             If omitted, timestamps are inferred from video metadata (FPS and
             frame count). Providing a CSV is recommended for recordings where
             cameras did not start at exactly the same time.
+        rotation_counts: Optional cam_id to quarter-turn mapping, matching
+            ``CameraData.rotation_count``. Cameras left out default to 0. See
+            ``extract_image_points`` for what rotation does and does not change.
         progress: Callback invoked per-frame for progress reporting.
             Defaults to a Rich progress bar.  Pass ``None`` to suppress output.
             A single instance is shared across all camera threads (safe because
@@ -300,6 +311,7 @@ def extract_image_points_multicam(
 
     # Normalize all video paths upfront
     video_paths: dict[int, Path] = {cam_id: Path(p) for cam_id, p in videos.items()}
+    rotations: Mapping[int, int] = rotation_counts or {}
 
     # Validate all video paths at once
     missing = {cam_id: str(p) for cam_id, p in video_paths.items() if not p.exists()}
@@ -354,7 +366,7 @@ def extract_image_points_multicam(
                 rows: list[dict] = []
                 processed = 0
                 while (raw := frame_source.next_frame()) is not None:
-                    point_packet = tracker.get_points(raw.frame, cam_id=cam_id, rotation_count=0)
+                    point_packet = tracker.get_points(raw.frame, cam_id=cam_id, rotation_count=rotations.get(cam_id, 0))
                     n_points = len(point_packet.keypoint_id)
                     sync_index = sync_for[raw.frame_index]
                     frame_time = synced.time_for(cam_id, raw.frame_index)

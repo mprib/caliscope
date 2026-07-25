@@ -233,6 +233,17 @@ volume = volume.rotate("z", -90)
 Positive angles follow the right-hand rule: counter-clockwise looking down the positive axis toward the origin.
 The GUI buttons are fixed at 90 degrees, but any angle works here.
 
+### Shift the origin
+
+`translate` moves the whole volume by a fixed offset in meters:
+
+```python
+volume = volume.translate(z=0.02)
+```
+
+Shape and scale do not change, only where the rig sits in world coordinates.
+Positive z raises everything.
+
 ### Anchoring without a board
 
 A markerless calibration has no board to align to, so the frame comes from the scene instead:
@@ -247,6 +258,14 @@ volume = volume.centered()                          # XY origin at the camera ce
 Call them in that order.
 `grounded` assumes Z is already vertical, and `centered` assumes the floor is already at zero.
 `oriented` takes a per-camera up vector, which `estimate_vertical` produces from the video.
+
+`grounded` rests the lowest triangulated point on Z=0, and that point is a marker, not the floor.
+A toe marker rides above the ground on the shoe and its own thickness.
+Measure that height and lift the volume by it:
+
+```python
+volume = volume.grounded().translate(z=0.02)
+```
 
 ## Step 7: Inspect results
 
@@ -356,5 +375,6 @@ The GUI just does more of the surrounding steps for you.
 | Filter outliers | `filter_percentile=2.5` |
 | Set origin at frame | `volume.align_to_object(sync_index)` |
 | X, Y, Z rotate buttons | `volume.rotate(axis, degrees)` |
+| No GUI equivalent | `volume.translate(x, y, z)` |
 | Saving a calibration | `volume.save(directory)` |
 | `camera_array_aniposelib.toml` | `volume.camera_array.to_aniposelib_toml(path)` |

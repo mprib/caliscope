@@ -1007,6 +1007,43 @@ class CaptureVolume:
             _optimization_status=self._optimization_status,
         )
 
+    def translate(self, x: float = 0.0, y: float = 0.0, z: float = 0.0) -> "CaptureVolume":
+        """Shift the coordinate system by a fixed offset in meters.
+
+        Adds the offset to every world point and carries the cameras with them.
+        The rig's shape and scale are untouched; only where it sits in world
+        coordinates moves. Positive z raises everything.
+
+        The companion to ``rotate``, and the correction ``grounded`` cannot make
+        for you. ``grounded`` drops the lowest triangulated point to Z=0, but
+        that point is a marker, not the floor: a toe marker rides above the
+        ground on the shoe and its own thickness. Lift the volume by that
+        measured height to put the real floor at zero.
+
+        Args:
+            x: Offset along the world X axis, in meters.
+            y: Offset along the world Y axis, in meters.
+            z: Offset along the world Z axis, in meters.
+
+        Returns:
+            New CaptureVolume with the shifted coordinate system.
+        """
+        transform = SimilarityTransform(
+            rotation=np.eye(3, dtype=np.float64),
+            translation=np.array([x, y, z], dtype=np.float64),
+            scale=1.0,
+        )
+
+        new_camera_array, new_world_points = apply_similarity_transform(self.camera_array, self.world_points, transform)
+
+        return CaptureVolume(
+            camera_array=new_camera_array,
+            image_points=self.image_points,
+            world_points=new_world_points,
+            constraints=self.constraints,
+            _optimization_status=self._optimization_status,
+        )
+
     # ------------------------------------------------------------------
     # Metric anchoring (post-BA). Each returns a new frozen CaptureVolume.
     # ------------------------------------------------------------------

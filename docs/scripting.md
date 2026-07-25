@@ -68,7 +68,7 @@ charuco.save_image("charuco.png")
 charuco.save_mirror_image("charuco_mirror.png")
 ```
 
-Print it, measure a square with calipers, and pass the measurement as `square_size_cm` or `square_size_override_cm`.
+Print it, measure a square with calipers, and pass the measurement as `square_size_override_cm`.
 Printers rescale.
 The mirror image is the back face of a two-sided board.
 

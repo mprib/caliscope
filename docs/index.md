@@ -8,7 +8,6 @@ BSD-2-Clause licensed.
 
 Triangulating a point from several cameras means knowing each camera's optical properties and where it sits in space.
 Measuring that by hand is impractical, so it has to be recovered from video of the rig itself.
-Caliscope does the recovery and reports how far to trust it.
 
 The work runs in three stages.
 Intrinsic calibration recovers focal length and lens distortion, one camera at a time.

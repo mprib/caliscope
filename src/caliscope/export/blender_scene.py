@@ -185,6 +185,10 @@ def main():
     frames = PAYLOAD["frames"]
     scene.frame_start = frames[0]
     scene.frame_end = frames[-1]
+    # Scene frames are sync indices at the footage frame rate. Without this,
+    # Blender plays at its 24 fps default and 60 fps footage runs 2.5x slow.
+    scene.render.fps = int(round(PAYLOAD["fps"]))
+    scene.render.fps_base = 1.0
     first = PAYLOAD["cameras"][0]
     scene.render.resolution_x = int(first["width"])
     scene.render.resolution_y = int(first["height"])
@@ -314,6 +318,7 @@ def write_blender_scene(
     world_points: WorldPoints,
     output_path: Path | str,
     *,
+    fps: float,
     videos: Mapping[int, Path | str] | None = None,
     wireframe: WireFrameView | None = None,
     run_blender: bool = True,
@@ -326,6 +331,9 @@ def write_blender_scene(
             sync indices, so pass full-frame triangulations for smooth playback).
         output_path: Path for the generated scene script (.py). The .blend is
             saved beside it with the same stem.
+        fps: Footage frame rate. Sets the scene playback rate so scene frames
+            (sync indices) play in real time. Must match the source video, or
+            playback and the camera backgrounds run at the wrong speed.
         videos: Optional cam_id to video path mapping; matching cameras get
             their footage as a frame-synced camera background.
         wireframe: Optional skeleton topology; colors the keypoint dots by
@@ -378,6 +386,7 @@ def write_blender_scene(
         "joints": np.round(positions, 5).tolist() if edges else [],
         "edges": edges,
         "cameras": cameras_payload,
+        "fps": float(fps),
         "keypoint_radius_m": KEYPOINT_RADIUS_M,
         "floor_size_m": FLOOR_SIZE_M,
     }

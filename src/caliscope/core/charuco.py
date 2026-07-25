@@ -272,18 +272,18 @@ class Charuco:
 
         return img
 
-    def save_image(self, path):
+    def save_image(self, path: Path | str) -> None:
         """
         Saving image at 10x higher resolution than used for GUI
         """
-        cv2.imwrite(path, self.board_img(pixmap_scale=10000))
+        cv2.imwrite(str(path), self.board_img(pixmap_scale=10000))
 
-    def save_mirror_image(self, path):
+    def save_mirror_image(self, path: Path | str) -> None:
         """
         Saving image at 10x higher resolution than used for GUI
         """
         mirror = cv2.flip(self.board_img(pixmap_scale=10000), 1)
-        cv2.imwrite(path, mirror)
+        cv2.imwrite(str(path), mirror)
 
     def get_connected_points(self) -> set[tuple[int, int]]:
         """
@@ -353,7 +353,7 @@ class Charuco:
         self.dictionary = fit_dictionary_pool(self.dictionary, self.marker_count)
 
     @classmethod
-    def from_toml(cls, path: Path) -> "Charuco":
+    def from_toml(cls, path: Path | str) -> "Charuco":
         """Load Charuco board definition from TOML file.
 
         Normalizes the dictionary pool to fit the board (see fit_dictionary_pool),
@@ -366,6 +366,7 @@ class Charuco:
         """
         from caliscope.persistence import PersistenceError
 
+        path = Path(path)
         if not path.exists():
             raise PersistenceError(f"Charuco file not found: {path}")
 
@@ -378,7 +379,7 @@ class Charuco:
         charuco._fit_dictionary()
         return charuco
 
-    def to_toml(self, path: Path) -> None:
+    def to_toml(self, path: Path | str) -> None:
         """Save Charuco board definition to TOML file.
 
         Enumerates fields explicitly rather than using __dict__ to avoid
@@ -395,6 +396,7 @@ class Charuco:
         """
         from caliscope.persistence import PersistenceError, _safe_write_toml
 
+        path = Path(path)
         self._fit_dictionary()
         try:
             path.parent.mkdir(parents=True, exist_ok=True)

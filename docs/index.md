@@ -6,17 +6,30 @@ BSD-2-Clause licensed.
 
 ## What it solves
 
-Multicamera 3D reconstruction requires knowing each camera's optical properties and its position in space.
-Bundle adjustment finds these, but it needs a good starting point to converge.
-Caliscope builds that starting point and refines it.
+Triangulating a point from several cameras means knowing each camera's optical properties and where it sits in space.
+Measuring that by hand is impractical, so it has to be recovered from video of the rig itself.
+Caliscope does the recovery and reports how far to trust it.
 
-For each pair of cameras that both see the calibration target in the same frame, Caliscope estimates their relative position using PnP.
-It chains these pairwise estimates transitively: if A-B and B-C are known, A-C is inferred.
-The target never needs to be visible to all cameras at once.
+The work runs in three stages.
+Intrinsic calibration recovers focal length and lens distortion, one camera at a time.
+Extrinsic calibration recovers where the cameras sit relative to each other, by bundle adjustment over the observations they share.
+Anchoring then moves the solved rig into a frame you can use: vertical pointing up, distances in meters, floor at zero.
 
-This approach supports flexible calibration targets.
-A single ArUco marker on a sheet of paper can calibrate a wide capture volume.
-For surround setups where cameras face inward from all directions, a charuco board printed on both sides of a rigid surface lets cameras on opposite sides link through shared points.
+Everything is available two ways.
+The desktop app gives visual feedback at each stage, and the [Scripting API](scripting.md) runs the same pipeline from Python.
+
+## Calibrating with a target
+
+Print a ChArUco board, an ArUco marker, or a chessboard, and record it moving through the volume.
+The target never has to be visible to every camera at once, because Caliscope chains pairwise camera relationships transitively.
+A single marker on a sheet of paper can calibrate a wide volume.
+For surround rigs where cameras face inward from all sides, a board printed on both faces of a rigid surface links cameras that share no view.
+
+## Calibrating without one
+
+Cameras watching a moving person can be solved from the body alone, with no target.
+Pose keypoints stand in for board corners, and the scene supplies the coordinate frame: an estimated vertical, one known distance for scale, and the floor.
+This path needs intrinsics solved first, and it runs from the [Scripting API](scripting.md).
 
 ## Output
 

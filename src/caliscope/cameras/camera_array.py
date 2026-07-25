@@ -375,7 +375,7 @@ class CameraArray:
         return proj_mat
 
     @classmethod
-    def from_toml(cls, path: Path) -> "CameraArray":
+    def from_toml(cls, path: Path | str) -> "CameraArray":
         """Load CameraArray from TOML file.
 
         Rotation is stored as a 3x1 Rodrigues vector in TOML but may be a 3x3
@@ -388,6 +388,7 @@ class CameraArray:
         from caliscope.persistence import PersistenceError
         from caliscope.core.toml_helpers import _list_to_array, _clean_scalar
 
+        path = Path(path)
         if not path.exists():
             raise PersistenceError(f"CameraArray file not found: {path}")
 
@@ -440,7 +441,7 @@ class CameraArray:
 
         return cls(cameras_dict)
 
-    def to_toml(self, path: Path) -> None:
+    def to_toml(self, path: Path | str) -> None:
         """Save CameraArray to TOML file.
 
         Converts 3x3 rotation matrices to 3x1 Rodrigues vectors for storage.
@@ -451,6 +452,7 @@ class CameraArray:
         from caliscope.persistence import PersistenceError, _safe_write_toml
         from caliscope.core.toml_helpers import _array_to_list
 
+        path = Path(path)
         try:
             path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -486,7 +488,7 @@ class CameraArray:
         except Exception as e:
             raise PersistenceError(f"Failed to save CameraArray to {path}: {e}") from e
 
-    def to_aniposelib_toml(self, path: Path) -> None:
+    def to_aniposelib_toml(self, path: Path | str) -> None:
         """Save CameraArray in aniposelib-compatible TOML format.
 
         Only exports posed cameras. Uses top-level [cam_N] sections instead of
@@ -498,6 +500,7 @@ class CameraArray:
         from caliscope.persistence import PersistenceError, _safe_write_toml
         from caliscope.core.toml_helpers import _array_to_list
 
+        path = Path(path)
         try:
             path.parent.mkdir(parents=True, exist_ok=True)
 

@@ -43,7 +43,7 @@ def test_writes_compilable_scene_script(tmp_path):
         point_names={"a": 0, "b": 1},
     )
     script_path = write_blender_scene(
-        cameras, _world_points(), tmp_path / "scene.py", wireframe=wireframe, run_blender=False
+        cameras, _world_points(), tmp_path / "scene.py", fps=60, wireframe=wireframe, run_blender=False
     )
 
     source = script_path.read_text()
@@ -52,6 +52,8 @@ def test_writes_compilable_scene_script(tmp_path):
     payload_json = source.split('json.loads(r"""')[1].split('""")')[0]
     payload = json.loads(payload_json)
     assert payload["frames"] == [0, 3, 6]
+    assert payload["fps"] == 60
+    assert "scene.render.fps" in source  # scene plays at footage rate, not Blender's 24 fps default
     assert len(payload["cameras"]) == 2
     assert payload["edges"] == [[0, 1]]
     group_names = {group["name"] for group in payload["groups"]}
@@ -61,4 +63,4 @@ def test_writes_compilable_scene_script(tmp_path):
 def test_rejects_unposed_cameras(tmp_path):
     cameras = CameraArray({1: CameraData.from_intrinsics(cam_id=1, size=(1280, 720), focal_length=900.0)})
     with pytest.raises(ValueError, match="posed"):
-        write_blender_scene(cameras, _world_points(), tmp_path / "scene.py", run_blender=False)
+        write_blender_scene(cameras, _world_points(), tmp_path / "scene.py", fps=60, run_blender=False)

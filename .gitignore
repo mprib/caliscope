@@ -4,6 +4,7 @@ scripts/*
 !scripts/demo/
 scripts/demo/*
 !scripts/demo/demo_markerless_calibration.py
+!scripts/demo/demo_opencap_calibration.py
 scripts/ralph_wiggum_viz/output/
 tests/debug/*
 *context.txt

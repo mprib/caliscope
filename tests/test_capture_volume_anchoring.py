@@ -419,6 +419,30 @@ def test_grounded_floor_matches_min_on_clean_dense_volume():
     assert abs(float(grounded.world_points.df["z_coord"].min())) < 0.02
 
 
+def test_grounded_lowest_point_height_lifts_the_floor():
+    """The lowest point is a marker, not the floor; its height puts the floor at zero.
+
+    Equivalent to grounding then shifting by hand, which is what a caller had to
+    do before the parameter existed.
+    """
+    cameras = {
+        0: make_camera(0, np.eye(3), np.array([5.0, 7.0, 3.0])),
+        1: make_camera(1, np.eye(3), np.array([8.0, 7.0, 3.0])),
+    }
+    rows = [world_row(0, 10, (1.0, 1.0, 2.0)), world_row(0, 11, (1.0, 1.0, 4.0))]
+    volume = make_volume(cameras, rows)
+
+    lifted = volume.grounded(lowest_point_height_m=0.02)
+
+    # The marker rests at its true height, so the floor it stands on is Z=0.
+    assert float(lifted.world_points.df["z_coord"].min()) == pytest.approx(0.02)
+    # XY anchoring is unaffected by the vertical correction.
+    assert camera_center(lifted, 0)[:2] == pytest.approx([0.0, 0.0], abs=1e-10)
+
+    by_hand = volume.grounded().translate(z=0.02)
+    assert lifted.world_points.points == pytest.approx(by_hand.world_points.points)
+
+
 def test_grounded_rejects_unknown_mode():
     cameras = {
         0: make_camera(0, np.eye(3), np.array([0.0, 0.0, 0.0])),
@@ -429,6 +453,47 @@ def test_grounded_rejects_unknown_mode():
 
     with pytest.raises(ValueError):
         volume.grounded("centroid")  # type: ignore[arg-type]
+
+
+# ---------------------------------------------------------------------------
+# Translation
+# ---------------------------------------------------------------------------
+
+
+def test_translate_lifts_floor_by_marker_height():
+    """grounded() rests the lowest marker at zero; translate corrects for its height.
+
+    A toe marker rides above the ground on the shoe, so the real floor sits
+    below it. Lifting by the measured height puts the floor at Z=0 and leaves
+    the marker where it belongs, above it.
+    """
+    cameras = {
+        0: make_camera(0, np.eye(3), np.array([5.0, 7.0, 3.0])),
+        1: make_camera(1, np.eye(3), np.array([8.0, 7.0, 3.0])),
+    }
+    rows = [world_row(0, 10, (1.0, 1.0, 2.0)), world_row(0, 11, (1.0, 1.0, 4.0))]
+    grounded = make_volume(cameras, rows).grounded("lowest_point")
+
+    lifted = grounded.translate(z=0.02)
+
+    assert float(lifted.world_points.df["z_coord"].min()) == pytest.approx(0.02)
+    assert camera_center(lifted, 0) == pytest.approx(camera_center(grounded, 0) + np.array([0.0, 0.0, 0.02]))
+
+
+def test_translate_preserves_shape_and_defaults_to_no_op():
+    cameras = {
+        0: make_camera(0, np.eye(3), np.array([0.0, 0.0, 0.0])),
+        1: make_camera(1, np.eye(3), np.array([3.0, 0.0, 0.0])),
+    }
+    rows = [world_row(0, 10, (1.0, 1.0, 1.0)), world_row(0, 11, (2.0, 0.0, 1.5))]
+    volume = make_volume(cameras, rows)
+
+    shifted = volume.translate(x=1.5, y=-0.25, z=0.02)
+
+    # Every point moves by the same offset, so relative geometry is untouched.
+    delta = shifted.world_points.points - volume.world_points.points
+    assert delta == pytest.approx(np.tile([1.5, -0.25, 0.02], (len(delta), 1)))
+    assert volume.translate().world_points.points == pytest.approx(volume.world_points.points)
 
 
 # ---------------------------------------------------------------------------
@@ -454,6 +519,9 @@ if __name__ == "__main__":
     debug_dir = Path(__file__).parent / "tmp"
     debug_dir.mkdir(parents=True, exist_ok=True)
 
+    test_grounded_lowest_point_height_lifts_the_floor()
+    test_translate_lifts_floor_by_marker_height()
+    test_translate_preserves_shape_and_defaults_to_no_op()
     test_single_camera_distance_recovers_scale()
     test_single_segment_length_recovers_scale()
     test_single_depth_observation_recovers_scale()

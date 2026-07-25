@@ -165,6 +165,30 @@ def test_negative_thickness_rejected():
         Charuco.from_squares(columns=4, rows=5, square_size_cm=5.0, thickness_cm=-0.5)
 
 
+# -- Board dimensions are a printing concern, not a calibration one -----------
+
+
+def test_board_dimensions_do_not_change_geometry():
+    """A scripted board and a GUI-configured board calibrate identically.
+
+    The GUI collects board_width, board_height, and units; from_squares does not.
+    Those dimensions only reach the geometry through the fallback square length,
+    which never fires because both paths set square_size_override_cm. Scripting
+    docs make this promise to users, so pin it.
+    """
+    scripted = Charuco.from_squares(columns=4, rows=5, square_size_cm=5.4)
+    gui_configured = Charuco(
+        columns=4,
+        rows=5,
+        board_height=11.0,
+        board_width=8.5,
+        units="inch",
+        square_size_override_cm=5.4,
+    )
+
+    assert scripted.board.getChessboardCorners() == pytest.approx(gui_configured.board.getChessboardCorners())
+
+
 if __name__ == "__main__":
     debug_dir = Path(__file__).parent / "tmp"
     debug_dir.mkdir(parents=True, exist_ok=True)

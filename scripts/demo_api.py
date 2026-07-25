@@ -6,8 +6,8 @@ Exercises the full calibration pipeline:
   3. Calibrate intrinsics (per camera)
   4. Extract time-aligned extrinsic points
   5. Bootstrap + optimize capture volume
-  6. Align to object coordinates
-  7. Save and reload results
+  6. Align to object coordinates and rotate the axes
+  7. Save, export for aniposelib, and reload results
 
 Usage:
     uv run python scripts/demo_api.py
@@ -99,17 +99,27 @@ volume = volume.filter_by_percentile_error(2.5)
 volume = volume.optimize(strict=False)
 print(f"  Pass 2 RMSE: {volume.reprojection_report.overall_rmse:.3f} px")
 
-# --- 6. Align to object coordinates ---
+# --- 6. Align to object coordinates, then rotate the axes ---
 print("\nStep 6: Align to object coordinates")
 sync_idx = volume.unique_sync_indices[len(volume.unique_sync_indices) // 2]
 volume = volume.align_to_object(int(sync_idx))
 
+# Same transform as the GUI's X/Y/Z buttons: the board defines the origin, but
+# its axes rarely match the lab convention you want to hand downstream.
+volume = volume.rotate("x", 90)
+print("  Rotated +90 degrees about X")
+
 print_extrinsic_report(volume)
 
-# --- 7. Save and reload ---
+# --- 7. Save, export for aniposelib, and reload ---
 print("\nStep 7: Save and reload")
 volume.save(OUTPUT_DIR)
 print(f"  Saved capture volume to {OUTPUT_DIR}")
+
+# The GUI writes this to the workspace root on every save; a script asks for it.
+aniposelib_path = OUTPUT_DIR / "camera_array_aniposelib.toml"
+volume.camera_array.to_aniposelib_toml(aniposelib_path)
+print(f"  Exported aniposelib camera array to {aniposelib_path}")
 
 # Verify round-trip
 volume_reloaded = CaptureVolume.load(OUTPUT_DIR)

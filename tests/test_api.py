@@ -345,6 +345,50 @@ def test_extract_image_points_multicam_pipeline(tmp_path: Path):
 
 
 # ---------------------------------------------------------------------------
+# rotation_count plumbing
+# ---------------------------------------------------------------------------
+
+
+class _RotationSpyTracker(CharucoTracker):
+    """Charuco tracker that records the rotation_count it was handed."""
+
+    def __init__(self, charuco: Charuco) -> None:
+        super().__init__(charuco)
+        self.seen: list[tuple[int, int]] = []
+
+    def _detect(self, frame, cam_id: int = 0, rotation_count: int = 0):
+        self.seen.append((cam_id, rotation_count))
+        return super()._detect(frame, cam_id, rotation_count)
+
+
+def test_extract_image_points_forwards_rotation_count():
+    """The GUI sets a per-camera rotation; the API must be able to say the same thing."""
+    charuco = Charuco.from_toml(PRERECORDED_SESSION / "charuco.toml")
+    tracker = _RotationSpyTracker(charuco)
+
+    video_path = PRERECORDED_SESSION / "calibration" / "intrinsic" / "cam_0.mp4"
+    extract_image_points(video_path, 0, tracker, frame_step=20, rotation_count=1, progress=None)
+
+    assert tracker.seen
+    assert {rotation for _, rotation in tracker.seen} == {1}
+
+
+def test_extract_image_points_multicam_forwards_rotation_counts(tmp_path: Path):
+    """Each camera gets its own rotation; cameras left out of the mapping get zero."""
+    copy_contents_to_clean_dest(CHARUCO_SESSION, tmp_path)
+
+    extrinsic_dir = tmp_path / "calibration" / "extrinsic"
+    videos = {cam_id: extrinsic_dir / f"cam_{cam_id}.mp4" for cam_id in (0, 1)}
+
+    charuco = Charuco.from_toml(tmp_path / "charuco.toml")
+    tracker = _RotationSpyTracker(charuco)
+
+    extract_image_points_multicam(videos, tracker, frame_step=30, rotation_counts={1: -1}, progress=None)
+
+    assert set(tracker.seen) == {(0, 0), (1, -1)}
+
+
+# ---------------------------------------------------------------------------
 # Debug harness
 # ---------------------------------------------------------------------------
 
@@ -396,5 +440,12 @@ if __name__ == "__main__":
     logger.info("test_extract_image_points_multicam_pipeline")
     with tempfile.TemporaryDirectory() as tmp:
         test_extract_image_points_multicam_pipeline(Path(tmp))
+
+    logger.info("test_extract_image_points_forwards_rotation_count")
+    test_extract_image_points_forwards_rotation_count()
+
+    logger.info("test_extract_image_points_multicam_forwards_rotation_counts")
+    with tempfile.TemporaryDirectory() as tmp:
+        test_extract_image_points_multicam_forwards_rotation_counts(Path(tmp))
 
     logger.info("All API tests passed.")

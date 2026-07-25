@@ -191,6 +191,7 @@ scene_script = write_blender_scene(
     volume.camera_array,
     world_points,
     OUTPUT_DIR / "capture_volume_scene.py",
+    fps=60,  # Pose2Sim Demo_SinglePerson footage
     videos=videos,
     wireframe=tracker_registry.wireframe_for(TRACKER_KEY),
 )

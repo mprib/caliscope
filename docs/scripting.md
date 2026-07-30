@@ -13,6 +13,10 @@ uv pip install caliscope[gui]   # adds desktop app, 3D visualization, and pose t
 Everything below uses the `caliscope.api` module.
 A complete working script is in `scripts/demo_api.py`.
 
+For an alternate workflow, `scripts/demo/demo_shared_video_calibration.py` calibrates both intrinsics and extrinsics from one synchronized ChArUco recording.
+The script detects the board once, uses each camera's observations for intrinsic calibration, then uses the combined observations for extrinsic calibration.
+The recording must include varied board positions and tilts in every camera as well as simultaneous views across cameras.
+
 ## Imports
 
 ```python

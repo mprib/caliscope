@@ -3,8 +3,10 @@ scripts/*
 !scripts/benchmark_frame_seeking.py
 !scripts/demo/
 scripts/demo/*
+!scripts/demo/demo_joint_intrinsic_extrinsic_calibration.py
 !scripts/demo/demo_markerless_calibration.py
 !scripts/demo/demo_opencap_calibration.py
+!scripts/demo/demo_shared_video_calibration.py
 scripts/ralph_wiggum_viz/output/
 tests/debug/*
 *context.txt

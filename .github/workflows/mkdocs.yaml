@@ -15,7 +15,7 @@ jobs:
           # git-revision-date-localized reads commit history; a shallow clone
           # makes it warn, which --strict would treat as a failure.
           fetch-depth: 0
-      - uses: actions/setup-python@v6
+      - uses: actions/setup-python@v7
         with:
           python-version: 3.x
       - run: pip install mkdocs-material
@@ -28,7 +28,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      - uses: actions/setup-python@v6
+      - uses: actions/setup-python@v7
         with:
           python-version: 3.x
       - uses: actions/cache@v6

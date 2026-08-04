@@ -224,10 +224,10 @@ class IntrinsicCalibrationPresenter(QObject):
         Checks both the selection result (from current calibration) and the
         output report (from restored calibration) for the frame list.
         """
-        if self._selection_result is not None:
-            return list(self._selection_result.selected_frames)
         if self._output is not None:
             return list(self._output.report.selected_frames)
+        if self._selection_result is not None:
+            return list(self._selection_result.selected_frames)
         return None
 
     @property

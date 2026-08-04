@@ -259,6 +259,40 @@ def test_thick_board_front_view_unchanged(scene):
     assert np.all(packet.obj_loc[:, 2] == 0.0)
 
 
+@pytest.mark.parametrize(
+    "id_shape",
+    [
+        (1,),  # OpenCV 5 single-detection shape
+        (1, 1),  # OpenCV 4 single-detection shape
+    ],
+    ids=["1d", "2d"],
+)
+def test_single_detection_does_not_collapse_to_scalar(scene, id_shape):
+    """Regression: .squeeze() on a single-element id array collapses it to a
+    0D scalar, making len(ids) raise TypeError downstream. GH-1016.
+    Both OpenCV 4 shape (1,1) and OpenCV 5 shape (1,) must survive."""
+    charuco, board_img, board_w_m, board_h_m, to_px = scene
+    tracker = CharucoTracker(charuco)
+    gray = np.full(IMG_SIZE[::-1], 128, dtype=np.uint8)
+
+    single_id = np.array([5]).reshape(id_shape)
+    single_loc = np.array([[100.0, 200.0]])
+
+    class StubDetector:
+        def detectBoard(self, frame):
+            return single_loc, single_id, None, None
+
+    tracker.detector = StubDetector()
+    ids, img_loc = tracker.find_corners_single_frame(gray, mirror=False)
+
+    assert ids.ndim == 1, f"ids collapsed to {ids.ndim}D"
+    assert len(ids) == 1
+    assert ids[0] == 5
+
+    packet = tracker._detect(gray, cam_id=0)
+    assert len(packet.keypoint_id) == 1
+
+
 def test_mirror_hint_is_remembered_per_camera(scene):
     """The flip-hint cache: after a mirrored detection, the next frame for the
     same cam_id tries the mirrored orientation first; a different cam_id is

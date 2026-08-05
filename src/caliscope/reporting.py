@@ -194,11 +194,6 @@ def print_intrinsic_report(output: IntrinsicCalibrationOutput, *, console: Conso
     rmse_badge = _quality_badge(report.rmse, _RMSE_THRESHOLDS)
     c.print(f"  Reprojection RMSE:   {report.rmse:.3f} px    {rmse_badge}")
     c.print(f"  Frames used:         {report.frames_used}")
-    if report.rejected_frames or report.rejected_observations:
-        c.print(
-            f"  Robust filtering:    {len(report.rejected_frames)} frames, "
-            f"{report.rejected_observations} observations rejected"
-        )
     c.print()
 
     # Coverage — _quality_badge thresholds check value < threshold.

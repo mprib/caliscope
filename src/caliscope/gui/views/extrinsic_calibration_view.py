@@ -48,7 +48,7 @@ from caliscope.gui.widgets.calibration_step_strip import CalibrationStepStrip
 from caliscope.gui.widgets.coverage_heatmap import CoverageHeatmapWidget
 from caliscope.gui.widgets.distance_sparkline import DistanceSparkline
 from caliscope.gui.widgets.lens_model_dialog import LensModelDialog
-from caliscope.gui.widgets.qt3d_playback_widget import Qt3DPlaybackWidget
+from caliscope.gui.widgets.qt3d_playback_widget import Qt3DPlaybackWidget, opengl_available
 from caliscope.gui.widgets.scale_detail_dialog import ScaleDetailDialog
 
 logger = logging.getLogger(__name__)
@@ -782,6 +782,16 @@ class ExtrinsicCalibrationView(QWidget):
         logger.debug("Creating Qt3D visualization widget")
 
         self._viz_placeholder.hide()
+
+        if not opengl_available():
+            self._viz_placeholder.setText(
+                "3D preview requires a graphics driver that is not available.\n"
+                "Your calibration data is saved and usable.\n\n"
+                "To enable the preview, relaunch with:\n"
+                "LIBGL_ALWAYS_SOFTWARE=1 caliscope"
+            )
+            self._viz_placeholder.show()
+            return
 
         self._viz_widget = Qt3DPlaybackWidget(
             view_model,

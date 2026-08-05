@@ -29,7 +29,7 @@ from caliscope.gui.presenters.reconstruction_presenter import (
     ReconstructionState,
 )
 from caliscope.gui.view_models.playback_view_model import PlaybackViewModel
-from caliscope.gui.widgets.qt3d_playback_widget import Qt3DPlaybackWidget
+from caliscope.gui.widgets.qt3d_playback_widget import Qt3DPlaybackWidget, opengl_available
 from caliscope import MODELS_DIR
 from caliscope.gui.theme import Colors
 from caliscope.trackers import tracker_registry
@@ -401,6 +401,23 @@ class ReconstructionWidget(QWidget):
         camera_array = self._presenter.camera_array
         output_path = self._presenter.xyz_output_path
 
+        if not opengl_available():
+            if self._viz_container.count() == 0:
+                fallback = QLabel(
+                    "3D preview requires a graphics driver that is not available.\n"
+                    "Calibration and reconstruction results are unaffected.\n\n"
+                    "To enable the preview, relaunch with:\n"
+                    "LIBGL_ALWAYS_SOFTWARE=1 caliscope"
+                )
+                fallback.setAlignment(Qt.AlignmentFlag.AlignCenter)
+                fallback.setStyleSheet(
+                    f"QLabel {{ color: {Colors.TEXT_MUTED}; font-size: 14px; "
+                    f"background-color: {Colors.SURFACE}; border: 1px dashed {Colors.BORDER}; border-radius: 4px; }}"
+                )
+                fallback.setFixedHeight(150)
+                self._viz_container.addWidget(fallback)
+            return
+
         # Determine what data we have
         try:
             if output_path and output_path.exists():
@@ -414,8 +431,6 @@ class ReconstructionWidget(QWidget):
             else:
                 # Camera-only mode - show frustums without points
                 view_model = PlaybackViewModel.from_camera_array_only(camera_array)
-
-            # Create or update widget
             if self._viz_widget is None:
                 self._viz_widget = Qt3DPlaybackWidget(
                     view_model,

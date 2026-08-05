@@ -43,6 +43,33 @@ from caliscope.gui.view_models.playback_view_model import PlaybackViewModel
 
 logger = logging.getLogger(__name__)
 
+_opengl_ok: bool | None = None
+
+
+def opengl_available() -> bool:
+    """Probe whether a usable OpenGL context can be created.
+
+    Cached after first call. Must be called after QApplication exists.
+    """
+    global _opengl_ok
+    if _opengl_ok is not None:
+        return _opengl_ok
+
+    from PySide6.QtGui import QOffscreenSurface, QOpenGLContext
+
+    surface = QOffscreenSurface()
+    surface.create()
+    ctx = QOpenGLContext()
+    if not ctx.create() or not ctx.makeCurrent(surface):
+        logger.warning("OpenGL context creation failed; 3D view will be unavailable")
+        _opengl_ok = False
+    else:
+        ctx.doneCurrent()
+        _opengl_ok = True
+    surface.destroy()
+    return _opengl_ok
+
+
 # Default sphere radius in meters (12mm). Used as the 1.0x baseline
 # for the sphere size slider.
 _DEFAULT_SPHERE_RADIUS = 0.012

@@ -12,6 +12,13 @@ from caliscope.tracker import Tracker
 
 logger = logging.getLogger(__name__)
 
+_MIN_SUBPIX_HALF_WIDTH = 2
+_MAX_SUBPIX_HALF_WIDTH = 11
+_SUBPIX_PITCH_FRACTION = 0.25
+_MAX_REFINEMENT_RMS_RATIO = 1.5
+_MAX_REFINEMENT_RMS_INCREASE_PX = 0.15
+_MIN_REFINED_PITCH_RATIO = 0.5
+
 
 class CharucoTracker(Tracker):
     def __init__(self, charuco):
@@ -29,9 +36,11 @@ class CharucoTracker(Tracker):
 
         self.detector = cv2.aruco.CharucoDetector(self.board, detectorParams=params)
 
-        # for subpixel corner correction
+        # Subpixel refinement is sized per frame from the detected corner pitch.
+        # A fixed window can include neighboring corners when a board is small in
+        # the image and pull distinct observations onto the same feature.
         self.criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 30, 0.0001)
-        self.conv_size = (11, 11)  # Don't make this too large.
+        self._connected_points = charuco.get_connected_points()
 
         # Per-camera mirror hint: remembers whether the last successful detection
         # for each camera was on a mirrored image. Avoids the ~107ms penalty of
@@ -63,7 +72,7 @@ class CharucoTracker(Tracker):
         for is_mirrored in try_order:
             gray_input = cv2.flip(gray, 1) if is_mirrored else gray
             ids, img_loc = self.find_corners_single_frame(gray_input, mirror=is_mirrored)
-            if ids.any():
+            if len(ids) > 0:
                 self._last_mirrored[cam_id] = is_mirrored
                 detected_mirrored = is_mirrored
                 break
@@ -98,20 +107,9 @@ class CharucoTracker(Tracker):
         _img_loc, _ids, marker_corners, marker_ids = self.detector.detectBoard(gray_frame)
 
         if _ids is not None and len(_ids) > 0:
-            # Sub-pixel refinement — occasionally errors out, so just move along if it fails
-            try:
-                _img_loc = cv2.cornerSubPix(
-                    gray_frame,
-                    _img_loc,
-                    self.conv_size,
-                    (-1, -1),
-                    self.criteria,
-                )
-            except Exception as e:
-                logger.debug(f"Sub pixel detection failed: {e}")
-
-            ids = _ids.reshape(-1)
-            img_loc = _img_loc.reshape(-1, 2)
+            ids = np.asarray(_ids, dtype=np.int32).reshape(-1)
+            raw_img_loc = np.asarray(_img_loc, dtype=np.float32).reshape(-1, 2)
+            img_loc = self._refine_corners_safely(gray_frame, ids, raw_img_loc)
 
             # flip coordinates if mirrored image fed in
             frame_width = gray_frame.shape[1]
@@ -119,6 +117,101 @@ class CharucoTracker(Tracker):
                 img_loc[:, 0] = frame_width - img_loc[:, 0]
 
         return ids, img_loc
+
+    def _refine_corners_safely(
+        self,
+        gray_frame: np.ndarray,
+        ids: np.ndarray,
+        raw_img_loc: np.ndarray,
+    ) -> np.ndarray:
+        """Refine ChArUco corners without allowing neighbor collapse.
+
+        ``CharucoDetector.detectBoard`` already returns interpolated corner
+        locations.  ``cornerSubPix`` is therefore an optional improvement, not
+        something worth keeping when it makes the known planar grid less
+        self-consistent.  The search window is derived from local grid pitch,
+        and the unrefined points are retained whenever refinement degrades the
+        planar fit or collapses adjacent corners.
+        """
+        raw_pitch = self._adjacent_pitch(ids, raw_img_loc)
+        if raw_pitch is None:
+            return raw_img_loc.astype(np.float64)
+
+        half_width = int(
+            np.clip(
+                np.floor(raw_pitch * _SUBPIX_PITCH_FRACTION),
+                _MIN_SUBPIX_HALF_WIDTH,
+                _MAX_SUBPIX_HALF_WIDTH,
+            )
+        )
+
+        try:
+            refined = cv2.cornerSubPix(
+                gray_frame,
+                raw_img_loc.reshape(-1, 1, 2).copy(),
+                (half_width, half_width),
+                (-1, -1),
+                self.criteria,
+            ).reshape(-1, 2)
+        except Exception as exc:
+            logger.debug("Subpixel detection failed: %s", exc)
+            return raw_img_loc.astype(np.float64)
+
+        if not np.isfinite(refined).all():
+            logger.debug("Discarding non-finite ChArUco subpixel refinement")
+            return raw_img_loc.astype(np.float64)
+
+        refined_pitch = self._adjacent_pitch(ids, refined)
+        if refined_pitch is None or refined_pitch < raw_pitch * _MIN_REFINED_PITCH_RATIO:
+            logger.debug(
+                "Discarding ChArUco refinement after adjacent-corner collapse "
+                "(raw pitch %.2fpx, refined %.2fpx)",
+                raw_pitch,
+                refined_pitch if refined_pitch is not None else float("nan"),
+            )
+            return raw_img_loc.astype(np.float64)
+
+        raw_rms = self._planar_fit_rms(ids, raw_img_loc)
+        refined_rms = self._planar_fit_rms(ids, refined)
+        allowed_rms = max(
+            raw_rms * _MAX_REFINEMENT_RMS_RATIO,
+            raw_rms + _MAX_REFINEMENT_RMS_INCREASE_PX,
+        )
+        if np.isfinite(raw_rms) and (not np.isfinite(refined_rms) or refined_rms > allowed_rms):
+            logger.debug(
+                "Discarding ChArUco refinement that worsened planar RMS "
+                "(raw %.3fpx, refined %.3fpx)",
+                raw_rms,
+                refined_rms,
+            )
+            return raw_img_loc.astype(np.float64)
+
+        return refined.astype(np.float64)
+
+    def _adjacent_pitch(self, ids: np.ndarray, img_loc: np.ndarray) -> float | None:
+        """Return a conservative local grid pitch from detected adjacent pairs."""
+        point_by_id = {int(keypoint_id): point for keypoint_id, point in zip(ids, img_loc, strict=True)}
+        distances = [
+            float(np.linalg.norm(point_by_id[a] - point_by_id[b]))
+            for a, b in self._connected_points
+            if a in point_by_id and b in point_by_id
+        ]
+        if not distances:
+            return None
+        return float(np.percentile(distances, 10))
+
+    def _planar_fit_rms(self, ids: np.ndarray, img_loc: np.ndarray) -> float:
+        """Measure correspondence consistency without assuming camera intrinsics."""
+        if len(ids) < 5:
+            return 0.0
+
+        obj_loc = np.asarray(self.board.getChessboardCorners(), dtype=np.float32)[ids, :2]
+        homography, _ = cv2.findHomography(obj_loc, img_loc.astype(np.float32), 0)
+        if homography is None:
+            return float("inf")
+
+        projected = cv2.perspectiveTransform(obj_loc[:, None, :], homography)[:, 0, :]
+        return float(np.sqrt(np.mean(np.sum((projected - img_loc) ** 2, axis=1))))
 
     def get_obj_loc(self, ids: np.ndarray, back_face: bool = False):
         """Objective position of charuco corners in a board frame of reference.

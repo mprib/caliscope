@@ -57,6 +57,8 @@ class IntrinsicReportRepository:
             "orientation_sufficient": bool(report.orientation_sufficient),
             "orientation_count": int(report.orientation_count),
             "selected_frames": [int(f) for f in report.selected_frames],
+            "rejected_frames": [int(f) for f in report.rejected_frames],
+            "rejected_observations": int(report.rejected_observations),
         }
 
         path = self._cam_path(cam_id)
@@ -96,6 +98,8 @@ class IntrinsicReportRepository:
                 orientation_sufficient=bool(data["orientation_sufficient"]),
                 orientation_count=int(data["orientation_count"]),
                 selected_frames=tuple(int(f) for f in data["selected_frames"]),
+                rejected_frames=tuple(int(f) for f in data.get("rejected_frames", [])),
+                rejected_observations=int(data.get("rejected_observations", 0)),
             )
         except KeyError as e:
             raise ValueError(f"Missing required field in {path}: {e}") from e

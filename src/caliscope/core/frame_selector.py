@@ -21,6 +21,7 @@ to the image plane.
 """
 
 from dataclasses import dataclass
+import logging
 from typing import NamedTuple, cast
 
 import cv2
@@ -29,10 +30,13 @@ import pandas as pd
 
 from caliscope.core.point_data import ImagePoints
 
+logger = logging.getLogger(__name__)
+
 # --- Type Aliases for Domain Clarity ---
 GridCell = tuple[int, int]  # (row, col) in coverage grid
 CoveredCells = set[GridCell]
 PoseFeatures = np.ndarray  # Shape: (5,) - see indices below
+ObjectBounds = tuple[np.ndarray, np.ndarray]  # (minimum XY, XY range)
 
 
 class OrientationFeatures(NamedTuple):
@@ -56,7 +60,22 @@ _POSE_ASPECT_RATIO = 4
 
 # Orientation binning constants
 _NUM_TILT_DIRECTION_BINS = 8  # 45° sectors
-MIN_TILT_FOR_DIVERSITY = 0.1  # Minimum tilt magnitude to count as "tilted"
+MIN_TILT_FOR_DIVERSITY = 0.02  # About a 2% projective scale gradient across the full board
+MIN_CORNERS_FOR_ORIENTATION = 12
+_HOMOGRAPHY_RANSAC_THRESHOLD_PX = 3.0
+_MIN_GEOMETRY_INLIER_FRACTION = 0.85
+_MAX_NORMALIZED_PLANAR_RMS = 0.08
+
+
+@dataclass(frozen=True)
+class FrameGeometryQuality:
+    """Robust planar-correspondence diagnostics for one calibration frame."""
+
+    inlier_positions: tuple[int, ...]
+    inlier_fraction: float
+    planar_rms_px: float
+    normalized_planar_rms: float
+    score: float
 
 
 @dataclass(frozen=True)
@@ -66,6 +85,7 @@ class FrameCoverageData:
     covered_cells: CoveredCells
     pose_features: PoseFeatures
     orientation: OrientationFeatures
+    quality_score: float
 
 
 @dataclass(frozen=True)
@@ -149,7 +169,7 @@ def select_calibration_frames(
             total_frame_count=0,
         )
 
-    # Filter eligible frames (only by corner count - no coverage filtering)
+    # Reject point sets that cannot represent a coherent view of one plane.
     eligible_frames = _filter_eligible_frames(cam_df, min_corners_per_frame)
 
     if not eligible_frames:
@@ -167,12 +187,37 @@ def select_calibration_frames(
 
     # Precompute coverage, pose, and orientation features for all eligible frames
     frame_data: dict[int, FrameCoverageData] = {}
-    for sync_index in eligible_frames:
+    all_obj_points = cam_df[["obj_loc_x", "obj_loc_y"]].to_numpy(dtype=np.float32)
+    object_minimum = all_obj_points.min(axis=0)
+    object_range = all_obj_points.max(axis=0) - object_minimum
+    object_range[object_range < 1e-6] = 1.0
+    object_bounds = (object_minimum, object_range)
+    maximum_inlier_count = max(len(geometry.inlier_positions) for geometry in eligible_frames.values())
+    for sync_index, geometry in eligible_frames.items():
         frame_df = cast(pd.DataFrame, cam_df[cam_df["sync_index"] == sync_index])
-        coverage = _compute_frame_coverage(frame_df, image_size, grid_size)
-        pose = _compute_pose_features(frame_df, image_size)
-        orientation = _compute_orientation_features(frame_df)
-        frame_data[sync_index] = FrameCoverageData(coverage, pose, orientation)
+        inlier_df = cast(pd.DataFrame, frame_df.iloc[list(geometry.inlier_positions)])
+        coverage = _compute_frame_coverage(inlier_df, image_size, grid_size)
+        pose = _compute_pose_features(inlier_df, image_size)
+        orientation = (
+            _compute_orientation_features(inlier_df, object_bounds=object_bounds)
+            if len(inlier_df) >= MIN_CORNERS_FOR_ORIENTATION
+            else OrientationFeatures(0.0, 0.0, 0.0)
+        )
+        corner_fraction = len(inlier_df) / maximum_inlier_count
+        corner_quality = 0.1 + 0.9 * float(np.sqrt(corner_fraction))
+        frame_data[sync_index] = FrameCoverageData(
+            coverage,
+            pose,
+            orientation,
+            geometry.score * corner_quality,
+        )
+
+    logger.info(
+        "Intrinsic geometry gate for cam_id %s: accepted %d/%d detected frames",
+        cam_id,
+        len(eligible_frames),
+        total_frame_count,
+    )
 
     # Two-phase selection
     # Phase 1: Select orientation anchor frames (hard constraint for focal length observability)
@@ -212,24 +257,94 @@ def select_calibration_frames(
 def _filter_eligible_frames(
     cam_df: pd.DataFrame,
     min_corners: int,
-) -> list[int]:
-    """Filter frames meeting minimum corner count.
+) -> dict[int, FrameGeometryQuality]:
+    """Return frames with enough geometrically coherent planar correspondences.
 
-    Only filters by corner count - no coverage filtering. This allows frames
-    with distant (small-appearing) boards to be included, which is valuable
-    for focal length estimation per Zhang (2000).
+    Corner count alone admits false marker identities and subpixel-collapse
+    failures.  A RANSAC homography verifies that most observations can arise
+    from one planar board.  RMS is normalized by local point pitch so this gate
+    works across video resolutions without rejecting small, distant boards.
     """
-    eligible: list[int] = []
+    eligible: dict[int, FrameGeometryQuality] = {}
     grouped = cam_df.groupby("sync_index")
     for sync_index_key, frame_group in grouped:
         frame_df = cast(pd.DataFrame, frame_group)
         sync_index = int(sync_index_key)  # type: ignore[arg-type]
+        quality = _assess_frame_geometry(frame_df, min_corners)
+        if quality is not None:
+            eligible[sync_index] = quality
 
-        # Check corner count only
-        if len(frame_df) >= min_corners:
-            eligible.append(sync_index)
+    return dict(sorted(eligible.items()))
 
-    return sorted(eligible)  # Sorted for determinism
+
+def _assess_frame_geometry(
+    frame_df: pd.DataFrame,
+    min_corners: int,
+) -> FrameGeometryQuality | None:
+    """Assess whether a frame's IDs and pixels form a credible planar grid."""
+    if len(frame_df) < min_corners:
+        return None
+
+    identity_columns = [column for column in ("object_id", "keypoint_id") if column in frame_df.columns]
+    if identity_columns and frame_df.duplicated(subset=identity_columns).any():
+        return None
+
+    obj_points = frame_df[["obj_loc_x", "obj_loc_y"]].to_numpy(dtype=np.float32)
+    img_points = frame_df[["img_loc_x", "img_loc_y"]].to_numpy(dtype=np.float32)
+    if not np.isfinite(obj_points).all() or not np.isfinite(img_points).all():
+        return None
+
+    obj_range = obj_points.max(axis=0) - obj_points.min(axis=0)
+    if np.any(obj_range < 1e-6):
+        return None
+    obj_normalized = (obj_points - obj_points.min(axis=0)) / obj_range
+
+    homography, mask = cv2.findHomography(
+        obj_normalized,
+        img_points,
+        cv2.RANSAC,
+        _HOMOGRAPHY_RANSAC_THRESHOLD_PX,
+    )
+    if homography is None or mask is None:
+        return None
+
+    inlier_mask = mask.reshape(-1).astype(bool)
+    inlier_count = int(inlier_mask.sum())
+    inlier_fraction = inlier_count / len(frame_df)
+    if inlier_count < min_corners or inlier_fraction < _MIN_GEOMETRY_INLIER_FRACTION:
+        return None
+
+    # Refit without RANSAC on verified correspondences before measuring RMS.
+    homography, _ = cv2.findHomography(obj_normalized[inlier_mask], img_points[inlier_mask], 0)
+    if homography is None:
+        return None
+    projected = cv2.perspectiveTransform(obj_normalized[inlier_mask, None, :], homography)[:, 0, :]
+    residuals = np.linalg.norm(projected - img_points[inlier_mask], axis=1)
+    planar_rms_px = float(np.sqrt(np.mean(residuals**2)))
+
+    # Nearest-neighbor pitch is topology-agnostic and remains useful for
+    # ChArUco partial detections and complete chessboards alike.
+    inlier_img = img_points[inlier_mask]
+    pairwise = np.linalg.norm(inlier_img[:, None, :] - inlier_img[None, :, :], axis=2)
+    np.fill_diagonal(pairwise, np.inf)
+    local_pitch_px = float(np.median(pairwise.min(axis=1)))
+    if not np.isfinite(local_pitch_px) or local_pitch_px < 1.0:
+        return None
+
+    normalized_rms = planar_rms_px / local_pitch_px
+    if not np.isfinite(normalized_rms) or normalized_rms > _MAX_NORMALIZED_PLANAR_RMS:
+        return None
+
+    # Keep the score in (0, 1]; it breaks selection ties in favor of coherent
+    # frames while spatial and orientation diversity remain the primary goals.
+    quality_score = inlier_fraction / (1.0 + normalized_rms)
+    return FrameGeometryQuality(
+        inlier_positions=tuple(int(position) for position in np.flatnonzero(inlier_mask)),
+        inlier_fraction=inlier_fraction,
+        planar_rms_px=planar_rms_px,
+        normalized_planar_rms=normalized_rms,
+        score=quality_score,
+    )
 
 
 def _compute_frame_coverage(
@@ -279,7 +394,11 @@ def _compute_pose_features(frame_df: pd.DataFrame, image_size: tuple[int, int]) 
     return np.array([centroid_x, centroid_y, spread_x, spread_y, aspect_ratio])
 
 
-def _compute_orientation_features(frame_df: pd.DataFrame) -> OrientationFeatures:
+def _compute_orientation_features(
+    frame_df: pd.DataFrame,
+    *,
+    object_bounds: ObjectBounds | None = None,
+) -> OrientationFeatures:
     """Extract board orientation from 2D-2D homography.
 
     Computes a homography mapping board object coordinates to image coordinates,
@@ -314,19 +433,35 @@ def _compute_orientation_features(frame_df: pd.DataFrame) -> OrientationFeatures
     # Normalize object coordinates to [0, 1] so tilt_magnitude reflects pure
     # geometric foreshortening (near edge vs far edge size ratio), independent
     # of whatever coordinate units the board uses.
-    obj_range = obj_points.max(axis=0) - obj_points.min(axis=0)
-    obj_range[obj_range < 1e-6] = 1.0  # guard against degenerate axis
-    obj_normalized = (obj_points - obj_points.min(axis=0)) / obj_range
+    if object_bounds is None:
+        obj_minimum = obj_points.min(axis=0)
+        obj_range = obj_points.max(axis=0) - obj_minimum
+        obj_range[obj_range < 1e-6] = 1.0  # guard against degenerate axis
+    else:
+        obj_minimum, obj_range = object_bounds
+    obj_normalized = (obj_points - obj_minimum) / obj_range
 
     # Compute homography using RANSAC for robustness
-    H, mask = cv2.findHomography(obj_normalized, img_points, cv2.RANSAC, 5.0)
+    H, mask = cv2.findHomography(
+        obj_normalized,
+        img_points,
+        cv2.RANSAC,
+        _HOMOGRAPHY_RANSAC_THRESHOLD_PX,
+    )
 
-    if H is None:
+    if H is None or mask is None:
         return OrientationFeatures(
             tilt_direction=0.0,
             tilt_magnitude=0.0,
             in_plane_rotation=0.0,
         )
+
+    inlier_mask = mask.reshape(-1).astype(bool)
+    if int(inlier_mask.sum()) < MIN_CORNERS_FOR_ORIENTATION:
+        return OrientationFeatures(0.0, 0.0, 0.0)
+    H, _ = cv2.findHomography(obj_normalized[inlier_mask], img_points[inlier_mask], 0)
+    if H is None or not np.isfinite(H).all() or abs(H[2, 2]) < 1e-12:
+        return OrientationFeatures(0.0, 0.0, 0.0)
 
     # Normalize H by H[2,2] to get standard form
     H = H / H[2, 2]
@@ -376,6 +511,7 @@ def _score_frame(
     candidate_pose: PoseFeatures,
     selected_poses: list[PoseFeatures],
     grid_size: int,
+    quality_score: float = 1.0,
     edge_weight: float = 0.2,
     corner_weight: float = 0.3,
     diversity_weight: float = 0.3,
@@ -414,7 +550,7 @@ def _score_frame(
         min_distance = min(distances)
         score += min_distance * diversity_weight
 
-    return score
+    return score * (0.5 + 0.5 * quality_score) + 0.01 * quality_score
 
 
 def _select_orientation_anchors(
@@ -439,14 +575,16 @@ def _select_orientation_anchors(
         covered_bins: Set of bin indices that have been covered
     """
     # Group frames by orientation bin
-    bin_to_frames: dict[int, list[tuple[int, float]]] = {}  # bin -> [(sync_index, tilt_magnitude), ...]
+    bin_to_frames: dict[int, list[tuple[int, float, float]]] = {}
 
     for sync_index, data in frame_data.items():
         bin_idx = _get_orientation_bin(data.orientation)
         if bin_idx is not None:  # Skip frontal-parallel frames
             if bin_idx not in bin_to_frames:
                 bin_to_frames[bin_idx] = []
-            bin_to_frames[bin_idx].append((sync_index, data.orientation.tilt_magnitude))
+            bin_to_frames[bin_idx].append(
+                (sync_index, data.orientation.tilt_magnitude, data.quality_score)
+            )
 
     # Select one frame per bin, preferring higher tilt magnitude
     selected_anchors: list[int] = []
@@ -455,8 +593,8 @@ def _select_orientation_anchors(
     # Sort bins by index for determinism
     for bin_idx in sorted(bin_to_frames.keys()):
         frames = bin_to_frames[bin_idx]
-        # Sort by tilt magnitude descending, then sync_index ascending for determinism
-        frames.sort(key=lambda x: (-x[1], x[0]))
+        # Prefer informative tilt only among geometrically reliable frames.
+        frames.sort(key=lambda x: (-(x[1] * x[2]), -x[2], x[0]))
         best_frame = frames[0][0]
         selected_anchors.append(best_frame)
         covered_bins.add(bin_idx)
@@ -500,6 +638,7 @@ def _greedy_select_coverage(
                 data.pose_features,
                 selected_poses,
                 grid_size,
+                quality_score=data.quality_score,
             )
             scores.append((score, sync_index))
 

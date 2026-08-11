@@ -56,7 +56,7 @@ _POSE_ASPECT_RATIO = 4
 
 # Orientation binning constants
 _NUM_TILT_DIRECTION_BINS = 8  # 45° sectors
-MIN_TILT_FOR_DIVERSITY = 0.1  # Minimum tilt magnitude to count as "tilted"
+MIN_TILT_FOR_DIVERSITY = 0.05  # ~5% projective scale gradient across the board
 
 
 @dataclass(frozen=True)

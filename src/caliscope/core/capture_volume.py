@@ -1283,38 +1283,56 @@ class CaptureVolume:
 
     def grounded(
         self,
-        mode: Literal["lowest_point"] = "lowest_point",
+        mode: Literal["lowest_point", "pooled_1st_percentile"] = "lowest_point",
         *,
         lowest_point_height_m: float = 0.0,
     ) -> "CaptureVolume":
-        """Translate so the ground sits at Z=0 and the XY origin lies under the anchor camera.
+        """Move the reconstruction so a selected low point has the requested height.
 
-        ``mode="lowest_point"`` places the floor at Z=0, taken as a robust low
-        percentile (1st, as an order statistic) of world Z so a single spurious
-        low triangulation cannot bury the floor. On small point sets the order
-        statistic degrades to the exact minimum. Call after ``oriented()`` so Z
-        is vertical. XY origin is set under the anchor camera (lowest posed
-        cam_id). No rotation or scale change.
+        Use ``mode="lowest_point"`` when the lowest 3D point is reliable. This
+        is the default. Use ``mode="pooled_1st_percentile"`` when one or more
+        bad points appear below the real floor. This mode sorts all WorldPoints
+        rows by Z and selects the lower 1st-percentile point. It can ignore a
+        real floor contact when only a few rows contain it.
+
+        Both modes place the selected point at ``lowest_point_height_m``. They
+        also place the XY origin below the lowest posed camera ID. Call this
+        method after ``oriented()`` so Z is vertical. Rotation and scale do not
+        change.
 
         Args:
-            mode: How the floor is located. Only ``"lowest_point"`` is supported.
-            lowest_point_height_m: How far the lowest point actually sits above
-                the ground, in meters. The lowest point is a marker or keypoint,
-                not the floor: a toe marker rides above it on the shoe and its
-                own thickness. Give that measured height and the floor lands at
-                Z=0 with the point resting above it, instead of the point being
-                buried at zero. Defaults to 0.0, the historical behavior.
-        """
-        if mode != "lowest_point":
-            raise ValueError(f"grounded() only supports mode='lowest_point', got {mode!r}.")
+            mode: How to select the vertical anchor.
+            lowest_point_height_m: Height of the selected point above Z=0, in
+                meters. For example, use 0.02 when you know that the selected
+                point is 2 cm above the desired floor. Defaults to 0.0.
 
-        min_z = float(np.percentile(self.world_points.df["z_coord"].to_numpy(), 1.0, method="lower"))
+        Returns:
+            A new CaptureVolume with the translated coordinate system.
+
+        Raises:
+            ValueError: If ``mode`` is not one of the two supported values.
+        """
+        if mode == "lowest_point":
+            selected_z = float(self.world_points.df["z_coord"].min())
+        elif mode == "pooled_1st_percentile":
+            selected_z = float(
+                np.percentile(
+                    self.world_points.df["z_coord"].to_numpy(),
+                    1.0,
+                    method="lower",
+                )
+            )
+        else:
+            raise ValueError(
+                f"Unsupported grounding mode {mode!r}; expected 'lowest_point' or 'pooled_1st_percentile'."
+            )
+
         anchor_center = self._camera_center(self._anchor_cam_id())
 
         return self.translate(
             x=-anchor_center[0],
             y=-anchor_center[1],
-            z=-min_z + lowest_point_height_m,
+            z=-selected_z + lowest_point_height_m,
         )
 
     def centered(self) -> "CaptureVolume":

@@ -24,7 +24,7 @@ from pathlib import Path
 from caliscope.api import (
     Charuco, CharucoTracker, CameraArray, CaptureVolume, ConstraintSet,
     extract_image_points, extract_image_points_multicam,
-    calibrate_intrinsics, calibrate_extrinsics,
+    calibrate_intrinsics, calibrate_extrinsics, estimate_vertical,
 )
 from caliscope.reporting import (
     print_intrinsic_report, print_extrinsic_report, print_camera_pair_coverage,
@@ -249,11 +249,13 @@ Shape and scale do not change, only where the rig sits in world coordinates.
 Positive z raises everything.
 This is the primitive `grounded` and `centered` are built on, exposed for the shifts they do not cover.
 
-### Anchoring without a board
+### Orienting to gravity without a board
 
-A markerless calibration has no board to align to, so the frame comes from the scene instead:
+A markerless calibration has no board to align to, so the orientation comes from the scene instead.
+Estimate the vertical direction from the extrinsic calibration videos before you orient the volume:
 
 ```python
+vertical = estimate_vertical(extrinsic_videos, cameras)
 volume = volume.oriented(up=vertical.up_per_cam)   # +Z becomes vertical
 volume = volume.scaled(CameraDistance(cam_a=0, cam_b=3, meters=4.2))
 volume = volume.grounded()                          # floor at Z=0
@@ -264,15 +266,35 @@ Call them in that order.
 `grounded` assumes Z is already vertical, and `centered` assumes the floor is already at zero.
 `oriented` takes a per-camera up vector, which `estimate_vertical` produces from the video.
 
-By default `grounded` rests the lowest triangulated point on Z=0, and that point is a marker, not the floor.
-A toe marker rides above the ground on the shoe and its own thickness, so the floor ends up buried.
-Measure that height and hand it over:
+### Aligning to the floor without a board
+
+You may have one point that should align with the ground plane, such as a marker on the foot.
+The `grounded` method will shift the cameras and tracked subject such that the lowest point intersects with the ground plane.
+
+```python
+volume = volume.grounded()
+```
+
+It may be the case that the lowest tracked point is not aligned with the floor (tracked foot points may for example float a centimeter or two above the floor).
+In this case, you can add an additional vertical shift to pad out the lowest point:
+
+For example, a pose tracker might place its lowest point 2 cm above the bottom of a shoe:
 
 ```python
 volume = volume.grounded(lowest_point_height_m=0.02)
 ```
 
-The marker then sits at 0.02 and the floor it stands on is zero.
+The above will place the lowest point 2cm above the ground plane.
+
+Sometimes one bad 3D point appears far below the person.
+The default setting would use that point and place the rest of the reconstruction too high.
+Use this mode to ignore the extreme points.
+
+```python
+volume = volume.grounded(mode="pooled_1st_percentile")
+```
+
+Use this option only when you can see bad points below the real floor.
 
 ## Step 7: Inspect results
 

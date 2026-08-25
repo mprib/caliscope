@@ -362,26 +362,43 @@ def test_oriented_logs_cross_camera_disagreement(caplog: pytest.LogCaptureFixtur
 # ---------------------------------------------------------------------------
 
 
-def test_grounded_puts_floor_at_zero_and_cam0_over_origin():
+def _grounding_regression_rows() -> list[dict]:
+    z_values = [-3.0, 1.0, *([2.0] * 198)]
+    return [world_row(i, 10, (0.01 * i, -0.02 * i, z)) for i, z in enumerate(z_values)]
+
+
+@pytest.mark.parametrize("explicit_mode", [False, True])
+def test_grounded_lowest_point_uses_exact_minimum(explicit_mode: bool):
     cameras = {
         0: make_camera(0, np.eye(3), np.array([5.0, 7.0, 3.0])),
         1: make_camera(1, np.eye(3), np.array([8.0, 7.0, 3.0])),
     }
-    rows = [
-        world_row(0, 10, (1.0, 1.0, 2.0)),  # lowest z = 2.0
-        world_row(0, 11, (1.0, 1.0, 4.0)),
-    ]
-    volume = make_volume(cameras, rows)
+    volume = make_volume(cameras, _grounding_regression_rows())
 
-    grounded = volume.grounded("lowest_point")
+    grounded = volume.grounded("lowest_point") if explicit_mode else volume.grounded()
 
-    assert abs(float(grounded.world_points.df["z_coord"].min())) < 1e-10
+    assert float(grounded.world_points.df["z_coord"].min()) == pytest.approx(0.0)
     c0 = camera_center(grounded, 0)
-    assert abs(c0[0]) < 1e-10
-    assert abs(c0[1]) < 1e-10
+    assert c0[:2] == pytest.approx([0.0, 0.0], abs=1e-10)
 
 
-def test_grounded_floor_robust_to_low_outlier():
+def test_grounded_pooled_percentile_uses_fixed_lower_order_statistic():
+    cameras = {
+        0: make_camera(0, np.eye(3), np.array([5.0, 7.0, 3.0])),
+        1: make_camera(1, np.eye(3), np.array([8.0, 7.0, 3.0])),
+    }
+    volume = make_volume(cameras, _grounding_regression_rows())
+
+    grounded = volume.grounded("pooled_1st_percentile")
+
+    df = grounded.world_points.df
+    selected_z = float(df.loc[df["sync_index"] == 1, "z_coord"].iloc[0])
+    isolated_min = float(df.loc[df["sync_index"] == 0, "z_coord"].iloc[0])
+    assert selected_z == pytest.approx(0.0)
+    assert isolated_min == pytest.approx(-4.0)
+
+
+def test_grounded_pooled_percentile_does_not_anchor_to_isolated_low_outlier():
     cameras = {
         0: make_camera(0, np.eye(3), np.array([5.0, 7.0, 3.0])),
         1: make_camera(1, np.eye(3), np.array([8.0, 7.0, 3.0])),
@@ -393,7 +410,7 @@ def test_grounded_floor_robust_to_low_outlier():
     rows.append(world_row(999, 10, (1.0, 1.0, -3.0)))
     volume = make_volume(cameras, rows)
 
-    grounded = volume.grounded("lowest_point")
+    grounded = volume.grounded("pooled_1st_percentile")
 
     df = grounded.world_points.df
     band_min = float(df[df["sync_index"] != 999]["z_coord"].min())
@@ -403,20 +420,18 @@ def test_grounded_floor_robust_to_low_outlier():
     assert outlier_z < 0.0
 
 
-def test_grounded_floor_matches_min_on_clean_dense_volume():
+def test_grounded_pooled_percentile_height_places_selected_anchor():
     cameras = {
         0: make_camera(0, np.eye(3), np.array([5.0, 7.0, 3.0])),
         1: make_camera(1, np.eye(3), np.array([8.0, 7.0, 3.0])),
     }
-    band_z = np.linspace(1.0, 2.0, 200)
-    rows = [world_row(i, 10, (1.0, 1.0, float(z))) for i, z in enumerate(band_z)]
-    volume = make_volume(cameras, rows)
+    volume = make_volume(cameras, _grounding_regression_rows())
 
-    grounded = volume.grounded("lowest_point")
+    grounded = volume.grounded("pooled_1st_percentile", lowest_point_height_m=0.02)
 
-    # With no outlier the percentile floor sits within a point-spacing of the
-    # true minimum (~0.005 here).
-    assert abs(float(grounded.world_points.df["z_coord"].min())) < 0.02
+    df = grounded.world_points.df
+    selected_z = float(df.loc[df["sync_index"] == 1, "z_coord"].iloc[0])
+    assert selected_z == pytest.approx(0.02)
 
 
 def test_grounded_lowest_point_height_lifts_the_floor():
@@ -451,8 +466,49 @@ def test_grounded_rejects_unknown_mode():
     rows = [world_row(0, 10, (1.0, 1.0, 1.0)), world_row(0, 11, (2.0, 0.0, 1.0))]
     volume = make_volume(cameras, rows)
 
-    with pytest.raises(ValueError):
+    message = "Unsupported grounding mode 'centroid'; expected 'lowest_point' or 'pooled_1st_percentile'."
+    with pytest.raises(ValueError, match=re.escape(message)):
         volume.grounded("centroid")  # type: ignore[arg-type]
+
+
+@pytest.mark.parametrize(
+    ("mode", "selected_z"),
+    [("lowest_point", -3.0), ("pooled_1st_percentile", 1.0)],
+)
+@pytest.mark.parametrize("height", [0.0, 0.02])
+def test_grounded_translates_points_and_cameras_without_mutating_source(mode, selected_z: float, height: float):
+    rotations = {
+        2: Rotation.from_euler("xyz", [10.0, -20.0, 5.0], degrees=True).as_matrix(),
+        7: Rotation.from_euler("xyz", [-15.0, 30.0, 12.0], degrees=True).as_matrix(),
+    }
+    centers = {
+        2: np.array([5.0, 7.0, 3.0]),
+        7: np.array([8.0, -2.0, 4.0]),
+    }
+    cameras = {cam_id: make_camera(cam_id, rotations[cam_id], centers[cam_id]) for cam_id in rotations}
+    volume = make_volume(cameras, _grounding_regression_rows())
+    source_points = volume.world_points.points.copy()
+    source_centers = {cam_id: camera_center(volume, cam_id).copy() for cam_id in cameras}
+    source_rotations = {}
+    for cam_id in cameras:
+        rotation = volume.camera_array.cameras[cam_id].rotation
+        assert rotation is not None
+        source_rotations[cam_id] = rotation.copy()
+    expected_translation = np.array([-source_centers[2][0], -source_centers[2][1], -selected_z + height])
+
+    grounded = volume.grounded(mode, lowest_point_height_m=height)
+
+    point_deltas = grounded.world_points.points - source_points
+    assert point_deltas == pytest.approx(np.tile(expected_translation, (len(source_points), 1)))
+    for cam_id in cameras:
+        assert camera_center(grounded, cam_id) - source_centers[cam_id] == pytest.approx(expected_translation)
+        assert grounded.camera_array.cameras[cam_id].rotation == pytest.approx(source_rotations[cam_id])
+
+    assert grounded is not volume
+    assert volume.world_points.points == pytest.approx(source_points)
+    for cam_id in cameras:
+        assert camera_center(volume, cam_id) == pytest.approx(source_centers[cam_id])
+        assert volume.camera_array.cameras[cam_id].rotation == pytest.approx(source_rotations[cam_id])
 
 
 # ---------------------------------------------------------------------------
@@ -528,6 +584,6 @@ if __name__ == "__main__":
     test_multiple_cues_weighted_between_estimates()
     test_two_camera_volume_scales()
     test_oriented_levels_known_tilt()
-    test_grounded_puts_floor_at_zero_and_cam0_over_origin()
+    test_grounded_lowest_point_uses_exact_minimum(explicit_mode=False)
     test_chain_order_invariance_scale_and_orient()
     print("anchoring debug run complete")

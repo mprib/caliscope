@@ -256,6 +256,14 @@ class MultiCameraProcessingWidget(QWidget):
                 rotation = self._presenter.cameras[cam_id].rotation_count
                 self._camera_cards[cam_id].set_thumbnail(frame, rotation)
 
+        for cam_id in self._presenter.missing_video_cam_ids:
+            self._on_video_missing(cam_id)
+
+    def _on_video_missing(self, cam_id: int) -> None:
+        """Replace a camera's thumbnail with a missing-file notice."""
+        if cam_id in self._camera_cards:
+            self._camera_cards[cam_id].set_missing_video()
+
     def _reflow_grid(self) -> None:
         """Reposition existing camera cards based on current column count.
 
@@ -286,6 +294,8 @@ class MultiCameraProcessingWidget(QWidget):
         self._presenter.state_changed.connect(self._update_ui_for_state)
         self._presenter.progress_updated.connect(self._on_progress_updated)
         self._presenter.thumbnail_updated.connect(self._on_thumbnail_updated)
+        self._presenter.cameras_changed.connect(self._rebuild_camera_grid)
+        self._presenter.video_missing.connect(self._on_video_missing)
         self._presenter.processing_complete.connect(self._on_processing_complete)
         self._presenter.processing_failed.connect(self._on_processing_failed)
         self._presenter.coverage_updated.connect(

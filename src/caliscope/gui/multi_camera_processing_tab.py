@@ -9,11 +9,13 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING
 
-from PySide6.QtWidgets import QVBoxLayout, QWidget
+from PySide6.QtCore import Qt
+from PySide6.QtWidgets import QLabel, QVBoxLayout, QWidget
 
 from caliscope.gui.presenters.multi_camera_processing_presenter import (
     MultiCameraProcessingPresenter,
 )
+from caliscope.gui.theme import Colors
 from caliscope.gui.views.multi_camera_processing_widget import MultiCameraProcessingWidget
 
 if TYPE_CHECKING:
@@ -49,6 +51,14 @@ class MultiCameraProcessingTab(QWidget):
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
 
+        self._file_warning_label = QLabel()
+        self._file_warning_label.setTextFormat(Qt.TextFormat.PlainText)
+        self._file_warning_label.setWordWrap(True)
+        self._file_warning_label.setStyleSheet(f"color: {Colors.WARNING};")
+        self._file_warning_label.setContentsMargins(8, 8, 8, 0)
+        self._file_warning_label.hide()
+        layout.addWidget(self._file_warning_label)
+
         # Create presenter via coordinator factory
         self._presenter = self.coordinator.create_multi_camera_presenter()
 
@@ -62,6 +72,7 @@ class MultiCameraProcessingTab(QWidget):
 
         # Wire presenter signals to coordinator
         self._connect_signals()
+        self._refresh_from_workspace()
 
     def _connect_signals(self) -> None:
         """Wire presenter signals to coordinator persistence."""
@@ -73,6 +84,28 @@ class MultiCameraProcessingTab(QWidget):
 
         # Target changes invalidate the tracker - need to hot-swap it
         self.coordinator.extrinsic_target_changed.connect(self._on_extrinsic_target_changed)
+
+        # Cameras and videos can appear or disappear after this tab is built.
+        self.coordinator.status_changed.connect(self._refresh_from_workspace)
+
+    def _refresh_from_workspace(self) -> None:
+        """Follow the workspace: camera set, video files, and file feedback."""
+        if self._presenter is not None:
+            cameras = self.coordinator.camera_array.cameras
+            if set(cameras) != set(self._presenter.cameras):
+                self._presenter.set_cameras(cameras)
+            else:
+                self._presenter.refresh_videos()
+
+        issues = self.coordinator.get_workflow_status().extrinsic_video_issues
+        if issues:
+            self._file_warning_label.setText(
+                "Extrinsic videos need attention:\n" + "\n".join(issue.message for issue in issues)
+            )
+            self._file_warning_label.show()
+        else:
+            self._file_warning_label.clear()
+            self._file_warning_label.hide()
 
     def _on_extrinsic_target_changed(self) -> None:
         """Update tracker when extrinsic target config changes.
@@ -94,6 +127,12 @@ class MultiCameraProcessingTab(QWidget):
         responsible for calling this during reload_workspace or closeEvent.
         """
         if self._presenter is not None:
+            # The coordinator outlives this tab; drop the status_changed
+            # connection so it never fires into a deleted label.
+            try:
+                self.coordinator.status_changed.disconnect(self._refresh_from_workspace)
+            except (RuntimeError, TypeError):
+                pass
             logger.info("Cleaning up multi-camera processing presenter")
             self._presenter.cleanup()
             self._presenter = None

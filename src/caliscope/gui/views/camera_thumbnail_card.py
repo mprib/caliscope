@@ -88,7 +88,7 @@ class CameraThumbnailCard(QFrame):
         self._thumbnail_label = QLabel()
         self._thumbnail_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self._thumbnail_label.setMinimumSize(self.THUMBNAIL_SIZE, self.THUMBNAIL_SIZE)
-        self._thumbnail_label.setStyleSheet("background-color: #1a1a1a;")
+        self._thumbnail_label.setStyleSheet("background-color: #1a1a1a; color: #888;")
         layout.addWidget(self._thumbnail_label)
 
         # Compact rotation controls with icons
@@ -163,6 +163,11 @@ class CameraThumbnailCard(QFrame):
             Qt.AspectRatioMode.KeepAspectRatio,
         )
         self._thumbnail_label.setPixmap(pixmap)
+
+    def set_missing_video(self) -> None:
+        """Show that the camera's video file is absent instead of a stale frame."""
+        self._thumbnail_label.clear()
+        self._thumbnail_label.setText(f"No video file for cam_{self._cam_id}")
 
     def _draw_landmarks(self, frame: NDArray, points: "PointPacket") -> NDArray:
         """Draw tracked landmarks as red dots on frame.

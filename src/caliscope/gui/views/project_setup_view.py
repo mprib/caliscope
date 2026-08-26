@@ -60,6 +60,14 @@ _EXTRINSIC_PAGE_ARUCO = 0
 _EXTRINSIC_PAGE_CHARUCO = 1
 
 
+def _cam_labels(cam_ids: list[int]) -> str:
+    """Comma-separated camera IDs, truncated after eight."""
+    labels = ", ".join(str(cam_id) for cam_id in cam_ids[:8])
+    if len(cam_ids) > 8:
+        labels += "..."
+    return labels
+
+
 class WorkflowStepRow(QWidget):
     """A single row in the workflow status checklist.
 
@@ -405,6 +413,12 @@ class ProjectSetupView(QWidget):
         self._camera_count_label = QLabel()
         self._camera_count_label.setStyleSheet("color: #888; font-style: italic;")
         layout.addWidget(self._camera_count_label)
+
+        self._file_feedback_label = QLabel()
+        self._file_feedback_label.setTextFormat(Qt.TextFormat.PlainText)
+        self._file_feedback_label.setWordWrap(True)
+        self._file_feedback_label.setStyleSheet("color: #888;")
+        layout.addWidget(self._file_feedback_label)
 
         # Create workflow step rows
         self._intrinsic_row = WorkflowStepRow("Intrinsic Calibration", TabName.INTRINSICS)
@@ -781,10 +795,11 @@ class ProjectSetupView(QWidget):
 
         # Update camera count display
         if status.camera_count > 0:
-            self._camera_count_label.setText(f"Detected cameras: {status.camera_count} (from extrinsic videos)")
+            self._camera_count_label.setText(f"Detected cameras: {status.camera_count}")
         else:
             self._camera_count_label.setText("No cameras detected (add cam_N.mp4 files to calibration/extrinsic/)")
 
+        self._update_file_feedback(status)
         self._update_intrinsic_row(status)
         self._update_extraction_row(status)
         self._update_extrinsic_row(status)
@@ -792,42 +807,74 @@ class ProjectSetupView(QWidget):
 
         logger.debug("ProjectSetupView status refreshed")
 
+    def _update_file_feedback(self, status: WorkflowStatus) -> None:
+        intrinsic_is_optional_absence = (
+            status.camera_count > 0
+            and len(status.intrinsic_videos_missing) == status.camera_count
+            and all(issue.code == "missing_camera_video" for issue in status.intrinsic_video_issues)
+        )
+        issue_groups = (
+            (
+                "Intrinsic videos",
+                () if intrinsic_is_optional_absence else status.intrinsic_video_issues,
+            ),
+            ("Extrinsic videos", status.extrinsic_video_issues),
+            ("Recordings", status.recording_layout_issues),
+        )
+        if not any(issues for _, issues in issue_groups):
+            detail = "Calibration video file names and locations look correct."
+            if intrinsic_is_optional_absence:
+                detail += "\nIntrinsic videos: none found."
+            self._file_feedback_label.setText(detail)
+            return
+
+        lines = ["Review video file setup:"]
+        for heading, issues in issue_groups:
+            if issues:
+                lines.append(f"{heading}:")
+                lines.extend(f"• {issue.message}" for issue in issues)
+        if intrinsic_is_optional_absence:
+            lines.append("Intrinsic videos: none found.")
+        self._file_feedback_label.setText("\n".join(lines))
+
     def _update_intrinsic_row(self, status: WorkflowStatus) -> None:
         """Update the intrinsic calibration status row."""
         step_status = status.intrinsic_step_status
 
-        if step_status == StepStatus.COMPLETE:
+        present = [cam_id for cam_id in status.cam_ids if cam_id not in status.intrinsic_videos_missing]
+        calibrated = [cam_id for cam_id in status.cam_ids if cam_id not in status.cameras_needing_calibration]
+
+        if step_status == StepStatus.COMPLETE and not present:
+            # Pre-calibrated intrinsics (imported or from an earlier session) with no videos to redo them.
+            detail = (
+                f"Intrinsics loaded from camera_array.toml for cameras {_cam_labels(calibrated)}; "
+                "no intrinsic video files in workspace"
+            )
+        elif step_status == StepStatus.COMPLETE:
             detail = f"{status.camera_count}/{status.camera_count} cameras calibrated"
         elif step_status == StepStatus.AVAILABLE:
             detail = (
-                "Optional — the joint calibration recovers focal length and "
-                "distortion on its own. Run this for fisheye cameras or a dense lens model."
+                f"Video files in workspace for cameras {_cam_labels(present)}; "
+                f"{len(calibrated)}/{status.camera_count} calibrated"
             )
-        elif step_status == StepStatus.INCOMPLETE:
-            calibrated_count = status.camera_count - len(status.cameras_needing_calibration)
-            detail = f"{calibrated_count}/{status.camera_count} cameras calibrated"
-            if status.cameras_needing_calibration:
-                cam_labels = ", ".join(str(p) for p in status.cameras_needing_calibration[:3])
-                if len(status.cameras_needing_calibration) > 3:
-                    cam_labels += "..."
-                detail += f" (need: {cam_labels})"
+        elif status.camera_count > 0 and not present and calibrated:
+            detail = (
+                f"No intrinsic video files in workspace. Intrinsics loaded from camera_array.toml for cameras "
+                f"{_cam_labels(calibrated)}; extrinsic calibration must estimate the rest, "
+                "which is experimental and may give poor results."
+            )
+        elif status.camera_count > 0 and not present:
+            detail = (
+                "No intrinsic video files in workspace. Extrinsic calibration must estimate intrinsics, "
+                "which is experimental and may give poor results."
+            )
+        elif status.intrinsic_videos_missing:
+            detail = (
+                f"Video files in workspace for cameras {_cam_labels(present)}; "
+                f"missing cam {_cam_labels(status.intrinsic_videos_missing)}"
+            )
         else:
-            if status.camera_count > 0 and len(status.intrinsic_videos_missing) == status.camera_count:
-                # Extrinsic videos define the camera set but no intrinsic videos
-                # exist: the deliberate skip-intrinsics path, not a stalled step.
-                detail = (
-                    "No intrinsic videos — optional if you capture for it. "
-                    "Extrinsic calibration can recover intrinsics (fisheye cameras excepted); "
-                    f"see the {TabName.INTRINSICS} tab for prerequisites, "
-                    f"then continue on the {TabName.EXTRINSICS} tab."
-                )
-            elif status.intrinsic_videos_missing:
-                cam_labels = ", ".join(str(p) for p in status.intrinsic_videos_missing[:3])
-                if len(status.intrinsic_videos_missing) > 3:
-                    cam_labels += "..."
-                detail = f"Missing videos: cam {cam_labels}"
-            else:
-                detail = "Not started"
+            detail = "Not started"
 
         self._intrinsic_row.set_status(step_status, detail)
 

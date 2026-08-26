@@ -11,6 +11,7 @@ Design Philosophy:
 
 from __future__ import annotations
 
+from collections.abc import Collection
 from dataclasses import dataclass
 from enum import Enum
 from typing import TYPE_CHECKING
@@ -194,22 +195,21 @@ def _find_leaf_cameras(
 
 def analyze_multi_camera_coverage(
     image_points: ImagePoints,
+    cam_ids: Collection[int] | None = None,
 ) -> ExtrinsicCoverageReport:
     """Analyze pairwise coverage for extrinsic calibration.
 
-    Discovers actual camera cam_ids from the data and builds cam_id-to-index mapping
-    internally. Reports use actual cam_id numbers, not matrix indices.
-
-    Args:
-        image_points: ImagePoints containing all camera observations
-
-    Returns:
-        ExtrinsicCoverageReport with coverage analysis
+    Reports use actual cam_id numbers, not matrix indices. Pass the configured
+    camera set as cam_ids so a camera with no detections at all is reported as
+    isolated. Without it, cameras are discovered from the data and a camera
+    that never saw the target is silently absent from the report.
     """
     df = image_points.df
 
-    # Build cam_id-to-index mapping from actual data
-    actual_cam_ids = sorted(df["cam_id"].unique()) if len(df) > 0 else []
+    if cam_ids is not None:
+        actual_cam_ids = sorted(cam_ids)
+    else:
+        actual_cam_ids = sorted(df["cam_id"].unique()) if len(df) > 0 else []
     cam_id_to_index = {cam_id: idx for idx, cam_id in enumerate(actual_cam_ids)}
     index_to_cam_id = {idx: cam_id for cam_id, idx in cam_id_to_index.items()}
 
@@ -263,6 +263,16 @@ def detect_structural_warnings(
         List of warnings sorted by severity (critical first)
     """
     warnings: list[StructuralWarning] = []
+
+    # Critical: nothing detected anywhere. One message, since every camera
+    # would otherwise be reported isolated for the same underlying reason.
+    if report.n_cameras > 0 and not report.pairwise_observations.any():
+        return [
+            StructuralWarning(
+                WarningSeverity.CRITICAL,
+                "No calibration target detected in any camera. Check the extrinsic target settings and the videos.",
+            )
+        ]
 
     # Critical: Disconnected cameras
     for cam_id in report.isolated_cameras:

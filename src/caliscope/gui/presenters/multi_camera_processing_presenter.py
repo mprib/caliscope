@@ -88,6 +88,10 @@ class MultiCameraProcessingPresenter(QObject):
     # Rotation signals
     rotation_changed = Signal(int, int)  # (cam_id, rotation_count)
 
+    # Workspace signals
+    cameras_changed = Signal()  # Camera set replaced; view rebuilds its cards
+    video_missing = Signal(int)  # (cam_id) whose cam_N.mp4 is absent
+
     # Thumbnail throttle interval (seconds)
     THUMBNAIL_INTERVAL = 0.1  # ~10 FPS
     COVERAGE_INTERVAL = 0.5  # seconds between coverage heatmap updates
@@ -159,10 +163,18 @@ class MultiCameraProcessingPresenter(QObject):
         if self._is_task_active():
             return MultiCameraProcessingState.PROCESSING
 
-        if self._recording_dir is None or not self._cameras:
+        if self._recording_dir is None or not self._cameras or self.missing_video_cam_ids:
             return MultiCameraProcessingState.UNCONFIGURED
 
         return MultiCameraProcessingState.READY
+
+    @property
+    def missing_video_cam_ids(self) -> list[int]:
+        """Configured cameras whose cam_N.mp4 is absent from the recording directory."""
+        if self._recording_dir is None:
+            return []
+        recording_dir = self._recording_dir
+        return sorted(cam_id for cam_id in self._cameras if not (recording_dir / f"cam_{cam_id}.mp4").exists())
 
     @property
     def recording_dir(self) -> Path | None:
@@ -226,7 +238,36 @@ class MultiCameraProcessingPresenter(QObject):
         # Shallow copy - rotation_count may be modified via set_rotation()
         self._cameras = {cam_id: cam for cam_id, cam in cameras.items()}
         self._reset_results()
+        self._thumbnails = {}
         self._load_initial_thumbnails()
+        self.cameras_changed.emit()
+        self._emit_state_changed()
+
+    def refresh_videos(self) -> None:
+        """Re-read which camera videos exist after the workspace changed.
+
+        Drops thumbnails for videos that disappeared, loads thumbnails for
+        videos that appeared, and re-emits state so the view follows the files.
+        """
+        if self.state == MultiCameraProcessingState.PROCESSING or self._recording_dir is None:
+            return
+
+        missing = set(self.missing_video_cam_ids)
+        for cam_id in missing:
+            self._thumbnails.pop(cam_id, None)
+            self.video_missing.emit(cam_id)
+
+        to_load = {
+            cam_id: cam
+            for cam_id, cam in self._cameras.items()
+            if cam_id not in missing and cam_id not in self._thumbnails
+        }
+        if to_load:
+            thumbnails = get_initial_thumbnails(self._recording_dir, to_load)
+            self._thumbnails.update(thumbnails)
+            for cam_id, frame in thumbnails.items():
+                self.thumbnail_updated.emit(cam_id, frame, None)
+
         self._emit_state_changed()
 
     # -------------------------------------------------------------------------
@@ -482,7 +523,7 @@ class MultiCameraProcessingPresenter(QObject):
         logger.info(f"Multi-camera processing complete: {len(image_points.df)} points")
 
         # Compute coverage analysis
-        coverage_report = analyze_multi_camera_coverage(image_points)
+        coverage_report = analyze_multi_camera_coverage(image_points, cam_ids=sorted(self._cameras))
 
         self._result = image_points
         self._coverage_report = coverage_report

@@ -138,6 +138,11 @@ class WorkspaceCoordinator(QObject):
     def _on_directory_changed(self, path: str) -> None:
         """Handle filesystem change in watched directory."""
         logger.info(f"Directory changed: {path}")
+        if Path(path) in {
+            self.workspace_guide.intrinsic_dir,
+            self.workspace_guide.extrinsic_dir,
+        }:
+            self._discover_new_cameras()
         self.status_changed.emit()
 
     @property
@@ -149,6 +154,15 @@ class WorkspaceCoordinator(QObject):
     def cam_ids(self) -> list[int]:
         """Authoritative list of camera IDs from extrinsic directory."""
         return self.workspace_guide.get_cam_ids()
+
+    def _expected_cam_ids(self) -> set[int]:
+        """Cameras the workspace expects calibration videos for.
+
+        Extrinsic videos define the camera set. Loaded cameras keep that set
+        stable once a video disappears, so a deleted extrinsic file is reported
+        as missing instead of shrinking the set and blaming its intrinsic twin.
+        """
+        return set(self.camera_array.cameras) | set(self.workspace_guide.get_cam_ids())
 
     @property
     def extrinsic_image_points_path(self) -> Path:
@@ -305,16 +319,10 @@ class WorkspaceCoordinator(QObject):
         This method queries the filesystem and domain objects to build
         a status snapshot. Called by the Project tab whenever it refreshes.
         """
-        camera_count = self.camera_count  # Now a property
-        expected_cam_ids = set(self.cam_ids) if self.cam_ids else set()
-
-        # Intrinsic video availability
-        intrinsic_cam_ids = self.workspace_guide.get_cam_ids_in_dir(self.workspace_guide.intrinsic_dir)
-        intrinsic_missing = sorted(expected_cam_ids - set(intrinsic_cam_ids))
-
-        # Extrinsic video availability
-        extrinsic_cam_ids = self.workspace_guide.get_cam_ids_in_dir(self.workspace_guide.extrinsic_dir)
-        extrinsic_missing = sorted(expected_cam_ids - set(extrinsic_cam_ids))
+        expected_cam_ids = self._expected_cam_ids()
+        extrinsic_assessment = self.workspace_guide.assess_extrinsic_videos(expected_cam_ids)
+        intrinsic_assessment = self.workspace_guide.assess_intrinsic_videos(expected_cam_ids)
+        camera_count = len(expected_cam_ids)
 
         # Cameras needing intrinsic calibration
         cameras_needing = [cam_id for cam_id, cam in self.camera_array.cameras.items() if cam.matrix is None]
@@ -324,19 +332,40 @@ class WorkspaceCoordinator(QObject):
 
         return WorkflowStatus(
             camera_count=camera_count,
+            cam_ids=sorted(expected_cam_ids),
             charuco_configured=True,
-            intrinsic_videos_available=len(intrinsic_missing) == 0,
-            intrinsic_videos_missing=intrinsic_missing,
+            intrinsic_videos_available=(bool(expected_cam_ids) and not intrinsic_assessment.missing_camera_ids),
+            intrinsic_videos_missing=list(intrinsic_assessment.missing_camera_ids),
+            intrinsic_video_issues=intrinsic_assessment.issues,
             intrinsic_calibration_complete=self.camera_array.all_intrinsics_calibrated(),
             cameras_needing_calibration=cameras_needing,
             cameras_have_resolution=self.camera_array.all_cameras_have_resolution(),
-            extrinsic_videos_available=len(extrinsic_missing) == 0,
-            extrinsic_videos_missing=extrinsic_missing,
+            extrinsic_videos_available=(bool(expected_cam_ids) and not extrinsic_assessment.missing_camera_ids),
+            extrinsic_videos_missing=list(extrinsic_assessment.missing_camera_ids),
+            extrinsic_video_issues=extrinsic_assessment.issues,
             extrinsic_2d_extraction_complete=extraction_complete,
             extrinsic_calibration_complete=self.all_extrinsics_estimated(),
             recordings_available=self.recordings_available(),
             recording_names=self.workspace_guide.valid_recording_dirs(),
+            recording_layout_issues=self.workspace_guide.recording_layout_issues(),
         )
+
+    def _discover_new_cameras(self) -> None:
+        """Add canonical camera files that appeared after workspace loading."""
+        # An empty in-memory array has nothing unsaved to lose (bundle overlays
+        # only exist once cameras are loaded), so start from the persisted file
+        # rather than overwriting it with a freshly discovered subset.
+        if not self.camera_array.cameras:
+            self.camera_array = self.camera_repository.load()
+        intrinsic_ids = set(self.workspace_guide.get_cam_ids_in_dir(self.workspace_guide.intrinsic_dir))
+        extrinsic_ids = set(self.workspace_guide.get_cam_ids_in_dir(self.workspace_guide.extrinsic_dir))
+        for cam_id in sorted(intrinsic_ids | extrinsic_ids):
+            if cam_id in self.camera_array.cameras:
+                continue
+            try:
+                self._add_camera_from_source(cam_id)
+            except Exception as error:
+                logger.warning("Could not add camera %s from new video files: %s", cam_id, error)
 
     def update_intrinsic_target_type(self, target_type: IntrinsicTargetType) -> None:
         """Update which target type is used for intrinsic calibration."""

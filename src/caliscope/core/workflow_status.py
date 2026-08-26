@@ -19,6 +19,15 @@ class StepStatus(Enum):
 
 
 @dataclass(frozen=True)
+class WorkspaceIssue:
+    """Actionable feedback about a workspace file."""
+
+    code: str
+    message: str
+    relative_path: str | None = None
+
+
+@dataclass(frozen=True)
 class WorkflowStatus:
     """Snapshot of calibration workflow progress.
 
@@ -35,11 +44,13 @@ class WorkflowStatus:
 
     # Step 1: Project Setup
     camera_count: int
+    cam_ids: list[int]  # Cameras the workspace expects videos for
     charuco_configured: bool  # Always True after init
 
     # Step 2: Intrinsic Calibration
     intrinsic_videos_available: bool
     intrinsic_videos_missing: list[int]  # Ports with missing videos
+    intrinsic_video_issues: tuple[WorkspaceIssue, ...]
     intrinsic_calibration_complete: bool
     cameras_needing_calibration: list[int]  # Ports without intrinsics
     cameras_have_resolution: bool
@@ -47,6 +58,7 @@ class WorkflowStatus:
     # Step 3: Extrinsic 2D Extraction
     extrinsic_videos_available: bool
     extrinsic_videos_missing: list[int]  # Ports with missing videos
+    extrinsic_video_issues: tuple[WorkspaceIssue, ...]
     extrinsic_2d_extraction_complete: bool
 
     # Step 4: Extrinsic Calibration
@@ -55,6 +67,7 @@ class WorkflowStatus:
     # Step 5: Reconstruction (optional)
     recordings_available: bool
     recording_names: list[str]
+    recording_layout_issues: tuple[WorkspaceIssue, ...]
 
     @property
     def intrinsic_step_status(self) -> StepStatus:

@@ -219,7 +219,7 @@ class MainWindow(QMainWindow):
             self.cameras_tab_widget: QWidget = CamerasTabWidget(self.coordinator)
         else:
             logger.info("No intrinsic videos - Intrinsics tab shows skip-intrinsics placeholder")
-            self.cameras_tab_widget = CamerasInfoPlaceholder()
+            self.cameras_tab_widget = CamerasInfoPlaceholder(self.coordinator)
         # Cameras stays interactive even as a placeholder (it explains skip-intrinsics).
         return self.cameras_tab_widget, True
 

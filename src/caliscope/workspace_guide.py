@@ -1,9 +1,25 @@
 import logging
+import re
+from collections.abc import Collection
+from dataclasses import dataclass
 from pathlib import Path
 
 from caliscope.cameras.camera_array import CameraArray
+from caliscope.core.workflow_status import WorkspaceIssue
 
 logger = logging.getLogger(__name__)
+
+_CAMERA_VIDEO_PATTERN = re.compile(r"^cam_(0|[1-9][0-9]*)\.mp4$")
+_CAMERA_DIRECTORY_PATTERN = re.compile(r"^cam_(0|[1-9][0-9]*)$")
+
+
+@dataclass(frozen=True)
+class CameraVideoAssessment:
+    """Snapshot of direct-child camera videos in one directory."""
+
+    camera_ids: tuple[int, ...]
+    missing_camera_ids: tuple[int, ...]
+    issues: tuple[WorkspaceIssue, ...]
 
 
 class WorkspaceGuide:
@@ -34,19 +50,144 @@ class WorkspaceGuide:
         Returns:
             Sorted list of integer camera IDs found
         """
-        if not directory.exists():
-            return []
+        return list(self._assess_camera_videos(directory, ()).camera_ids)
 
-        all_cam_ids = []
-        for file in directory.iterdir():
-            if file.stem.startswith("cam_") and file.suffix == ".mp4":
-                try:
-                    cam_id = int(file.stem.split("_")[1])
-                    all_cam_ids.append(cam_id)
-                except (ValueError, IndexError):
-                    logger.warning(f"Skipping malformed filename: {file.name}")
+    def assess_intrinsic_videos(self, expected_cam_ids: Collection[int]) -> CameraVideoAssessment:
+        """Assess intrinsic videos against the workspace camera set."""
+        return self._assess_camera_videos(self.intrinsic_dir, expected_cam_ids)
 
-        return sorted(all_cam_ids)
+    def assess_extrinsic_videos(self, expected_cam_ids: Collection[int]) -> CameraVideoAssessment:
+        """Assess extrinsic videos against the workspace camera set.
+
+        Per-camera missing issues cover any expected camera. The generic
+        "no videos" issue only applies when there is nothing more specific to say.
+        """
+        assessment = self._assess_camera_videos(self.extrinsic_dir, expected_cam_ids)
+        if assessment.camera_ids or assessment.missing_camera_ids:
+            return assessment
+
+        issue = WorkspaceIssue(
+            code="missing_camera_video",
+            message="No extrinsic camera videos found. Add cam_N.mp4 files directly to calibration/extrinsic/.",
+            relative_path="calibration/extrinsic",
+        )
+        return CameraVideoAssessment(
+            camera_ids=assessment.camera_ids,
+            missing_camera_ids=assessment.missing_camera_ids,
+            issues=(issue, *assessment.issues),
+        )
+
+    def _assess_camera_videos(
+        self,
+        directory: Path,
+        expected_cam_ids: Collection[int],
+    ) -> CameraVideoAssessment:
+        camera_ids: list[int] = []
+        file_issues: list[WorkspaceIssue] = []
+
+        if directory.exists():
+            for path in sorted(directory.iterdir(), key=lambda item: item.name.casefold()):
+                if not path.is_file():
+                    continue
+
+                match = _CAMERA_VIDEO_PATTERN.fullmatch(path.name)
+                if match is not None:
+                    camera_ids.append(int(match.group(1)))
+                    continue
+
+                if path.suffix.casefold() != ".mp4":
+                    continue
+
+                relative_path = self._relative_path(path)
+                if path.name.casefold().startswith("cam"):
+                    file_issues.append(
+                        WorkspaceIssue(
+                            code="malformed_camera_filename",
+                            message=f"{relative_path} looks like a camera video but must be named cam_N.mp4.",
+                            relative_path=relative_path,
+                        )
+                    )
+                else:
+                    file_issues.append(
+                        WorkspaceIssue(
+                            code="unexpected_mp4",
+                            message=f"{relative_path} is an unexpected MP4. Only cam_N.mp4 files belong here.",
+                            relative_path=relative_path,
+                        )
+                    )
+
+        actual_ids = set(camera_ids)
+        expected_ids = set(expected_cam_ids)
+        missing_ids = tuple(sorted(expected_ids - actual_ids))
+        missing_issues = tuple(
+            WorkspaceIssue(
+                code="missing_camera_video",
+                message=f"Missing {self._relative_path(directory / f'cam_{cam_id}.mp4')}.",
+                relative_path=self._relative_path(directory / f"cam_{cam_id}.mp4"),
+            )
+            for cam_id in missing_ids
+        )
+
+        unexpected_issues: list[WorkspaceIssue] = []
+        if expected_ids:
+            for cam_id in sorted(actual_ids - expected_ids):
+                relative_path = self._relative_path(directory / f"cam_{cam_id}.mp4")
+                unexpected_issues.append(
+                    WorkspaceIssue(
+                        code="unexpected_mp4",
+                        message=f"{relative_path} does not match the workspace camera set.",
+                        relative_path=relative_path,
+                    )
+                )
+
+        return CameraVideoAssessment(
+            camera_ids=tuple(sorted(actual_ids)),
+            missing_camera_ids=missing_ids,
+            issues=(*missing_issues, *unexpected_issues, *file_issues),
+        )
+
+    def recording_layout_issues(self) -> tuple[WorkspaceIssue, ...]:
+        """Report recognizable recording layouts that Caliscope cannot use."""
+        if not self.recording_dir.exists():
+            return ()
+
+        children = tuple(self.recording_dir.iterdir())
+        root_mp4s = sorted(path.name for path in children if path.is_file() and path.suffix.casefold() == ".mp4")
+        camera_directories = sorted(
+            path.name
+            for path in children
+            if path.is_dir()
+            and _CAMERA_DIRECTORY_PATTERN.fullmatch(path.name)
+            and any(child.is_file() and child.suffix.casefold() == ".mp4" for child in path.iterdir())
+        )
+
+        issues: list[WorkspaceIssue] = []
+        if root_mp4s:
+            issues.append(
+                WorkspaceIssue(
+                    code="recordings_need_session_folder",
+                    message=(
+                        "Recording videos are directly inside recordings/. "
+                        "Create a named session folder and place its cam_N.mp4 files there."
+                    ),
+                    relative_path="recordings",
+                )
+            )
+        if len(camera_directories) >= 2:
+            issues.append(
+                WorkspaceIssue(
+                    code="recording_split_by_camera",
+                    message=(
+                        "The recordings/cam_N folders split a recording by camera. "
+                        "Create one named session folder containing every cam_N.mp4 file instead."
+                    ),
+                    relative_path="recordings",
+                )
+            )
+        return tuple(issues)
+
+    def _relative_path(self, path: Path) -> str:
+        return path.relative_to(self.workspace_dir).as_posix()
 
     def get_cam_ids(self) -> list[int]:
         """Return the authoritative list of camera IDs from extrinsic directory.

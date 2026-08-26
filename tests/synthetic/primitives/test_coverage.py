@@ -6,7 +6,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from caliscope.core.point_data import ImagePoints
+from caliscope.core.point_data import IMAGE_POINT_COLUMNS, ImagePoints
 from caliscope.core.coverage_analysis import (
     analyze_multi_camera_coverage,
     classify_link_quality,
@@ -411,6 +411,26 @@ class TestStructuralWarnings:
         # so there should be no critical or warning messages
         critical = [w for w in warnings if w.severity == WarningSeverity.CRITICAL]
         assert len(critical) == 0
+
+    def test_no_detections_is_a_single_critical_warning(self):
+        """Configured cameras with no detections at all are not a clean network."""
+        empty = ImagePoints(pd.DataFrame(columns=list(IMAGE_POINT_COLUMNS.keys())))
+        report = analyze_multi_camera_coverage(empty, cam_ids=[0, 1])
+
+        assert report.isolated_cameras == [0, 1]
+        assert report.has_critical_issues
+
+        warnings = detect_structural_warnings(report, n_cameras=2)
+
+        assert [w.severity for w in warnings] == [WarningSeverity.CRITICAL]
+        assert "No calibration target detected" in warnings[0].message
+
+    def test_camera_without_detections_is_isolated(self):
+        """A configured camera absent from the data is isolated, not omitted."""
+        report = analyze_multi_camera_coverage(make_simple_image_points(), cam_ids=[0, 1, 2, 3])
+
+        assert report.n_cameras == 4
+        assert report.isolated_cameras == [3]
 
     def test_isolated_camera_critical_warning(self):
         """Isolated camera produces a CRITICAL warning."""

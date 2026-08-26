@@ -68,6 +68,7 @@ class CamerasTabWidget(QWidget):
 
         self._setup_ui()
         self._connect_signals()
+        self._refresh_camera_list()
         self._update_pattern_preview()
 
         # Auto-select first camera if available
@@ -88,7 +89,14 @@ class CamerasTabWidget(QWidget):
         left_layout.setContentsMargins(0, 0, 0, 0)
         left_layout.setSpacing(8)
 
-        self.camera_list = CameraListWidget(self.coordinator.camera_array)
+        self._file_warning_label = QLabel()
+        self._file_warning_label.setTextFormat(Qt.TextFormat.PlainText)
+        self._file_warning_label.setWordWrap(True)
+        self._file_warning_label.setStyleSheet(f"color: {Colors.WARNING};")
+        self._file_warning_label.hide()
+        left_layout.addWidget(self._file_warning_label)
+
+        self.camera_list = CameraListWidget(self.coordinator.camera_array, self._intrinsic_video_cam_ids())
         self.camera_list.setMinimumWidth(150)
         left_layout.addWidget(self.camera_list, stretch=1)
 
@@ -145,8 +153,33 @@ class CamerasTabWidget(QWidget):
     def _connect_signals(self) -> None:
         """Connect internal signals."""
         self.camera_list.camera_selected.connect(self._on_camera_selected)
+        self.coordinator.status_changed.connect(self._refresh_camera_list)
         self.coordinator.intrinsic_target_changed.connect(self._on_intrinsic_target_changed)
         self._frame_skip_spin.valueChanged.connect(self._on_frame_skip_changed)
+
+    def _refresh_camera_list(self) -> None:
+        """Refresh cameras and feedback from the current intrinsic files."""
+        available_cam_ids = self._intrinsic_video_cam_ids()
+        self.camera_list.refresh(self.coordinator.camera_array, available_cam_ids)
+
+        issues = self.coordinator.get_workflow_status().intrinsic_video_issues
+        if issues:
+            self._file_warning_label.setText(
+                "Intrinsic videos need attention:\n" + "\n".join(i.message for i in issues)
+            )
+            self._file_warning_label.show()
+        else:
+            self._file_warning_label.clear()
+            self._file_warning_label.hide()
+
+        if self._current_cam_id is not None and self._current_cam_id not in available_cam_ids:
+            missing_cam_id = self._current_cam_id
+            self._show_message(f"Intrinsic video for camera {missing_cam_id} is missing. Review the Project tab.")
+            self._current_cam_id = None
+
+    def _intrinsic_video_cam_ids(self) -> set[int]:
+        guide = self.coordinator.workspace_guide
+        return set(guide.get_cam_ids_in_dir(guide.intrinsic_dir))
 
     def _on_intrinsic_target_changed(self) -> None:
         """Update tracker in all pooled presenters and refresh preview."""
@@ -208,7 +241,7 @@ class CamerasTabWidget(QWidget):
         self.coordinator.persist_intrinsic_calibration(output, collected_points)
 
         # Refresh camera list to show updated status
-        self.camera_list.refresh(self.coordinator.camera_array)
+        self._refresh_camera_list()
 
     def _show_message(self, text: str) -> None:
         """Show a message in the content area."""

@@ -8,6 +8,7 @@ Uses both icons and color for accessibility (not color-alone).
 """
 
 import logging
+from collections.abc import Collection
 
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QBrush, QColor
@@ -26,9 +27,14 @@ class CameraListWidget(QListWidget):
 
     camera_selected = Signal(int)  # cam_id
 
-    def __init__(self, camera_array: CameraArray):
+    def __init__(
+        self,
+        camera_array: CameraArray,
+        visible_cam_ids: Collection[int] | None = None,
+    ):
         super().__init__()
         self._camera_array = camera_array
+        self._visible_cam_ids = set(visible_cam_ids) if visible_cam_ids is not None else None
         self._cam_id_to_row: dict[int, int] = {}
 
         # Style for comfortable row height and strong selection highlight
@@ -50,7 +56,10 @@ class CameraListWidget(QListWidget):
         self.clear()
         self._cam_id_to_row.clear()
 
-        for row, (cam_id, camera) in enumerate(sorted(self._camera_array.cameras.items())):
+        for cam_id, camera in sorted(self._camera_array.cameras.items()):
+            if self._visible_cam_ids is not None and cam_id not in self._visible_cam_ids:
+                continue
+            row = self.count()
             self._cam_id_to_row[cam_id] = row
             item = QListWidgetItem()
             item.setData(Qt.ItemDataRole.UserRole, cam_id)
@@ -81,7 +90,11 @@ class CameraListWidget(QListWidget):
             logger.info(f"Camera selected: cam_id {cam_id}")
             self.camera_selected.emit(cam_id)
 
-    def refresh(self, camera_array: CameraArray) -> None:
+    def refresh(
+        self,
+        camera_array: CameraArray,
+        visible_cam_ids: Collection[int] | None = None,
+    ) -> None:
         """Refresh the list with updated camera array data.
 
         Preserves current selection if possible. Blocks signals during restore
@@ -92,6 +105,7 @@ class CameraListWidget(QListWidget):
         current_cam_id = current_item.data(Qt.ItemDataRole.UserRole) if current_item else None
 
         self._camera_array = camera_array
+        self._visible_cam_ids = set(visible_cam_ids) if visible_cam_ids is not None else None
         self._populate_list()
 
         # Restore selection with signals blocked - we're just updating the

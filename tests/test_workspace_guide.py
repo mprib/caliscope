@@ -67,5 +67,39 @@ class TestMissingFilesInDir:
         assert guide.all_instrinsic_mp4s_available() is False
 
 
+class TestCameraVideoAssessment:
+    def test_each_issue_kind_is_reported_with_a_relative_path(self, workspace: Path) -> None:
+        extrinsic = workspace / "calibration" / "extrinsic"
+        _touch_cam_ids(extrinsic, [0, 3])
+        (extrinsic / "cam_1.MP4").touch()
+        (extrinsic / "calibration_take.mp4").touch()
+        (extrinsic / "timestamps.csv").touch()
+
+        assessment = WorkspaceGuide(workspace).assess_extrinsic_videos([0, 5])
+
+        assert assessment.camera_ids == (0, 3)
+        assert assessment.missing_camera_ids == (5,)
+        assert [(issue.code, issue.relative_path) for issue in assessment.issues] == [
+            ("missing_camera_video", "calibration/extrinsic/cam_5.mp4"),
+            ("unexpected_mp4", "calibration/extrinsic/cam_3.mp4"),
+            ("unexpected_mp4", "calibration/extrinsic/calibration_take.mp4"),
+            ("malformed_camera_filename", "calibration/extrinsic/cam_1.MP4"),
+        ]
+
+
+class TestRecordingLayoutIssues:
+    def test_misplaced_layouts_get_hints(self, workspace: Path) -> None:
+        recordings = workspace / "recordings"
+        for cam_id in (0, 1):
+            camera_dir = recordings / f"cam_{cam_id}"
+            camera_dir.mkdir(parents=True)
+            (camera_dir / "take.mp4").touch()
+        (recordings / "cam_0.mp4").touch()
+
+        issues = WorkspaceGuide(workspace).recording_layout_issues()
+
+        assert [issue.code for issue in issues] == ["recordings_need_session_folder", "recording_split_by_camera"]
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

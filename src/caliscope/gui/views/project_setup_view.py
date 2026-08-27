@@ -819,7 +819,7 @@ class ProjectSetupView(QWidget):
                 () if intrinsic_is_optional_absence else status.intrinsic_video_issues,
             ),
             ("Extrinsic videos", status.extrinsic_video_issues),
-            ("Recordings", status.recording_layout_issues),
+            ("Recordings", status.recording_issues),
         )
         if not any(issues for _, issues in issue_groups):
             detail = "Calibration video file names and locations look correct."
@@ -922,10 +922,21 @@ class ProjectSetupView(QWidget):
             detail = "Waiting for extrinsic calibration"
             step_status = StepStatus.NOT_STARTED
         elif status.recordings_available:
-            # Capability unlocked - show as AVAILABLE (blue)
-            count = len(status.recording_names)
-            detail = f"{count} recording{'s' if count != 1 else ''} available"
+            ready_count = len(status.ready_recording_names)
+            total_count = len(status.recording_names)
+            if ready_count == total_count:
+                detail = f"{ready_count} recording{'s' if ready_count != 1 else ''} ready"
+            else:
+                detail = f"{ready_count}/{total_count} recordings ready; others need attention"
             step_status = StepStatus.AVAILABLE
+        elif status.recording_names or status.recording_issues:
+            count = len(status.recording_names)
+            if count:
+                verb = "needs" if count == 1 else "need"
+                detail = f"{count} recording{'s' if count != 1 else ''} {verb} attention"
+            else:
+                detail = "Recording files need session folders"
+            step_status = StepStatus.INCOMPLETE
         else:
             # Calibrated but no recordings yet
             detail = "No recordings yet"

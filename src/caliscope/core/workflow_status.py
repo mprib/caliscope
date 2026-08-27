@@ -65,9 +65,14 @@ class WorkflowStatus:
     extrinsic_calibration_complete: bool
 
     # Step 5: Reconstruction (optional)
-    recordings_available: bool
     recording_names: list[str]
-    recording_layout_issues: tuple[WorkspaceIssue, ...]
+    ready_recording_names: list[str]
+    recording_issues: tuple[WorkspaceIssue, ...]
+
+    @property
+    def recordings_available(self) -> bool:
+        """Whether at least one recording session is ready to process."""
+        return bool(self.ready_recording_names)
 
     @property
     def intrinsic_step_status(self) -> StepStatus:

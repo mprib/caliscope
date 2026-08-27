@@ -95,10 +95,71 @@ class TestRecordingLayoutIssues:
             camera_dir.mkdir(parents=True)
             (camera_dir / "take.mp4").touch()
         (recordings / "cam_0.mp4").touch()
+        (recordings / "timestamps.csv").touch()
 
         issues = WorkspaceGuide(workspace).recording_layout_issues()
 
-        assert [issue.code for issue in issues] == ["recordings_need_session_folder", "recording_split_by_camera"]
+        assert [issue.code for issue in issues] == [
+            "recordings_need_session_folder",
+            "recording_timestamps_need_session_folder",
+            "recording_split_by_camera",
+        ]
+
+    def test_single_camera_split_directory_is_recognized_from_contents(self, workspace: Path) -> None:
+        camera_dir = workspace / "recordings" / "cam_7"
+        camera_dir.mkdir(parents=True)
+        (camera_dir / "walk_trial.mp4").touch()
+
+        issues = WorkspaceGuide(workspace).recording_layout_issues()
+
+        assert [issue.code for issue in issues] == ["recording_split_by_camera"]
+
+    def test_canonical_camera_partition_directories_are_recognized(self, workspace: Path) -> None:
+        recordings = workspace / "recordings"
+        for cam_id in (0, 1):
+            camera_dir = recordings / f"cam_{cam_id}"
+            camera_dir.mkdir(parents=True)
+            (camera_dir / f"cam_{cam_id}.mp4").touch()
+
+        issues = WorkspaceGuide(workspace).recording_layout_issues()
+
+        assert [issue.code for issue in issues] == ["recording_split_by_camera"]
+
+    def test_session_name_is_not_constrained(self, workspace: Path) -> None:
+        session = workspace / "recordings" / "cam_7"
+        session.mkdir(parents=True)
+        _touch_cam_ids(session, [0, 7])
+
+        guide = WorkspaceGuide(workspace)
+
+        assert guide.recording_layout_issues() == ()
+        assert guide.assess_recordings([0, 7])["cam_7"].is_ready is True
+
+
+class TestRecordingAssessments:
+    def test_all_immediate_sessions_are_returned_and_timestamps_are_optional(self, workspace: Path) -> None:
+        recordings = workspace / "recordings"
+        ready = recordings / "ready"
+        without_timestamps = recordings / "without_timestamps"
+        missing_camera = recordings / "missing_camera"
+        empty = recordings / "empty"
+        for session in (ready, without_timestamps, missing_camera, empty):
+            session.mkdir(parents=True)
+
+        _touch_cam_ids(ready, [0, 2])
+        (ready / "timestamps.csv").touch()
+        _touch_cam_ids(without_timestamps, [0, 2])
+        _touch_cam_ids(missing_camera, [0])
+
+        guide = WorkspaceGuide(workspace)
+        assessments = guide.assess_recordings([0, 2])
+
+        assert list(assessments) == ["empty", "missing_camera", "ready", "without_timestamps"]
+        assert assessments["ready"].is_ready is True
+        assert assessments["without_timestamps"].is_ready is True
+        assert assessments["missing_camera"].missing_camera_ids == (2,)
+        assert assessments["empty"].missing_camera_ids == (0, 2)
+        assert guide.ready_recording_dirs([0, 2]) == ["ready", "without_timestamps"]
 
 
 if __name__ == "__main__":

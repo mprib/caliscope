@@ -119,7 +119,7 @@ class WorkspaceCoordinator(QObject):
         self._intrinsic_frame_skip: int = 5
 
     def _setup_filesystem_watcher(self) -> None:
-        """Watch calibration directories for file changes."""
+        """Watch calibration, recording root, and recording session directories."""
         self._watcher = QFileSystemWatcher(parent=self)
 
         dirs_to_watch = [
@@ -130,19 +130,45 @@ class WorkspaceCoordinator(QObject):
 
         for dir_path in dirs_to_watch:
             if dir_path.exists():
-                self._watcher.addPath(str(dir_path))
+                self._watcher.addPath(str(dir_path.resolve()))
                 logger.debug(f"Watching directory: {dir_path}")
 
+        self._reconcile_recording_watches()
+
         self._watcher.directoryChanged.connect(self._on_directory_changed)
+
+    def _recording_session_dirs(self) -> set[Path]:
+        """Return immediate recording session directories currently on disk."""
+        if not self.workspace_guide.recording_dir.exists():
+            return set()
+        return {path.resolve() for path in self.workspace_guide.recording_dir.iterdir() if path.is_dir()}
+
+    def _reconcile_recording_watches(self) -> None:
+        """Keep nested recording watches aligned with current session folders."""
+        recording_root = self.workspace_guide.recording_dir.resolve()
+        desired = self._recording_session_dirs()
+        watched = {Path(path) for path in self._watcher.directories()}
+        watched_sessions = {path for path in watched if path.parent == recording_root}
+
+        removed = sorted(watched_sessions - desired)
+        if removed:
+            self._watcher.removePaths([str(path) for path in removed])
+
+        added = sorted(desired - watched)
+        if added:
+            self._watcher.addPaths([str(path) for path in added])
+            for path in added:
+                logger.debug(f"Watching recording session: {path}")
 
     def _on_directory_changed(self, path: str) -> None:
         """Handle filesystem change in watched directory."""
         logger.info(f"Directory changed: {path}")
-        if Path(path) in {
-            self.workspace_guide.intrinsic_dir,
-            self.workspace_guide.extrinsic_dir,
+        if Path(path).resolve() in {
+            self.workspace_guide.intrinsic_dir.resolve(),
+            self.workspace_guide.extrinsic_dir.resolve(),
         }:
             self._discover_new_cameras()
+        self._reconcile_recording_watches()
         self.status_changed.emit()
 
     @property
@@ -199,10 +225,10 @@ class WorkspaceCoordinator(QObject):
     def reconstruction_tab_enabled(self) -> bool:
         """Whether Reconstruction tab should be enabled.
 
-        Requires: bundle exists AND recordings available.
+        Requires a calibrated capture volume. Recording availability and file
+        feedback are rendered inside the tab.
         """
-        has_bundle = self.capture_volume_repository.camera_array_path.exists()
-        return has_bundle and self.recordings_available()
+        return self.capture_volume_repository.camera_array_path.exists()
 
     def _initialize_project_files(self):
         """Create default project files if they don't exist."""
@@ -311,7 +337,12 @@ class WorkspaceCoordinator(QObject):
 
     def recordings_available(self) -> bool:
         """Check if any valid recording directories exist."""
-        return len(self.workspace_guide.valid_recording_dirs()) > 0
+        expected_cam_ids = self._reconstruction_cam_ids()
+        return bool(self.workspace_guide.ready_recording_dirs(expected_cam_ids))
+
+    def _reconstruction_cam_ids(self) -> set[int]:
+        """Camera IDs required by the camera array used for reconstruction."""
+        return set(self.camera_array.cameras)
 
     def get_workflow_status(self) -> WorkflowStatus:
         """Compute current workflow status from ground truth.
@@ -323,6 +354,15 @@ class WorkspaceCoordinator(QObject):
         extrinsic_assessment = self.workspace_guide.assess_extrinsic_videos(expected_cam_ids)
         intrinsic_assessment = self.workspace_guide.assess_intrinsic_videos(expected_cam_ids)
         camera_count = len(expected_cam_ids)
+        reconstruction_cam_ids = self._reconstruction_cam_ids()
+        recording_assessments = self.workspace_guide.assess_recordings(reconstruction_cam_ids)
+        ready_recording_names = [
+            name for name, assessment in recording_assessments.items() if reconstruction_cam_ids and assessment.is_ready
+        ]
+        recording_issues = (
+            *self.workspace_guide.recording_layout_issues(),
+            *(issue for assessment in recording_assessments.values() for issue in assessment.issues),
+        )
 
         # Cameras needing intrinsic calibration
         cameras_needing = [cam_id for cam_id, cam in self.camera_array.cameras.items() if cam.matrix is None]
@@ -345,9 +385,9 @@ class WorkspaceCoordinator(QObject):
             extrinsic_video_issues=extrinsic_assessment.issues,
             extrinsic_2d_extraction_complete=extraction_complete,
             extrinsic_calibration_complete=self.all_extrinsics_estimated(),
-            recordings_available=self.recordings_available(),
-            recording_names=self.workspace_guide.valid_recording_dirs(),
-            recording_layout_issues=self.workspace_guide.recording_layout_issues(),
+            recording_names=list(recording_assessments),
+            ready_recording_names=ready_recording_names,
+            recording_issues=recording_issues,
         )
 
     def _discover_new_cameras(self) -> None:
@@ -565,6 +605,7 @@ class WorkspaceCoordinator(QObject):
         """
         return ReconstructionPresenter(
             workspace_dir=self.workspace,
+            workspace_guide=self.workspace_guide,
             camera_array=self.camera_array,
             task_manager=self.task_manager,
             project_settings=self.settings_repository,

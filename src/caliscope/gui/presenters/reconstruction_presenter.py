@@ -18,6 +18,7 @@ from PySide6.QtCore import QObject, Qt, Signal
 
 from caliscope.cameras.camera_array import CameraArray
 from caliscope.core.process_synchronized_recording import process_synchronized_recording
+from caliscope.core.workflow_status import WorkspaceIssue
 from caliscope.gui.geometry.wireframe import WireframeSegment, wireframe_segments_from_view
 from caliscope.reconstruction.reconstruct_xyz import reconstruct_xyz
 from caliscope.recording.overlay_video_writer import OverlayVideoWriter
@@ -27,6 +28,7 @@ from caliscope.task_manager.task_handle import TaskHandle
 from caliscope.task_manager.task_manager import TaskManager
 from caliscope.task_manager.task_state import TaskState
 from caliscope.trackers import tracker_registry
+from caliscope.workspace_guide import CameraVideoAssessment, WorkspaceGuide
 
 logger = logging.getLogger(__name__)
 
@@ -69,10 +71,12 @@ class ReconstructionPresenter(QObject):
     progress_updated = Signal(int, str)  # percent (0-100), message
     model_download_needed = Signal(object)  # ModelCard when weights missing
     camera_array_changed = Signal()  # camera positions changed, rebuild viz
+    recordings_changed = Signal()  # recording folders or their assessments changed
 
     def __init__(
         self,
         workspace_dir: Path,
+        workspace_guide: WorkspaceGuide,
         camera_array: CameraArray,
         task_manager: TaskManager,
         project_settings: ProjectSettingsRepository | None = None,
@@ -82,6 +86,7 @@ class ReconstructionPresenter(QObject):
 
         Args:
             workspace_dir: Root workspace directory
+            workspace_guide: Shared filesystem assessment gateway
             camera_array: Calibrated camera array for triangulation
             task_manager: TaskManager for background processing
             project_settings: Repository for persisting 3D view appearance settings.
@@ -90,6 +95,7 @@ class ReconstructionPresenter(QObject):
         super().__init__(parent)
 
         self._workspace_dir = workspace_dir
+        self._workspace_guide = workspace_guide
         self._camera_array = camera_array
         self._task_manager = task_manager
         self._project_settings = project_settings
@@ -107,16 +113,17 @@ class ReconstructionPresenter(QObject):
         """Compute current state from internal reality - never stale.
 
         Priority order (task state takes precedence to avoid race conditions):
-        1. Task RUNNING -> RECONSTRUCTING
+        1. Task PENDING or RUNNING -> RECONSTRUCTING
         2. Task FAILED or _last_error set -> ERROR
         3. Task CANCELLED -> IDLE (cancellation returns to idle)
         4. xyz output exists -> COMPLETE
         5. Otherwise -> IDLE
         """
+        if self.has_active_task:
+            return ReconstructionState.RECONSTRUCTING
+
         if self._processing_task is not None:
             task_state = self._processing_task.state
-            if task_state == TaskState.RUNNING:
-                return ReconstructionState.RECONSTRUCTING
             if task_state == TaskState.FAILED:
                 return ReconstructionState.ERROR
             # CANCELLED or COMPLETED fall through to file check
@@ -133,39 +140,61 @@ class ReconstructionPresenter(QObject):
 
     @property
     def available_recordings(self) -> list[str]:
-        """List of valid recording directory names.
+        """List every immediate recording session directory, valid or not."""
+        return list(self.recording_assessments)
 
-        A recording directory is valid if:
-        1. It contains a cam_N.mp4 file for every camera in the camera array
-        2. There are no unexpected .mp4 files (catches misnamed files)
-        """
-        recordings_dir = self._workspace_dir / "recordings"
-        if not recordings_dir.exists():
-            return []
+    @property
+    def recording_assessments(self) -> dict[str, CameraVideoAssessment]:
+        """Current filesystem assessment for every recording session."""
+        return self._workspace_guide.assess_recordings(self._camera_array.cameras)
 
-        expected_cam_ids = set(self._camera_array.cameras.keys())
-        if not expected_cam_ids:
-            return []
+    @property
+    def recording_layout_issues(self) -> tuple[WorkspaceIssue, ...]:
+        """Current issues with files and camera-split folders at recordings/."""
+        return self._workspace_guide.recording_layout_issues()
 
-        valid = []
-        for item in recordings_dir.iterdir():
-            if item.is_dir():
-                # Get all mp4 files in the directory
-                all_mp4s = list(item.glob("*.mp4"))
+    @property
+    def selected_recording_assessment(self) -> CameraVideoAssessment | None:
+        """Current structural assessment for the selected recording."""
+        if self._selected_recording is None:
+            return None
+        return self.recording_assessments.get(self._selected_recording)
 
-                # Parse camera IDs from properly named files
-                available_cam_ids: set[int] = set()
-                for mp4 in all_mp4s:
-                    parts = mp4.stem.split("_")
-                    if len(parts) == 2 and parts[0] == "cam" and parts[1].isdigit():
-                        available_cam_ids.add(int(parts[1]))
+    @property
+    def selected_recording_issues(self) -> tuple[WorkspaceIssue, ...]:
+        """Current actionable issues for the selected recording."""
+        if self._selected_recording is None:
+            return ()
+        assessment = self.selected_recording_assessment
+        if assessment is not None:
+            return assessment.issues
+        relative_path = f"recordings/{self._selected_recording}"
+        return (
+            WorkspaceIssue(
+                code="missing_recording_directory",
+                message=f"{relative_path} no longer exists.",
+                relative_path=relative_path,
+            ),
+        )
 
-                # Valid if: all expected cameras present AND no unexpected mp4 files
-                expected_files_count = len(expected_cam_ids)
-                if expected_cam_ids == available_cam_ids and len(all_mp4s) == expected_files_count:
-                    valid.append(item.name)
+    @property
+    def selected_recording_is_ready(self) -> bool:
+        """Whether the selected session can be submitted for processing."""
+        assessment = self.selected_recording_assessment
+        return bool(self._camera_array.cameras) and assessment is not None and assessment.is_ready
 
-        return sorted(valid)
+    @property
+    def can_process(self) -> bool:
+        """Whether the current recording and tracker selections are processable."""
+        return not self.has_active_task and self.selected_recording_is_ready and self._selected_tracker is not None
+
+    @property
+    def has_active_task(self) -> bool:
+        """Whether reconstruction has been submitted and is not yet terminal."""
+        return self._processing_task is not None and self._processing_task.state in (
+            TaskState.PENDING,
+            TaskState.RUNNING,
+        )
 
     @property
     def available_trackers(self) -> list[str]:
@@ -267,6 +296,9 @@ class ReconstructionPresenter(QObject):
 
         Clears any previous error state when selection changes.
         """
+        if self.has_active_task:
+            logger.warning("Cannot change recording while reconstruction is active")
+            return
         if name not in self.available_recordings:
             logger.warning(f"Recording '{name}' not in available recordings")
             return
@@ -277,11 +309,39 @@ class ReconstructionPresenter(QObject):
         self._emit_state_changed()
         logger.info(f"Selected recording: {name}")
 
+    def refresh_recordings(self, *, preserve_error: bool = False) -> None:
+        """Reconcile selection with recording folders and emit current assessments.
+
+        A running task keeps its original selection even if its source folder is
+        removed. The task is not cancelled by filesystem feedback.
+        """
+        current_error = self._last_error
+        assessments = self.recording_assessments
+        recordings = list(assessments)
+        if not self.has_active_task and self._selected_recording not in recordings:
+            ready_recordings = [
+                name for name, assessment in assessments.items() if self._camera_array.cameras and assessment.is_ready
+            ]
+            self._selected_recording = (
+                ready_recordings[0] if ready_recordings else recordings[0] if recordings else None
+            )
+            self._last_error = None
+            self._processing_task = None
+
+        if preserve_error:
+            self._last_error = current_error
+
+        self.recordings_changed.emit()
+        self._emit_state_changed()
+
     def select_tracker(self, tracker: str) -> None:
         """Select a tracker for processing.
 
         Clears any previous error state when selection changes.
         """
+        if self.has_active_task:
+            logger.warning("Cannot change tracker while reconstruction is active")
+            return
         if tracker not in self.available_trackers:
             logger.warning(f"Tracker '{tracker}' not available")
             return
@@ -297,6 +357,10 @@ class ReconstructionPresenter(QObject):
 
         Requires both recording and tracker to be selected.
         """
+        if self.has_active_task:
+            logger.warning("Cannot start reconstruction while another reconstruction is active")
+            return
+
         if self.state not in (ReconstructionState.IDLE, ReconstructionState.COMPLETE):
             logger.warning(f"Cannot start reconstruction in state {self.state}")
             return
@@ -304,6 +368,15 @@ class ReconstructionPresenter(QObject):
         if not self._selected_recording or not self._selected_tracker:
             logger.warning("Cannot start: recording or tracker not selected")
             self._last_error = "Recording and tracker must be selected"
+            self._emit_state_changed()
+            return
+
+        if not self.selected_recording_is_ready:
+            if not self._camera_array.cameras:
+                issue_messages = ["No calibrated cameras are available for reconstruction."]
+            else:
+                issue_messages = [issue.message for issue in self.selected_recording_issues]
+            logger.warning("Cannot start reconstruction: %s", " ".join(issue_messages))
             self._emit_state_changed()
             return
 
@@ -325,11 +398,6 @@ class ReconstructionPresenter(QObject):
         camera_array = self._camera_array
         cam_ids = sorted(camera_array.cameras.keys())
 
-        tracker = tracker_registry.create(tracker_name)
-        tracker_dir = recording_path / tracker_name
-        tracker_dir.mkdir(parents=True, exist_ok=True)
-        camera_array.to_toml(tracker_dir / "camera_array.toml")
-
         try:
             synced_timestamps = SynchronizedTimestamps.load(recording_path, cam_ids)
         except ValueError as e:
@@ -338,6 +406,11 @@ class ReconstructionPresenter(QObject):
             self._last_error = str(e)
             self._emit_state_changed()
             return
+
+        tracker = tracker_registry.create(tracker_name)
+        tracker_dir = recording_path / tracker_name
+        tracker_dir.mkdir(parents=True, exist_ok=True)
+        camera_array.to_toml(tracker_dir / "camera_array.toml")
 
         save_overlay = bool(self._project_settings and self._project_settings.get_save_tracked_points_video())
         save_xy = bool(self._project_settings and self._project_settings.get_save_xy_points())
@@ -419,8 +492,8 @@ class ReconstructionPresenter(QObject):
         self._emit_state_changed()
 
     def cancel_reconstruction(self) -> None:
-        """Cancel the running reconstruction task."""
-        if self._processing_task is not None and self._processing_task.state == TaskState.RUNNING:
+        """Cancel a submitted reconstruction task."""
+        if self.has_active_task and self._processing_task is not None:
             logger.info("Cancelling reconstruction")
             self._processing_task.cancel()
 
@@ -480,13 +553,18 @@ class ReconstructionPresenter(QObject):
 
     def _on_reconstruction_complete(self, result: object) -> None:
         """Handle successful reconstruction."""
-        output_path = self.xyz_output_path
+        output_path = (
+            result / f"xyz_{self._selected_tracker}.csv"
+            if isinstance(result, Path) and self._selected_tracker is not None
+            else self.xyz_output_path
+        )
         logger.info(f"Reconstruction complete: {output_path}")
 
         self._emit_state_changed()
 
         if output_path is not None:
             self.reconstruction_complete.emit(output_path)
+        self.refresh_recordings()
 
     def _on_reconstruction_failed(self, exc_type: str, message: str) -> None:
         """Handle reconstruction failure."""
@@ -496,11 +574,13 @@ class ReconstructionPresenter(QObject):
         self._last_error = error_msg
         self._emit_state_changed()
         self.reconstruction_failed.emit(error_msg)
+        self.refresh_recordings(preserve_error=True)
 
     def _on_reconstruction_cancelled(self) -> None:
         """Handle reconstruction cancellation."""
         logger.info("Reconstruction was cancelled")
         self._emit_state_changed()
+        self.refresh_recordings()
 
     def _on_progress(self, percent: int, message: str) -> None:
         """Forward progress updates to our signal."""

@@ -118,3 +118,59 @@ def test_directory_change_discovers_cameras_and_keeps_persisted_calibration(
     assert coordinator.camera_repository.load().cameras[0].matrix is not None
     assert coordinator.cameras_tab_enabled is True
     assert coordinator.multi_camera_tab_enabled is True
+
+
+def test_reconstruction_status_counts_all_sessions_and_ready_sessions(
+    coordinator: WorkspaceCoordinator,
+):
+    coordinator.camera_array = CameraArray(
+        {
+            0: CameraData(cam_id=0, size=(640, 480)),
+            2: CameraData(cam_id=2, size=(640, 480)),
+        }
+    )
+    recordings = coordinator.workspace_guide.recording_dir
+    ready = recordings / "ready"
+    partial = recordings / "partial"
+    empty = recordings / "empty"
+    for session in (ready, partial, empty):
+        session.mkdir()
+    for cam_id in (0, 2):
+        (ready / f"cam_{cam_id}.mp4").touch()
+    (partial / "cam_0.mp4").touch()
+
+    status = coordinator.get_workflow_status()
+
+    assert status.recording_names == ["empty", "partial", "ready"]
+    assert status.ready_recording_names == ["ready"]
+    assert status.recordings_available is True
+    assert [issue.relative_path for issue in status.recording_issues] == [
+        "recordings/empty/cam_0.mp4",
+        "recordings/empty/cam_2.mp4",
+        "recordings/partial/cam_2.mp4",
+    ]
+
+
+def test_reconstruction_tab_only_requires_capture_volume_bundle(
+    coordinator: WorkspaceCoordinator,
+):
+    assert coordinator.workspace_guide.assess_recordings([]) == {}
+    coordinator.capture_volume_repository.camera_array_path.touch()
+
+    assert coordinator.reconstruction_tab_enabled is True
+
+
+def test_recording_session_watches_follow_root_directory_changes(
+    coordinator: WorkspaceCoordinator,
+):
+    session = coordinator.workspace_guide.recording_dir / "walk"
+    session.mkdir()
+
+    coordinator._on_directory_changed(str(coordinator.workspace_guide.recording_dir))
+
+    assert str(session.resolve()) in coordinator._watcher.directories()
+
+    session.rmdir()
+    coordinator._on_directory_changed(str(coordinator.workspace_guide.recording_dir))
+
+    assert str(session.resolve()) not in coordinator._watcher.directories()

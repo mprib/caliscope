@@ -21,6 +21,11 @@ class CameraVideoAssessment:
     missing_camera_ids: tuple[int, ...]
     issues: tuple[WorkspaceIssue, ...]
 
+    @property
+    def is_ready(self) -> bool:
+        """Whether the directory contains a complete, unambiguous camera set."""
+        return bool(self.camera_ids) and not self.missing_camera_ids and not self.issues
+
 
 class WorkspaceGuide:
     """
@@ -153,38 +158,88 @@ class WorkspaceGuide:
 
         children = tuple(self.recording_dir.iterdir())
         root_mp4s = sorted(path.name for path in children if path.is_file() and path.suffix.casefold() == ".mp4")
-        camera_directories = sorted(
-            path.name
-            for path in children
-            if path.is_dir()
-            and _CAMERA_DIRECTORY_PATTERN.fullmatch(path.name)
-            and any(child.is_file() and child.suffix.casefold() == ".mp4" for child in path.iterdir())
+        root_timestamps = sorted(
+            path.name for path in children if path.is_file() and path.name.casefold() == "timestamps.csv"
         )
+        camera_named_directories = [
+            path for path in children if path.is_dir() and _CAMERA_DIRECTORY_PATTERN.fullmatch(path.name)
+        ]
+        noncanonical_camera_directories: set[str] = set()
+        canonical_partition_directories: set[str] = set()
+        for path in camera_named_directories:
+            mp4_names = {
+                child.name for child in path.iterdir() if child.is_file() and child.suffix.casefold() == ".mp4"
+            }
+            if any(_CAMERA_VIDEO_PATTERN.fullmatch(name) is None for name in mp4_names):
+                noncanonical_camera_directories.add(path.name)
+            if mp4_names == {f"{path.name}.mp4"}:
+                canonical_partition_directories.add(path.name)
+
+        camera_directories = noncanonical_camera_directories
+        if len(canonical_partition_directories) >= 2:
+            camera_directories |= canonical_partition_directories
 
         issues: list[WorkspaceIssue] = []
         if root_mp4s:
+            file_list = ", ".join(f"recordings/{name}" for name in root_mp4s)
             issues.append(
                 WorkspaceIssue(
                     code="recordings_need_session_folder",
                     message=(
-                        "Recording videos are directly inside recordings/. "
-                        "Create a named session folder and place its cam_N.mp4 files there."
+                        f"{file_list} must be inside a named recording session folder. "
+                        "Each session folder should contain its cam_N.mp4 files."
                     ),
                     relative_path="recordings",
                 )
             )
-        if len(camera_directories) >= 2:
+        if root_timestamps:
+            file_list = ", ".join(f"recordings/{name}" for name in root_timestamps)
+            issues.append(
+                WorkspaceIssue(
+                    code="recording_timestamps_need_session_folder",
+                    message=f"{file_list} must be inside the recording session folder it describes.",
+                    relative_path="recordings",
+                )
+            )
+        if camera_directories:
+            directory_list = ", ".join(f"recordings/{name}" for name in sorted(camera_directories))
             issues.append(
                 WorkspaceIssue(
                     code="recording_split_by_camera",
                     message=(
-                        "The recordings/cam_N folders split a recording by camera. "
+                        f"{directory_list} appears to split a recording by camera. "
                         "Create one named session folder containing every cam_N.mp4 file instead."
                     ),
                     relative_path="recordings",
                 )
             )
         return tuple(issues)
+
+    def assess_recordings(
+        self,
+        expected_cam_ids: Collection[int],
+    ) -> dict[str, CameraVideoAssessment]:
+        """Assess every immediate recording session directory.
+
+        Session names are unconstrained. Empty and structurally invalid
+        directories remain in the result so the GUI can show and explain them.
+        A timestamps.csv file is optional and is ignored by camera assessment.
+        """
+        if not self.recording_dir.exists():
+            return {}
+
+        return {
+            path.name: self._assess_camera_videos(path, expected_cam_ids)
+            for path in sorted(self.recording_dir.iterdir(), key=lambda item: item.name.casefold())
+            if path.is_dir()
+        }
+
+    def ready_recording_dirs(self, expected_cam_ids: Collection[int]) -> list[str]:
+        """Return recording session names with a complete camera video set."""
+        if not expected_cam_ids:
+            return []
+        assessments = self.assess_recordings(expected_cam_ids)
+        return [name for name, assessment in assessments.items() if assessment.is_ready]
 
     def _relative_path(self, path: Path) -> str:
         return path.relative_to(self.workspace_dir).as_posix()
@@ -288,19 +343,8 @@ class WorkspaceGuide:
         return "INCOMPLETE"
 
     def valid_recording_dirs(self) -> list[str]:
-        """Return list of valid recording directory names (all cam_N.mp4 present)."""
-        if not self.recording_dir.exists():
-            return []
-
-        dir_list = []
-        for p in self.recording_dir.iterdir():
-            if p.is_dir():
-                # A recording dir is valid if it has videos for all discovered cameras
-                cam_ids_in_dir = self.get_cam_ids_in_dir(p)
-                if cam_ids_in_dir:  # Must have at least some videos
-                    dir_list.append(p.stem)
-
-        return sorted(dir_list)
+        """Return recording sessions ready for the extrinsic camera set."""
+        return self.ready_recording_dirs(self.get_cam_ids())
 
     def valid_recording_dir_text(self) -> str:
         """Return comma-separated list of valid recording directories."""

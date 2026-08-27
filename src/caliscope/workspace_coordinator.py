@@ -190,7 +190,8 @@ class WorkspaceCoordinator(QObject):
         """Authoritative list of camera IDs from extrinsic directory."""
         return self.workspace_guide.get_cam_ids()
 
-    def _expected_cam_ids(self) -> set[int]:
+    @property
+    def expected_cam_ids(self) -> set[int]:
         """Cameras the workspace expects calibration videos for.
 
         Extrinsic videos define the camera set. Loaded cameras keep that set
@@ -359,7 +360,7 @@ class WorkspaceCoordinator(QObject):
         This method queries the filesystem and domain objects to build
         a status snapshot. Called by the Project tab whenever it refreshes.
         """
-        expected_cam_ids = self._expected_cam_ids()
+        expected_cam_ids = self.expected_cam_ids
         extrinsic_assessment = self.workspace_guide.assess_extrinsic_videos(expected_cam_ids)
         intrinsic_assessment = self.workspace_guide.assess_intrinsic_videos(expected_cam_ids)
         camera_count = len(expected_cam_ids)
@@ -629,11 +630,13 @@ class WorkspaceCoordinator(QObject):
         - Managing presenter lifecycle (cleanup on tab close)
 
         Returns:
-            MultiCameraProcessingPresenter configured with task_manager and tracker.
+            MultiCameraProcessingPresenter configured with task_manager, tracker,
+            and the shared workspace guide.
         """
         presenter = MultiCameraProcessingPresenter(
             task_manager=self.task_manager,
             tracker=self.create_extrinsic_tracker(),
+            workspace_guide=self.workspace_guide,
         )
 
         # Wire signal directly - no passthrough needed

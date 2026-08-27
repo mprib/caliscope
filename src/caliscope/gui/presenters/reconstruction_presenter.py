@@ -178,6 +178,11 @@ class ReconstructionPresenter(QObject):
         )
 
     @property
+    def workspace_issues(self) -> tuple[WorkspaceIssue, ...]:
+        """Everything the recording feedback label should say right now."""
+        return (*self.recording_layout_issues, *self.selected_recording_issues)
+
+    @property
     def selected_recording_is_ready(self) -> bool:
         """Whether the selected session can be submitted for processing."""
         assessment = self.selected_recording_assessment
@@ -309,7 +314,7 @@ class ReconstructionPresenter(QObject):
         self._emit_state_changed()
         logger.info(f"Selected recording: {name}")
 
-    def refresh_recordings(self, *, preserve_error: bool = False) -> None:
+    def refresh_from_workspace(self, *, preserve_error: bool = False) -> None:
         """Reconcile selection with recording folders and emit current assessments.
 
         A running task keeps its original selection even if its source folder is
@@ -357,10 +362,6 @@ class ReconstructionPresenter(QObject):
 
         Requires both recording and tracker to be selected.
         """
-        if self.has_active_task:
-            logger.warning("Cannot start reconstruction while another reconstruction is active")
-            return
-
         if self.state not in (ReconstructionState.IDLE, ReconstructionState.COMPLETE):
             logger.warning(f"Cannot start reconstruction in state {self.state}")
             return
@@ -553,18 +554,14 @@ class ReconstructionPresenter(QObject):
 
     def _on_reconstruction_complete(self, result: object) -> None:
         """Handle successful reconstruction."""
-        output_path = (
-            result / f"xyz_{self._selected_tracker}.csv"
-            if isinstance(result, Path) and self._selected_tracker is not None
-            else self.xyz_output_path
-        )
+        assert isinstance(result, Path)
+        output_path = result / f"xyz_{self._selected_tracker}.csv"
         logger.info(f"Reconstruction complete: {output_path}")
 
         self._emit_state_changed()
 
-        if output_path is not None:
-            self.reconstruction_complete.emit(output_path)
-        self.refresh_recordings()
+        self.reconstruction_complete.emit(output_path)
+        self.refresh_from_workspace()
 
     def _on_reconstruction_failed(self, exc_type: str, message: str) -> None:
         """Handle reconstruction failure."""
@@ -574,13 +571,13 @@ class ReconstructionPresenter(QObject):
         self._last_error = error_msg
         self._emit_state_changed()
         self.reconstruction_failed.emit(error_msg)
-        self.refresh_recordings(preserve_error=True)
+        self.refresh_from_workspace(preserve_error=True)
 
     def _on_reconstruction_cancelled(self) -> None:
         """Handle reconstruction cancellation."""
         logger.info("Reconstruction was cancelled")
         self._emit_state_changed()
-        self.refresh_recordings()
+        self.refresh_from_workspace()
 
     def _on_progress(self, percent: int, message: str) -> None:
         """Forward progress updates to our signal."""

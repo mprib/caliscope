@@ -30,6 +30,7 @@ from caliscope.gui.presenters.reconstruction_presenter import (
 )
 from caliscope.gui.view_models.playback_view_model import PlaybackViewModel
 from caliscope.gui.widgets.qt3d_playback_widget import Qt3DPlaybackWidget, opengl_available
+from caliscope.gui.widgets.workspace_issue_label import WorkspaceIssueLabel
 from caliscope import MODELS_DIR
 from caliscope.gui.theme import Colors
 from caliscope.trackers import tracker_registry
@@ -93,11 +94,8 @@ class ReconstructionWidget(QWidget):
         self._recording_list.setMaximumHeight(150)
         recording_layout.addWidget(self._recording_list)
 
-        self._recording_feedback_label = QLabel()
+        self._recording_feedback_label = WorkspaceIssueLabel()
         self._recording_feedback_label.setObjectName("recordingFeedbackLabel")
-        self._recording_feedback_label.setWordWrap(True)
-        self._recording_feedback_label.setStyleSheet(f"color: {Colors.WARNING};")
-        self._recording_feedback_label.hide()
         recording_layout.addWidget(self._recording_feedback_label)
 
         left_layout.addWidget(recording_group)
@@ -203,7 +201,7 @@ class ReconstructionWidget(QWidget):
 
     def _populate_initial_data(self) -> None:
         """Populate lists with available recordings and trackers."""
-        self._presenter.refresh_recordings()
+        self._presenter.refresh_from_workspace()
 
         # Populate trackers
         trackers = self._presenter.available_trackers
@@ -240,19 +238,12 @@ class ReconstructionWidget(QWidget):
 
     def _update_recording_feedback(self) -> None:
         """Show actionable root and selected-session filesystem feedback."""
-        issues = list(self._presenter.recording_layout_issues)
-        issues.extend(self._presenter.selected_recording_issues)
-
-        if issues:
-            self._recording_feedback_label.setText("\n".join(f"• {issue.message}" for issue in issues))
-            self._recording_feedback_label.show()
-        elif not self._presenter.available_recordings:
-            self._recording_feedback_label.setText(
-                "No recording session folders found. Add a named folder inside recordings/."
-            )
-            self._recording_feedback_label.show()
-        else:
-            self._recording_feedback_label.hide()
+        empty_text = (
+            ""
+            if self._presenter.available_recordings
+            else "No recording session folders found. Add a named folder inside recordings/."
+        )
+        self._recording_feedback_label.set_issues(self._presenter.workspace_issues, empty_text=empty_text)
 
     def _on_tracker_changed(self, index: int) -> None:
         """Handle tracker selection change."""

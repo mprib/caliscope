@@ -14,6 +14,7 @@ from caliscope.gui.multi_camera_processing_tab import MultiCameraProcessingTab
 from caliscope.gui.presenters.multi_camera_processing_presenter import MultiCameraProcessingState
 from caliscope.gui.reconstruction_tab import ReconstructionTab
 from caliscope.gui.views.project_setup_view import ProjectSetupView
+from caliscope.gui.widgets.workspace_issue_label import WorkspaceIssueLabel
 from caliscope.trackers import tracker_registry
 from caliscope.workspace_coordinator import WorkspaceCoordinator
 
@@ -73,13 +74,15 @@ def test_open_extract_tab_follows_extrinsic_videos(coordinator: WorkspaceCoordin
     coordinator.load_camera_array()
     tab = MultiCameraProcessingTab(coordinator)
     assert tab._presenter is not None and tab._widget is not None
-    assert tab._file_warning_label.isHidden()
+    label = tab._widget.findChild(WorkspaceIssueLabel)
+    assert label is not None
+    assert label.isHidden()
     assert sorted(tab._widget._camera_cards) == [0, 1]
 
     (extrinsic / "cam_1.mp4").unlink()
     coordinator._on_directory_changed(str(extrinsic))
 
-    assert "Missing calibration/extrinsic/cam_1.mp4" in tab._file_warning_label.text()
+    assert "Missing calibration/extrinsic/cam_1.mp4" in label.text()
     assert tuple(coordinator.camera_array.cameras) == (0, 1)
     assert tab._presenter.state == MultiCameraProcessingState.UNCONFIGURED
     assert tab._widget._camera_cards[1]._thumbnail_label.text() == "No video file for cam_1"
@@ -89,7 +92,7 @@ def test_open_extract_tab_follows_extrinsic_videos(coordinator: WorkspaceCoordin
     (extrinsic / "cam_2.mp4").touch()
     coordinator._on_directory_changed(str(extrinsic))
 
-    assert tab._file_warning_label.isHidden()
+    assert label.isHidden()
     assert tab._presenter.state == MultiCameraProcessingState.READY
     assert tab._widget._action_btn.isEnabled()
     assert sorted(tab._widget._camera_cards) == [0, 1, 2]
@@ -114,8 +117,8 @@ def test_reconstruction_tab_follows_nested_recording_changes_through_real_watche
             1: CameraData(cam_id=1, size=(640, 480)),
         }
     )
-    presenter = coordinator.create_reconstruction_presenter()
-    tab = ReconstructionTab(presenter, coordinator)
+    tab = ReconstructionTab(coordinator)
+    presenter = tab._presenter
     status_spy = QSignalSpy(coordinator.status_changed)
 
     recording_list = tab.findChild(QListWidget, "recordingList")
@@ -164,9 +167,9 @@ def test_reconstruction_tab_follows_nested_recording_changes_through_real_watche
             qapp,
             status_spy,
             previous_count,
-            lambda: feedback_label.text() == "• Missing recordings/walk/cam_1.mp4." and not process_button.isEnabled(),
+            lambda: feedback_label.text() == "Missing recordings/walk/cam_1.mp4." and not process_button.isEnabled(),
         )
-        assert feedback_label.text() == "• Missing recordings/walk/cam_1.mp4."
+        assert feedback_label.text() == "Missing recordings/walk/cam_1.mp4."
         assert not process_button.isEnabled()
         assert recording_list.count() == 1
         assert recording_list.currentItem() is not None

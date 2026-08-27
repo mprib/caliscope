@@ -71,9 +71,9 @@ def test_is_board_origin_falls_back_to_heuristic_when_target_type_unknown(qapp):
     assert presenter._is_board_origin(object_ids=[0], static_ids=frozenset({0})) is False
 
 
-def test_refresh_extraction_status_picks_up_late_extraction(qapp, tmp_path):
+def test_refresh_from_workspace_picks_up_late_extraction(qapp, tmp_path):
     """Extraction output written after construction flips the extract step to
-    COMPLETE and enables calibration once refresh_extraction_status runs."""
+    COMPLETE and enables calibration once refresh_from_workspace runs."""
     image_points_path = tmp_path / "image_points.csv"
     presenter = _make_presenter(image_points_path=image_points_path)
 
@@ -86,13 +86,13 @@ def test_refresh_extraction_status_picks_up_late_extraction(qapp, tmp_path):
 
     # Extraction runs on the Multi-Camera tab and writes the CSV.
     _write_minimal_image_points(image_points_path)
-    presenter.refresh_extraction_status()
+    presenter.refresh_from_workspace()
 
     assert presenter.has_extraction_data is True
     assert steps[-1].extract[0] == StepStatus.COMPLETE
 
 
-def test_refresh_extraction_status_noop_when_already_loaded(qapp, tmp_path):
+def test_refresh_from_workspace_noop_when_already_loaded(qapp, tmp_path):
     """A second refresh after data is loaded does not re-read or re-emit."""
     image_points_path = tmp_path / "image_points.csv"
     _write_minimal_image_points(image_points_path)
@@ -101,5 +101,5 @@ def test_refresh_extraction_status_noop_when_already_loaded(qapp, tmp_path):
 
     steps: list[CalibrationStepData] = []
     presenter.workflow_updated.connect(steps.append)
-    presenter.refresh_extraction_status()
+    presenter.refresh_from_workspace()
     assert steps == []

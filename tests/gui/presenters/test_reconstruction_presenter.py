@@ -250,7 +250,7 @@ class TestSelection:
         presenter.select_tracker("CHARUCO")
 
         (recording / "cam_2.mp4").unlink()
-        presenter.refresh_recordings()
+        presenter.refresh_from_workspace()
 
         assert presenter.selected_recording == "recording_1"
         assert presenter.can_process is False
@@ -259,7 +259,7 @@ class TestSelection:
         ]
 
         (recording / "cam_2.mp4").touch()
-        presenter.refresh_recordings()
+        presenter.refresh_from_workspace()
 
         assert presenter.selected_recording == "recording_1"
         assert presenter.can_process is True
@@ -278,7 +278,7 @@ class TestSelection:
         presenter._processing_task = active_task
         _remove_recording_session(recording)
 
-        presenter.refresh_recordings()
+        presenter.refresh_from_workspace()
 
         assert presenter.selected_recording == "recording_1"
         assert [issue.code for issue in presenter.selected_recording_issues] == ["missing_recording_directory"]

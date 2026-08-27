@@ -28,6 +28,7 @@ from caliscope.gui.theme import Styles
 from caliscope.gui.views.camera_thumbnail_card import CameraThumbnailCard
 from caliscope.gui.widgets.coverage_heatmap import CoverageHeatmapWidget
 from caliscope.gui.widgets.structural_warnings import StructuralWarningsWidget
+from caliscope.gui.widgets.workspace_issue_label import WorkspaceIssueLabel
 
 if TYPE_CHECKING:
     from caliscope.core.coverage_analysis import ExtrinsicCoverageReport
@@ -75,6 +76,9 @@ class MultiCameraProcessingWidget(QWidget):
     def _setup_ui(self) -> None:
         """Build the UI layout."""
         layout = QVBoxLayout(self)
+
+        self._issue_label = WorkspaceIssueLabel()
+        layout.addWidget(self._issue_label)
 
         # Camera grid in a scroll area (so it doesn't push controls off screen)
         self._camera_grid = QGridLayout()
@@ -259,6 +263,12 @@ class MultiCameraProcessingWidget(QWidget):
         for cam_id in self._presenter.missing_video_cam_ids:
             self._on_video_missing(cam_id)
 
+        self._refresh_issues()
+
+    def _refresh_issues(self) -> None:
+        """Render the presenter's current workspace file feedback."""
+        self._issue_label.set_issues(self._presenter.workspace_issues)
+
     def _on_video_missing(self, cam_id: int) -> None:
         """Replace a camera's thumbnail with a missing-file notice."""
         if cam_id in self._camera_cards:
@@ -310,6 +320,8 @@ class MultiCameraProcessingWidget(QWidget):
         )
 
         logger.debug(f"Updating UI for state: {state}")
+
+        self._refresh_issues()
 
         if state == MultiCameraProcessingState.UNCONFIGURED:
             self._action_btn.setText("Start Processing")

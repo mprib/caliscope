@@ -72,7 +72,12 @@ class ExtrinsicCalibrationTab(QWidget):
         # built. status_changed fires after image_points.csv is written (and on
         # watched filesystem changes); the presenter re-checks for extraction
         # output so the workflow strip and Calibrate button catch up.
-        self._coordinator.status_changed.connect(self._presenter.refresh_extraction_status)
+        self._coordinator.status_changed.connect(self._refresh_from_workspace)
+
+    def _refresh_from_workspace(self) -> None:
+        """Follow the workspace: extraction output that landed after tab build."""
+        if self._presenter is not None:
+            self._presenter.refresh_from_workspace()
 
     # -------------------------------------------------------------------------
     # Rendering Lifecycle
@@ -98,17 +103,18 @@ class ExtrinsicCalibrationTab(QWidget):
         Must be called before tab is destroyed. The parent (MainWidget) is
         responsible for calling this during reload_workspace or closeEvent.
         """
+        # The coordinator outlives this tab, so drop the status_changed
+        # connection before discarding the presenter to avoid firing into it.
+        try:
+            self._coordinator.status_changed.disconnect(self._refresh_from_workspace)
+        except (RuntimeError, TypeError):
+            pass
+
         if self._view is not None:
             self._view.cleanup()
             self._view = None
 
         if self._presenter is not None:
-            # The coordinator outlives this tab, so drop the status_changed
-            # connection before discarding the presenter to avoid firing into it.
-            try:
-                self._coordinator.status_changed.disconnect(self._presenter.refresh_extraction_status)
-            except (RuntimeError, TypeError):
-                pass
             logger.info("Cleaning up extrinsic calibration presenter")
             self._presenter.cleanup()
             self._presenter = None

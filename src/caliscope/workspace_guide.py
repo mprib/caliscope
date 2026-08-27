@@ -55,11 +55,11 @@ class WorkspaceGuide:
         Returns:
             Sorted list of integer camera IDs found
         """
-        return list(self._assess_camera_videos(directory, ()).camera_ids)
+        return list(self.assess_camera_videos(directory, ()).camera_ids)
 
     def assess_intrinsic_videos(self, expected_cam_ids: Collection[int]) -> CameraVideoAssessment:
         """Assess intrinsic videos against the workspace camera set."""
-        return self._assess_camera_videos(self.intrinsic_dir, expected_cam_ids)
+        return self.assess_camera_videos(self.intrinsic_dir, expected_cam_ids)
 
     def assess_extrinsic_videos(self, expected_cam_ids: Collection[int]) -> CameraVideoAssessment:
         """Assess extrinsic videos against the workspace camera set.
@@ -67,7 +67,7 @@ class WorkspaceGuide:
         Per-camera missing issues cover any expected camera. The generic
         "no videos" issue only applies when there is nothing more specific to say.
         """
-        assessment = self._assess_camera_videos(self.extrinsic_dir, expected_cam_ids)
+        assessment = self.assess_camera_videos(self.extrinsic_dir, expected_cam_ids)
         if assessment.camera_ids or assessment.missing_camera_ids:
             return assessment
 
@@ -82,11 +82,16 @@ class WorkspaceGuide:
             issues=(issue, *assessment.issues),
         )
 
-    def _assess_camera_videos(
+    def assess_camera_videos(
         self,
         directory: Path,
         expected_cam_ids: Collection[int],
     ) -> CameraVideoAssessment:
+        """Assess direct-child cam_N.mp4 files in any directory against a camera set.
+
+        Reports missing expected videos, videos outside the expected set, and
+        MP4 files that do not follow the cam_N.mp4 naming.
+        """
         camera_ids: list[int] = []
         file_issues: list[WorkspaceIssue] = []
 
@@ -229,7 +234,7 @@ class WorkspaceGuide:
             return {}
 
         return {
-            path.name: self._assess_camera_videos(path, expected_cam_ids)
+            path.name: self.assess_camera_videos(path, expected_cam_ids)
             for path in sorted(self.recording_dir.iterdir(), key=lambda item: item.name.casefold())
             if path.is_dir()
         }

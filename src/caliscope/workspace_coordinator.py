@@ -119,8 +119,11 @@ class WorkspaceCoordinator(QObject):
         self._intrinsic_frame_skip: int = 5
 
     def _setup_filesystem_watcher(self) -> None:
-        """Watch calibration directories for file changes."""
+        """Watch calibration, recording root, and recording session directories."""
         self._watcher = QFileSystemWatcher(parent=self)
+        # Session watches this coordinator added. Qt's own directories() list
+        # lags behind deletions on macOS and Windows, so it is not the record.
+        self._session_watches: set[str] = set()
 
         dirs_to_watch = [
             self.workspace_guide.intrinsic_dir,
@@ -130,19 +133,51 @@ class WorkspaceCoordinator(QObject):
 
         for dir_path in dirs_to_watch:
             if dir_path.exists():
-                self._watcher.addPath(str(dir_path))
+                self._watcher.addPath(str(dir_path.resolve()))
                 logger.debug(f"Watching directory: {dir_path}")
 
+        self._reconcile_recording_watches()
+
         self._watcher.directoryChanged.connect(self._on_directory_changed)
+
+    def _recording_session_dirs(self) -> set[str]:
+        """Return immediate recording session directories currently on disk."""
+        recording_dir = self.workspace_guide.recording_dir
+        if not recording_dir.exists():
+            return set()
+        recording_root = recording_dir.resolve()
+        return {str(recording_root / path.name) for path in recording_dir.iterdir() if path.is_dir()}
+
+    def _reconcile_recording_watches(self) -> None:
+        """Keep session watches aligned with the session folders on disk.
+
+        removePaths() is best effort. Qt cannot remove an already-deleted
+        directory on every platform, but every platform drops it on its own
+        once events are processed. Paths addPaths() rejects are retried on the
+        next reconcile.
+        """
+        desired = self._recording_session_dirs()
+        stale = self._session_watches - desired
+        if stale:
+            self._watcher.removePaths(sorted(stale))
+
+        new = desired - self._session_watches
+        if new:
+            new -= set(self._watcher.addPaths(sorted(new)))
+            for path in sorted(new):
+                logger.debug(f"Watching recording session: {path}")
+
+        self._session_watches = (self._session_watches - stale) | new
 
     def _on_directory_changed(self, path: str) -> None:
         """Handle filesystem change in watched directory."""
         logger.info(f"Directory changed: {path}")
-        if Path(path) in {
-            self.workspace_guide.intrinsic_dir,
-            self.workspace_guide.extrinsic_dir,
+        if Path(path).resolve() in {
+            self.workspace_guide.intrinsic_dir.resolve(),
+            self.workspace_guide.extrinsic_dir.resolve(),
         }:
             self._discover_new_cameras()
+        self._reconcile_recording_watches()
         self.status_changed.emit()
 
     @property
@@ -155,7 +190,8 @@ class WorkspaceCoordinator(QObject):
         """Authoritative list of camera IDs from extrinsic directory."""
         return self.workspace_guide.get_cam_ids()
 
-    def _expected_cam_ids(self) -> set[int]:
+    @property
+    def expected_cam_ids(self) -> set[int]:
         """Cameras the workspace expects calibration videos for.
 
         Extrinsic videos define the camera set. Loaded cameras keep that set
@@ -199,10 +235,10 @@ class WorkspaceCoordinator(QObject):
     def reconstruction_tab_enabled(self) -> bool:
         """Whether Reconstruction tab should be enabled.
 
-        Requires: bundle exists AND recordings available.
+        Requires a calibrated capture volume. Recording availability and file
+        feedback are rendered inside the tab.
         """
-        has_bundle = self.capture_volume_repository.camera_array_path.exists()
-        return has_bundle and self.recordings_available()
+        return self.capture_volume_repository.camera_array_path.exists()
 
     def _initialize_project_files(self):
         """Create default project files if they don't exist."""
@@ -311,7 +347,12 @@ class WorkspaceCoordinator(QObject):
 
     def recordings_available(self) -> bool:
         """Check if any valid recording directories exist."""
-        return len(self.workspace_guide.valid_recording_dirs()) > 0
+        expected_cam_ids = self._reconstruction_cam_ids()
+        return bool(self.workspace_guide.ready_recording_dirs(expected_cam_ids))
+
+    def _reconstruction_cam_ids(self) -> set[int]:
+        """Camera IDs required by the camera array used for reconstruction."""
+        return set(self.camera_array.cameras)
 
     def get_workflow_status(self) -> WorkflowStatus:
         """Compute current workflow status from ground truth.
@@ -319,10 +360,19 @@ class WorkspaceCoordinator(QObject):
         This method queries the filesystem and domain objects to build
         a status snapshot. Called by the Project tab whenever it refreshes.
         """
-        expected_cam_ids = self._expected_cam_ids()
+        expected_cam_ids = self.expected_cam_ids
         extrinsic_assessment = self.workspace_guide.assess_extrinsic_videos(expected_cam_ids)
         intrinsic_assessment = self.workspace_guide.assess_intrinsic_videos(expected_cam_ids)
         camera_count = len(expected_cam_ids)
+        reconstruction_cam_ids = self._reconstruction_cam_ids()
+        recording_assessments = self.workspace_guide.assess_recordings(reconstruction_cam_ids)
+        ready_recording_names = [
+            name for name, assessment in recording_assessments.items() if reconstruction_cam_ids and assessment.is_ready
+        ]
+        recording_issues = (
+            *self.workspace_guide.recording_layout_issues(),
+            *(issue for assessment in recording_assessments.values() for issue in assessment.issues),
+        )
 
         # Cameras needing intrinsic calibration
         cameras_needing = [cam_id for cam_id, cam in self.camera_array.cameras.items() if cam.matrix is None]
@@ -345,9 +395,9 @@ class WorkspaceCoordinator(QObject):
             extrinsic_video_issues=extrinsic_assessment.issues,
             extrinsic_2d_extraction_complete=extraction_complete,
             extrinsic_calibration_complete=self.all_extrinsics_estimated(),
-            recordings_available=self.recordings_available(),
-            recording_names=self.workspace_guide.valid_recording_dirs(),
-            recording_layout_issues=self.workspace_guide.recording_layout_issues(),
+            recording_names=list(recording_assessments),
+            ready_recording_names=ready_recording_names,
+            recording_issues=recording_issues,
         )
 
     def _discover_new_cameras(self) -> None:
@@ -565,6 +615,7 @@ class WorkspaceCoordinator(QObject):
         """
         return ReconstructionPresenter(
             workspace_dir=self.workspace,
+            workspace_guide=self.workspace_guide,
             camera_array=self.camera_array,
             task_manager=self.task_manager,
             project_settings=self.settings_repository,
@@ -579,11 +630,13 @@ class WorkspaceCoordinator(QObject):
         - Managing presenter lifecycle (cleanup on tab close)
 
         Returns:
-            MultiCameraProcessingPresenter configured with task_manager and tracker.
+            MultiCameraProcessingPresenter configured with task_manager, tracker,
+            and the shared workspace guide.
         """
         presenter = MultiCameraProcessingPresenter(
             task_manager=self.task_manager,
             tracker=self.create_extrinsic_tracker(),
+            workspace_guide=self.workspace_guide,
         )
 
         # Wire signal directly - no passthrough needed

@@ -252,11 +252,7 @@ class MainWindow(QMainWindow):
         enabled = self.coordinator.reconstruction_tab_enabled
         if enabled:
             logger.info("Creating reconstruction tab")
-            presenter = self.coordinator.create_reconstruction_presenter()
-            self.reconstruction_tab: QWidget = ReconstructionTab(presenter)
-            self.coordinator.capture_volume_updated.connect(
-                lambda: presenter.refresh_camera_array(self.coordinator.camera_array)
-            )
+            self.reconstruction_tab: QWidget = ReconstructionTab(self.coordinator)
         else:
             self.reconstruction_tab = QWidget()
         return self.reconstruction_tab, enabled

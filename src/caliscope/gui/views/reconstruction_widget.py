@@ -30,6 +30,7 @@ from caliscope.gui.presenters.reconstruction_presenter import (
 )
 from caliscope.gui.view_models.playback_view_model import PlaybackViewModel
 from caliscope.gui.widgets.qt3d_playback_widget import Qt3DPlaybackWidget, opengl_available
+from caliscope.gui.widgets.workspace_issue_label import WorkspaceIssueLabel
 from caliscope import MODELS_DIR
 from caliscope.gui.theme import Colors
 from caliscope.trackers import tracker_registry
@@ -89,8 +90,13 @@ class ReconstructionWidget(QWidget):
         recording_layout = QVBoxLayout(recording_group)
 
         self._recording_list = QListWidget()
+        self._recording_list.setObjectName("recordingList")
         self._recording_list.setMaximumHeight(150)
         recording_layout.addWidget(self._recording_list)
+
+        self._recording_feedback_label = WorkspaceIssueLabel()
+        self._recording_feedback_label.setObjectName("recordingFeedbackLabel")
+        recording_layout.addWidget(self._recording_feedback_label)
 
         left_layout.addWidget(recording_group)
 
@@ -134,6 +140,7 @@ class ReconstructionWidget(QWidget):
         actions_layout = QVBoxLayout(actions_group)
 
         self._process_btn = QPushButton("Process")
+        self._process_btn.setObjectName("processButton")
         self._process_btn.setEnabled(False)
         actions_layout.addWidget(self._process_btn)
 
@@ -181,6 +188,7 @@ class ReconstructionWidget(QWidget):
         self._presenter.progress_updated.connect(self._update_progress)
         self._presenter.reconstruction_complete.connect(self._on_reconstruction_complete)
         self._presenter.reconstruction_failed.connect(self._on_reconstruction_failed)
+        self._presenter.recordings_changed.connect(self._refresh_recording_list)
 
         # View -> Presenter (via adapters)
         self._recording_list.currentTextChanged.connect(self._on_recording_changed)
@@ -193,14 +201,7 @@ class ReconstructionWidget(QWidget):
 
     def _populate_initial_data(self) -> None:
         """Populate lists with available recordings and trackers."""
-        # Populate recordings
-        recordings = self._presenter.available_recordings
-        self._recording_list.clear()
-        self._recording_list.addItems(recordings)
-
-        # Auto-select first recording if available
-        if recordings:
-            self._recording_list.setCurrentRow(0)
+        self._presenter.refresh_from_workspace()
 
         # Populate trackers
         trackers = self._presenter.available_trackers
@@ -217,7 +218,32 @@ class ReconstructionWidget(QWidget):
         """Handle recording selection change."""
         if name:  # Guard against empty string when list cleared
             self._presenter.select_recording(name)
+            self._update_recording_feedback()
             self._update_visualization()
+
+    def _refresh_recording_list(self) -> None:
+        """Render the current filesystem session list without losing selection."""
+        recordings = self._presenter.available_recordings
+        selected = self._presenter.selected_recording
+
+        self._recording_list.blockSignals(True)
+        self._recording_list.clear()
+        self._recording_list.addItems(recordings)
+        if selected in recordings:
+            self._recording_list.setCurrentRow(recordings.index(selected))
+        self._recording_list.blockSignals(False)
+
+        self._update_recording_feedback()
+        self._update_visualization()
+
+    def _update_recording_feedback(self) -> None:
+        """Show actionable root and selected-session filesystem feedback."""
+        empty_text = (
+            ""
+            if self._presenter.available_recordings
+            else "No recording session folders found. Add a named folder inside recordings/."
+        )
+        self._recording_feedback_label.set_issues(self._presenter.workspace_issues, empty_text=empty_text)
 
     def _on_tracker_changed(self, index: int) -> None:
         """Handle tracker selection change."""
@@ -304,7 +330,9 @@ class ReconstructionWidget(QWidget):
 
         # Status message
         if state == ReconstructionState.IDLE:
-            if self._presenter.selected_recording and self._presenter.selected_tracker:
+            if self._presenter.selected_recording and not self._presenter.selected_recording_is_ready:
+                self._status_message.setText("Recording files need attention")
+            elif self._presenter.selected_recording and self._presenter.selected_tracker:
                 if self._selected_tracker_needs_download():
                     tracker = self._presenter.selected_tracker
                     if tracker and tracker_registry.has_source_url(tracker):
@@ -320,7 +348,10 @@ class ReconstructionWidget(QWidget):
         elif state == ReconstructionState.RECONSTRUCTING:
             self._status_message.setText("Processing...")
         elif state == ReconstructionState.COMPLETE:
-            self._status_message.setText("Reconstruction complete")
+            if self._presenter.selected_recording_is_ready:
+                self._status_message.setText("Reconstruction complete")
+            else:
+                self._status_message.setText("Reconstruction complete. Source files need attention")
         elif state == ReconstructionState.ERROR:
             error = self._presenter.last_error or "Unknown error"
             self._status_message.setText(f"Error: {error}")
@@ -333,7 +364,7 @@ class ReconstructionWidget(QWidget):
             self._calibration_indicator.hide()
 
         # Process button
-        can_process = self._presenter.selected_recording is not None and self._presenter.selected_tracker is not None
+        can_process = self._presenter.can_process
 
         button_text = self._process_button_text_for_state(state)
         self._process_btn.setText(button_text)

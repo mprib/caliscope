@@ -22,6 +22,7 @@ from caliscope.gui.presenters.multi_camera_processing_presenter import (
 from caliscope.helper import copy_contents_to_clean_dest
 from caliscope.cameras.camera_array import CameraArray
 from caliscope.task_manager.task_state import TaskState
+from caliscope.workspace_guide import WorkspaceGuide
 
 TEST_SESSION = Path(__root__) / "tests" / "sessions" / "4_cam_recording"
 
@@ -61,11 +62,12 @@ def real_camera_array(workspace_with_recordings):
 
 
 @pytest.fixture
-def presenter(mock_task_manager, mock_tracker, qapp):
+def presenter(mock_task_manager, mock_tracker, tmp_path, qapp):
     """Create a MultiCameraProcessingPresenter for testing."""
     return MultiCameraProcessingPresenter(
         task_manager=mock_task_manager,
         tracker=mock_tracker,
+        workspace_guide=WorkspaceGuide(tmp_path),
     )
 
 
@@ -188,6 +190,7 @@ class TestThumbnailLoading:
         presenter = MultiCameraProcessingPresenter(
             task_manager=mock_task_manager,
             tracker=mock_tracker,
+            workspace_guide=WorkspaceGuide(workspace_with_recordings),
         )
 
         recording_dir = workspace_with_recordings / "recordings" / "recording_1"

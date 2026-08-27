@@ -998,7 +998,7 @@ class ExtrinsicCalibrationPresenter(QObject):
             logger.warning(f"Could not load initial image points: {e}")
             self._initial_image_points = None
 
-    def refresh_extraction_status(self) -> None:
+    def refresh_from_workspace(self) -> None:
         """Pick up extraction output that appeared after the tab was built.
 
         Wired to the coordinator's status_changed signal. Extraction runs on the

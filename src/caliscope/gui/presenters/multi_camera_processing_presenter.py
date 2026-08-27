@@ -22,6 +22,7 @@ from caliscope.core.coverage_analysis import (
     analyze_multi_camera_coverage,
 )
 from caliscope.core.point_data import ImagePoints
+from caliscope.core.workflow_status import WorkspaceIssue
 from caliscope.core.process_synchronized_recording import (
     FrameData,
     get_initial_thumbnails,
@@ -33,6 +34,7 @@ from caliscope.task_manager.task_handle import TaskHandle
 from caliscope.task_manager.task_manager import TaskManager
 from caliscope.task_manager.task_state import TaskState
 from caliscope.tracker import Tracker
+from caliscope.workspace_guide import WorkspaceGuide
 
 logger = logging.getLogger(__name__)
 
@@ -66,7 +68,7 @@ class MultiCameraProcessingPresenter(QObject):
         processing_failed: Emitted when processing fails. Contains error message.
 
     Usage:
-        presenter = MultiCameraProcessingPresenter(task_manager, tracker)
+        presenter = MultiCameraProcessingPresenter(task_manager, tracker, workspace_guide)
         presenter.set_recording_dir(path)
         presenter.set_cameras(cameras)
         presenter.start_processing()  # Emits progress_updated during work
@@ -100,6 +102,7 @@ class MultiCameraProcessingPresenter(QObject):
         self,
         task_manager: TaskManager,
         tracker: Tracker,
+        workspace_guide: WorkspaceGuide,
         parent: QObject | None = None,
     ) -> None:
         """Initialize the presenter.
@@ -107,12 +110,14 @@ class MultiCameraProcessingPresenter(QObject):
         Args:
             task_manager: TaskManager for background processing
             tracker: Tracker for 2D point extraction
+            workspace_guide: Shared filesystem assessment gateway
             parent: Optional Qt parent
         """
         super().__init__(parent)
 
         self._task_manager = task_manager
         self._tracker = tracker
+        self._workspace_guide = workspace_guide
 
         # Configuration state (set externally)
         self._recording_dir: Path | None = None
@@ -173,8 +178,14 @@ class MultiCameraProcessingPresenter(QObject):
         """Configured cameras whose cam_N.mp4 is absent from the recording directory."""
         if self._recording_dir is None:
             return []
-        recording_dir = self._recording_dir
-        return sorted(cam_id for cam_id in self._cameras if not (recording_dir / f"cam_{cam_id}.mp4").exists())
+        return list(self._workspace_guide.assess_camera_videos(self._recording_dir, self._cameras).missing_camera_ids)
+
+    @property
+    def workspace_issues(self) -> tuple[WorkspaceIssue, ...]:
+        """Everything the video feedback label should say about the recording dir."""
+        if self._recording_dir is None:
+            return ()
+        return self._workspace_guide.assess_camera_videos(self._recording_dir, self._cameras).issues
 
     @property
     def recording_dir(self) -> Path | None:
@@ -243,7 +254,7 @@ class MultiCameraProcessingPresenter(QObject):
         self.cameras_changed.emit()
         self._emit_state_changed()
 
-    def refresh_videos(self) -> None:
+    def refresh_from_workspace(self) -> None:
         """Re-read which camera videos exist after the workspace changed.
 
         Drops thumbnails for videos that disappeared, loads thumbnails for

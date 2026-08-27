@@ -196,6 +196,17 @@ def test_reconstruction_tab_follows_nested_recording_changes_through_real_watche
         assert recording_list.count() == 0
         assert str(session.resolve()) not in coordinator._watcher.directories()
         assert presenter.selected_recording is None
+
+        previous_count = status_spy.count()
+        session.mkdir()
+        _wait_for_status_change(
+            qapp,
+            status_spy,
+            previous_count,
+            lambda: recording_list.count() == 1 and str(session.resolve()) in coordinator._session_watches,
+        )
+        assert recording_list.count() == 1
+        assert str(session.resolve()) in coordinator._session_watches
     finally:
         tab.cleanup()
         coordinator.cleanup()

@@ -163,14 +163,20 @@ def test_reconstruction_tab_only_requires_capture_volume_bundle(
 def test_recording_session_watches_follow_root_directory_changes(
     coordinator: WorkspaceCoordinator,
 ):
+    """Session watches are the coordinator's record, reconciled on every root change.
+
+    Qt's own directories() list is not asserted here: fsevents and the Windows
+    engine only drop a deleted directory asynchronously, through the event loop.
+    """
+    recording_dir = str(coordinator.workspace_guide.recording_dir)
     session = coordinator.workspace_guide.recording_dir / "walk"
     session.mkdir()
 
-    coordinator._on_directory_changed(str(coordinator.workspace_guide.recording_dir))
+    coordinator._on_directory_changed(recording_dir)
 
-    assert str(session.resolve()) in coordinator._watcher.directories()
+    assert str(session.resolve()) in coordinator._session_watches
 
     session.rmdir()
-    coordinator._on_directory_changed(str(coordinator.workspace_guide.recording_dir))
+    coordinator._on_directory_changed(recording_dir)
 
-    assert str(session.resolve()) not in coordinator._watcher.directories()
+    assert str(session.resolve()) not in coordinator._session_watches

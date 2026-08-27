@@ -121,6 +121,9 @@ class WorkspaceCoordinator(QObject):
     def _setup_filesystem_watcher(self) -> None:
         """Watch calibration, recording root, and recording session directories."""
         self._watcher = QFileSystemWatcher(parent=self)
+        # Session watches this coordinator added. Qt's own directories() list
+        # lags behind deletions on macOS and Windows, so it is not the record.
+        self._session_watches: set[str] = set()
 
         dirs_to_watch = [
             self.workspace_guide.intrinsic_dir,
@@ -137,28 +140,34 @@ class WorkspaceCoordinator(QObject):
 
         self._watcher.directoryChanged.connect(self._on_directory_changed)
 
-    def _recording_session_dirs(self) -> set[Path]:
+    def _recording_session_dirs(self) -> set[str]:
         """Return immediate recording session directories currently on disk."""
-        if not self.workspace_guide.recording_dir.exists():
+        recording_dir = self.workspace_guide.recording_dir
+        if not recording_dir.exists():
             return set()
-        return {path.resolve() for path in self.workspace_guide.recording_dir.iterdir() if path.is_dir()}
+        recording_root = recording_dir.resolve()
+        return {str(recording_root / path.name) for path in recording_dir.iterdir() if path.is_dir()}
 
     def _reconcile_recording_watches(self) -> None:
-        """Keep nested recording watches aligned with current session folders."""
-        recording_root = self.workspace_guide.recording_dir.resolve()
+        """Keep session watches aligned with the session folders on disk.
+
+        removePaths() is best effort. Qt cannot remove an already-deleted
+        directory on every platform, but every platform drops it on its own
+        once events are processed. Paths addPaths() rejects are retried on the
+        next reconcile.
+        """
         desired = self._recording_session_dirs()
-        watched = {Path(path) for path in self._watcher.directories()}
-        watched_sessions = {path for path in watched if path.parent == recording_root}
+        stale = self._session_watches - desired
+        if stale:
+            self._watcher.removePaths(sorted(stale))
 
-        removed = sorted(watched_sessions - desired)
-        if removed:
-            self._watcher.removePaths([str(path) for path in removed])
-
-        added = sorted(desired - watched)
-        if added:
-            self._watcher.addPaths([str(path) for path in added])
-            for path in added:
+        new = desired - self._session_watches
+        if new:
+            new -= set(self._watcher.addPaths(sorted(new)))
+            for path in sorted(new):
                 logger.debug(f"Watching recording session: {path}")
+
+        self._session_watches = (self._session_watches - stale) | new
 
     def _on_directory_changed(self, path: str) -> None:
         """Handle filesystem change in watched directory."""

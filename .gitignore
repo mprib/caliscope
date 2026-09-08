@@ -17,6 +17,7 @@ llm/*
 *.pyc
 .vscode*
 .idea*
+.DS_Store
 *.bz2
 .venv*
 *.pkl

@@ -53,6 +53,25 @@ def numpy_to_qbytearray(arr: np.ndarray) -> QByteArray:
     return QByteArray(arr.astype(np.float32).tobytes())
 
 
+def _add_normal_attribute(geometry: Qt3DCore.QGeometry, vertex_count: int) -> Qt3DCore.QBuffer:
+    """Add the normal attribute required by QPhongMaterial."""
+    normals = np.tile(np.array((0.0, 0.0, 1.0), dtype=np.float32), (vertex_count, 1))
+    normal_buf = Qt3DCore.QBuffer(geometry)
+    normal_buf.setData(numpy_to_qbytearray(normals))
+
+    normal_attr = Qt3DCore.QAttribute(geometry)
+    normal_attr.setName(Qt3DCore.QAttribute.defaultNormalAttributeName())
+    normal_attr.setVertexBaseType(Qt3DCore.QAttribute.VertexBaseType.Float)
+    normal_attr.setVertexSize(3)
+    normal_attr.setAttributeType(Qt3DCore.QAttribute.AttributeType.VertexAttribute)
+    normal_attr.setBuffer(normal_buf)
+    normal_attr.setByteStride(3 * 4)
+    normal_attr.setCount(vertex_count)
+    geometry.addAttribute(normal_attr)
+
+    return normal_buf
+
+
 def create_line_entity(
     vertices: np.ndarray,
     indices: np.ndarray,
@@ -85,6 +104,7 @@ def create_line_entity(
     pos_attr.setByteStride(3 * 4)
     pos_attr.setCount(len(vertices))
     geometry.addAttribute(pos_attr)
+    _add_normal_attribute(geometry, len(vertices))
 
     index_data = indices.astype(np.uint32)
     index_buf = Qt3DCore.QBuffer(geometry)
@@ -138,6 +158,7 @@ def create_double_sided_mesh(
     pos_attr.setByteStride(3 * 4)
     pos_attr.setCount(len(vertices))
     geometry.addAttribute(pos_attr)
+    _add_normal_attribute(geometry, len(vertices))
 
     index_buf = Qt3DCore.QBuffer(geometry)
     index_buf.setData(QByteArray(all_indices.tobytes()))

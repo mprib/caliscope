@@ -8,7 +8,7 @@ from PySide6.QtGui import QColor
 from caliscope.gui.qt3d.primitives import create_double_sided_mesh, create_line_entity
 
 
-def _geometry_attribute_names(entity: Qt3DCore.QEntity) -> set[str]:
+def _geometry_attributes(entity: Qt3DCore.QEntity) -> dict[str, Qt3DCore.QAttribute]:
     renderer = next(
         component
         for component in entity.components()
@@ -16,7 +16,20 @@ def _geometry_attribute_names(entity: Qt3DCore.QEntity) -> set[str]:
     )
     geometry = renderer.geometry()
     assert geometry is not None
-    return {attribute.name() for attribute in geometry.attributes()}
+    return {attribute.name(): attribute for attribute in geometry.attributes()}
+
+
+def _assert_normal_attribute(entity: Qt3DCore.QEntity, vertex_count: int) -> None:
+    normal = _geometry_attributes(entity)[Qt3DCore.QAttribute.defaultNormalAttributeName()]
+
+    assert normal.vertexBaseType() == Qt3DCore.QAttribute.VertexBaseType.Float
+    assert normal.vertexSize() == 3
+    assert normal.byteStride() == 3 * np.dtype(np.float32).itemsize
+    assert normal.count() == vertex_count
+    np.testing.assert_array_equal(
+        np.frombuffer(normal.buffer().data().data(), dtype=np.float32).reshape(vertex_count, 3),
+        np.tile((0.0, 0.0, 1.0), (vertex_count, 1)),
+    )
 
 
 def test_custom_primitives_provide_phong_shader_attributes(qapp) -> None:  # noqa: ARG001
@@ -37,9 +50,5 @@ def test_custom_primitives_provide_phong_shader_attributes(qapp) -> None:  # noq
         root,
     )
 
-    required_attributes = {
-        Qt3DCore.QAttribute.defaultPositionAttributeName(),
-        Qt3DCore.QAttribute.defaultNormalAttributeName(),
-    }
-    assert required_attributes <= _geometry_attribute_names(line)
-    assert required_attributes <= _geometry_attribute_names(mesh)
+    _assert_normal_attribute(line, vertex_count=2)
+    _assert_normal_attribute(mesh, vertex_count=3)

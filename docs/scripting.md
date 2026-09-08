@@ -12,6 +12,7 @@ uv pip install caliscope[gui]   # adds desktop app, 3D visualization, and pose t
 
 Everything below uses the `caliscope.api` module.
 A complete working script is in `scripts/demo_api.py`.
+For a complete markerless calibration recipe using a person and RTMPose, see [Markerless Calibration](markerless_calibration.md).
 
 For an alternate workflow, `scripts/demo/demo_shared_video_calibration.py` calibrates both intrinsics and extrinsics from one synchronized ChArUco recording.
 The script detects the board once, uses each camera's observations for intrinsic calibration, then uses the combined observations for extrinsic calibration.

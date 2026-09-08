@@ -550,12 +550,15 @@ class Qt3DPlaybackWidget(QWidget):
 
         layout.addStretch()
 
-        # Frame slider
+        # Frame slider stores a position into valid_sync_indices. Sync indices
+        # can be sparse, while QSlider is necessarily contiguous.
         self.slider = QSlider(Qt.Orientation.Horizontal, self)
-        self.slider.setMinimum(self.view_model.min_index)
-        self.slider.setMaximum(self.view_model.max_index)
-        self.slider.setValue(self.sync_index)
-        self.slider.valueChanged.connect(self._on_sync_index_changed)
+        self.slider.setMinimum(0)
+        self.slider.setMaximum(max(0, len(self.view_model.valid_sync_indices) - 1))
+        initial_position = self._sync_index_to_position(self.sync_index)
+        self.slider.setValue(initial_position if initial_position is not None else 0)
+        self.slider.valueChanged.connect(self._on_slider_position_changed)
+        self._update_playback_controls()
         layout.addWidget(self.slider, stretch=1)
 
         return bar
@@ -716,6 +719,10 @@ class Qt3DPlaybackWidget(QWidget):
     # -------------------------------------------------------------------------
 
     def _toggle_playback(self, checked: bool) -> None:
+        if not self._has_playable_timeline:
+            self._stop_playback()
+            return
+
         self.is_playing = checked
         settings = self._view.renderSettings()
         if checked:
@@ -733,21 +740,70 @@ class Qt3DPlaybackWidget(QWidget):
                 settings.setRenderPolicy(Qt3DRender.QRenderSettings.RenderPolicy.OnDemand)
 
     def _start_playback(self) -> None:
-        if self.view_model.frame_rate <= 0:
+        if not self._has_playable_timeline or self.view_model.frame_rate <= 0:
+            self._stop_playback()
             return
-        interval_ms = int(1000 / (self.view_model.frame_rate * self.speed_multiplier))
+        interval_ms = max(1, int(1000 / (self.view_model.frame_rate * self.speed_multiplier)))
         self.playback_timer.start(interval_ms)
 
     def _advance_frame(self) -> None:
-        next_index = self.sync_index + 1
-        if next_index > self.view_model.max_index:
+        valid_sync_indices = self.view_model.valid_sync_indices
+        if len(valid_sync_indices) < 2:
+            self._stop_playback()
+            return
+
+        current_position = self.slider.value()
+        next_position = current_position + 1
+        if next_position >= len(valid_sync_indices):
             if self.loop_enabled:
-                next_index = self.view_model.min_index
+                next_position = 0
             else:
-                self.play_button.setChecked(False)
-                self.playback_timer.stop()
+                self._stop_playback()
                 return
-        self.slider.setValue(next_index)
+        self.slider.setValue(next_position)
+
+    @property
+    def _has_playable_timeline(self) -> bool:
+        """Whether playback can advance to a distinct frame."""
+        return len(self.view_model.valid_sync_indices) >= 2
+
+    def _update_playback_controls(self) -> None:
+        """Enable timeline controls only when the view has multiple frames."""
+        playable = self._has_playable_timeline
+        self.play_button.setEnabled(playable)
+        self.loop_button.setEnabled(playable)
+        self.speed_slider.setEnabled(playable)
+        self.slider.setEnabled(playable)
+
+    def _stop_playback(self) -> None:
+        """Return playback controls and rendering to their idle state."""
+        self.is_playing = False
+        self.playback_timer.stop()
+        self.play_button.blockSignals(True)
+        self.play_button.setChecked(False)
+        self.play_button.blockSignals(False)
+        self.play_button.setIcon(self._play_icon)
+        settings = self._view.renderSettings()
+        if settings is not None:
+            settings.setRenderPolicy(Qt3DRender.QRenderSettings.RenderPolicy.OnDemand)
+
+    def _sync_index_to_position(self, sync_index: int) -> int | None:
+        """Return an exact slider position for an actual sync index, if present."""
+        valid_sync_indices = self.view_model.valid_sync_indices
+        if len(valid_sync_indices) == 0:
+            return None
+
+        position = int(np.searchsorted(valid_sync_indices, sync_index))
+        if position < len(valid_sync_indices) and valid_sync_indices[position] == sync_index:
+            return position
+        return None
+
+    def _on_slider_position_changed(self, position: int) -> None:
+        """Translate the internal slider position to an actual sync index."""
+        valid_sync_indices = self.view_model.valid_sync_indices
+        if len(valid_sync_indices) == 0:
+            return
+        self.set_sync_index(int(valid_sync_indices[position]))
 
     def _toggle_loop(self, checked: bool) -> None:
         self.loop_enabled = checked
@@ -782,7 +838,7 @@ class Qt3DPlaybackWidget(QWidget):
 
         # Save camera state before clearing
         saved_cam: dict | None = None
-        saved_sync: int | None = None
+        saved_sync = self.sync_index
         if preserve_camera:
             saved_cam = {
                 "azimuth": self._cam_controller.azimuth,
@@ -790,13 +846,9 @@ class Qt3DPlaybackWidget(QWidget):
                 "distance": self._cam_controller.distance,
                 "focus": self._cam_controller.focus,
             }
-            saved_sync = self.sync_index
 
         # Stop playback
-        self.playback_timer.stop()
-        self.is_playing = False
-        self.play_button.setChecked(False)
-        self.play_button.setIcon(self._play_icon)
+        self._stop_playback()
 
         # Clear active references so _on_sync_index_changed returns early
         # during slider range updates below (stale geometry guard).
@@ -807,17 +859,24 @@ class Qt3DPlaybackWidget(QWidget):
 
         self.view_model = view_model
 
-        # Determine sync index for the new view model
-        if saved_sync is not None:
-            self.sync_index = max(view_model.min_index, min(saved_sync, view_model.max_index))
+        # Preserve the exact frame when it is available. For a different
+        # sequence, begin at the first available frame rather than selecting a
+        # numerically nearby but unrelated sparse index.
+        valid_sync_indices = view_model.valid_sync_indices
+        if preserve_camera and saved_sync in valid_sync_indices:
+            self.sync_index = saved_sync
+        elif len(valid_sync_indices) > 0:
+            self.sync_index = int(valid_sync_indices[0])
         else:
             self.sync_index = view_model.min_index
 
         # Update slider range (setValue may trigger _on_sync_index_changed,
         # but dynamic refs are already None so it returns early safely)
-        self.slider.setMinimum(view_model.min_index)
-        self.slider.setMaximum(view_model.max_index)
-        self.slider.setValue(self.sync_index)
+        self.slider.setMinimum(0)
+        self.slider.setMaximum(max(0, len(valid_sync_indices) - 1))
+        position = self._sync_index_to_position(self.sync_index)
+        self.slider.setValue(position if position is not None else 0)
+        self._update_playback_controls()
 
         # Rebuild scene content under the permanent root. _build_scene() retires
         # the old _scene container (disable + append to _retained_entities) and
@@ -834,17 +893,21 @@ class Qt3DPlaybackWidget(QWidget):
             self._cam_controller._apply()
 
     def set_sync_index(self, sync_index: int) -> None:
-        """Set frame index programmatically (for external slider control).
+        """Set an actual frame index programmatically (for external slider control).
 
         Use this when embedding the widget in a container with a shared slider.
+        An index absent from the timeline updates the scene directly and leaves
+        the internal slider at its current position.
         """
         self.sync_index = sync_index
         self._on_sync_index_changed(sync_index)
 
         # Update internal slider without re-triggering _on_sync_index_changed
-        self.slider.blockSignals(True)
-        self.slider.setValue(sync_index)
-        self.slider.blockSignals(False)
+        position = self._sync_index_to_position(sync_index)
+        if position is not None:
+            self.slider.blockSignals(True)
+            self.slider.setValue(position)
+            self.slider.blockSignals(False)
 
     def show_playback_controls(self, visible: bool) -> None:
         """Show or hide the playback control bar (play/pause, speed, frame slider).

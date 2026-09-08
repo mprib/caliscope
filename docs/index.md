@@ -28,7 +28,8 @@ For surround rigs where cameras face inward from all sides, a board printed on b
 
 Cameras watching a moving person can be solved from the body alone, with no target.
 Pose keypoints stand in for board corners, and the scene supplies the coordinate frame: an estimated vertical, one known distance for scale, and the floor.
-This path needs intrinsics solved first, and it runs from the [Scripting API](scripting.md).
+This experimental path needs intrinsics solved first.
+Follow the [Markerless Calibration guide](markerless_calibration.md) from Python.
 
 ## Output
 

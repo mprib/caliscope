@@ -5,7 +5,7 @@ The standard workflow uses a board or marker with identifiable corners and known
 Here, a pose tracker identifies matching body keypoints across synchronized camera views to estimate the cameras' relative positions and orientations.
 
 Without a target of known size, the result needs a separate scale measurement and coordinate frame.
-The example uses a measured distance between cameras for scale, GeoCalib to estimate which direction is up, and a low tracked point to set the floor height.
+The example uses a measured distance between cameras for scale, [GeoCalib](https://github.com/cvg/GeoCalib) to estimate which direction is up, and a low tracked point to set the floor height.
 It then centers the origin among the cameras.
 
 !!! warning "Experimental"

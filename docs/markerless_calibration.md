@@ -21,17 +21,16 @@ uv pip install "caliscope[tracking]"
 ```
 
 The interactive viewer needs the GUI extra, which includes tracking.
-`view_capture_volume` is a development-only helper until the next PyPI release, so install the current `main` branch when you want to use it:
 
 ```bash
-uv pip install "caliscope[gui] @ git+https://github.com/mprib/caliscope.git@main"
+uv pip install "caliscope[gui]"
 ```
 
 Run the full recipe below as a standalone Python script on a desktop system.
 The viewer opens a window and pauses the script until you close it.
 It cannot run inside an existing Qt application.
 
-For a headless install from PyPI, use `caliscope[tracking]`, omit `from caliscope.gui import view_capture_volume`, and omit the final `view_capture_volume(...)` call.
+For a headless install, omit `from caliscope.gui import view_capture_volume` and the final `view_capture_volume(...)` call.
 
 ## Prepare the recording
 
@@ -56,7 +55,7 @@ Edit the paths, camera IDs, measured baseline, and playback frame rate in this s
 The camera-array TOML must contain the intrinsic matrices and distortion coefficients from your intrinsic calibration.
 
 ```python
-from importlib.resources import as_file, files
+from importlib.resources import files
 from pathlib import Path
 
 from caliscope import MODELS_DIR
@@ -88,9 +87,8 @@ OUTPUT_DIR = Path("markerless_capture_volume")
 ANIPOSELIB_TOML = OUTPUT_DIR.parent / "camera_array_aniposelib.toml"
 
 # Load the packaged RTMPose-l Halpe26 card without starting the GUI.
-card_resource = files("caliscope.trackers.model_cards").joinpath("rtmpose_l_halpe26.toml")
-with as_file(card_resource) as card_path:
-    card = ModelCard.from_toml(card_path, models_dir=MODELS_DIR)
+card_path = Path(str(files("caliscope.trackers.model_cards"))) / "rtmpose_l_halpe26.toml"
+card = ModelCard.from_toml(card_path, models_dir=MODELS_DIR)
 if not card.onnx_exists:
     download_and_extract_model(card, MODELS_DIR)
 tracker = OnnxTracker(card)

@@ -925,9 +925,9 @@ class ProjectSetupView(QWidget):
             ready_count = len(status.ready_recording_names)
             total_count = len(status.recording_names)
             if ready_count == total_count:
-                detail = f"{ready_count} recording{'s' if ready_count != 1 else ''} ready"
+                detail = f"{ready_count} recording{'s' if ready_count != 1 else ''} with complete camera files"
             else:
-                detail = f"{ready_count}/{total_count} recordings ready; others need attention"
+                detail = f"{ready_count}/{total_count} recordings with complete camera files; others need attention"
             step_status = StepStatus.AVAILABLE
         elif status.recording_names or status.recording_issues:
             count = len(status.recording_names)

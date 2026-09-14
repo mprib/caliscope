@@ -98,6 +98,14 @@ class ReconstructionWidget(QWidget):
         self._recording_feedback_label.setObjectName("recordingFeedbackLabel")
         recording_layout.addWidget(self._recording_feedback_label)
 
+        self._recheck_dimensions_btn = QPushButton("Recheck dimensions")
+        self._recheck_dimensions_btn.setObjectName("recheckDimensionsButton")
+        self._recheck_dimensions_btn.setToolTip(
+            "Read the selected recording's video dimensions again before processing"
+        )
+        self._recheck_dimensions_btn.hide()
+        recording_layout.addWidget(self._recheck_dimensions_btn)
+
         left_layout.addWidget(recording_group)
 
         # Tracker selection group
@@ -194,6 +202,7 @@ class ReconstructionWidget(QWidget):
         self._recording_list.currentTextChanged.connect(self._on_recording_changed)
         self._tracker_combo.currentIndexChanged.connect(self._on_tracker_changed)
         self._process_btn.clicked.connect(self._on_process_clicked)
+        self._recheck_dimensions_btn.clicked.connect(self._on_recheck_dimensions_clicked)
         self._open_output_btn.clicked.connect(self._on_open_output_clicked)
         self._presenter.model_download_needed.connect(self._show_model_download_dialog)
         self._presenter.camera_array_changed.connect(self._update_visualization)
@@ -234,6 +243,7 @@ class ReconstructionWidget(QWidget):
         self._recording_list.blockSignals(False)
 
         self._update_recording_feedback()
+        self._update_ui_for_state(self._presenter.state)
         self._update_visualization()
 
     def _update_recording_feedback(self) -> None:
@@ -251,6 +261,10 @@ class ReconstructionWidget(QWidget):
             tracker_name = self._tracker_combo.itemData(index)
             self._presenter.select_tracker(tracker_name)
             self._update_visualization()
+
+    def _on_recheck_dimensions_clicked(self) -> None:
+        """Request a fresh background dimensions check for the selected recording."""
+        self._presenter.recheck_dimensions()
 
     def _on_process_clicked(self) -> None:
         """Handle process button click - action depends on state."""
@@ -329,9 +343,18 @@ class ReconstructionWidget(QWidget):
             self._state_label.setStyleSheet("")
 
         # Status message
-        if state == ReconstructionState.IDLE:
+        if state == ReconstructionState.RECONSTRUCTING:
+            self._status_message.setText("Processing...")
+        elif self._presenter.dimension_check_notice:
+            self._status_message.setText(self._presenter.dimension_check_notice)
+        elif self._presenter.is_checking_dimensions:
+            self._status_message.setText("Checking recording dimensions...")
+        elif state == ReconstructionState.IDLE:
             if self._presenter.selected_recording and not self._presenter.selected_recording_is_ready:
-                self._status_message.setText("Recording files need attention")
+                if self._presenter.has_structurally_ready_selected_recording:
+                    self._status_message.setText("Recording dimensions need attention")
+                else:
+                    self._status_message.setText("Recording files need attention")
             elif self._presenter.selected_recording and self._presenter.selected_tracker:
                 if self._selected_tracker_needs_download():
                     tracker = self._presenter.selected_tracker
@@ -345,11 +368,11 @@ class ReconstructionWidget(QWidget):
                 self._status_message.setText("Select a tracker")
             else:
                 self._status_message.setText("Select a recording to begin")
-        elif state == ReconstructionState.RECONSTRUCTING:
-            self._status_message.setText("Processing...")
         elif state == ReconstructionState.COMPLETE:
             if self._presenter.selected_recording_is_ready:
                 self._status_message.setText("Reconstruction complete")
+            elif self._presenter.has_structurally_ready_selected_recording:
+                self._status_message.setText("Reconstruction complete. Source dimensions need attention")
             else:
                 self._status_message.setText("Reconstruction complete. Source files need attention")
         elif state == ReconstructionState.ERROR:
@@ -374,6 +397,15 @@ class ReconstructionWidget(QWidget):
             self._process_btn.setEnabled(False)
         else:
             self._process_btn.setEnabled(can_process)
+
+        # Dimensions checks apply only to structurally complete selected sessions.
+        # Keep the control visible while a check is active, but never allow it to
+        # overlap another check or a reconstruction task.
+        recheck_visible = (
+            self._presenter.has_structurally_ready_selected_recording or self._presenter.is_checking_dimensions
+        )
+        self._recheck_dimensions_btn.setVisible(recheck_visible)
+        self._recheck_dimensions_btn.setEnabled(recheck_visible and self._presenter.can_recheck_dimensions)
 
         # Progress bar visibility
         if state == ReconstructionState.RECONSTRUCTING:

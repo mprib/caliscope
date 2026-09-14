@@ -15,6 +15,7 @@ from caliscope.gui.presenters.multi_camera_processing_presenter import MultiCame
 from caliscope.gui.reconstruction_tab import ReconstructionTab
 from caliscope.gui.views.project_setup_view import ProjectSetupView
 from caliscope.gui.widgets.workspace_issue_label import WorkspaceIssueLabel
+from caliscope.recording.recording_validation import CameraDimensionOutcome, RecordingDimensionAssessment
 from caliscope.trackers import tracker_registry
 from caliscope.workspace_coordinator import WorkspaceCoordinator
 
@@ -105,9 +106,28 @@ def test_reconstruction_tab_follows_nested_recording_changes_through_real_watche
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """A built tab follows nested camera files through QFileSystemWatcher."""
+
+    def matching_dimensions(_recording_dir: Path, expected_sizes):
+        """Keep this structural-watcher test independent of PyAV fixture files."""
+        return RecordingDimensionAssessment(
+            tuple(
+                CameraDimensionOutcome(
+                    cam_id=cam_id,
+                    expected_size=size,
+                    actual_size=size,
+                    error=None,
+                )
+                for cam_id, size in expected_sizes
+            )
+        )
+
     tracker_name = "TEST_FEEDBACK"
     tracker_registry.register(tracker_name, lambda: MagicMock(), display_name="Test Feedback")
     monkeypatch.setattr("caliscope.gui.views.reconstruction_widget.opengl_available", lambda: False)
+    monkeypatch.setattr(
+        "caliscope.gui.presenters.reconstruction_presenter.check_recording_dimensions",
+        matching_dimensions,
+    )
     monkeypatch.chdir(tmp_path.parent)
     relative_workspace = Path(tmp_path.name)
     coordinator = WorkspaceCoordinator(relative_workspace)

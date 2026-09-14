@@ -11,6 +11,8 @@ pattern. States are computed from reality (task state + file existence).
 from __future__ import annotations
 
 import logging
+import copy
+from dataclasses import dataclass
 from enum import Enum, auto
 from pathlib import Path
 
@@ -22,6 +24,10 @@ from caliscope.core.workflow_status import WorkspaceIssue
 from caliscope.gui.geometry.wireframe import WireframeSegment, wireframe_segments_from_view
 from caliscope.reconstruction.reconstruct_xyz import reconstruct_xyz
 from caliscope.recording.overlay_video_writer import OverlayVideoWriter
+from caliscope.recording.recording_validation import (
+    RecordingDimensionAssessment,
+    check_recording_dimensions,
+)
 from caliscope.recording.synchronized_timestamps import SynchronizedTimestamps
 from caliscope.repositories.project_settings_repository import ProjectSettingsRepository
 from caliscope.task_manager.task_handle import TaskHandle
@@ -44,6 +50,26 @@ class ReconstructionState(Enum):
     RECONSTRUCTING = auto()  # create_xy or create_xyz running
     COMPLETE = auto()  # xyz output file exists
     ERROR = auto()  # Last attempt failed
+
+
+class _DimensionCheckPurpose(Enum):
+    """Why a selected recording's dimensions are being read."""
+
+    SELECTION = auto()
+    PROCESS = auto()
+
+
+@dataclass
+class _DimensionCheckRequest:
+    """One background dimensions request owned by the presenter."""
+
+    generation: int
+    recording_name: str
+    recording_path: Path
+    expected_sizes: tuple[tuple[int, tuple[int, int] | None], ...]
+    purpose: _DimensionCheckPurpose
+    camera_array_snapshot: CameraArray | None = None
+    handle: TaskHandle | None = None
 
 
 class ReconstructionPresenter(QObject):
@@ -107,6 +133,18 @@ class ReconstructionPresenter(QObject):
         # Task tracking
         self._processing_task: TaskHandle | None = None
         self._last_error: str | None = None
+
+        # Selected-recording media validation is deliberately separate from the
+        # reconstruction state. It is short-lived presenter scratchpad state,
+        # never a workspace-wide cache.
+        self._dimension_generation = 0
+        self._dimension_assessment: RecordingDimensionAssessment | None = None
+        self._dimension_assessment_generation: int | None = None
+        self._dimension_check_error: str | None = None
+        self._dimension_check_notice: tuple[str, str] | None = None
+        self._active_dimension_request: _DimensionCheckRequest | None = None
+        self._pending_dimension_request: _DimensionCheckRequest | None = None
+        self._dimensions_stale_during_reconstruction = False
 
     @property
     def state(self) -> ReconstructionState:
@@ -180,18 +218,124 @@ class ReconstructionPresenter(QObject):
     @property
     def workspace_issues(self) -> tuple[WorkspaceIssue, ...]:
         """Everything the recording feedback label should say right now."""
-        return (*self.recording_layout_issues, *self.selected_recording_issues)
+        return (
+            *self.recording_layout_issues,
+            *self.selected_recording_issues,
+            *self.selected_recording_dimension_issues,
+        )
 
     @property
-    def selected_recording_is_ready(self) -> bool:
-        """Whether the selected session can be submitted for processing."""
+    def selected_recording_dimension_issues(self) -> tuple[WorkspaceIssue, ...]:
+        """Dimension feedback for the selected recording's current check."""
+        if self._dimension_assessment_generation != self._dimension_generation:
+            return ()
+        if self._dimension_check_error is not None:
+            return (
+                WorkspaceIssue(
+                    code="recording_dimension_check_failed",
+                    message=f"Could not check recording dimensions: {self._dimension_check_error}",
+                    relative_path=(f"recordings/{self._selected_recording}" if self._selected_recording else None),
+                ),
+            )
+        if self._dimension_assessment is None:
+            return ()
+
+        missing_cam_ids = set()
+        assessment = self.selected_recording_assessment
+        if assessment is None:
+            # The structural assessment already explains that the selected
+            # session disappeared. Do not add one media-read error per camera.
+            return ()
+        missing_cam_ids = set(assessment.missing_camera_ids)
+
+        issues: list[WorkspaceIssue] = []
+        for outcome in self._dimension_assessment.outcomes:
+            if outcome.cam_id in missing_cam_ids:
+                continue
+            relative_path = f"recordings/{self._selected_recording}/cam_{outcome.cam_id}.mp4"
+            expected = outcome.expected_size
+            actual = outcome.actual_size
+            if expected is None or expected[0] <= 0 or expected[1] <= 0:
+                issues.append(
+                    WorkspaceIssue(
+                        code="missing_calibration_dimensions",
+                        message=f"Calibration dimensions are unavailable for camera {outcome.cam_id}.",
+                        relative_path=relative_path,
+                    )
+                )
+            elif outcome.error is not None:
+                issues.append(
+                    WorkspaceIssue(
+                        code="unreadable_recording_dimensions",
+                        message=(
+                            f"Could not read dimensions from {relative_path}. Check that the file has finished "
+                            "copying and can be opened, then recheck dimensions."
+                        ),
+                        relative_path=relative_path,
+                    )
+                )
+            elif actual != expected:
+                assert actual is not None
+                issues.append(
+                    WorkspaceIssue(
+                        code="recording_dimension_mismatch",
+                        message=(
+                            f"{relative_path} is {actual[0]}×{actual[1]}; calibration for camera "
+                            f"{outcome.cam_id} expects {expected[0]}×{expected[1]}. Use a recording that "
+                            "matches this calibration, or recalibrate for this recording setup."
+                        ),
+                        relative_path=relative_path,
+                    )
+                )
+        return tuple(issues)
+
+    @property
+    def has_structurally_ready_selected_recording(self) -> bool:
+        """Whether the selected session has the expected camera files."""
         assessment = self.selected_recording_assessment
         return bool(self._camera_array.cameras) and assessment is not None and assessment.is_ready
 
     @property
+    def selected_recording_is_ready(self) -> bool:
+        """Whether the selected session's files and dimensions are compatible."""
+        return (
+            self.has_structurally_ready_selected_recording
+            and self._dimension_assessment_generation == self._dimension_generation
+            and self._dimension_assessment is not None
+            and self._dimension_assessment.is_compatible
+        )
+
+    @property
+    def is_checking_dimensions(self) -> bool:
+        """Whether a selected-session media check is active or queued."""
+        return self._active_dimension_request is not None or self._pending_dimension_request is not None
+
+    @property
+    def dimension_check_notice(self) -> str | None:
+        """A restart notice associated with the current selected session only."""
+        if self._dimension_check_notice is None or self._selected_recording is None:
+            return None
+        recording_name, notice = self._dimension_check_notice
+        return notice if recording_name == self._selected_recording else None
+
+    @property
+    def can_recheck_dimensions(self) -> bool:
+        """Whether the selected session can start a manual dimensions recheck."""
+        return (
+            self.has_structurally_ready_selected_recording
+            and not self.is_checking_dimensions
+            and not self.has_active_task
+        )
+
+    @property
     def can_process(self) -> bool:
         """Whether the current recording and tracker selections are processable."""
-        return not self.has_active_task and self.selected_recording_is_ready and self._selected_tracker is not None
+        return (
+            not self.has_active_task
+            and not self.is_checking_dimensions
+            and self.selected_recording_is_ready
+            and self._selected_tracker is not None
+        )
 
     @property
     def has_active_task(self) -> bool:
@@ -296,6 +440,133 @@ class ReconstructionPresenter(QObject):
         """TaskManager instance for background operations."""
         return self._task_manager
 
+    def _expected_sizes(self, camera_array: CameraArray) -> tuple[tuple[int, tuple[int, int] | None], ...]:
+        """Return an immutable, deterministic calibration-size snapshot."""
+        return tuple(sorted((cam_id, camera.size) for cam_id, camera in camera_array.cameras.items()))
+
+    def _invalidate_dimension_validation(self, *, show_process_restart_notice: bool = False) -> None:
+        """Invalidate published and queued media results without blocking the UI."""
+        invalidated_process = any(
+            request is not None and request.purpose == _DimensionCheckPurpose.PROCESS
+            for request in (self._active_dimension_request, self._pending_dimension_request)
+        )
+        if show_process_restart_notice and invalidated_process and self._selected_recording is not None:
+            self._dimension_check_notice = (
+                self._selected_recording,
+                "Recording check restarted. Select Process when it finishes.",
+            )
+        self._dimension_generation += 1
+        self._dimension_assessment = None
+        self._dimension_assessment_generation = None
+        self._dimension_check_error = None
+        self._pending_dimension_request = None
+        if self._active_dimension_request is not None and self._active_dimension_request.handle is not None:
+            self._active_dimension_request.handle.cancel()
+
+    def _request_dimension_check(
+        self,
+        purpose: _DimensionCheckPurpose,
+        *,
+        camera_array_snapshot: CameraArray | None = None,
+    ) -> None:
+        """Queue a selected-session media check, retaining only the newest request."""
+        if self.has_active_task:
+            self._dimensions_stale_during_reconstruction = True
+            return
+        if not self.has_structurally_ready_selected_recording or self._selected_recording is None:
+            self._notify_dimensions_changed()
+            return
+
+        camera_array = camera_array_snapshot or self._camera_array
+        request = _DimensionCheckRequest(
+            generation=self._dimension_generation,
+            recording_name=self._selected_recording,
+            recording_path=self._workspace_dir / "recordings" / self._selected_recording,
+            expected_sizes=self._expected_sizes(camera_array),
+            purpose=purpose,
+            camera_array_snapshot=camera_array_snapshot,
+        )
+        if self._active_dimension_request is None:
+            self._start_dimension_request(request)
+        else:
+            self._pending_dimension_request = request
+        self._notify_dimensions_changed()
+
+    def _start_dimension_request(self, request: _DimensionCheckRequest) -> None:
+        """Submit one dimensions worker and retain ownership until its terminal signal."""
+
+        def worker(_token, _handle):
+            return check_recording_dimensions(request.recording_path, request.expected_sizes)
+
+        handle = self._task_manager.submit(worker, name="recording-dimension-check", auto_start=False)
+        request.handle = handle
+        self._active_dimension_request = request
+        handle.completed.connect(
+            lambda result, request=request: self._on_dimension_check_completed(request, result),
+            Qt.ConnectionType.QueuedConnection,
+        )
+        handle.failed.connect(
+            lambda exc_type, message, request=request: self._on_dimension_check_failed(request, exc_type, message),
+            Qt.ConnectionType.QueuedConnection,
+        )
+        handle.cancelled.connect(
+            lambda request=request: self._on_dimension_check_cancelled(request),
+            Qt.ConnectionType.QueuedConnection,
+        )
+        self._task_manager.start_task(handle.task_id)
+
+    def _request_is_current(self, request: _DimensionCheckRequest) -> bool:
+        """Whether a terminal request still describes the selected inputs."""
+        return (
+            request.generation == self._dimension_generation
+            and request.recording_name == self._selected_recording
+            and request.recording_path == self._workspace_dir / "recordings" / request.recording_name
+            and request.expected_sizes == self._expected_sizes(self._camera_array)
+        )
+
+    def _retire_dimension_request(self, request: _DimensionCheckRequest) -> None:
+        """Release only this request's active slot, then launch the newest queued request."""
+        if self._active_dimension_request is request:
+            self._active_dimension_request = None
+            pending = self._pending_dimension_request
+            self._pending_dimension_request = None
+            if pending is not None:
+                self._start_dimension_request(pending)
+
+    def _on_dimension_check_completed(self, request: _DimensionCheckRequest, result: object) -> None:
+        self._retire_dimension_request(request)
+        if self._request_is_current(request) and isinstance(result, RecordingDimensionAssessment):
+            self._dimension_assessment = result
+            self._dimension_assessment_generation = request.generation
+            self._dimension_check_error = None
+            if request.purpose == _DimensionCheckPurpose.PROCESS and result.is_compatible:
+                self._continue_reconstruction_after_dimension_check(request)
+        self._notify_dimensions_changed()
+
+    def _on_dimension_check_failed(self, request: _DimensionCheckRequest, exc_type: str, message: str) -> None:
+        self._retire_dimension_request(request)
+        if self._request_is_current(request):
+            self._dimension_assessment = None
+            self._dimension_assessment_generation = request.generation
+            self._dimension_check_error = f"{exc_type}: {message}"
+        self._notify_dimensions_changed()
+
+    def _on_dimension_check_cancelled(self, request: _DimensionCheckRequest) -> None:
+        self._retire_dimension_request(request)
+        self._notify_dimensions_changed()
+
+    def _notify_dimensions_changed(self) -> None:
+        """Refresh existing recording feedback and state-driven controls."""
+        self.recordings_changed.emit()
+        self._emit_state_changed()
+
+    def recheck_dimensions(self) -> None:
+        """Manually reread dimensions for the selected structurally valid session."""
+        if not self.can_recheck_dimensions:
+            return
+        self._invalidate_dimension_validation()
+        self._request_dimension_check(_DimensionCheckPurpose.SELECTION)
+
     def select_recording(self, name: str) -> None:
         """Select a recording for processing.
 
@@ -308,9 +579,13 @@ class ReconstructionPresenter(QObject):
             logger.warning(f"Recording '{name}' not in available recordings")
             return
 
+        self._invalidate_dimension_validation()
+        if name != self._selected_recording:
+            self._dimension_check_notice = None
         self._selected_recording = name
         self._last_error = None  # Clear error on new selection
         self._processing_task = None  # Clear stale task reference
+        self._request_dimension_check(_DimensionCheckPurpose.SELECTION)
         self._emit_state_changed()
         logger.info(f"Selected recording: {name}")
 
@@ -336,6 +611,15 @@ class ReconstructionPresenter(QObject):
         if preserve_error:
             self._last_error = current_error
 
+        if self.has_active_task:
+            self._dimensions_stale_during_reconstruction = True
+        else:
+            self._invalidate_dimension_validation(show_process_restart_notice=True)
+            # The current selected directory may have changed in place. A
+            # selection check never carries a Process continuation.
+            if self._selected_recording is not None:
+                self._request_dimension_check(_DimensionCheckPurpose.SELECTION)
+
         self.recordings_changed.emit()
         self._emit_state_changed()
 
@@ -351,9 +635,11 @@ class ReconstructionPresenter(QObject):
             logger.warning(f"Tracker '{tracker}' not available")
             return
 
+        self._invalidate_dimension_validation(show_process_restart_notice=True)
         self._selected_tracker = tracker
         self._last_error = None  # Clear error on new selection
         self._processing_task = None  # Clear stale task reference
+        self._request_dimension_check(_DimensionCheckPurpose.SELECTION)
         self._emit_state_changed()
         logger.info(f"Selected tracker: {tracker}")
 
@@ -388,15 +674,31 @@ class ReconstructionPresenter(QObject):
                 self.model_download_needed.emit(card)
             return
 
-        logger.info(f"Starting reconstruction: recording={self._selected_recording}, tracker={self._selected_tracker}")
-
-        # Clear previous state
+        logger.info(f"Checking recording dimensions before reconstruction: {self._selected_recording}")
         self._last_error = None
+        self._dimension_check_notice = None
+        snapshot = copy.deepcopy(self._camera_array)
+        self._invalidate_dimension_validation()
+        self._request_dimension_check(_DimensionCheckPurpose.PROCESS, camera_array_snapshot=snapshot)
 
-        # --- boundary: synchronous, fallible setup before submitting the task ---
-        recording_path = self._workspace_dir / "recordings" / self._selected_recording
+    def _continue_reconstruction_after_dimension_check(self, request: _DimensionCheckRequest) -> None:
+        """Perform existing reconstruction setup after a fresh compatible preflight."""
+        camera_array = request.camera_array_snapshot
+        if camera_array is None or not self._request_is_current(request):
+            return
+
+        # The preflight checked headers. Reassess cheap structural facts before
+        # timestamps, tracker construction, directories, or output writes.
+        structural = self._workspace_guide.assess_camera_videos(request.recording_path, camera_array.cameras)
+        if not structural.is_ready:
+            self._invalidate_dimension_validation()
+            self._request_dimension_check(_DimensionCheckPurpose.SELECTION)
+            return
+
+        recording_path = request.recording_path
         tracker_name = self._selected_tracker
-        camera_array = self._camera_array
+        if tracker_name is None:
+            return
         cam_ids = sorted(camera_array.cameras.keys())
 
         try:
@@ -537,6 +839,8 @@ class ReconstructionPresenter(QObject):
 
     def cleanup(self) -> None:
         """Clean up resources. Call before discarding presenter."""
+        self._invalidate_dimension_validation()
+        self._dimension_check_notice = None
         self.cancel_reconstruction()
 
     def refresh_camera_array(self, camera_array: CameraArray) -> None:
@@ -547,6 +851,8 @@ class ReconstructionPresenter(QObject):
         triggers a view rebuild if showing current calibration (not historical).
         """
         self._camera_array = camera_array
+        self._invalidate_dimension_validation(show_process_restart_notice=True)
+        self._request_dimension_check(_DimensionCheckPurpose.SELECTION)
         # Only refresh if showing current calibration, not historical per-recording data
         if not self.is_showing_historical_calibration:
             self._emit_state_changed()
@@ -562,6 +868,7 @@ class ReconstructionPresenter(QObject):
 
         self.reconstruction_complete.emit(output_path)
         self.refresh_from_workspace()
+        self._schedule_stale_dimension_check()
 
     def _on_reconstruction_failed(self, exc_type: str, message: str) -> None:
         """Handle reconstruction failure."""
@@ -572,12 +879,22 @@ class ReconstructionPresenter(QObject):
         self._emit_state_changed()
         self.reconstruction_failed.emit(error_msg)
         self.refresh_from_workspace(preserve_error=True)
+        self._schedule_stale_dimension_check()
 
     def _on_reconstruction_cancelled(self) -> None:
         """Handle reconstruction cancellation."""
         logger.info("Reconstruction was cancelled")
         self._emit_state_changed()
         self.refresh_from_workspace()
+        self._schedule_stale_dimension_check()
+
+    def _schedule_stale_dimension_check(self) -> None:
+        """Run one deferred selected-session check after reconstruction ends."""
+        if self._dimensions_stale_during_reconstruction:
+            self._dimensions_stale_during_reconstruction = False
+            if not self.is_checking_dimensions:
+                self._invalidate_dimension_validation()
+                self._request_dimension_check(_DimensionCheckPurpose.SELECTION)
 
     def _on_progress(self, percent: int, message: str) -> None:
         """Forward progress updates to our signal."""

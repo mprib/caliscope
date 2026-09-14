@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from caliscope.recording.video_utils import read_video_properties
+from caliscope.recording.video_utils import read_video_dimensions, read_video_properties
 
 EXTRINSIC_DIR = Path(__file__).parent / "sessions" / "4_cam_recording" / "calibration" / "extrinsic"
 
@@ -46,6 +46,57 @@ class TestReadVideoProperties:
         # All cameras should have the same FPS (within rounding)
         for fps in fps_values:
             assert abs(fps - fps_values[0]) < 0.1
+
+
+class TestReadVideoDimensions:
+    def test_reads_dimensions_without_timing_metadata(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+        video_path = tmp_path / "cam_0.mp4"
+        video_path.touch()
+
+        class Stream:
+            width = 1920
+            height = 1080
+            average_rate = None
+            frames = 0
+
+        class Container:
+            streams = type("Streams", (), {"video": [Stream()]})()
+
+            def __init__(self):
+                self.closed = False
+
+            def close(self):
+                self.closed = True
+
+        container = Container()
+        monkeypatch.setattr("caliscope.recording.video_utils.av.open", lambda _: container)
+
+        assert read_video_dimensions(video_path) == (1920, 1080)
+        assert container.closed
+
+    def test_rejects_nonpositive_dimensions_and_closes_container(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+        video_path = tmp_path / "cam_0.mp4"
+        video_path.touch()
+
+        class Stream:
+            width = 0
+            height = 1080
+
+        class Container:
+            streams = type("Streams", (), {"video": [Stream()]})()
+
+            def __init__(self):
+                self.closed = False
+
+            def close(self):
+                self.closed = True
+
+        container = Container()
+        monkeypatch.setattr("caliscope.recording.video_utils.av.open", lambda _: container)
+
+        with pytest.raises(ValueError, match="positive video dimensions"):
+            read_video_dimensions(video_path)
+        assert container.closed
 
 
 if __name__ == "__main__":

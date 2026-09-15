@@ -13,13 +13,11 @@ because it only observes status - it doesn't orchestrate workflows.
 from __future__ import annotations
 
 import logging
-import os
-import subprocess
-import sys
 from collections.abc import Callable
 from pathlib import Path
 
-from PySide6.QtCore import QByteArray, Qt, Signal
+from PySide6.QtCore import QByteArray, Qt, QUrl, Signal
+from PySide6.QtGui import QDesktopServices
 from PySide6.QtSvgWidgets import QSvgWidget
 from PySide6.QtWidgets import (
     QCheckBox,
@@ -778,12 +776,7 @@ class ProjectSetupView(QWidget):
         workspace_path = str(self._coordinator.workspace)
         logger.info(f"Opening workspace folder: {workspace_path}")
 
-        if sys.platform == "win32":
-            os.startfile(workspace_path)  # type: ignore[attr-defined]
-        elif sys.platform == "darwin":
-            subprocess.run(["open", workspace_path], check=False)
-        else:  # Linux and other Unix-like systems
-            subprocess.run(["xdg-open", workspace_path], check=False)
+        QDesktopServices.openUrl(QUrl.fromLocalFile(workspace_path))
 
     # -------------------------------------------------------------------------
     # Status Refresh

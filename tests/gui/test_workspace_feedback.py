@@ -6,7 +6,7 @@ from pathlib import Path
 from unittest.mock import MagicMock
 
 import pytest
-from PySide6.QtCore import QElapsedTimer, QEventLoop
+from PySide6.QtCore import QElapsedTimer, QEventLoop, QUrl
 from PySide6.QtTest import QSignalSpy
 from PySide6.QtWidgets import QApplication, QLabel, QListWidget, QPushButton
 
@@ -67,6 +67,28 @@ def test_project_feedback_follows_directory_change(coordinator: WorkspaceCoordin
 
     assert "No extrinsic camera videos found" not in view._file_feedback_label.text()
     assert tuple(coordinator.camera_array.cameras) == (0,)
+
+
+def test_open_project_folder_requests_workspace_local_url(
+    coordinator: WorkspaceCoordinator,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The visible workspace button delegates opening to Qt with a local URL."""
+    requested_urls: list[QUrl] = []
+
+    def capture_url(url: QUrl) -> bool:
+        requested_urls.append(url)
+        return True
+
+    monkeypatch.setattr("caliscope.gui.views.project_setup_view.QDesktopServices.openUrl", capture_url)
+    view = ProjectSetupView(coordinator)
+    open_button = next(button for button in view.findChildren(QPushButton) if button.text() == "Open Project Folder")
+
+    open_button.click()
+
+    assert len(requested_urls) == 1
+    assert requested_urls[0].isLocalFile()
+    assert Path(requested_urls[0].toLocalFile()) == coordinator.workspace
 
 
 def test_open_extract_tab_follows_extrinsic_videos(coordinator: WorkspaceCoordinator) -> None:

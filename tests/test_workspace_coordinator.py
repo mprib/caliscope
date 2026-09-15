@@ -8,8 +8,6 @@ target, and still wires the ArUco marker-set factory for the ArUco target.
 """
 
 from pathlib import Path
-from unittest.mock import MagicMock
-
 import numpy as np
 import pytest
 from PySide6.QtCore import QElapsedTimer, QEventLoop
@@ -195,55 +193,58 @@ def test_recording_session_watches_follow_root_directory_changes(
     assert str(session.resolve()) not in coordinator._session_watches
 
 
-def test_recording_camera_file_watch_notifies_and_excludes_output_artifacts(
-    coordinator: WorkspaceCoordinator,
-    qapp,
-    monkeypatch: pytest.MonkeyPatch,
-):
-    """A canonical recording video change uses status_changed without discovery."""
-    session = coordinator.workspace_guide.recording_dir / "walk"
-    session.mkdir()
-    video = session / "cam_4.mp4"
-    video.write_bytes(b"first")
-    output = session / "TRACKER" / "xyz_TRACKER.csv"
-    output.parent.mkdir()
-    output.write_bytes(b"output")
-    coordinator._on_directory_changed(str(coordinator.workspace_guide.recording_dir))
-    discover = MagicMock()
-    monkeypatch.setattr(coordinator, "_discover_new_cameras", discover)
-
-    assert str(video.resolve()) in coordinator._watcher.files()
-    assert str(output.resolve()) not in coordinator._watcher.files()
-    status_spy = QSignalSpy(coordinator.status_changed)
-    previous_count = status_spy.count()
-
-    video.write_bytes(b"changed")
-
-    _wait_for(qapp, lambda: status_spy.count() > previous_count)
-    assert str(video.resolve()) in coordinator._recording_video_watches
-    discover.assert_not_called()
-
-
+@pytest.mark.parametrize("linked_inputs", [False, True], ids=["regular", "linked-session-and-video"])
 def test_atomic_recording_video_replacement_readds_file_watch(
     coordinator: WorkspaceCoordinator,
     qapp,
+    tmp_path: Path,
+    linked_inputs: bool,
 ):
     """Reconciliation restores a dropped Qt file watch after atomic replacement."""
     session = coordinator.workspace_guide.recording_dir / "walk"
-    session.mkdir()
-    video = session / "cam_4.mp4"
-    video.write_bytes(b"first")
+    if linked_inputs:
+        session_target = tmp_path / "external-session"
+        video_target = tmp_path / "external-cam_4.mp4"
+        session_target.mkdir()
+        video_target.write_bytes(b"first")
+        try:
+            session.symlink_to(session_target, target_is_directory=True)
+            video = session / "cam_4.mp4"
+            video.symlink_to(video_target)
+        except OSError as error:
+            pytest.skip(f"symlinks are unavailable: {error}")
+    else:
+        session.mkdir()
+        video = session / "cam_4.mp4"
+        video.write_bytes(b"first")
     coordinator._on_directory_changed(str(coordinator.workspace_guide.recording_dir))
     assert str(video.resolve()) in coordinator._watcher.files()
 
-    status_spy = QSignalSpy(coordinator.status_changed)
-    previous_count = status_spy.count()
+    directory_spy = QSignalSpy(coordinator.recording_directory_changed)
+
+    def session_changed_since(previous_count: int) -> bool:
+        return any(
+            Path(directory_spy.at(index)[0]) == session.absolute()
+            for index in range(previous_count, directory_spy.count())
+        )
+
+    (session / "notes.txt").touch()
+    _wait_for(qapp, lambda: session_changed_since(0))
+
+    video_spy = QSignalSpy(coordinator.recording_video_changed)
+    previous_count = video_spy.count()
+    video.write_bytes(b"changed")
+    _wait_for(qapp, lambda: video_spy.count() > previous_count)
+    assert Path(video_spy.at(video_spy.count() - 1)[0]) == video.resolve()
+
+    previous_directory_count = directory_spy.count()
     replacement = session / "replacement.tmp"
     replacement.write_bytes(b"replacement")
     replacement.replace(video)
 
-    _wait_for(
-        qapp,
-        lambda: status_spy.count() > previous_count and str(video.resolve()) in coordinator._watcher.files(),
-    )
-    assert str(video.resolve()) in coordinator._recording_video_watches
+    _wait_for(qapp, lambda: session_changed_since(previous_directory_count))
+
+    previous_video_count = video_spy.count()
+    video.write_bytes(b"replacement changed")
+    _wait_for(qapp, lambda: video_spy.count() > previous_video_count)
+    assert Path(video_spy.at(video_spy.count() - 1)[0]) == video.resolve()

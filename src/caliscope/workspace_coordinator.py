@@ -69,6 +69,9 @@ class WorkspaceCoordinator(QObject):
     extrinsic_target_changed = Signal()  # Emitted when extrinsic target config is updated
     capture_volume_updated = Signal()  # Immediate: in-memory state changed, use for UI refresh
     status_changed = Signal()  # Deferred: fires after filesystem operations complete
+    recording_directory_changed = Signal(Path)  # Recording root or immediate session changed
+    recording_video_changed = Signal(Path)  # Canonical recording video changed
+    calibration_changed = Signal()  # Camera array changed, use for reconstruction refresh
 
     def __init__(self, workspace_dir: Path):
         super().__init__()
@@ -150,7 +153,7 @@ class WorkspaceCoordinator(QObject):
         recording_dir = self.workspace_guide.recording_dir
         if not recording_dir.exists():
             return set()
-        recording_root = recording_dir.resolve()
+        recording_root = recording_dir.absolute()
         return {str(recording_root / path.name) for path in recording_dir.iterdir() if path.is_dir()}
 
     def _recording_video_paths(self) -> set[str]:
@@ -201,18 +204,27 @@ class WorkspaceCoordinator(QObject):
     def _on_directory_changed(self, path: str) -> None:
         """Handle filesystem change in watched directory."""
         logger.info(f"Directory changed: {path}")
-        if Path(path).resolve() in {
+        changed_path = Path(path).absolute()
+        if changed_path.resolve() in {
             self.workspace_guide.intrinsic_dir.resolve(),
             self.workspace_guide.extrinsic_dir.resolve(),
         }:
             self._discover_new_cameras()
         self._reconcile_recording_watches()
+        recording_roots = {
+            self.workspace_guide.recording_dir.absolute(),
+            self.workspace_guide.recording_dir.resolve(),
+        }
+        if changed_path in recording_roots or changed_path.parent in recording_roots:
+            self.recording_directory_changed.emit(changed_path)
         self.status_changed.emit()
 
     def _on_recording_video_changed(self, path: str) -> None:
         """Refresh recording feedback after a watched camera-video change."""
         logger.info(f"Recording video changed: {path}")
+        changed_path = Path(path).absolute()
         self._reconcile_recording_watches()
+        self.recording_video_changed.emit(changed_path)
         self.status_changed.emit()
 
     @property
@@ -340,7 +352,14 @@ class WorkspaceCoordinator(QObject):
                 logger.info("Skipping capture volume load (not calibrated)")
 
         handle = self.task_manager.submit(worker, name="load_workspace", auto_start=False)
-        handle.completed.connect(lambda _: self.status_changed.emit())
+
+        def _on_workspace_loaded(_: object) -> None:
+            # This runs after the worker has overlaid bundle-authoritative
+            # cameras, so observers receive one complete calibration snapshot.
+            self.calibration_changed.emit()
+            self.status_changed.emit()
+
+        handle.completed.connect(_on_workspace_loaded)
         return handle
 
     def start_load(self, handle: TaskHandle) -> None:
@@ -440,8 +459,10 @@ class WorkspaceCoordinator(QObject):
         # An empty in-memory array has nothing unsaved to lose (bundle overlays
         # only exist once cameras are loaded), so start from the persisted file
         # rather than overwriting it with a freshly discovered subset.
+        camera_array_changed = False
         if not self.camera_array.cameras:
             self.camera_array = self.camera_repository.load()
+            camera_array_changed = bool(self.camera_array.cameras)
         intrinsic_ids = set(self.workspace_guide.get_cam_ids_in_dir(self.workspace_guide.intrinsic_dir))
         extrinsic_ids = set(self.workspace_guide.get_cam_ids_in_dir(self.workspace_guide.extrinsic_dir))
         for cam_id in sorted(intrinsic_ids | extrinsic_ids):
@@ -449,8 +470,11 @@ class WorkspaceCoordinator(QObject):
                 continue
             try:
                 self._add_camera_from_source(cam_id)
+                camera_array_changed |= cam_id in self.camera_array.cameras
             except Exception as error:
                 logger.warning("Could not add camera %s from new video files: %s", cam_id, error)
+        if camera_array_changed:
+            self.calibration_changed.emit()
 
     def update_intrinsic_target_type(self, target_type: IntrinsicTargetType) -> None:
         """Update which target type is used for intrinsic calibration."""
@@ -765,9 +789,14 @@ class WorkspaceCoordinator(QObject):
             logger.warning(f"Cannot persist rotation: cam_id {cam_id} not in camera_array")
             return
 
-        self.camera_array.cameras[cam_id].rotation_count = rotation_count
+        camera = self.camera_array.cameras[cam_id]
+        if camera.rotation_count == rotation_count:
+            return
+
+        camera.rotation_count = rotation_count
         self.camera_repository.save(self.camera_array)
         logger.debug(f"Persisted camera rotation: cam_id {cam_id} -> {rotation_count * 90}°")
+        self.calibration_changed.emit()
 
     def persist_intrinsic_calibration(
         self,
@@ -800,6 +829,7 @@ class WorkspaceCoordinator(QObject):
             self._intrinsic_points[cam_id] = collected_points
 
         logger.info(f"Persisted intrinsic calibration for cam_id {cam_id}: rmse={output.report.rmse:.3f}px")
+        self.calibration_changed.emit()
         self.status_changed.emit()
 
     def get_intrinsic_report(self, cam_id: int) -> IntrinsicCalibrationReport | None:
@@ -852,6 +882,7 @@ class WorkspaceCoordinator(QObject):
         self._capture_volume = capture_volume
         self.camera_array = capture_volume.camera_array  # Keep main camera_array in sync
         self.capture_volume_updated.emit()  # Immediate - consumers use in-memory state
+        self.calibration_changed.emit()
 
         # Capture for closure (background worker)
         capture_volume_to_save = capture_volume

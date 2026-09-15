@@ -7,9 +7,11 @@ Tests focus on:
 - cleanup() cancels active task
 """
 
+import copy
 from pathlib import Path
 from unittest.mock import MagicMock
 
+import numpy as np
 import pytest
 
 from caliscope import __root__
@@ -395,6 +397,83 @@ class TestSignalEmissions:
 
         assert signal_received
 
+    def test_dimension_completion_updates_state_without_rebuilding_recording_list(self, presenter, qapp):
+        """Dimension results update feedback controls, not the recording list or preview."""
+        recordings_changed = []
+        states = []
+        presenter.recordings_changed.connect(lambda: recordings_changed.append(True))
+        presenter.state_changed.connect(states.append)
+        presenter.select_recording("recording_1")
+        states.clear()
+
+        _publish_current_dimensions(presenter)
+
+        assert recordings_changed == []
+        assert states
+
+
+class TestScopedWorkspaceRefresh:
+    def test_selected_assessment_reads_only_selected_directory(self, presenter, monkeypatch):
+        presenter.select_recording("recording_1")
+        all_recordings = MagicMock(side_effect=AssertionError("selected feedback must not scan every session"))
+        monkeypatch.setattr(presenter._workspace_guide, "assess_recordings", all_recordings)
+
+        assessment = presenter.selected_recording_assessment
+
+        assert assessment is not None
+        all_recordings.assert_not_called()
+
+    def test_other_recording_changes_do_not_request_metadata(
+        self, presenter, workspace_with_recordings, mock_task_manager
+    ):
+        other = _create_recording_session(workspace_with_recordings, "other")
+        presenter.select_recording("recording_1")
+        _publish_current_dimensions(presenter)
+        submitted = mock_task_manager.submit.call_count
+
+        presenter.refresh_recording_structure(other)
+        presenter.recheck_selected_video(other / "cam_0.mp4")
+
+        assert presenter.selected_recording_is_ready
+        assert mock_task_manager.submit.call_count == submitted
+
+    def test_same_size_calibration_change_cancels_process_preflight(
+        self, presenter, registered_test_tracker, mock_task_manager
+    ):
+        presenter.select_recording("recording_1")
+        presenter.select_tracker("CHARUCO")
+        _publish_current_dimensions(presenter)
+        presenter.start_reconstruction()
+        process_request = presenter._active_dimension_request
+        assert process_request is not None and process_request.handle is not None
+        changed_calibration = copy.deepcopy(presenter._camera_array)
+        assert changed_calibration.cameras[0].matrix is not None
+        changed_calibration.cameras[0].matrix += np.eye(3)
+
+        presenter.refresh_camera_array(changed_calibration)
+        presenter._on_dimension_check_completed(process_request, _compatible_dimensions(presenter))
+
+        process_request.handle.cancel.assert_called_once()
+        assert presenter.dimension_check_notice == "Recording check restarted. Select Process when it finishes."
+        assert all(call.kwargs["name"] != "reconstruction" for call in mock_task_manager.submit.call_args_list)
+
+    def test_tracker_selection_cancels_process_continuation(
+        self, presenter, registered_test_tracker, mock_task_manager
+    ):
+        presenter.select_recording("recording_1")
+        _publish_current_dimensions(presenter)
+        presenter.select_tracker("CHARUCO")
+        assert presenter.selected_recording_is_ready
+        presenter.start_reconstruction()
+        process_request = presenter._active_dimension_request
+        assert process_request is not None and process_request.handle is not None
+
+        presenter.select_tracker("CHARUCO")
+        presenter._on_dimension_check_completed(process_request, _compatible_dimensions(presenter))
+
+        process_request.handle.cancel.assert_called_once()
+        assert all(call.kwargs["name"] != "reconstruction" for call in mock_task_manager.submit.call_args_list)
+
 
 class TestStartReconstruction:
     """Tests for starting reconstruction."""
@@ -417,12 +496,13 @@ class TestStartReconstruction:
 
         presenter.select_recording("recording_1")
         presenter.select_tracker("CHARUCO")
-        presenter._on_dimension_check_cancelled(presenter._active_dimension_request)
         _publish_current_dimensions(presenter)
         presenter.start_reconstruction()
         process_request = presenter._active_dimension_request
         assert process_request is not None
-        assert process_request.camera_array_snapshot is not presenter._camera_array
+        events = []
+        presenter.reconstruction_starting.connect(lambda: events.append("signal"))
+        mock_task_manager.start_task.side_effect = lambda _task_id: events.append("start_task")
         _publish_current_dimensions(presenter)
 
         reconstruction_calls = [
@@ -430,6 +510,7 @@ class TestStartReconstruction:
         ]
         assert len(reconstruction_calls) == 1
         assert reconstruction_calls[0].kwargs["auto_start"] is False
+        assert events == ["signal", "start_task"]
 
     def test_incompatible_process_preflight_has_no_output_side_effects(
         self,
@@ -454,18 +535,20 @@ class TestStartReconstruction:
         mock_task_manager.submit.return_value = handle
         presenter.select_recording("recording_1")
         presenter.select_tracker("CHARUCO")
-        presenter._on_dimension_check_cancelled(presenter._active_dimension_request)
         _publish_current_dimensions(presenter)
 
         presenter.start_reconstruction()
         request = presenter._active_dimension_request
         assert request is not None
+        starts = []
+        presenter.reconstruction_starting.connect(lambda: starts.append(True))
         presenter._on_dimension_check_completed(request, _mismatched_dimensions(presenter))
 
         load_timestamps.assert_not_called()
         create_tracker.assert_not_called()
         assert not (recording / "CHARUCO").exists()
         assert all(call.kwargs["name"] != "reconstruction" for call in mock_task_manager.submit.call_args_list)
+        assert starts == []
 
     def test_missing_camera_video_blocks_submission_even_with_timestamps(
         self,
@@ -505,7 +588,6 @@ class TestStartReconstruction:
         monkeypatch.setattr(tracker_registry, "create", create_tracker)
         presenter.select_recording("recording_1")
         presenter.select_tracker("CHARUCO")
-        presenter._on_dimension_check_cancelled(presenter._active_dimension_request)
         _publish_current_dimensions(presenter)
 
         presenter.start_reconstruction()
@@ -529,7 +611,6 @@ class TestStartReconstruction:
         presenter.select_recording("recording_1")
         presenter.select_tracker("CHARUCO")
 
-        presenter._on_dimension_check_cancelled(presenter._active_dimension_request)
         _publish_current_dimensions(presenter)
         presenter.start_reconstruction()
         _publish_current_dimensions(presenter)
@@ -554,7 +635,6 @@ class TestStartReconstruction:
         mock_task_manager.submit.return_value = handle
         presenter.select_recording("recording_1")
         presenter.select_tracker("CHARUCO")
-        presenter._on_dimension_check_cancelled(presenter._active_dimension_request)
         _publish_current_dimensions(presenter)
         presenter.start_reconstruction()
         process_request = presenter._active_dimension_request
@@ -570,34 +650,6 @@ class TestStartReconstruction:
         presenter.start_reconstruction()
 
         assert presenter.dimension_check_notice is None
-
-
-class TestDimensionRequestOwnership:
-    def test_stale_terminal_result_cannot_retire_new_active_slot(
-        self,
-        presenter,
-        workspace_with_recordings,
-        mock_task_manager,
-        qapp,
-    ):
-        """Slot retirement follows request identity, not freshness generation."""
-        _create_recording_session(workspace_with_recordings, "other")
-        handle = MagicMock()
-        handle.state = TaskState.RUNNING
-        mock_task_manager.submit.return_value = handle
-        presenter.select_recording("recording_1")
-        old_request = presenter._active_dimension_request
-        assert old_request is not None
-
-        presenter.select_recording("other")
-        presenter._on_dimension_check_cancelled(old_request)
-        current_request = presenter._active_dimension_request
-        assert current_request is not None
-        assert current_request is not old_request
-
-        presenter._on_dimension_check_completed(old_request, _compatible_dimensions(presenter))
-
-        assert presenter._active_dimension_request is current_request
 
 
 class TestTerminalSelectionReconciliation:

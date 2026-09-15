@@ -8,6 +8,7 @@ This is a thin MVP widget following the state-driven UI pattern.
 """
 
 import logging
+from pathlib import Path
 
 from PySide6.QtCore import Qt, QTimer
 from PySide6.QtWidgets import (
@@ -54,6 +55,7 @@ class ReconstructionWidget(QWidget):
         self._presenter = presenter
         self._viz_widget: Qt3DPlaybackWidget | None = None
         self._viz_pending = False  # Debounce flag for _update_visualization
+        self._last_displayed_input_key: tuple[str | None, str | None, Path | None, bool] | None = None
 
         self._setup_ui()
         self._connect_signals()
@@ -187,13 +189,14 @@ class ReconstructionWidget(QWidget):
         self._presenter.reconstruction_complete.connect(self._on_reconstruction_complete)
         self._presenter.reconstruction_failed.connect(self._on_reconstruction_failed)
         self._presenter.recordings_changed.connect(self._refresh_recording_list)
+        self._presenter.reconstruction_starting.connect(self.suspend_rendering)
 
         # View -> Presenter (via adapters)
         self._recording_list.currentTextChanged.connect(self._on_recording_changed)
         self._tracker_combo.currentIndexChanged.connect(self._on_tracker_changed)
         self._process_btn.clicked.connect(self._on_process_clicked)
         self._presenter.model_download_needed.connect(self._show_model_download_dialog)
-        self._presenter.camera_array_changed.connect(self._update_visualization)
+        self._presenter.camera_array_changed.connect(self._on_camera_array_changed)
 
     def _populate_initial_data(self) -> None:
         """Populate lists with available recordings and trackers."""
@@ -214,8 +217,7 @@ class ReconstructionWidget(QWidget):
         """Handle recording selection change."""
         if name:  # Guard against empty string when list cleared
             self._presenter.select_recording(name)
-            self._update_recording_feedback()
-            self._update_visualization()
+            self._update_visualization(force=True)
 
     def _refresh_recording_list(self) -> None:
         """Render the current filesystem session list without losing selection."""
@@ -229,15 +231,13 @@ class ReconstructionWidget(QWidget):
             self._recording_list.setCurrentRow(recordings.index(selected))
         self._recording_list.blockSignals(False)
 
-        self._update_recording_feedback()
-        self._update_ui_for_state(self._presenter.state)
         self._update_visualization()
 
     def _update_recording_feedback(self) -> None:
         """Show actionable root and selected-session filesystem feedback."""
         empty_text = (
             ""
-            if self._presenter.available_recordings
+            if self._recording_list.count()
             else "No recording session folders found. Add a named folder inside recordings/."
         )
         self._recording_feedback_label.set_issues(self._presenter.workspace_issues, empty_text=empty_text)
@@ -247,7 +247,7 @@ class ReconstructionWidget(QWidget):
         if index >= 0:
             tracker_name = self._tracker_combo.itemData(index)
             self._presenter.select_tracker(tracker_name)
-            self._update_visualization()
+            self._update_visualization(force=True)
 
     def _on_process_clicked(self) -> None:
         """Handle process button click - action depends on state."""
@@ -256,14 +256,6 @@ class ReconstructionWidget(QWidget):
             self._presenter.cancel_reconstruction()
             self.resume_rendering()
         else:
-            # Suspend Qt3D rendering BEFORE starting the worker thread.
-            # The task starts immediately on submit(), but the state_changed
-            # signal uses QueuedConnection and won't arrive until the event
-            # loop processes it. Without eager suspension, the render thread
-            # and video decode threads overlap briefly, causing segfaults
-            # under Mesa llvmpipe (software OpenGL).
-            if self._viz_widget is not None:
-                self._viz_widget.suspend_rendering()
             self._presenter.start_reconstruction()
 
     def _selected_tracker_needs_download(self) -> bool:
@@ -306,6 +298,8 @@ class ReconstructionWidget(QWidget):
         Single handler that derives entire UI from current state - prevents
         state/UI divergence.
         """
+        self._update_recording_feedback()
+
         # State label
         self._state_label.setText(f"State: {state.name}")
 
@@ -411,14 +405,28 @@ class ReconstructionWidget(QWidget):
         """Handle successful reconstruction - resume rendering and update visualization."""
         logger.info(f"Reconstruction complete: {output_path}")
         self.resume_rendering()
-        self._update_visualization()
+        self._update_visualization(force=True)
 
     def _on_reconstruction_failed(self, error: str) -> None:
         """Handle reconstruction failure - resume rendering."""
         logger.error(f"Reconstruction failed: {error}")
         self.resume_rendering()
 
-    def _update_visualization(self) -> None:
+    def _on_camera_array_changed(self) -> None:
+        """Refresh the scene after the active calibration changes."""
+        self._update_visualization(force=True)
+
+    def _visualization_input_key(self) -> tuple[str | None, str | None, Path | None, bool]:
+        """Return the inputs that determine the currently displayed scene."""
+        output_path = self._presenter.xyz_output_path
+        return (
+            self._presenter.selected_recording,
+            self._presenter.selected_tracker,
+            output_path,
+            output_path is not None and output_path.exists(),
+        )
+
+    def _update_visualization(self, *, force: bool = False) -> None:
         """Schedule a visualization update on the next event loop cycle.
 
         Multiple callers (recording change, tracker change, state change) may
@@ -426,15 +434,22 @@ class ReconstructionWidget(QWidget):
         QTimer.singleShot(0) coalesces them into a single scene rebuild,
         avoiding redundant Qt3D scene graph construction.
         """
-        if not self._viz_pending:
+        if force:
+            self._last_displayed_input_key = None
+        if self._presenter.state == ReconstructionState.RECONSTRUCTING:
+            return
+        if not self._viz_pending and (force or self._visualization_input_key() != self._last_displayed_input_key):
             self._viz_pending = True
             QTimer.singleShot(0, self._do_update_visualization)
 
     def _do_update_visualization(self) -> None:
         """Actually rebuild the visualization. Called from debounce timer."""
         self._viz_pending = False
+        if self._presenter.state == ReconstructionState.RECONSTRUCTING:
+            return
         camera_array = self._presenter.camera_array
         output_path = self._presenter.xyz_output_path
+        input_key = self._visualization_input_key()
 
         if not opengl_available():
             if self._viz_container.count() == 0:
@@ -451,6 +466,7 @@ class ReconstructionWidget(QWidget):
                 )
                 fallback.setFixedHeight(150)
                 self._viz_container.addWidget(fallback)
+            self._last_displayed_input_key = input_key
             return
 
         # Determine what data we have
@@ -482,6 +498,7 @@ class ReconstructionWidget(QWidget):
                 self._viz_widget.set_view_model(view_model)
 
             self._viz_widget.show()
+            self._last_displayed_input_key = input_key
 
         except Exception as e:
             logger.error(f"Failed to create visualization: {e}")

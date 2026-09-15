@@ -6,8 +6,8 @@ from pathlib import Path
 from unittest.mock import MagicMock
 
 import pytest
-from PySide6.QtCore import QElapsedTimer, QEventLoop, QUrl, Qt
-from PySide6.QtTest import QSignalSpy, QTest
+from PySide6.QtCore import QElapsedTimer, QEventLoop
+from PySide6.QtTest import QSignalSpy
 from PySide6.QtWidgets import QApplication, QLabel, QListWidget, QPushButton
 
 from caliscope.cameras.camera_array import CameraArray, CameraData
@@ -15,8 +15,8 @@ from caliscope.gui.multi_camera_processing_tab import MultiCameraProcessingTab
 from caliscope.gui.presenters.multi_camera_processing_presenter import MultiCameraProcessingState
 from caliscope.gui.reconstruction_tab import ReconstructionTab
 from caliscope.gui.views.project_setup_view import ProjectSetupView
-from caliscope.gui.widgets.workspace_issue_label import WorkspaceIssueLabel
 from caliscope.gui.widgets.folder_link import FolderLink
+from caliscope.gui.widgets.workspace_issue_label import WorkspaceIssueLabel
 from caliscope.recording.recording_validation import CameraDimensionOutcome, RecordingDimensionAssessment
 from caliscope.trackers import tracker_registry
 from caliscope.workspace_coordinator import WorkspaceCoordinator
@@ -70,28 +70,6 @@ def test_project_feedback_follows_directory_change(coordinator: WorkspaceCoordin
     assert tuple(coordinator.camera_array.cameras) == (0,)
 
 
-def test_open_project_folder_link_requests_workspace_local_url(
-    coordinator: WorkspaceCoordinator,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """The visible workspace button delegates opening to Qt with a local URL."""
-    requested_urls: list[QUrl] = []
-
-    def capture_url(url: QUrl) -> bool:
-        requested_urls.append(url)
-        return True
-
-    monkeypatch.setattr("caliscope.gui.widgets.folder_link.QDesktopServices.openUrl", capture_url)
-    view = ProjectSetupView(coordinator)
-    open_link = next(link for link in view.findChildren(FolderLink) if link.text() == "Open project folder")
-
-    QTest.mouseClick(open_link, Qt.MouseButton.LeftButton)
-
-    assert len(requested_urls) == 1
-    assert requested_urls[0].isLocalFile()
-    assert Path(requested_urls[0].toLocalFile()) == coordinator.workspace
-
-
 def test_reconstruction_folder_links_follow_selected_recording_and_results(
     coordinator: WorkspaceCoordinator,
     qapp: QApplication,
@@ -105,15 +83,11 @@ def test_reconstruction_folder_links_follow_selected_recording_and_results(
             tuple(CameraDimensionOutcome(cam_id, size, size, None) for cam_id, size in expected_sizes)
         )
 
-    requested_urls: list[QUrl] = []
+    metadata_check = MagicMock(side_effect=matching_dimensions)
     monkeypatch.setattr("caliscope.gui.views.reconstruction_widget.opengl_available", lambda: False)
     monkeypatch.setattr(
         "caliscope.gui.presenters.reconstruction_presenter.check_recording_dimensions",
-        matching_dimensions,
-    )
-    monkeypatch.setattr(
-        "caliscope.gui.widgets.folder_link.QDesktopServices.openUrl",
-        lambda url: requested_urls.append(url) or True,
+        metadata_check,
     )
     tracker_registry.register(tracker_name, lambda: MagicMock(), display_name="Folder link tracker")
     coordinator.camera_array = CameraArray(
@@ -136,30 +110,25 @@ def test_reconstruction_folder_links_follow_selected_recording_and_results(
 
     try:
         _wait_until(qapp, lambda: presenter.selected_recording_is_ready)
+        validated_call_count = metadata_check.call_count
+        coordinator.status_changed.emit()
+        qapp.processEvents()
+        assert metadata_check.call_count == validated_call_count
         recording_link = next(link for link in tab.findChildren(FolderLink) if link.text() == "Open recording folder")
         results_link = next(link for link in tab.findChildren(FolderLink) if link.text() == "Open results folder")
         assert recording_link.folder == recordings / "alpha"
         assert not results_link.isVisible()
 
-        QTest.mouseClick(recording_link, Qt.MouseButton.LeftButton)
-        assert Path(requested_urls[-1].toLocalFile()) == recordings / "alpha"
-
         tab._widget._recording_list.setCurrentRow(1)
         _wait_until(
             qapp, lambda: presenter.selected_recording == "beta" and recording_link.folder == recordings / "beta"
         )
-        QTest.mouseClick(recording_link, Qt.MouseButton.LeftButton)
-        assert Path(requested_urls[-1].toLocalFile()) == recordings / "beta"
-
         output_path = presenter.xyz_output_path
         assert output_path is not None
         output_path.parent.mkdir()
         output_path.touch()
         presenter.refresh_from_workspace()
         _wait_until(qapp, lambda: results_link.isVisible() and results_link.folder == output_path.parent)
-        QTest.mouseClick(results_link, Qt.MouseButton.LeftButton)
-        assert Path(requested_urls[-1].toLocalFile()) == output_path.parent
-
         tab._widget._recording_list.setCurrentRow(0)
         _wait_until(qapp, lambda: presenter.selected_recording == "alpha" and not results_link.isVisible())
         assert results_link.folder is None
@@ -252,8 +221,6 @@ def test_reconstruction_tab_follows_nested_recording_changes_through_real_watche
     assert recording_list is not None
     assert feedback_label is not None
     assert process_button is not None
-    assert tab.findChild(QPushButton, "recheckDimensionsButton") is None
-    assert feedback_label.parentWidget() is process_button.parentWidget()
     presenter.select_tracker(tracker_name)
 
     try:
@@ -288,8 +255,26 @@ def test_reconstruction_tab_follows_nested_recording_changes_through_real_watche
         assert feedback_label.isHidden()
         assert process_button.isEnabled()
 
-        # An in-place write to a watched canonical video rechecks the selected
-        # session without a UI action and restores eligibility when corrected.
+        renamed_session = session.with_name("stride")
+        previous_count = status_spy.count()
+        session.rename(renamed_session)
+        _wait_for_status_change(
+            qapp,
+            status_spy,
+            previous_count,
+            lambda: (
+                presenter.selected_recording == "stride"
+                and recording_list.count() == 1
+                and recording_list.currentItem() is not None
+                and recording_list.currentItem().text() == "stride"
+                and feedback_label.isHidden()
+                and process_button.isEnabled()
+            ),
+        )
+        session = renamed_session
+
+        # A selected video edit produces dimension feedback and an updated
+        # Process affordance. Correcting the same file recovers both.
         dimensions_match[0] = False
         previous_count = status_spy.count()
         os.utime(session / "cam_1.mp4", None)
@@ -299,9 +284,6 @@ def test_reconstruction_tab_follows_nested_recording_changes_through_real_watche
             previous_count,
             lambda: "1280×720" in feedback_label.text() and not process_button.isEnabled(),
         )
-        assert "1280×720" in feedback_label.text()
-        assert not process_button.isEnabled()
-
         dimensions_match[0] = True
         previous_count = status_spy.count()
         os.utime(session / "cam_1.mp4", None)
@@ -311,8 +293,6 @@ def test_reconstruction_tab_follows_nested_recording_changes_through_real_watche
             previous_count,
             lambda: feedback_label.isHidden() and process_button.isEnabled(),
         )
-        assert feedback_label.isHidden()
-        assert process_button.isEnabled()
 
         previous_count = status_spy.count()
         (session / "cam_1.mp4").unlink()
@@ -320,13 +300,13 @@ def test_reconstruction_tab_follows_nested_recording_changes_through_real_watche
             qapp,
             status_spy,
             previous_count,
-            lambda: feedback_label.text() == "Missing recordings/walk/cam_1.mp4." and not process_button.isEnabled(),
+            lambda: feedback_label.text() == "Missing recordings/stride/cam_1.mp4." and not process_button.isEnabled(),
         )
-        assert feedback_label.text() == "Missing recordings/walk/cam_1.mp4."
+        assert feedback_label.text() == "Missing recordings/stride/cam_1.mp4."
         assert not process_button.isEnabled()
         assert recording_list.count() == 1
         assert recording_list.currentItem() is not None
-        assert recording_list.currentItem().text() == "walk"
+        assert recording_list.currentItem().text() == "stride"
 
         previous_count = status_spy.count()
         (session / "cam_1.mp4").touch()

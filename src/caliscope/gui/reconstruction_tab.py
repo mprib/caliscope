@@ -10,6 +10,7 @@ Call site responsibility (e.g., MainWidget):
 from __future__ import annotations
 
 import logging
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 from PySide6.QtWidgets import QVBoxLayout, QWidget
@@ -49,14 +50,19 @@ class ReconstructionTab(QWidget):
 
     def _connect_signals(self) -> None:
         """Wire coordinator signals to this tab."""
-        self._coordinator.status_changed.connect(self._refresh_from_workspace)
-        self._coordinator.capture_volume_updated.connect(self._on_capture_volume_updated)
+        self._coordinator.recording_directory_changed.connect(self._on_recording_directory_changed)
+        self._coordinator.recording_video_changed.connect(self._on_recording_video_changed)
+        self._coordinator.calibration_changed.connect(self._on_calibration_changed)
 
-    def _refresh_from_workspace(self) -> None:
-        """Follow the workspace: recording folders and their assessments."""
-        self._presenter.refresh_from_workspace()
+    def _on_recording_directory_changed(self, recording_directory: Path) -> None:
+        """Reconcile recording sessions after their directory structure changes."""
+        self._presenter.refresh_recording_structure(recording_directory)
 
-    def _on_capture_volume_updated(self) -> None:
+    def _on_recording_video_changed(self, video_path: Path) -> None:
+        """Recheck only the selected recording after one video changes."""
+        self._presenter.recheck_selected_video(video_path)
+
+    def _on_calibration_changed(self) -> None:
         """Rebuild visualization against the recalibrated camera array."""
         self._presenter.refresh_camera_array(self._coordinator.camera_array)
 
@@ -66,11 +72,15 @@ class ReconstructionTab(QWidget):
             return
         self._cleaned_up = True
         try:
-            self._coordinator.status_changed.disconnect(self._refresh_from_workspace)
+            self._coordinator.recording_directory_changed.disconnect(self._on_recording_directory_changed)
         except (RuntimeError, TypeError):
             pass
         try:
-            self._coordinator.capture_volume_updated.disconnect(self._on_capture_volume_updated)
+            self._coordinator.recording_video_changed.disconnect(self._on_recording_video_changed)
+        except (RuntimeError, TypeError):
+            pass
+        try:
+            self._coordinator.calibration_changed.disconnect(self._on_calibration_changed)
         except (RuntimeError, TypeError):
             pass
         self._widget.cleanup()

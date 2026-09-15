@@ -21,7 +21,7 @@ def test_folder_link_opens_current_existing_folder(tmp_path: Path, qapp, monkeyp
 
     assert link.folder == tmp_path
     assert link.isEnabled()
-    assert opened[0].toLocalFile() == str(tmp_path)
+    assert Path(opened[0].toLocalFile()) == tmp_path
 
 
 def test_folder_link_keyboard_activation_and_missing_target(tmp_path: Path, qapp, monkeypatch) -> None:
@@ -37,7 +37,7 @@ def test_folder_link_keyboard_activation_and_missing_target(tmp_path: Path, qapp
     QTest.keyClick(link, Qt.Key.Key_Return)
     QTest.keyClick(link, Qt.Key.Key_Space)
 
-    assert [url.toLocalFile() for url in opened] == [str(tmp_path), str(tmp_path)]
+    assert [Path(url.toLocalFile()) for url in opened] == [tmp_path, tmp_path]
 
     non_folder = tmp_path / "not-a-folder"
     non_folder.write_text("not a directory")

@@ -8,12 +8,25 @@ target, and still wires the ArUco marker-set factory for the ArUco target.
 """
 
 from pathlib import Path
+from unittest.mock import MagicMock
 
 import numpy as np
 import pytest
+from PySide6.QtCore import QElapsedTimer, QEventLoop
+from PySide6.QtTest import QSignalSpy
 
 from caliscope.cameras.camera_array import CameraArray, CameraData
 from caliscope.workspace_coordinator import WorkspaceCoordinator
+
+
+def _wait_for(qapp, condition, timeout_ms: int = 3000) -> None:
+    """Process Qt filesystem events until a bounded condition becomes true."""
+    timer = QElapsedTimer()
+    timer.start()
+    while not condition():
+        qapp.processEvents(QEventLoop.ProcessEventsFlag.AllEvents, 50)
+        if timer.elapsed() >= timeout_ms:
+            raise AssertionError("Timed out waiting for filesystem watcher event")
 
 
 @pytest.fixture
@@ -180,3 +193,57 @@ def test_recording_session_watches_follow_root_directory_changes(
     coordinator._on_directory_changed(recording_dir)
 
     assert str(session.resolve()) not in coordinator._session_watches
+
+
+def test_recording_camera_file_watch_notifies_and_excludes_output_artifacts(
+    coordinator: WorkspaceCoordinator,
+    qapp,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    """A canonical recording video change uses status_changed without discovery."""
+    session = coordinator.workspace_guide.recording_dir / "walk"
+    session.mkdir()
+    video = session / "cam_4.mp4"
+    video.write_bytes(b"first")
+    output = session / "TRACKER" / "xyz_TRACKER.csv"
+    output.parent.mkdir()
+    output.write_bytes(b"output")
+    coordinator._on_directory_changed(str(coordinator.workspace_guide.recording_dir))
+    discover = MagicMock()
+    monkeypatch.setattr(coordinator, "_discover_new_cameras", discover)
+
+    assert str(video.resolve()) in coordinator._watcher.files()
+    assert str(output.resolve()) not in coordinator._watcher.files()
+    status_spy = QSignalSpy(coordinator.status_changed)
+    previous_count = status_spy.count()
+
+    video.write_bytes(b"changed")
+
+    _wait_for(qapp, lambda: status_spy.count() > previous_count)
+    assert str(video.resolve()) in coordinator._recording_video_watches
+    discover.assert_not_called()
+
+
+def test_atomic_recording_video_replacement_readds_file_watch(
+    coordinator: WorkspaceCoordinator,
+    qapp,
+):
+    """Reconciliation restores a dropped Qt file watch after atomic replacement."""
+    session = coordinator.workspace_guide.recording_dir / "walk"
+    session.mkdir()
+    video = session / "cam_4.mp4"
+    video.write_bytes(b"first")
+    coordinator._on_directory_changed(str(coordinator.workspace_guide.recording_dir))
+    assert str(video.resolve()) in coordinator._watcher.files()
+
+    status_spy = QSignalSpy(coordinator.status_changed)
+    previous_count = status_spy.count()
+    replacement = session / "replacement.tmp"
+    replacement.write_bytes(b"replacement")
+    replacement.replace(video)
+
+    _wait_for(
+        qapp,
+        lambda: status_spy.count() > previous_count and str(video.resolve()) in coordinator._watcher.files(),
+    )
+    assert str(video.resolve()) in coordinator._recording_video_watches

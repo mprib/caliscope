@@ -1,5 +1,6 @@
 """Workspace file feedback reaching already-built views."""
 
+import os
 from collections.abc import Callable, Iterator
 from pathlib import Path
 from unittest.mock import MagicMock
@@ -106,6 +107,7 @@ def test_reconstruction_tab_follows_nested_recording_changes_through_real_watche
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """A built tab follows nested camera files through QFileSystemWatcher."""
+    dimensions_match = [True]
 
     def matching_dimensions(_recording_dir: Path, expected_sizes):
         """Keep this structural-watcher test independent of PyAV fixture files."""
@@ -114,7 +116,7 @@ def test_reconstruction_tab_follows_nested_recording_changes_through_real_watche
                 CameraDimensionOutcome(
                     cam_id=cam_id,
                     expected_size=size,
-                    actual_size=size,
+                    actual_size=size if dimensions_match[0] or cam_id != 1 else (1280, 720),
                     error=None,
                 )
                 for cam_id, size in expected_sizes
@@ -147,6 +149,8 @@ def test_reconstruction_tab_follows_nested_recording_changes_through_real_watche
     assert recording_list is not None
     assert feedback_label is not None
     assert process_button is not None
+    assert tab.findChild(QPushButton, "recheckDimensionsButton") is None
+    assert feedback_label.parentWidget() is process_button.parentWidget()
     presenter.select_tracker(tracker_name)
 
     try:
@@ -172,6 +176,32 @@ def test_reconstruction_tab_follows_nested_recording_changes_through_real_watche
         previous_count = status_spy.count()
         for cam_id in (0, 1):
             (session / f"cam_{cam_id}.mp4").touch()
+        _wait_for_status_change(
+            qapp,
+            status_spy,
+            previous_count,
+            lambda: feedback_label.isHidden() and process_button.isEnabled(),
+        )
+        assert feedback_label.isHidden()
+        assert process_button.isEnabled()
+
+        # An in-place write to a watched canonical video rechecks the selected
+        # session without a UI action and restores eligibility when corrected.
+        dimensions_match[0] = False
+        previous_count = status_spy.count()
+        os.utime(session / "cam_1.mp4", None)
+        _wait_for_status_change(
+            qapp,
+            status_spy,
+            previous_count,
+            lambda: "1280×720" in feedback_label.text() and not process_button.isEnabled(),
+        )
+        assert "1280×720" in feedback_label.text()
+        assert not process_button.isEnabled()
+
+        dimensions_match[0] = True
+        previous_count = status_spy.count()
+        os.utime(session / "cam_1.mp4", None)
         _wait_for_status_change(
             qapp,
             status_spy,
@@ -218,6 +248,13 @@ def test_reconstruction_tab_follows_nested_recording_changes_through_real_watche
         )
         assert recording_list.count() == 0
         assert str(session.resolve()) not in coordinator._watcher.directories()
+        assert all(
+            str((session / f"cam_{cam_id}.mp4").resolve()) not in coordinator._watcher.files() for cam_id in (0, 1)
+        )
+        assert all(
+            str((session / f"cam_{cam_id}.mp4").resolve()) not in coordinator._recording_video_watches
+            for cam_id in (0, 1)
+        )
         assert presenter.selected_recording is None
 
         previous_count = status_spy.count()

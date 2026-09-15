@@ -119,11 +119,15 @@ class WorkspaceCoordinator(QObject):
         self._intrinsic_frame_skip: int = 5
 
     def _setup_filesystem_watcher(self) -> None:
-        """Watch calibration, recording root, and recording session directories."""
+        """Watch calibration, recording directories, and canonical recording videos."""
         self._watcher = QFileSystemWatcher(parent=self)
         # Session watches this coordinator added. Qt's own directories() list
         # lags behind deletions on macOS and Windows, so it is not the record.
         self._session_watches: set[str] = set()
+        # Desired canonical recording-video paths. QFileSystemWatcher can drop
+        # a file watch when an editor atomically replaces the file, so actual
+        # watcher membership is checked during every reconciliation.
+        self._recording_video_watches: set[str] = set()
 
         dirs_to_watch = [
             self.workspace_guide.intrinsic_dir,
@@ -139,6 +143,7 @@ class WorkspaceCoordinator(QObject):
         self._reconcile_recording_watches()
 
         self._watcher.directoryChanged.connect(self._on_directory_changed)
+        self._watcher.fileChanged.connect(self._on_recording_video_changed)
 
     def _recording_session_dirs(self) -> set[str]:
         """Return immediate recording session directories currently on disk."""
@@ -148,8 +153,16 @@ class WorkspaceCoordinator(QObject):
         recording_root = recording_dir.resolve()
         return {str(recording_root / path.name) for path in recording_dir.iterdir() if path.is_dir()}
 
+    def _recording_video_paths(self) -> set[str]:
+        """Return canonical direct-child camera videos in every recording session."""
+        return {
+            str((Path(session_dir) / f"cam_{cam_id}.mp4").resolve())
+            for session_dir in self._recording_session_dirs()
+            for cam_id in self.workspace_guide.get_cam_ids_in_dir(Path(session_dir))
+        }
+
     def _reconcile_recording_watches(self) -> None:
-        """Keep session watches aligned with the session folders on disk.
+        """Keep session and canonical video watches aligned with recordings on disk.
 
         removePaths() is best effort. Qt cannot remove an already-deleted
         directory on every platform, but every platform drops it on its own
@@ -169,6 +182,22 @@ class WorkspaceCoordinator(QObject):
 
         self._session_watches = (self._session_watches - stale) | new
 
+        desired_videos = self._recording_video_paths()
+        stale_videos = self._recording_video_watches - desired_videos
+        if stale_videos:
+            self._watcher.removePaths(sorted(stale_videos))
+
+        # Compare against Qt's live file-watch list, not only our desired-path
+        # record. Atomic replacement removes an existing file watch on several
+        # platforms while leaving the replacement at the same path.
+        unwatched_videos = desired_videos - set(self._watcher.files())
+        if unwatched_videos:
+            failed = set(self._watcher.addPaths(sorted(unwatched_videos)))
+            for path in sorted(unwatched_videos - failed):
+                logger.debug(f"Watching recording video: {path}")
+
+        self._recording_video_watches = desired_videos
+
     def _on_directory_changed(self, path: str) -> None:
         """Handle filesystem change in watched directory."""
         logger.info(f"Directory changed: {path}")
@@ -177,6 +206,12 @@ class WorkspaceCoordinator(QObject):
             self.workspace_guide.extrinsic_dir.resolve(),
         }:
             self._discover_new_cameras()
+        self._reconcile_recording_watches()
+        self.status_changed.emit()
+
+    def _on_recording_video_changed(self, path: str) -> None:
+        """Refresh recording feedback after a watched camera-video change."""
+        logger.info(f"Recording video changed: {path}")
         self._reconcile_recording_watches()
         self.status_changed.emit()
 

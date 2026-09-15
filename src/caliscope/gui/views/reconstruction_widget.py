@@ -94,18 +94,6 @@ class ReconstructionWidget(QWidget):
         self._recording_list.setMaximumHeight(150)
         recording_layout.addWidget(self._recording_list)
 
-        self._recording_feedback_label = WorkspaceIssueLabel()
-        self._recording_feedback_label.setObjectName("recordingFeedbackLabel")
-        recording_layout.addWidget(self._recording_feedback_label)
-
-        self._recheck_dimensions_btn = QPushButton("Recheck dimensions")
-        self._recheck_dimensions_btn.setObjectName("recheckDimensionsButton")
-        self._recheck_dimensions_btn.setToolTip(
-            "Read the selected recording's video dimensions again before processing"
-        )
-        self._recheck_dimensions_btn.hide()
-        recording_layout.addWidget(self._recheck_dimensions_btn)
-
         left_layout.addWidget(recording_group)
 
         # Tracker selection group
@@ -151,6 +139,10 @@ class ReconstructionWidget(QWidget):
         self._process_btn.setObjectName("processButton")
         self._process_btn.setEnabled(False)
         actions_layout.addWidget(self._process_btn)
+
+        self._recording_feedback_label = WorkspaceIssueLabel()
+        self._recording_feedback_label.setObjectName("recordingFeedbackLabel")
+        actions_layout.addWidget(self._recording_feedback_label)
 
         self._progress_bar = QProgressBar()
         self._progress_bar.setRange(0, 100)
@@ -202,7 +194,6 @@ class ReconstructionWidget(QWidget):
         self._recording_list.currentTextChanged.connect(self._on_recording_changed)
         self._tracker_combo.currentIndexChanged.connect(self._on_tracker_changed)
         self._process_btn.clicked.connect(self._on_process_clicked)
-        self._recheck_dimensions_btn.clicked.connect(self._on_recheck_dimensions_clicked)
         self._open_output_btn.clicked.connect(self._on_open_output_clicked)
         self._presenter.model_download_needed.connect(self._show_model_download_dialog)
         self._presenter.camera_array_changed.connect(self._update_visualization)
@@ -261,10 +252,6 @@ class ReconstructionWidget(QWidget):
             tracker_name = self._tracker_combo.itemData(index)
             self._presenter.select_tracker(tracker_name)
             self._update_visualization()
-
-    def _on_recheck_dimensions_clicked(self) -> None:
-        """Request a fresh background dimensions check for the selected recording."""
-        self._presenter.recheck_dimensions()
 
     def _on_process_clicked(self) -> None:
         """Handle process button click - action depends on state."""
@@ -397,15 +384,6 @@ class ReconstructionWidget(QWidget):
             self._process_btn.setEnabled(False)
         else:
             self._process_btn.setEnabled(can_process)
-
-        # Dimensions checks apply only to structurally complete selected sessions.
-        # Keep the control visible while a check is active, but never allow it to
-        # overlap another check or a reconstruction task.
-        recheck_visible = (
-            self._presenter.has_structurally_ready_selected_recording or self._presenter.is_checking_dimensions
-        )
-        self._recheck_dimensions_btn.setVisible(recheck_visible)
-        self._recheck_dimensions_btn.setEnabled(recheck_visible and self._presenter.can_recheck_dimensions)
 
         # Progress bar visibility
         if state == ReconstructionState.RECONSTRUCTING:

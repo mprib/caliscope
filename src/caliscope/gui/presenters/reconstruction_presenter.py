@@ -269,7 +269,7 @@ class ReconstructionPresenter(QObject):
                         code="unreadable_recording_dimensions",
                         message=(
                             f"Could not read dimensions from {relative_path}. Check that the file has finished "
-                            "copying and can be opened, then recheck dimensions."
+                            "copying and can be opened. Caliscope will check again when the file changes."
                         ),
                         relative_path=relative_path,
                     )
@@ -317,15 +317,6 @@ class ReconstructionPresenter(QObject):
             return None
         recording_name, notice = self._dimension_check_notice
         return notice if recording_name == self._selected_recording else None
-
-    @property
-    def can_recheck_dimensions(self) -> bool:
-        """Whether the selected session can start a manual dimensions recheck."""
-        return (
-            self.has_structurally_ready_selected_recording
-            and not self.is_checking_dimensions
-            and not self.has_active_task
-        )
 
     @property
     def can_process(self) -> bool:
@@ -559,13 +550,6 @@ class ReconstructionPresenter(QObject):
         """Refresh existing recording feedback and state-driven controls."""
         self.recordings_changed.emit()
         self._emit_state_changed()
-
-    def recheck_dimensions(self) -> None:
-        """Manually reread dimensions for the selected structurally valid session."""
-        if not self.can_recheck_dimensions:
-            return
-        self._invalidate_dimension_validation()
-        self._request_dimension_check(_DimensionCheckPurpose.SELECTION)
 
     def select_recording(self, name: str) -> None:
         """Select a recording for processing.

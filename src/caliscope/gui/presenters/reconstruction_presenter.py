@@ -352,6 +352,14 @@ class ReconstructionPresenter(QObject):
         return self._selected_tracker
 
     @property
+    def selected_recording_dir(self) -> Path | None:
+        """Existing directory for the selected recording session, if any."""
+        if self._selected_recording is None:
+            return None
+        recording_dir = self._workspace_dir / "recordings" / self._selected_recording
+        return recording_dir if recording_dir.is_dir() else None
+
+    @property
     def xyz_output_path(self) -> Path | None:
         """Computed path to xyz output file based on current selection.
 

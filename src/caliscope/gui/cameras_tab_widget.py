@@ -28,6 +28,7 @@ from caliscope.gui.utils.charuco_preview import render_charuco_pixmap
 from caliscope.gui.utils.spinbox_utils import setup_spinbox_sizing
 from caliscope.gui.camera_list_widget import CameraListWidget
 from caliscope.gui.views.intrinsic_calibration_widget import IntrinsicCalibrationWidget
+from caliscope.gui.widgets.folder_link import FolderLink
 from caliscope.gui.widgets.workspace_issue_label import WorkspaceIssueLabel
 
 if TYPE_CHECKING:
@@ -93,6 +94,12 @@ class CamerasTabWidget(QWidget):
         self._issue_label = WorkspaceIssueLabel()
         left_layout.addWidget(self._issue_label)
 
+        self._intrinsic_folder_link = FolderLink(
+            "Open intrinsic video folder",
+            self.coordinator.workspace_guide.intrinsic_dir,
+        )
+        left_layout.addWidget(self._intrinsic_folder_link, alignment=Qt.AlignmentFlag.AlignLeft)
+
         assessment = self.coordinator.workspace_guide.assess_intrinsic_videos(self.coordinator.expected_cam_ids)
         self.camera_list = CameraListWidget(self.coordinator.camera_array, set(assessment.camera_ids))
         self.camera_list.setMinimumWidth(150)
@@ -157,6 +164,7 @@ class CamerasTabWidget(QWidget):
 
     def _refresh_from_workspace(self) -> None:
         """Refresh cameras and feedback from the current intrinsic files."""
+        self._intrinsic_folder_link.set_folder(self.coordinator.workspace_guide.intrinsic_dir)
         assessment = self.coordinator.workspace_guide.assess_intrinsic_videos(self.coordinator.expected_cam_ids)
         available_cam_ids = set(assessment.camera_ids)
         self.camera_list.refresh(self.coordinator.camera_array, available_cam_ids)

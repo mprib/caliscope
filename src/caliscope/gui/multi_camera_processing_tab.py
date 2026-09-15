@@ -9,12 +9,14 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING
 
+from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QVBoxLayout, QWidget
 
 from caliscope.gui.presenters.multi_camera_processing_presenter import (
     MultiCameraProcessingPresenter,
 )
 from caliscope.gui.views.multi_camera_processing_widget import MultiCameraProcessingWidget
+from caliscope.gui.widgets.folder_link import FolderLink
 
 if TYPE_CHECKING:
     from caliscope.workspace_coordinator import WorkspaceCoordinator
@@ -49,6 +51,12 @@ class MultiCameraProcessingTab(QWidget):
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
 
+        self._extrinsic_folder_link = FolderLink(
+            "Open extrinsic video folder",
+            self.coordinator.workspace_guide.extrinsic_dir,
+        )
+        layout.addWidget(self._extrinsic_folder_link, alignment=Qt.AlignmentFlag.AlignLeft)
+
         # Create presenter via coordinator factory
         self._presenter = self.coordinator.create_multi_camera_presenter()
 
@@ -80,6 +88,7 @@ class MultiCameraProcessingTab(QWidget):
 
     def _refresh_from_workspace(self) -> None:
         """Follow the workspace: push the current camera set, then re-read files."""
+        self._extrinsic_folder_link.set_folder(self.coordinator.workspace_guide.extrinsic_dir)
         if self._presenter is None:
             return
 

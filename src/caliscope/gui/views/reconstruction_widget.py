@@ -9,8 +9,7 @@ This is a thin MVP widget following the state-driven UI pattern.
 
 import logging
 
-from PySide6.QtCore import Qt, QTimer, QUrl
-from PySide6.QtGui import QDesktopServices
+from PySide6.QtCore import Qt, QTimer
 from PySide6.QtWidgets import (
     QComboBox,
     QGroupBox,
@@ -30,6 +29,7 @@ from caliscope.gui.presenters.reconstruction_presenter import (
 )
 from caliscope.gui.view_models.playback_view_model import PlaybackViewModel
 from caliscope.gui.widgets.qt3d_playback_widget import Qt3DPlaybackWidget, opengl_available
+from caliscope.gui.widgets.folder_link import FolderLink
 from caliscope.gui.widgets.workspace_issue_label import WorkspaceIssueLabel
 from caliscope import MODELS_DIR
 from caliscope.gui.theme import Colors
@@ -94,6 +94,10 @@ class ReconstructionWidget(QWidget):
         self._recording_list.setMaximumHeight(150)
         recording_layout.addWidget(self._recording_list)
 
+        self._recording_folder_link = FolderLink("Open recording folder", None)
+        self._recording_folder_link.hide()
+        recording_layout.addWidget(self._recording_folder_link)
+
         left_layout.addWidget(recording_group)
 
         # Tracker selection group
@@ -103,11 +107,7 @@ class ReconstructionWidget(QWidget):
         self._tracker_combo = QComboBox()
         tracker_layout.addWidget(self._tracker_combo)
 
-        self._models_folder_link = QLabel(
-            f'<a href="file://{MODELS_DIR}" style="color: {Colors.PRIMARY};">Open Models Folder</a>'
-        )
-        self._models_folder_link.setStyleSheet("font-size: 11px;")
-        self._models_folder_link.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._models_folder_link = FolderLink("Open models folder", MODELS_DIR)
         tracker_layout.addWidget(self._models_folder_link)
 
         left_layout.addWidget(tracker_group)
@@ -155,11 +155,9 @@ class ReconstructionWidget(QWidget):
         self._progress_label.hide()
         actions_layout.addWidget(self._progress_label)
 
-        self._open_output_btn = QPushButton("Open Output Folder")
-        self._open_output_btn.setToolTip("Open folder containing xyz/TRC output files")
-        self._open_output_btn.setEnabled(False)
-        self._open_output_btn.hide()
-        actions_layout.addWidget(self._open_output_btn)
+        self._results_folder_link = FolderLink("Open results folder", None)
+        self._results_folder_link.hide()
+        actions_layout.addWidget(self._results_folder_link)
 
         left_layout.addWidget(actions_group)
 
@@ -194,10 +192,8 @@ class ReconstructionWidget(QWidget):
         self._recording_list.currentTextChanged.connect(self._on_recording_changed)
         self._tracker_combo.currentIndexChanged.connect(self._on_tracker_changed)
         self._process_btn.clicked.connect(self._on_process_clicked)
-        self._open_output_btn.clicked.connect(self._on_open_output_clicked)
         self._presenter.model_download_needed.connect(self._show_model_download_dialog)
         self._presenter.camera_array_changed.connect(self._update_visualization)
-        self._models_folder_link.linkActivated.connect(self._on_open_models_folder)
 
     def _populate_initial_data(self) -> None:
         """Populate lists with available recordings and trackers."""
@@ -269,14 +265,6 @@ class ReconstructionWidget(QWidget):
             if self._viz_widget is not None:
                 self._viz_widget.suspend_rendering()
             self._presenter.start_reconstruction()
-
-    def _on_open_output_clicked(self) -> None:
-        """Open the output folder containing xyz/TRC files."""
-        output_path = self._presenter.xyz_output_path
-        if output_path and output_path.exists():
-            # Open the parent directory (tracker output folder)
-            folder = output_path.parent
-            QDesktopServices.openUrl(QUrl.fromLocalFile(str(folder)))
 
     def _selected_tracker_needs_download(self) -> bool:
         """Check if the currently selected tracker requires a model download.
@@ -385,23 +373,29 @@ class ReconstructionWidget(QWidget):
         else:
             self._process_btn.setEnabled(can_process)
 
+        recording_dir = self._presenter.selected_recording_dir
+        self._recording_folder_link.set_folder(recording_dir)
+        self._recording_folder_link.setVisible(recording_dir is not None)
+
         # Progress bar visibility
         if state == ReconstructionState.RECONSTRUCTING:
             self._progress_bar.show()
             self._progress_label.show()
-            self._open_output_btn.hide()
+            self._results_folder_link.hide()
         else:
             self._progress_bar.hide()
             self._progress_label.hide()
             self._progress_bar.setValue(0)
 
-        # Open Output button - only visible and enabled in COMPLETE state
+        # Results navigation is available only for the selected completed output.
         if state == ReconstructionState.COMPLETE:
-            self._open_output_btn.show()
-            self._open_output_btn.setEnabled(True)
+            output_path = self._presenter.xyz_output_path
+            results_dir = output_path.parent if output_path is not None and output_path.exists() else None
+            self._results_folder_link.set_folder(results_dir)
+            self._results_folder_link.setVisible(results_dir is not None)
         else:
-            self._open_output_btn.hide()
-            self._open_output_btn.setEnabled(False)
+            self._results_folder_link.set_folder(None)
+            self._results_folder_link.hide()
 
         # Input controls enabled/disabled
         inputs_enabled = state != ReconstructionState.RECONSTRUCTING
@@ -524,10 +518,6 @@ class ReconstructionWidget(QWidget):
 
         # Update button text and status message to reflect new readiness state
         self._update_ui_for_state(self._presenter.state)
-
-    def _on_open_models_folder(self, link: str) -> None:
-        """Open MODELS_DIR in the system file manager."""
-        QDesktopServices.openUrl(QUrl.fromLocalFile(str(MODELS_DIR)))
 
     def cleanup(self) -> None:
         """Explicit cleanup - call before destruction."""

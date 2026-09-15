@@ -9,13 +9,14 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING
 
-from PySide6.QtCore import Signal
+from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import QVBoxLayout, QWidget
 
 from caliscope.gui.presenters.extrinsic_calibration_presenter import (
     ExtrinsicCalibrationPresenter,
 )
 from caliscope.gui.views.extrinsic_calibration_view import ExtrinsicCalibrationView
+from caliscope.gui.widgets.folder_link import FolderLink
 
 if TYPE_CHECKING:
     from caliscope.workspace_coordinator import WorkspaceCoordinator
@@ -50,6 +51,12 @@ class ExtrinsicCalibrationTab(QWidget):
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
 
+        self._extrinsic_folder_link = FolderLink(
+            "Open extrinsic video folder",
+            self._coordinator.workspace_guide.extrinsic_dir,
+        )
+        layout.addWidget(self._extrinsic_folder_link, alignment=Qt.AlignmentFlag.AlignLeft)
+
         # Create presenter via coordinator factory
         self._presenter = self._coordinator.create_extrinsic_calibration_presenter()
 
@@ -76,6 +83,7 @@ class ExtrinsicCalibrationTab(QWidget):
 
     def _refresh_from_workspace(self) -> None:
         """Follow the workspace: extraction output that landed after tab build."""
+        self._extrinsic_folder_link.set_folder(self._coordinator.workspace_guide.extrinsic_dir)
         if self._presenter is not None:
             self._presenter.refresh_from_workspace()
 

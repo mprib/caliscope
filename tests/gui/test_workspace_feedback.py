@@ -1,5 +1,6 @@
 """Workspace file feedback reaching already-built views."""
 
+import os
 from collections.abc import Callable, Iterator
 from pathlib import Path
 from unittest.mock import MagicMock
@@ -14,7 +15,9 @@ from caliscope.gui.multi_camera_processing_tab import MultiCameraProcessingTab
 from caliscope.gui.presenters.multi_camera_processing_presenter import MultiCameraProcessingState
 from caliscope.gui.reconstruction_tab import ReconstructionTab
 from caliscope.gui.views.project_setup_view import ProjectSetupView
+from caliscope.gui.widgets.folder_link import FolderLink
 from caliscope.gui.widgets.workspace_issue_label import WorkspaceIssueLabel
+from caliscope.recording.recording_validation import CameraDimensionOutcome, RecordingDimensionAssessment
 from caliscope.trackers import tracker_registry
 from caliscope.workspace_coordinator import WorkspaceCoordinator
 
@@ -67,6 +70,77 @@ def test_project_feedback_follows_directory_change(coordinator: WorkspaceCoordin
     assert tuple(coordinator.camera_array.cameras) == (0,)
 
 
+def test_reconstruction_folder_links_follow_selected_recording_and_results(
+    coordinator: WorkspaceCoordinator,
+    qapp: QApplication,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Navigation links always open the current recording and its current results."""
+    tracker_name = "FOLDER_LINK_TRACKER"
+
+    def matching_dimensions(_recording_dir: Path, expected_sizes):
+        return RecordingDimensionAssessment(
+            tuple(CameraDimensionOutcome(cam_id, size, size, None) for cam_id, size in expected_sizes)
+        )
+
+    metadata_check = MagicMock(side_effect=matching_dimensions)
+    monkeypatch.setattr("caliscope.gui.views.reconstruction_widget.opengl_available", lambda: False)
+    monkeypatch.setattr(
+        "caliscope.gui.presenters.reconstruction_presenter.check_recording_dimensions",
+        metadata_check,
+    )
+    tracker_registry.register(tracker_name, lambda: MagicMock(), display_name="Folder link tracker")
+    coordinator.camera_array = CameraArray(
+        {
+            0: CameraData(cam_id=0, size=(640, 480)),
+            1: CameraData(cam_id=1, size=(640, 480)),
+        }
+    )
+    recordings = coordinator.workspace_guide.recording_dir
+    for name in ("alpha", "beta"):
+        session = recordings / name
+        session.mkdir()
+        for cam_id in (0, 1):
+            (session / f"cam_{cam_id}.mp4").touch()
+    coordinator._on_directory_changed(str(recordings))
+    tab = ReconstructionTab(coordinator)
+    tab.show()
+    presenter = tab._presenter
+    presenter.select_tracker(tracker_name)
+
+    try:
+        _wait_until(qapp, lambda: presenter.selected_recording_is_ready)
+        validated_call_count = metadata_check.call_count
+        coordinator.status_changed.emit()
+        qapp.processEvents()
+        assert metadata_check.call_count == validated_call_count
+        recording_link = next(link for link in tab.findChildren(FolderLink) if link.text() == "Open recording folder")
+        results_link = next(link for link in tab.findChildren(FolderLink) if link.text() == "Open results folder")
+        assert recording_link.folder == recordings / "alpha"
+        assert not results_link.isVisible()
+
+        tab._widget._recording_list.setCurrentRow(1)
+        _wait_until(
+            qapp, lambda: presenter.selected_recording == "beta" and recording_link.folder == recordings / "beta"
+        )
+        output_path = presenter.xyz_output_path
+        assert output_path is not None
+        output_path.parent.mkdir()
+        output_path.touch()
+        presenter.refresh_from_workspace()
+        _wait_until(qapp, lambda: results_link.isVisible() and results_link.folder == output_path.parent)
+        tab._widget._recording_list.setCurrentRow(0)
+        _wait_until(qapp, lambda: presenter.selected_recording == "alpha" and not results_link.isVisible())
+        assert results_link.folder is None
+    finally:
+        tab.cleanup()
+        tab.close()
+        tracker_registry._factories.pop(tracker_name, None)
+        tracker_registry._display_names.pop(tracker_name, None)
+        tracker_registry._wireframes.pop(tracker_name, None)
+        tracker_registry._model_cards.pop(tracker_name, None)
+
+
 def test_open_extract_tab_follows_extrinsic_videos(coordinator: WorkspaceCoordinator) -> None:
     extrinsic = coordinator.workspace_guide.extrinsic_dir
     for cam_id in (0, 1):
@@ -105,9 +179,29 @@ def test_reconstruction_tab_follows_nested_recording_changes_through_real_watche
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """A built tab follows nested camera files through QFileSystemWatcher."""
+    dimensions_match = [True]
+
+    def matching_dimensions(_recording_dir: Path, expected_sizes):
+        """Keep this structural-watcher test independent of PyAV fixture files."""
+        return RecordingDimensionAssessment(
+            tuple(
+                CameraDimensionOutcome(
+                    cam_id=cam_id,
+                    expected_size=size,
+                    actual_size=size if dimensions_match[0] or cam_id != 1 else (1280, 720),
+                    error=None,
+                )
+                for cam_id, size in expected_sizes
+            )
+        )
+
     tracker_name = "TEST_FEEDBACK"
     tracker_registry.register(tracker_name, lambda: MagicMock(), display_name="Test Feedback")
     monkeypatch.setattr("caliscope.gui.views.reconstruction_widget.opengl_available", lambda: False)
+    monkeypatch.setattr(
+        "caliscope.gui.presenters.reconstruction_presenter.check_recording_dimensions",
+        matching_dimensions,
+    )
     monkeypatch.chdir(tmp_path.parent)
     relative_workspace = Path(tmp_path.name)
     coordinator = WorkspaceCoordinator(relative_workspace)
@@ -161,19 +255,58 @@ def test_reconstruction_tab_follows_nested_recording_changes_through_real_watche
         assert feedback_label.isHidden()
         assert process_button.isEnabled()
 
+        renamed_session = session.with_name("stride")
+        previous_count = status_spy.count()
+        session.rename(renamed_session)
+        _wait_for_status_change(
+            qapp,
+            status_spy,
+            previous_count,
+            lambda: (
+                presenter.selected_recording == "stride"
+                and recording_list.count() == 1
+                and recording_list.currentItem() is not None
+                and recording_list.currentItem().text() == "stride"
+                and feedback_label.isHidden()
+                and process_button.isEnabled()
+            ),
+        )
+        session = renamed_session
+
+        # A selected video edit produces dimension feedback and an updated
+        # Process affordance. Correcting the same file recovers both.
+        dimensions_match[0] = False
+        previous_count = status_spy.count()
+        os.utime(session / "cam_1.mp4", None)
+        _wait_for_status_change(
+            qapp,
+            status_spy,
+            previous_count,
+            lambda: "1280×720" in feedback_label.text() and not process_button.isEnabled(),
+        )
+        dimensions_match[0] = True
+        previous_count = status_spy.count()
+        os.utime(session / "cam_1.mp4", None)
+        _wait_for_status_change(
+            qapp,
+            status_spy,
+            previous_count,
+            lambda: feedback_label.isHidden() and process_button.isEnabled(),
+        )
+
         previous_count = status_spy.count()
         (session / "cam_1.mp4").unlink()
         _wait_for_status_change(
             qapp,
             status_spy,
             previous_count,
-            lambda: feedback_label.text() == "Missing recordings/walk/cam_1.mp4." and not process_button.isEnabled(),
+            lambda: feedback_label.text() == "Missing recordings/stride/cam_1.mp4." and not process_button.isEnabled(),
         )
-        assert feedback_label.text() == "Missing recordings/walk/cam_1.mp4."
+        assert feedback_label.text() == "Missing recordings/stride/cam_1.mp4."
         assert not process_button.isEnabled()
         assert recording_list.count() == 1
         assert recording_list.currentItem() is not None
-        assert recording_list.currentItem().text() == "walk"
+        assert recording_list.currentItem().text() == "stride"
 
         previous_count = status_spy.count()
         (session / "cam_1.mp4").touch()
@@ -198,6 +331,13 @@ def test_reconstruction_tab_follows_nested_recording_changes_through_real_watche
         )
         assert recording_list.count() == 0
         assert str(session.resolve()) not in coordinator._watcher.directories()
+        assert all(
+            str((session / f"cam_{cam_id}.mp4").resolve()) not in coordinator._watcher.files() for cam_id in (0, 1)
+        )
+        assert all(
+            str((session / f"cam_{cam_id}.mp4").resolve()) not in coordinator._recording_video_watches
+            for cam_id in (0, 1)
+        )
         assert presenter.selected_recording is None
 
         previous_count = status_spy.count()

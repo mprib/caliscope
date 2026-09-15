@@ -23,6 +23,36 @@ class VideoProperties(TypedDict):
     size: tuple[int, int]
 
 
+def read_video_dimensions(source_path: Path) -> tuple[int, int]:
+    """Read a video's positive ``(width, height)`` without timing requirements.
+
+    The recording-compatibility check only needs the pixel geometry.  In
+    particular, it must remain useful for a video whose container does not
+    report an FPS or frame count, which are validated separately when timing
+    is loaded.
+    """
+    if not source_path.exists():
+        raise FileNotFoundError(f"Video file not found: {source_path}")
+
+    try:
+        container = av.open(str(source_path))
+    except Exception as e:
+        raise ValueError(f"Could not open video file: {source_path}") from e
+
+    try:
+        if not container.streams.video:
+            raise ValueError(f"No video stream found in: {source_path}")
+
+        stream = container.streams.video[0]
+        width, height = stream.width, stream.height
+        if width <= 0 or height <= 0:
+            raise ValueError(f"Could not determine positive video dimensions for: {source_path}")
+
+        return width, height
+    finally:
+        container.close()
+
+
 def read_video_properties(source_path: Path) -> VideoProperties:
     """Read video metadata (fps, frame_count, dimensions) via PyAV.
 

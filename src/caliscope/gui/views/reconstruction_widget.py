@@ -8,9 +8,9 @@ This is a thin MVP widget following the state-driven UI pattern.
 """
 
 import logging
+from pathlib import Path
 
-from PySide6.QtCore import Qt, QTimer, QUrl
-from PySide6.QtGui import QDesktopServices
+from PySide6.QtCore import Qt, QTimer
 from PySide6.QtWidgets import (
     QComboBox,
     QGroupBox,
@@ -30,6 +30,7 @@ from caliscope.gui.presenters.reconstruction_presenter import (
 )
 from caliscope.gui.view_models.playback_view_model import PlaybackViewModel
 from caliscope.gui.widgets.qt3d_playback_widget import Qt3DPlaybackWidget, opengl_available
+from caliscope.gui.widgets.folder_link import FolderLink
 from caliscope.gui.widgets.workspace_issue_label import WorkspaceIssueLabel
 from caliscope import MODELS_DIR
 from caliscope.gui.theme import Colors
@@ -54,6 +55,7 @@ class ReconstructionWidget(QWidget):
         self._presenter = presenter
         self._viz_widget: Qt3DPlaybackWidget | None = None
         self._viz_pending = False  # Debounce flag for _update_visualization
+        self._last_displayed_input_key: tuple[str | None, str | None, Path | None, bool] | None = None
 
         self._setup_ui()
         self._connect_signals()
@@ -94,9 +96,9 @@ class ReconstructionWidget(QWidget):
         self._recording_list.setMaximumHeight(150)
         recording_layout.addWidget(self._recording_list)
 
-        self._recording_feedback_label = WorkspaceIssueLabel()
-        self._recording_feedback_label.setObjectName("recordingFeedbackLabel")
-        recording_layout.addWidget(self._recording_feedback_label)
+        self._recording_folder_link = FolderLink("Open recording folder", None)
+        self._recording_folder_link.hide()
+        recording_layout.addWidget(self._recording_folder_link)
 
         left_layout.addWidget(recording_group)
 
@@ -107,11 +109,7 @@ class ReconstructionWidget(QWidget):
         self._tracker_combo = QComboBox()
         tracker_layout.addWidget(self._tracker_combo)
 
-        self._models_folder_link = QLabel(
-            f'<a href="file://{MODELS_DIR}" style="color: {Colors.PRIMARY};">Open Models Folder</a>'
-        )
-        self._models_folder_link.setStyleSheet("font-size: 11px;")
-        self._models_folder_link.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._models_folder_link = FolderLink("Open models folder", MODELS_DIR)
         tracker_layout.addWidget(self._models_folder_link)
 
         left_layout.addWidget(tracker_group)
@@ -144,6 +142,10 @@ class ReconstructionWidget(QWidget):
         self._process_btn.setEnabled(False)
         actions_layout.addWidget(self._process_btn)
 
+        self._recording_feedback_label = WorkspaceIssueLabel()
+        self._recording_feedback_label.setObjectName("recordingFeedbackLabel")
+        actions_layout.addWidget(self._recording_feedback_label)
+
         self._progress_bar = QProgressBar()
         self._progress_bar.setRange(0, 100)
         self._progress_bar.setValue(0)
@@ -155,11 +157,9 @@ class ReconstructionWidget(QWidget):
         self._progress_label.hide()
         actions_layout.addWidget(self._progress_label)
 
-        self._open_output_btn = QPushButton("Open Output Folder")
-        self._open_output_btn.setToolTip("Open folder containing xyz/TRC output files")
-        self._open_output_btn.setEnabled(False)
-        self._open_output_btn.hide()
-        actions_layout.addWidget(self._open_output_btn)
+        self._results_folder_link = FolderLink("Open results folder", None)
+        self._results_folder_link.hide()
+        actions_layout.addWidget(self._results_folder_link)
 
         left_layout.addWidget(actions_group)
 
@@ -189,15 +189,14 @@ class ReconstructionWidget(QWidget):
         self._presenter.reconstruction_complete.connect(self._on_reconstruction_complete)
         self._presenter.reconstruction_failed.connect(self._on_reconstruction_failed)
         self._presenter.recordings_changed.connect(self._refresh_recording_list)
+        self._presenter.reconstruction_starting.connect(self.suspend_rendering)
 
         # View -> Presenter (via adapters)
         self._recording_list.currentTextChanged.connect(self._on_recording_changed)
         self._tracker_combo.currentIndexChanged.connect(self._on_tracker_changed)
         self._process_btn.clicked.connect(self._on_process_clicked)
-        self._open_output_btn.clicked.connect(self._on_open_output_clicked)
         self._presenter.model_download_needed.connect(self._show_model_download_dialog)
-        self._presenter.camera_array_changed.connect(self._update_visualization)
-        self._models_folder_link.linkActivated.connect(self._on_open_models_folder)
+        self._presenter.camera_array_changed.connect(self._on_camera_array_changed)
 
     def _populate_initial_data(self) -> None:
         """Populate lists with available recordings and trackers."""
@@ -218,8 +217,7 @@ class ReconstructionWidget(QWidget):
         """Handle recording selection change."""
         if name:  # Guard against empty string when list cleared
             self._presenter.select_recording(name)
-            self._update_recording_feedback()
-            self._update_visualization()
+            self._update_visualization(force=True)
 
     def _refresh_recording_list(self) -> None:
         """Render the current filesystem session list without losing selection."""
@@ -233,14 +231,13 @@ class ReconstructionWidget(QWidget):
             self._recording_list.setCurrentRow(recordings.index(selected))
         self._recording_list.blockSignals(False)
 
-        self._update_recording_feedback()
         self._update_visualization()
 
     def _update_recording_feedback(self) -> None:
         """Show actionable root and selected-session filesystem feedback."""
         empty_text = (
             ""
-            if self._presenter.available_recordings
+            if self._recording_list.count()
             else "No recording session folders found. Add a named folder inside recordings/."
         )
         self._recording_feedback_label.set_issues(self._presenter.workspace_issues, empty_text=empty_text)
@@ -250,7 +247,7 @@ class ReconstructionWidget(QWidget):
         if index >= 0:
             tracker_name = self._tracker_combo.itemData(index)
             self._presenter.select_tracker(tracker_name)
-            self._update_visualization()
+            self._update_visualization(force=True)
 
     def _on_process_clicked(self) -> None:
         """Handle process button click - action depends on state."""
@@ -259,23 +256,7 @@ class ReconstructionWidget(QWidget):
             self._presenter.cancel_reconstruction()
             self.resume_rendering()
         else:
-            # Suspend Qt3D rendering BEFORE starting the worker thread.
-            # The task starts immediately on submit(), but the state_changed
-            # signal uses QueuedConnection and won't arrive until the event
-            # loop processes it. Without eager suspension, the render thread
-            # and video decode threads overlap briefly, causing segfaults
-            # under Mesa llvmpipe (software OpenGL).
-            if self._viz_widget is not None:
-                self._viz_widget.suspend_rendering()
             self._presenter.start_reconstruction()
-
-    def _on_open_output_clicked(self) -> None:
-        """Open the output folder containing xyz/TRC files."""
-        output_path = self._presenter.xyz_output_path
-        if output_path and output_path.exists():
-            # Open the parent directory (tracker output folder)
-            folder = output_path.parent
-            QDesktopServices.openUrl(QUrl.fromLocalFile(str(folder)))
 
     def _selected_tracker_needs_download(self) -> bool:
         """Check if the currently selected tracker requires a model download.
@@ -317,6 +298,8 @@ class ReconstructionWidget(QWidget):
         Single handler that derives entire UI from current state - prevents
         state/UI divergence.
         """
+        self._update_recording_feedback()
+
         # State label
         self._state_label.setText(f"State: {state.name}")
 
@@ -329,9 +312,18 @@ class ReconstructionWidget(QWidget):
             self._state_label.setStyleSheet("")
 
         # Status message
-        if state == ReconstructionState.IDLE:
+        if state == ReconstructionState.RECONSTRUCTING:
+            self._status_message.setText("Processing...")
+        elif self._presenter.dimension_check_notice:
+            self._status_message.setText(self._presenter.dimension_check_notice)
+        elif self._presenter.is_checking_dimensions:
+            self._status_message.setText("Checking recording dimensions...")
+        elif state == ReconstructionState.IDLE:
             if self._presenter.selected_recording and not self._presenter.selected_recording_is_ready:
-                self._status_message.setText("Recording files need attention")
+                if self._presenter.has_structurally_ready_selected_recording:
+                    self._status_message.setText("Recording dimensions need attention")
+                else:
+                    self._status_message.setText("Recording files need attention")
             elif self._presenter.selected_recording and self._presenter.selected_tracker:
                 if self._selected_tracker_needs_download():
                     tracker = self._presenter.selected_tracker
@@ -345,11 +337,11 @@ class ReconstructionWidget(QWidget):
                 self._status_message.setText("Select a tracker")
             else:
                 self._status_message.setText("Select a recording to begin")
-        elif state == ReconstructionState.RECONSTRUCTING:
-            self._status_message.setText("Processing...")
         elif state == ReconstructionState.COMPLETE:
             if self._presenter.selected_recording_is_ready:
                 self._status_message.setText("Reconstruction complete")
+            elif self._presenter.has_structurally_ready_selected_recording:
+                self._status_message.setText("Reconstruction complete. Source dimensions need attention")
             else:
                 self._status_message.setText("Reconstruction complete. Source files need attention")
         elif state == ReconstructionState.ERROR:
@@ -375,23 +367,29 @@ class ReconstructionWidget(QWidget):
         else:
             self._process_btn.setEnabled(can_process)
 
+        recording_dir = self._presenter.selected_recording_dir
+        self._recording_folder_link.set_folder(recording_dir)
+        self._recording_folder_link.setVisible(recording_dir is not None)
+
         # Progress bar visibility
         if state == ReconstructionState.RECONSTRUCTING:
             self._progress_bar.show()
             self._progress_label.show()
-            self._open_output_btn.hide()
+            self._results_folder_link.hide()
         else:
             self._progress_bar.hide()
             self._progress_label.hide()
             self._progress_bar.setValue(0)
 
-        # Open Output button - only visible and enabled in COMPLETE state
+        # Results navigation is available only for the selected completed output.
         if state == ReconstructionState.COMPLETE:
-            self._open_output_btn.show()
-            self._open_output_btn.setEnabled(True)
+            output_path = self._presenter.xyz_output_path
+            results_dir = output_path.parent if output_path is not None and output_path.exists() else None
+            self._results_folder_link.set_folder(results_dir)
+            self._results_folder_link.setVisible(results_dir is not None)
         else:
-            self._open_output_btn.hide()
-            self._open_output_btn.setEnabled(False)
+            self._results_folder_link.set_folder(None)
+            self._results_folder_link.hide()
 
         # Input controls enabled/disabled
         inputs_enabled = state != ReconstructionState.RECONSTRUCTING
@@ -407,14 +405,28 @@ class ReconstructionWidget(QWidget):
         """Handle successful reconstruction - resume rendering and update visualization."""
         logger.info(f"Reconstruction complete: {output_path}")
         self.resume_rendering()
-        self._update_visualization()
+        self._update_visualization(force=True)
 
     def _on_reconstruction_failed(self, error: str) -> None:
         """Handle reconstruction failure - resume rendering."""
         logger.error(f"Reconstruction failed: {error}")
         self.resume_rendering()
 
-    def _update_visualization(self) -> None:
+    def _on_camera_array_changed(self) -> None:
+        """Refresh the scene after the active calibration changes."""
+        self._update_visualization(force=True)
+
+    def _visualization_input_key(self) -> tuple[str | None, str | None, Path | None, bool]:
+        """Return the inputs that determine the currently displayed scene."""
+        output_path = self._presenter.xyz_output_path
+        return (
+            self._presenter.selected_recording,
+            self._presenter.selected_tracker,
+            output_path,
+            output_path is not None and output_path.exists(),
+        )
+
+    def _update_visualization(self, *, force: bool = False) -> None:
         """Schedule a visualization update on the next event loop cycle.
 
         Multiple callers (recording change, tracker change, state change) may
@@ -422,15 +434,22 @@ class ReconstructionWidget(QWidget):
         QTimer.singleShot(0) coalesces them into a single scene rebuild,
         avoiding redundant Qt3D scene graph construction.
         """
-        if not self._viz_pending:
+        if force:
+            self._last_displayed_input_key = None
+        if self._presenter.state == ReconstructionState.RECONSTRUCTING:
+            return
+        if not self._viz_pending and (force or self._visualization_input_key() != self._last_displayed_input_key):
             self._viz_pending = True
             QTimer.singleShot(0, self._do_update_visualization)
 
     def _do_update_visualization(self) -> None:
         """Actually rebuild the visualization. Called from debounce timer."""
         self._viz_pending = False
+        if self._presenter.state == ReconstructionState.RECONSTRUCTING:
+            return
         camera_array = self._presenter.camera_array
         output_path = self._presenter.xyz_output_path
+        input_key = self._visualization_input_key()
 
         if not opengl_available():
             if self._viz_container.count() == 0:
@@ -447,6 +466,7 @@ class ReconstructionWidget(QWidget):
                 )
                 fallback.setFixedHeight(150)
                 self._viz_container.addWidget(fallback)
+            self._last_displayed_input_key = input_key
             return
 
         # Determine what data we have
@@ -478,6 +498,7 @@ class ReconstructionWidget(QWidget):
                 self._viz_widget.set_view_model(view_model)
 
             self._viz_widget.show()
+            self._last_displayed_input_key = input_key
 
         except Exception as e:
             logger.error(f"Failed to create visualization: {e}")
@@ -514,10 +535,6 @@ class ReconstructionWidget(QWidget):
 
         # Update button text and status message to reflect new readiness state
         self._update_ui_for_state(self._presenter.state)
-
-    def _on_open_models_folder(self, link: str) -> None:
-        """Open MODELS_DIR in the system file manager."""
-        QDesktopServices.openUrl(QUrl.fromLocalFile(str(MODELS_DIR)))
 
     def cleanup(self) -> None:
         """Explicit cleanup - call before destruction."""

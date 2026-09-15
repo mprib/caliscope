@@ -13,9 +13,6 @@ because it only observes status - it doesn't orchestrate workflows.
 from __future__ import annotations
 
 import logging
-import os
-import subprocess
-import sys
 from collections.abc import Callable
 from pathlib import Path
 
@@ -32,6 +29,7 @@ from PySide6.QtWidgets import (
     QMessageBox,
     QPushButton,
     QScrollArea,
+    QSizePolicy,
     QStackedWidget,
     QVBoxLayout,
     QWidget,
@@ -47,6 +45,7 @@ from caliscope.gui.utils.charuco_preview import render_charuco_pixmap
 from caliscope.gui.widgets.aruco_marker_set_panel import ArucoMarkerSetPanel
 from caliscope.gui.widgets.chessboard_config_panel import ChessboardConfigPanel
 from caliscope.gui.widgets.charuco_config_panel import CharucoConfigPanel
+from caliscope.gui.widgets.folder_link import FolderLink
 from caliscope.workspace_coordinator import WorkspaceCoordinator
 
 logger = logging.getLogger(__name__)
@@ -250,11 +249,15 @@ class ProjectSetupView(QWidget):
         workspace_path = self._coordinator.workspace
         path_label = QLabel(f"<b>Project:</b> {workspace_path}")
         path_label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
-        layout.addWidget(path_label, stretch=1)
+        path_label.setMinimumWidth(0)
+        path_label.setSizePolicy(QSizePolicy.Policy.Maximum, QSizePolicy.Policy.Preferred)
+        layout.addWidget(path_label)
 
-        self._open_folder_btn = QPushButton("Open Project Folder")
-        self._open_folder_btn.setFixedWidth(170)
-        layout.addWidget(self._open_folder_btn)
+        self._project_folder_link = FolderLink("Open project folder", workspace_path)
+        layout.addWidget(
+            self._project_folder_link, alignment=Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft
+        )
+        layout.addStretch()
 
         return row
 
@@ -479,7 +482,6 @@ class ProjectSetupView(QWidget):
         self._coordinator.extrinsic_target_changed.connect(self._on_extrinsic_target_changed)
 
         # UI buttons
-        self._open_folder_btn.clicked.connect(self._open_workspace_folder)
         self._intrinsic_save_btn.clicked.connect(self._save_intrinsic_target)
         self._extrinsic_save_btn.clicked.connect(self._save_extrinsic_target)
 
@@ -770,22 +772,6 @@ class ProjectSetupView(QWidget):
             logger.info(f"Saved chessboard to {file_path}")
 
     # -------------------------------------------------------------------------
-    # Other Handlers
-    # -------------------------------------------------------------------------
-
-    def _open_workspace_folder(self) -> None:
-        """Open the workspace directory in the system file manager."""
-        workspace_path = str(self._coordinator.workspace)
-        logger.info(f"Opening workspace folder: {workspace_path}")
-
-        if sys.platform == "win32":
-            os.startfile(workspace_path)  # type: ignore[attr-defined]
-        elif sys.platform == "darwin":
-            subprocess.run(["open", workspace_path], check=False)
-        else:  # Linux and other Unix-like systems
-            subprocess.run(["xdg-open", workspace_path], check=False)
-
-    # -------------------------------------------------------------------------
     # Status Refresh
     # -------------------------------------------------------------------------
 
@@ -925,9 +911,9 @@ class ProjectSetupView(QWidget):
             ready_count = len(status.ready_recording_names)
             total_count = len(status.recording_names)
             if ready_count == total_count:
-                detail = f"{ready_count} recording{'s' if ready_count != 1 else ''} ready"
+                detail = f"{ready_count} recording{'s' if ready_count != 1 else ''} with complete camera files"
             else:
-                detail = f"{ready_count}/{total_count} recordings ready; others need attention"
+                detail = f"{ready_count}/{total_count} recordings with complete camera files; others need attention"
             step_status = StepStatus.AVAILABLE
         elif status.recording_names or status.recording_issues:
             count = len(status.recording_names)

@@ -66,12 +66,17 @@ class WorkflowStatus:
 
     # Step 5: Reconstruction (optional)
     recording_names: list[str]
+    # Structural readiness only. Project status deliberately does not inspect
+    # recording media metadata, which is checked for the selected session.
     ready_recording_names: list[str]
     recording_issues: tuple[WorkspaceIssue, ...]
 
     @property
     def recordings_available(self) -> bool:
-        """Whether at least one recording session is ready to process."""
+        """Whether at least one recording session has complete camera files.
+
+        This structural status does not inspect recording media dimensions.
+        """
         return bool(self.ready_recording_names)
 
     @property

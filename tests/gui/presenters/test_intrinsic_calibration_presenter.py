@@ -3,6 +3,7 @@
 from pathlib import Path
 
 import pytest
+from PySide6.QtWidgets import QLabel
 
 from caliscope import __root__
 from caliscope.cameras.camera_array import CameraData
@@ -11,6 +12,7 @@ from caliscope.gui.presenters.intrinsic_calibration_presenter import (
     IntrinsicCalibrationPresenter,
     IntrinsicCalibrationState,
 )
+from caliscope.gui.views.intrinsic_calibration_widget import IntrinsicCalibrationWidget
 from caliscope.trackers.charuco_tracker import CharucoTracker
 
 SESSION = Path(__root__, "tests", "sessions", "prerecorded_calibration")
@@ -39,3 +41,23 @@ def test_pending_calibration_task_blocks_restart(presenter, fake_task_manager, q
     presenter.start_calibration()
 
     assert presenter.state == IntrinsicCalibrationState.CALIBRATING
+
+
+def test_calibration_failure_is_shown_in_widget(presenter, fake_task_manager, qtbot, qapp):
+    """A failed calibration task reaches the widget and returns the presenter to READY."""
+    widget = IntrinsicCalibrationWidget(presenter)
+    qtbot.addWidget(widget)
+
+    presenter.start_calibration()
+    qtbot.waitUntil(lambda: bool(fake_task_manager.handles("Intrinsic calibration cam_id 0")), timeout=30000)
+    (handle,) = fake_task_manager.handles("Intrinsic calibration cam_id 0")
+
+    fake_task_manager.fail(handle, "RuntimeError", "calibrateCamera diverged")
+    qapp.processEvents()
+
+    assert presenter.state == IntrinsicCalibrationState.READY
+    error_label = widget.findChild(QLabel, "calibration_error")
+    assert error_label is not None
+    assert not error_label.isHidden()
+    assert "calibrateCamera diverged" in error_label.text()
+    widget.close()  # stops the render thread

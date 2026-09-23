@@ -15,6 +15,7 @@ from caliscope.cameras.camera_array import CameraArray
 from caliscope.core.workflow_status import StepStatus
 from caliscope.gui.presenters.extrinsic_calibration_presenter import (
     CalibrationStepData,
+    ExtrinsicCalibrationState,
     ExtrinsicCalibrationPresenter,
 )
 
@@ -103,3 +104,24 @@ def test_refresh_from_workspace_noop_when_already_loaded(qapp, tmp_path):
     presenter.workflow_updated.connect(steps.append)
     presenter.refresh_from_workspace()
     assert steps == []
+
+
+def test_calibration_failure_reaches_view_and_allows_retry(qapp, fake_task_manager):
+    """A failed calibration task reports its message and leaves the presenter ready to retry."""
+    presenter = ExtrinsicCalibrationPresenter(
+        task_manager=fake_task_manager,
+        camera_array=CameraArray({}),
+        image_points_path=Path("does_not_exist.csv"),
+    )
+    errors: list[str] = []
+    presenter.calibration_failed.connect(errors.append)
+
+    presenter.run_calibration()
+    (handle,) = fake_task_manager.handles("Extrinsic calibration")
+    assert presenter.state == ExtrinsicCalibrationState.CALIBRATING
+
+    fake_task_manager.fail(handle, "ValueError", "not enough overlap")
+    qapp.processEvents()
+
+    assert errors == ["ValueError: not enough overlap"]
+    assert presenter.state == ExtrinsicCalibrationState.NEEDS_CALIBRATION

@@ -182,6 +182,7 @@ class ExtrinsicCalibrationPresenter(QObject):
 
     # Progress signals
     progress_updated = Signal(int, str)  # (percent, message)
+    calibration_failed = Signal(str)  # error message
 
     # Result signals
     quality_updated = Signal(object)  # CalibrationQualityData
@@ -730,6 +731,7 @@ class ExtrinsicCalibrationPresenter(QObject):
         logger.error(f"Calibration failed: {exc_type}: {message}")
         self._task_handle = None
         self._filter_summary = None
+        self.calibration_failed.emit(f"{exc_type}: {message}")
         self._emit_state_changed()
         self._refresh_workflow_strip()
 

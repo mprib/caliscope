@@ -38,7 +38,7 @@ from caliscope.gui.presenters.intrinsic_calibration_presenter import (
     IntrinsicCalibrationPresenter,
     IntrinsicCalibrationState,
 )
-from caliscope.gui.theme import Styles
+from caliscope.gui.theme import Colors, Styles
 from caliscope.packets import PixelFormat, PointPacket, TrackedFrame
 
 logger = logging.getLogger(__name__)
@@ -656,6 +656,14 @@ class IntrinsicCalibrationWidget(QWidget):
 
         video_layout.addLayout(controls)
 
+        self._error_label = QLabel("")
+        self._error_label.setObjectName("calibration_error")
+        self._error_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self._error_label.setWordWrap(True)
+        self._error_label.setStyleSheet(f"color: {Colors.ERROR};")
+        self._error_label.hide()
+        video_layout.addWidget(self._error_label)
+
         # Add the video container to right column
         right_column.addWidget(video_container)
 
@@ -708,6 +716,7 @@ class IntrinsicCalibrationWidget(QWidget):
             self._undistort_checkbox.setEnabled(False)
             self._progress_bar.setValue(0)
             self._progress_widget.show()
+            self._error_label.hide()
         elif state == IntrinsicCalibrationState.CALIBRATING:
             self._calibrate_btn.setText("Calibrating...")
             self._calibrate_btn.setEnabled(False)
@@ -769,9 +778,9 @@ class IntrinsicCalibrationWidget(QWidget):
         self._undistort_checkbox.setChecked(True)
 
     def _on_calibration_failed(self, error_msg: str) -> None:
-        """Handle calibration failure."""
-        # Could show error in UI, but for now just log it
-        logger.error(f"Calibration failed: {error_msg}")
+        """Show the failure until the next collection starts."""
+        self._error_label.setText(f"Calibration failed: {error_msg}")
+        self._error_label.show()
 
     def closeEvent(self, event) -> None:
         """Clean up on close."""

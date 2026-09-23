@@ -211,17 +211,6 @@ class CharucoConfigPanel(QWidget):
             thickness_cm=self._charuco_params["thickness_cm"],
         )
 
-    def set_square_size(self, cm: float) -> None:
-        """Update the printed edge length override.
-
-        Args:
-            cm: Edge length in centimeters
-        """
-        # Block signals to avoid triggering config_changed during programmatic update
-        self._square_size_spin.blockSignals(True)
-        self._square_size_spin.setValue(cm)
-        self._square_size_spin.blockSignals(False)
-
     def set_values(self, charuco: Charuco) -> None:
         """Repopulate panel with values from a charuco instance.
 

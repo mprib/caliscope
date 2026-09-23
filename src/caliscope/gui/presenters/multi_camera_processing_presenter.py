@@ -7,6 +7,7 @@ This is a "scratchpad" presenter - processing results are transient until
 emitted to the Coordinator for persistence.
 """
 
+import copy
 import logging
 import time
 from enum import Enum, auto
@@ -131,12 +132,13 @@ class MultiCameraProcessingPresenter(QObject):
         # Thumbnail state
         self._thumbnails: dict[int, NDArray[np.uint8]] = {}
         self._last_thumbnail_time: float = 0.0
+        # Bumped when the recording dir or camera set changes, so thumbnail
+        # loads submitted for the old configuration are ignored on arrival.
+        self._thumbnail_generation: int = 0
 
         # ETA and coverage state
         self._processing_start_time: float = 0.0
         self._last_coverage_time: float = 0.0
-        self._sync_frames_done: int = 0
-        self._frames_total: int = 0
 
         # Incremental coverage matrix — updated per sync index, never rebuilt
         self._coverage_matrix: np.ndarray | None = None
@@ -230,7 +232,7 @@ class MultiCameraProcessingPresenter(QObject):
 
         self._recording_dir = path
         self._reset_results()
-        self._load_initial_thumbnails()
+        self._reset_thumbnails()
         self._emit_state_changed()
 
     def set_cameras(self, cameras: dict[int, CameraData]) -> None:
@@ -246,11 +248,11 @@ class MultiCameraProcessingPresenter(QObject):
             logger.warning("Cannot change cameras while processing")
             return
 
-        # Shallow copy - rotation_count may be modified via set_rotation()
-        self._cameras = {cam_id: cam for cam_id, cam in cameras.items()}
+        # Copy each camera: set_rotation() must not mutate the coordinator's
+        # CameraData, or persist_camera_rotation() sees no change and skips the save.
+        self._cameras = {cam_id: copy.copy(cam) for cam_id, cam in cameras.items()}
         self._reset_results()
-        self._thumbnails = {}
-        self._load_initial_thumbnails()
+        self._reset_thumbnails()
         self.cameras_changed.emit()
         self._emit_state_changed()
 
@@ -274,10 +276,7 @@ class MultiCameraProcessingPresenter(QObject):
             if cam_id not in missing and cam_id not in self._thumbnails
         }
         if to_load:
-            thumbnails = get_initial_thumbnails(self._recording_dir, to_load)
-            self._thumbnails.update(thumbnails)
-            for cam_id, frame in thumbnails.items():
-                self.thumbnail_updated.emit(cam_id, frame, None)
+            self._load_thumbnails(to_load)
 
         self._emit_state_changed()
 
@@ -307,8 +306,6 @@ class MultiCameraProcessingPresenter(QObject):
         # Normalize to 0-3 range
         normalized = rotation_count % 4
 
-        # Update local copy (note: shallow copy means this is the same object
-        # the coordinator holds; signal notifies it to persist)
         self._cameras[cam_id].rotation_count = normalized
 
         # Signal for coordinator persistence
@@ -364,8 +361,6 @@ class MultiCameraProcessingPresenter(QObject):
 
         self._processing_start_time = time.time()
         self._last_coverage_time = 0.0
-        self._sync_frames_done = 0
-        self._frames_total = 0
 
         # Initialize incremental coverage matrix
         cam_ids = sorted(cameras.keys())
@@ -465,7 +460,6 @@ class MultiCameraProcessingPresenter(QObject):
         Called from worker thread. Thread-safe because progress_updated
         is a Qt signal (cross-thread emission handled by Qt event loop).
         """
-        self._frames_total = total
         percent = int(100 * current / total) if total > 0 else 0
 
         # ETA computation (wait 3 seconds for rate to stabilize)
@@ -492,7 +486,6 @@ class MultiCameraProcessingPresenter(QObject):
         Coverage signal emission throttled to COVERAGE_INTERVAL.
         """
         now = time.time()
-        self._sync_frames_done += 1
 
         # --- Incremental coverage matrix update (cheap, every call) ---
         if self._coverage_matrix is not None:
@@ -563,8 +556,6 @@ class MultiCameraProcessingPresenter(QObject):
         self._result = None
         self._coverage_report = None
         self._task_handle = None
-        self._sync_frames_done = 0
-        self._frames_total = 0
         self._coverage_matrix = None
         self._coverage_cam_ids = []
         self._coverage_cam_id_to_index = {}
@@ -575,27 +566,40 @@ class MultiCameraProcessingPresenter(QObject):
         logger.debug(f"State changed to {current_state}")
         self.state_changed.emit(current_state)
 
-    def _load_initial_thumbnails(self) -> None:
-        """Load first frame from each camera for thumbnail display.
+    def _reset_thumbnails(self) -> None:
+        """Drop cached thumbnails and load the first frame of every camera."""
+        self._thumbnail_generation += 1
+        self._thumbnails = {}
+        if self._recording_dir is not None and self._cameras:
+            self._load_thumbnails(self._cameras)
 
-        Called when recording_dir or cameras are set. Guards ensure
-        both are configured before attempting to load.
-        """
-        if self._recording_dir is None or not self._cameras:
+    def _load_thumbnails(self, cameras: dict[int, CameraData]) -> None:
+        """Decode first frames in a background task; results arrive on the GUI thread."""
+        assert self._recording_dir is not None
+        recording_dir = self._recording_dir
+        cameras = dict(cameras)
+        generation = self._thumbnail_generation
+
+        def worker(_token: CancellationToken, _handle: TaskHandle) -> dict[int, NDArray[np.uint8]]:
+            return get_initial_thumbnails(recording_dir, cameras)
+
+        handle = self._task_manager.submit(worker, name="Load thumbnails", auto_start=False)
+        handle.completed.connect(
+            lambda thumbnails, generation=generation: self._on_thumbnails_loaded(generation, thumbnails),
+            Qt.ConnectionType.QueuedConnection,
+        )
+        self._task_manager.start_task(handle.task_id)
+
+    def _on_thumbnails_loaded(self, generation: int, thumbnails: dict[int, NDArray[np.uint8]]) -> None:
+        """Cache and emit loaded thumbnails unless the configuration changed meanwhile."""
+        if generation != self._thumbnail_generation:
             return
-
-        try:
-            thumbnails = get_initial_thumbnails(self._recording_dir, self._cameras)
-            self._thumbnails = thumbnails
-
-            # Emit signal for each loaded thumbnail (no points for initial frames)
-            for cam_id, frame in thumbnails.items():
+        missing = set(self.missing_video_cam_ids)
+        for cam_id, frame in thumbnails.items():
+            if cam_id in self._cameras and cam_id not in missing:
+                self._thumbnails[cam_id] = frame
                 self.thumbnail_updated.emit(cam_id, frame, None)
-
-            logger.debug(f"Loaded initial thumbnails for {len(thumbnails)} cameras")
-
-        except Exception as e:
-            logger.warning(f"Failed to load initial thumbnails: {e}")
+        logger.debug(f"Loaded initial thumbnails for {len(thumbnails)} cameras")
 
     def _refresh_thumbnail(self, cam_id: int) -> None:
         """Refresh thumbnail for a single camera.

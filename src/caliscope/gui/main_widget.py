@@ -10,11 +10,10 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 import rtoml
-from PySide6.QtCore import QTimer, Qt
+from PySide6.QtCore import QTimer
 from PySide6.QtGui import QAction, QCloseEvent, QIcon
 from PySide6.QtWidgets import (
     QApplication,
-    QDockWidget,
     QFileDialog,
     QMainWindow,
     QMenu,
@@ -160,8 +159,6 @@ class MainWindow(QMainWindow):
         self.central_tab.addTab(self.project_tab, TabName.PROJECT)
 
         self.coordinator.status_changed.connect(self._refresh_tab_enablement)
-        self._previous_tab_index: int = 0
-        self.central_tab.currentChanged.connect(self._on_tab_changed)
 
         # Remaining tabs added one per event loop tick so the UI stays responsive.
         # Capture the current build generation so a relaunch mid-build abandons this
@@ -345,17 +342,6 @@ class MainWindow(QMainWindow):
         if self.coordinator.reconstruction_tab_enabled:
             self._replace_placeholder_tab(TabName.RECONSTRUCT)
 
-    def build_docked_logger(self):
-        from caliscope.gui.log_widget import LogWidget
-
-        self.docked_logger = QDockWidget("Log", self)
-        self.docked_logger.setFeatures(QDockWidget.DockWidgetFeature.DockWidgetMovable)
-        self.docked_logger.setAllowedAreas(Qt.DockWidgetArea.BottomDockWidgetArea)
-        self.log_widget = LogWidget()
-        self.docked_logger.setWidget(self.log_widget)
-
-        self.addDockWidget(Qt.DockWidgetArea.BottomDockWidgetArea, self.docked_logger)
-
     def launch_workspace(self, path_to_workspace: str) -> TaskHandle | None:
         """Launch workspace and return TaskHandle for additional callbacks."""
         # Invalidate any in-flight deferred tab build from a previous project so its
@@ -436,32 +422,6 @@ class MainWindow(QMainWindow):
         idx = self.find_tab_index_by_title(tab_name)
         if idx >= 0 and self.central_tab.isTabEnabled(idx):
             self.central_tab.setCurrentIndex(idx)
-
-    def _on_tab_changed(self, new_index: int) -> None:
-        """Suspend/resume 3D rendering when switching tabs.
-
-        QTabWidget doesn't fire hideEvent/showEvent on tab contents when switching
-        tabs - it only stops painting them. We manually notify 3D rendering widgets
-        when their tab becomes inactive to reduce CPU usage.
-        """
-        from caliscope.gui.extrinsic_calibration_tab import ExtrinsicCalibrationTab
-        from caliscope.gui.reconstruction_tab import ReconstructionTab
-
-        _3d_tab_types = (ExtrinsicCalibrationTab, ReconstructionTab)
-
-        # Suspend rendering on previous tab if it supports it
-        prev_widget = self.central_tab.widget(self._previous_tab_index)
-        if isinstance(prev_widget, _3d_tab_types):
-            logger.debug(f"Suspending rendering on tab {self._previous_tab_index}")
-            prev_widget.suspend_rendering()
-
-        # Resume rendering on new tab if it supports it
-        new_widget = self.central_tab.widget(new_index)
-        if isinstance(new_widget, _3d_tab_types):
-            logger.debug(f"Resuming rendering on tab {new_index}")
-            new_widget.resume_rendering()
-
-        self._previous_tab_index = new_index
 
     def add_to_recent_project(self, project_path: str):
         recent_project_action = QAction(project_path, self)

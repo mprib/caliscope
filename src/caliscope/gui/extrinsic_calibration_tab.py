@@ -88,20 +88,6 @@ class ExtrinsicCalibrationTab(QWidget):
             self._presenter.refresh_from_workspace()
 
     # -------------------------------------------------------------------------
-    # Rendering Lifecycle
-    # -------------------------------------------------------------------------
-
-    def suspend_rendering(self) -> None:
-        """Pause 3D rendering when tab is not active."""
-        if self._view is not None:
-            self._view.suspend_rendering()
-
-    def resume_rendering(self) -> None:
-        """Resume 3D rendering when tab becomes active."""
-        if self._view is not None:
-            self._view.resume_rendering()
-
-    # -------------------------------------------------------------------------
     # Lifecycle
     # -------------------------------------------------------------------------
 

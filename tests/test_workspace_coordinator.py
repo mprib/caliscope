@@ -7,24 +7,14 @@ compiles board-geometry distance constraints for the default (charuco)
 target, and still wires the ArUco marker-set factory for the ArUco target.
 """
 
+import threading
 from pathlib import Path
 import numpy as np
 import pytest
-from PySide6.QtCore import QElapsedTimer, QEventLoop
 from PySide6.QtTest import QSignalSpy
 
 from caliscope.cameras.camera_array import CameraArray, CameraData
 from caliscope.workspace_coordinator import WorkspaceCoordinator
-
-
-def _wait_for(qapp, condition, timeout_ms: int = 3000) -> None:
-    """Process Qt filesystem events until a bounded condition becomes true."""
-    timer = QElapsedTimer()
-    timer.start()
-    while not condition():
-        qapp.processEvents(QEventLoop.ProcessEventsFlag.AllEvents, 50)
-        if timer.elapsed() >= timeout_ms:
-            raise AssertionError("Timed out waiting for filesystem watcher event")
 
 
 @pytest.fixture
@@ -106,11 +96,15 @@ def test_deleted_extrinsic_video_is_reported_as_missing(
 def test_directory_change_discovers_cameras_and_keeps_persisted_calibration(
     coordinator: WorkspaceCoordinator,
     monkeypatch: pytest.MonkeyPatch,
+    qtbot,
 ):
-    monkeypatch.setattr(
-        "caliscope.workspace_coordinator.read_video_properties",
-        lambda _path: {"size": (640, 480)},
-    )
+    reader_threads = []
+
+    def read_video_properties(_path):
+        reader_threads.append(threading.current_thread())
+        return {"size": (640, 480)}
+
+    monkeypatch.setattr("caliscope.workspace_coordinator.read_video_properties", read_video_properties)
     calibrated = CameraData(cam_id=0, size=(640, 480), matrix=np.eye(3), distortions=np.zeros(5))
     coordinator.camera_repository.save(CameraArray({0: calibrated}))
     extrinsic = coordinator.workspace_guide.extrinsic_dir
@@ -123,7 +117,10 @@ def test_directory_change_discovers_cameras_and_keeps_persisted_calibration(
     assert coordinator.multi_camera_tab_enabled is False
 
     coordinator._on_directory_changed(str(extrinsic))
+    qtbot.waitUntil(lambda: 1 in coordinator.camera_array.cameras)
 
+    assert reader_threads
+    assert all(thread is not threading.main_thread() for thread in reader_threads)
     assert tuple(coordinator.camera_array.cameras) == (0, 1)
     assert coordinator.camera_array.cameras[0].matrix is not None
     assert coordinator.camera_repository.load().cameras[0].matrix is not None
@@ -171,36 +168,33 @@ def test_reconstruction_tab_only_requires_capture_volume_bundle(
     assert coordinator.reconstruction_tab_enabled is True
 
 
-def test_recording_session_watches_follow_root_directory_changes(
+def test_recording_sessions_and_videos_are_polled_not_watched(
     coordinator: WorkspaceCoordinator,
 ):
-    """Session watches are the coordinator's record, reconciled on every root change.
+    """Only the recordings root is watched.
 
-    Qt's own directories() list is not asserted here: fsevents and the Windows
-    engine only drop a deleted directory asynchronously, through the event loop.
+    Qt's Windows watcher can hang in removePaths() once a watched folder
+    nested in another watched folder is deleted, so sessions are polled.
     """
-    recording_dir = str(coordinator.workspace_guide.recording_dir)
     session = coordinator.workspace_guide.recording_dir / "walk"
     session.mkdir()
+    video = session / "cam_0.mp4"
+    video.touch()
 
-    coordinator._on_directory_changed(recording_dir)
+    coordinator._on_directory_changed(str(coordinator.workspace_guide.recording_dir))
 
-    assert str(session.resolve()) in coordinator._session_watches
-
-    session.rmdir()
-    coordinator._on_directory_changed(recording_dir)
-
-    assert str(session.resolve()) not in coordinator._session_watches
+    assert str(session.resolve()) not in coordinator._watcher.directories()
+    assert str(video.resolve()) not in coordinator._watcher.files()
+    assert session.absolute() in coordinator._recording_snapshot
 
 
 @pytest.mark.parametrize("linked_inputs", [False, True], ids=["regular", "linked-session-and-video"])
-def test_atomic_recording_video_replacement_readds_file_watch(
+def test_recording_poll_reports_each_change_once(
     coordinator: WorkspaceCoordinator,
-    qapp,
     tmp_path: Path,
     linked_inputs: bool,
 ):
-    """Reconciliation restores a dropped Qt file watch after atomic replacement."""
+    """Each session or video change produces one signal, and a quiet poll none."""
     session = coordinator.workspace_guide.recording_dir / "walk"
     if linked_inputs:
         session_target = tmp_path / "external-session"
@@ -218,33 +212,50 @@ def test_atomic_recording_video_replacement_readds_file_watch(
         video = session / "cam_4.mp4"
         video.write_bytes(b"first")
     coordinator._on_directory_changed(str(coordinator.workspace_guide.recording_dir))
-    assert str(video.resolve()) in coordinator._watcher.files()
 
     directory_spy = QSignalSpy(coordinator.recording_directory_changed)
+    video_spy = QSignalSpy(coordinator.recording_video_changed)
 
-    def session_changed_since(previous_count: int) -> bool:
-        return any(
-            Path(directory_spy.at(index)[0]) == session.absolute()
-            for index in range(previous_count, directory_spy.count())
-        )
+    def emitted(spy: QSignalSpy) -> list[Path]:
+        return [Path(spy.at(index)[0]).resolve() for index in range(spy.count())]
 
     (session / "notes.txt").touch()
-    _wait_for(qapp, lambda: session_changed_since(0))
+    coordinator._poll_recordings()
+    assert emitted(directory_spy) == [session.resolve()]
+    assert emitted(video_spy) == []
 
-    video_spy = QSignalSpy(coordinator.recording_video_changed)
-    previous_count = video_spy.count()
     video.write_bytes(b"changed")
-    _wait_for(qapp, lambda: video_spy.count() > previous_count)
-    assert Path(video_spy.at(video_spy.count() - 1)[0]) == video.resolve()
+    coordinator._poll_recordings()
+    assert emitted(video_spy) == [video.resolve()]
 
-    previous_directory_count = directory_spy.count()
+    # Atomic replacement keeps the name, so it reads as an edit of that video.
     replacement = session / "replacement.tmp"
     replacement.write_bytes(b"replacement")
     replacement.replace(video)
+    coordinator._poll_recordings()
+    assert emitted(video_spy) == [video.resolve(), video.resolve()]
 
-    _wait_for(qapp, lambda: session_changed_since(previous_directory_count))
+    coordinator._poll_recordings()
+    assert directory_spy.count() == 1
+    assert video_spy.count() == 2
 
-    previous_video_count = video_spy.count()
-    video.write_bytes(b"replacement changed")
-    _wait_for(qapp, lambda: video_spy.count() > previous_video_count)
-    assert Path(video_spy.at(video_spy.count() - 1)[0]) == video.resolve()
+
+def test_rotation_from_multi_camera_presenter_is_persisted(tmp_path: Path, qapp):
+    """The presenter must not mutate the coordinator's cameras in place, or the
+    coordinator sees no change and skips the save."""
+    camera = CameraData(cam_id=0, size=(640, 480), matrix=np.eye(3), distortions=np.zeros(5))
+    coordinator = WorkspaceCoordinator(tmp_path)
+    coordinator.camera_repository.save(CameraArray({0: camera}))
+    coordinator.load_camera_array()
+    assert coordinator.camera_array.cameras[0].rotation_count == 0
+
+    presenter = coordinator.create_multi_camera_presenter()
+    presenter.rotation_changed.connect(coordinator.persist_camera_rotation)
+    presenter.set_cameras(coordinator.camera_array.cameras)
+    calibration_spy = QSignalSpy(coordinator.calibration_changed)
+
+    presenter.set_rotation(0, 1)
+
+    assert coordinator.camera_repository.load().cameras[0].rotation_count == 1
+    assert calibration_spy.count() == 1
+    presenter.cleanup()

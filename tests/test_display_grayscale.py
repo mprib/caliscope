@@ -38,7 +38,7 @@ def test_draw_scatter_overlay_grayscale_no_points_still_bgr():
 def test_cv2_to_qlabel_grayscale():
     """cv2_to_qlabel handles 2D grayscale arrays."""
     pytest.importorskip("PySide6")
-    from caliscope.gui.frame_emitters.tools import cv2_to_qlabel
+    from caliscope.gui.utils.frame_display import cv2_to_qlabel
 
     gray = np.zeros((480, 640), dtype=np.uint8)
     gray[100:200, 100:200] = 128
@@ -51,7 +51,7 @@ def test_cv2_to_qlabel_grayscale():
 def test_cv2_to_qlabel_bgr_unchanged():
     """cv2_to_qlabel still works with 3D BGR arrays."""
     pytest.importorskip("PySide6")
-    from caliscope.gui.frame_emitters.tools import cv2_to_qlabel
+    from caliscope.gui.utils.frame_display import cv2_to_qlabel
 
     bgr = np.zeros((480, 640, 3), dtype=np.uint8)
     qimage = cv2_to_qlabel(bgr)

@@ -278,6 +278,13 @@ class ExtrinsicCalibrationView(QWidget):
         self._progress_label.hide()
         layout.addWidget(self._progress_label)
 
+        self._error_label = QLabel("")
+        self._error_label.setObjectName("calibrationErrorLabel")
+        self._error_label.setWordWrap(True)
+        self._error_label.setStyleSheet(f"color: {Colors.ERROR};")
+        self._error_label.hide()
+        layout.addWidget(self._error_label)
+
         return group
 
     def _create_origin_section(self) -> QWidget:
@@ -420,6 +427,7 @@ class ExtrinsicCalibrationView(QWidget):
         # Presenter -> View
         self._presenter.state_changed.connect(self._update_ui_for_state)
         self._presenter.progress_updated.connect(self._on_progress_updated)
+        self._presenter.calibration_failed.connect(self._on_calibration_failed)
         self._presenter.quality_updated.connect(self._on_quality_updated)
         self._presenter.volumetric_accuracy_updated.connect(self._on_volumetric_accuracy_updated)
         self._presenter.workflow_updated.connect(self._on_workflow_updated)
@@ -478,6 +486,8 @@ class ExtrinsicCalibrationView(QWidget):
 
         self._progress_bar.setVisible(is_running)
         self._progress_label.setVisible(is_running)
+        if is_running:
+            self._error_label.hide()
         self._refine_checkbox.setEnabled(self._presenter.intrinsics_available and not is_running)
 
         self._playback_controls.setVisible(show_calibrated)
@@ -673,6 +683,11 @@ class ExtrinsicCalibrationView(QWidget):
         self._progress_bar.repaint()
         self._progress_label.repaint()
 
+    def _on_calibration_failed(self, error_msg: str) -> None:
+        """Show the failure until the next run starts."""
+        self._error_label.setText(f"Calibration failed: {error_msg}")
+        self._error_label.show()
+
     def _on_quality_updated(self, data: CalibrationQualityData) -> None:
         """Handle quality data update from presenter."""
         self._quality_data = data
@@ -727,6 +742,7 @@ class ExtrinsicCalibrationView(QWidget):
             extrinsic_dir=self._quality_data.extrinsic_dir,
             depth_ratios=depth_ratios,
             initial_cam_id=cam_id,
+            task_manager=self._presenter.task_manager,
             parent=self,
         )
         dialog.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
@@ -848,16 +864,6 @@ class ExtrinsicCalibrationView(QWidget):
     # -------------------------------------------------------------------------
     # Lifecycle
     # -------------------------------------------------------------------------
-
-    def suspend_rendering(self) -> None:
-        """Pause 3D rendering when tab not active."""
-        if self._viz_widget is not None:
-            self._viz_widget.suspend_rendering()
-
-    def resume_rendering(self) -> None:
-        """Resume 3D rendering when tab becomes active."""
-        if self._viz_widget is not None:
-            self._viz_widget.resume_rendering()
 
     def cleanup(self) -> None:
         """Explicit cleanup - call before destruction."""

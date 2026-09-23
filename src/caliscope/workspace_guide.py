@@ -263,14 +263,6 @@ class WorkspaceGuide:
         """
         return self.get_cam_ids_in_dir(self.extrinsic_dir)
 
-    def get_camera_count(self) -> int:
-        """Return camera count derived from extrinsic directory.
-
-        Returns:
-            Number of cameras (cam_*.mp4 files in extrinsic directory).
-        """
-        return len(self.get_cam_ids())
-
     def all_instrinsic_mp4s_available(self) -> bool:
         """Check if intrinsic videos exist for every camera in the extrinsic set.
 

@@ -171,7 +171,12 @@ class IntrinsicCalibrationPresenter(QObject):
         if self._output is not None:
             return IntrinsicCalibrationState.CALIBRATED
 
-        if self._calibration_task is not None and self._calibration_task.state == TaskState.RUNNING:
+        # PENDING counts as active: the task is submitted before its worker
+        # thread starts, and checking only RUNNING misses that window.
+        if self._calibration_task is not None and self._calibration_task.state in (
+            TaskState.PENDING,
+            TaskState.RUNNING,
+        ):
             return IntrinsicCalibrationState.CALIBRATING
 
         if self._is_collecting:

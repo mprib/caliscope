@@ -1,10 +1,10 @@
 import logging
 from pathlib import Path
 from datetime import datetime
-from typing import Literal
+from typing import NamedTuple
 
 import cv2
-from PySide6.QtCore import QObject, QFileSystemWatcher, Signal
+from PySide6.QtCore import QObject, QFileSystemWatcher, Qt, QTimer, Signal
 
 from caliscope.task_manager import TaskHandle, TaskManager
 
@@ -45,10 +45,14 @@ from caliscope.packets import PointPacket
 
 logger = logging.getLogger(__name__)
 
+RECORDING_POLL_INTERVAL_MS = 2000
 
-FILTERED_FRACTION = (
-    0.025  # by default, 2.5% of image points with highest reprojection error are filtered out during calibration
-)
+
+class _SessionSnapshot(NamedTuple):
+    """Direct-child names and canonical video (mtime_ns, size) of one session."""
+
+    names: frozenset[str]
+    videos: dict[Path, tuple[int, int]]
 
 
 class WorkspaceCoordinator(QObject):
@@ -67,7 +71,6 @@ class WorkspaceCoordinator(QObject):
 
     intrinsic_target_changed = Signal()  # Emitted when intrinsic target config is updated
     extrinsic_target_changed = Signal()  # Emitted when extrinsic target config is updated
-    capture_volume_updated = Signal()  # Immediate: in-memory state changed, use for UI refresh
     status_changed = Signal()  # Deferred: fires after filesystem operations complete
     recording_directory_changed = Signal(Path)  # Recording root or immediate session changed
     recording_video_changed = Signal(Path)  # Canonical recording video changed
@@ -122,15 +125,14 @@ class WorkspaceCoordinator(QObject):
         self._intrinsic_frame_skip: int = 5
 
     def _setup_filesystem_watcher(self) -> None:
-        """Watch calibration, recording directories, and canonical recording videos."""
+        """Watch calibration and recording roots, and poll recording sessions.
+
+        Only directories the workspace keeps are watched. Session folders and
+        their videos are polled instead: on Windows, Qt's watcher can hang in
+        removePaths() after a watched folder nested in another watched folder
+        is deleted.
+        """
         self._watcher = QFileSystemWatcher(parent=self)
-        # Session watches this coordinator added. Qt's own directories() list
-        # lags behind deletions on macOS and Windows, so it is not the record.
-        self._session_watches: set[str] = set()
-        # Desired canonical recording-video paths. QFileSystemWatcher can drop
-        # a file watch when an editor atomically replaces the file, so actual
-        # watcher membership is checked during every reconciliation.
-        self._recording_video_watches: set[str] = set()
 
         dirs_to_watch = [
             self.workspace_guide.intrinsic_dir,
@@ -143,63 +145,65 @@ class WorkspaceCoordinator(QObject):
                 self._watcher.addPath(str(dir_path.resolve()))
                 logger.debug(f"Watching directory: {dir_path}")
 
-        self._reconcile_recording_watches()
-
         self._watcher.directoryChanged.connect(self._on_directory_changed)
-        self._watcher.fileChanged.connect(self._on_recording_video_changed)
 
-    def _recording_session_dirs(self) -> set[str]:
-        """Return immediate recording session directories currently on disk."""
+        self._recording_snapshot = self._snapshot_recordings()
+        self._recording_poll_timer = QTimer(self)
+        self._recording_poll_timer.setInterval(RECORDING_POLL_INTERVAL_MS)
+        self._recording_poll_timer.timeout.connect(self._poll_recordings)
+        self._recording_poll_timer.start()
+
+    def _snapshot_recordings(self) -> dict[Path, _SessionSnapshot]:
+        """Return each session's entry names and canonical video stats."""
         recording_dir = self.workspace_guide.recording_dir
-        if not recording_dir.exists():
-            return set()
+        snapshot: dict[Path, _SessionSnapshot] = {}
+        try:
+            session_dirs = [path for path in recording_dir.iterdir() if path.is_dir()]
+        except OSError:
+            return snapshot
+
         recording_root = recording_dir.absolute()
-        return {str(recording_root / path.name) for path in recording_dir.iterdir() if path.is_dir()}
+        for session_dir in session_dirs:
+            session_path = recording_root / session_dir.name
+            try:
+                names = frozenset(path.name for path in session_dir.iterdir())
+                videos: dict[Path, tuple[int, int]] = {}
+                for cam_id in self.workspace_guide.get_cam_ids_in_dir(session_dir):
+                    # Keyed by the in-session path, so replacing a linked video
+                    # with a regular file reads as an edit of the same video.
+                    video = session_path / f"cam_{cam_id}.mp4"
+                    stat = video.stat()
+                    videos[video] = (stat.st_mtime_ns, stat.st_size)
+            except OSError:
+                # The session changed mid-scan. The next poll sees it settled.
+                continue
+            snapshot[session_path] = _SessionSnapshot(names, videos)
+        return snapshot
 
-    def _recording_video_paths(self) -> set[str]:
-        """Return canonical direct-child camera videos in every recording session."""
-        return {
-            str((Path(session_dir) / f"cam_{cam_id}.mp4").resolve())
-            for session_dir in self._recording_session_dirs()
-            for cam_id in self.workspace_guide.get_cam_ids_in_dir(Path(session_dir))
-        }
+    def _poll_recordings(self, *, root_changed: bool = False) -> None:
+        """Emit recording signals for what changed since the last snapshot.
 
-    def _reconcile_recording_watches(self) -> None:
-        """Keep session and canonical video watches aligned with recordings on disk.
-
-        removePaths() is best effort. Qt cannot remove an already-deleted
-        directory on every platform, but every platform drops it on its own
-        once events are processed. Paths addPaths() rejects are retried on the
-        next reconcile.
+        root_changed forces a root notice for a watcher event, which also
+        covers loose files at the root that no session snapshot records.
         """
-        desired = self._recording_session_dirs()
-        stale = self._session_watches - desired
-        if stale:
-            self._watcher.removePaths(sorted(stale))
+        previous = self._recording_snapshot
+        current = self._snapshot_recordings()
+        self._recording_snapshot = current
 
-        new = desired - self._session_watches
-        if new:
-            new -= set(self._watcher.addPaths(sorted(new)))
-            for path in sorted(new):
-                logger.debug(f"Watching recording session: {path}")
-
-        self._session_watches = (self._session_watches - stale) | new
-
-        desired_videos = self._recording_video_paths()
-        stale_videos = self._recording_video_watches - desired_videos
-        if stale_videos:
-            self._watcher.removePaths(sorted(stale_videos))
-
-        # Compare against Qt's live file-watch list, not only our desired-path
-        # record. Atomic replacement removes an existing file watch on several
-        # platforms while leaving the replacement at the same path.
-        unwatched_videos = desired_videos - set(self._watcher.files())
-        if unwatched_videos:
-            failed = set(self._watcher.addPaths(sorted(unwatched_videos)))
-            for path in sorted(unwatched_videos - failed):
-                logger.debug(f"Watching recording video: {path}")
-
-        self._recording_video_watches = desired_videos
+        changed = root_changed or previous.keys() != current.keys()
+        if changed:
+            self.recording_directory_changed.emit(self.workspace_guide.recording_dir.absolute())
+        for session_dir in previous.keys() & current.keys():
+            before, after = previous[session_dir], current[session_dir]
+            if before.names != after.names:
+                self.recording_directory_changed.emit(session_dir)
+                changed = True
+            for video, stats in after.videos.items():
+                if video in before.videos and before.videos[video] != stats:
+                    self.recording_video_changed.emit(video)
+                    changed = True
+        if changed:
+            self.status_changed.emit()
 
     def _on_directory_changed(self, path: str) -> None:
         """Handle filesystem change in watched directory."""
@@ -210,32 +214,10 @@ class WorkspaceCoordinator(QObject):
             self.workspace_guide.extrinsic_dir.resolve(),
         }:
             self._discover_new_cameras()
-        self._reconcile_recording_watches()
-        recording_roots = {
-            self.workspace_guide.recording_dir.absolute(),
-            self.workspace_guide.recording_dir.resolve(),
-        }
-        if changed_path in recording_roots or changed_path.parent in recording_roots:
-            self.recording_directory_changed.emit(changed_path)
+        if changed_path.resolve() == self.workspace_guide.recording_dir.resolve():
+            self._poll_recordings(root_changed=True)
+            return
         self.status_changed.emit()
-
-    def _on_recording_video_changed(self, path: str) -> None:
-        """Refresh recording feedback after a watched camera-video change."""
-        logger.info(f"Recording video changed: {path}")
-        changed_path = Path(path).absolute()
-        self._reconcile_recording_watches()
-        self.recording_video_changed.emit(changed_path)
-        self.status_changed.emit()
-
-    @property
-    def camera_count(self) -> int:
-        """Derived camera count from extrinsic directory (source of truth)."""
-        return self.workspace_guide.get_camera_count()
-
-    @property
-    def cam_ids(self) -> list[int]:
-        """Authoritative list of camera IDs from extrinsic directory."""
-        return self.workspace_guide.get_cam_ids()
 
     @property
     def expected_cam_ids(self) -> set[int]:
@@ -365,22 +347,6 @@ class WorkspaceCoordinator(QObject):
     def start_load(self, handle: TaskHandle) -> None:
         self.task_manager.start_task(handle.task_id)
 
-    def all_instrinsic_mp4s_available(self) -> bool:
-        """Check if all intrinsic calibration videos are present."""
-        return self.workspace_guide.all_instrinsic_mp4s_available()
-
-    def all_extrinsic_mp4s_available(self) -> bool:
-        """Check if all extrinsic calibration videos are present."""
-        return self.workspace_guide.all_extrinsic_mp4s_available()
-
-    def all_intrinsics_estimated(self) -> bool:
-        """
-        Check if all cameras have complete intrinsic calibration.
-
-        At this point, processing extrinsics and calibrating capture volume should be allowed.
-        """
-        return self.camera_array.all_intrinsics_calibrated()
-
     def all_extrinsics_estimated(self) -> bool:
         """
         Check if full extrinsic calibration is complete.
@@ -398,11 +364,6 @@ class WorkspaceCoordinator(QObject):
         logger.info(f"All underlying data available: {all_data_available}")
 
         return cameras_good and point_estimates_good and all_data_available
-
-    def recordings_available(self) -> bool:
-        """Check if any valid recording directories exist."""
-        expected_cam_ids = self._reconstruction_cam_ids()
-        return bool(self.workspace_guide.ready_recording_dirs(expected_cam_ids))
 
     def _reconstruction_cam_ids(self) -> set[int]:
         """Camera IDs required by the camera array used for reconstruction."""
@@ -463,18 +424,44 @@ class WorkspaceCoordinator(QObject):
         if not self.camera_array.cameras:
             self.camera_array = self.camera_repository.load()
             camera_array_changed = bool(self.camera_array.cameras)
-        intrinsic_ids = set(self.workspace_guide.get_cam_ids_in_dir(self.workspace_guide.intrinsic_dir))
-        extrinsic_ids = set(self.workspace_guide.get_cam_ids_in_dir(self.workspace_guide.extrinsic_dir))
-        for cam_id in sorted(intrinsic_ids | extrinsic_ids):
-            if cam_id in self.camera_array.cameras:
-                continue
-            try:
-                self._add_camera_from_source(cam_id)
-                camera_array_changed |= cam_id in self.camera_array.cameras
-            except Exception as error:
-                logger.warning("Could not add camera %s from new video files: %s", cam_id, error)
         if camera_array_changed:
             self.calibration_changed.emit()
+
+        intrinsic_ids = set(self.workspace_guide.get_cam_ids_in_dir(self.workspace_guide.intrinsic_dir))
+        extrinsic_ids = set(self.workspace_guide.get_cam_ids_in_dir(self.workspace_guide.extrinsic_dir))
+        new_cam_ids = sorted((intrinsic_ids | extrinsic_ids) - set(self.camera_array.cameras))
+        if not new_cam_ids:
+            return
+
+        # Reading video headers is file I/O; keep it off the GUI thread.
+        def worker(_token, _handle) -> dict[int, tuple[int, int]]:
+            sizes: dict[int, tuple[int, int]] = {}
+            for cam_id in new_cam_ids:
+                try:
+                    size = self._read_camera_size(cam_id)
+                except Exception as error:
+                    logger.warning("Could not add camera %s from new video files: %s", cam_id, error)
+                    continue
+                if size is not None:
+                    sizes[cam_id] = size
+            return sizes
+
+        handle = self.task_manager.submit(worker, name="Discover cameras", auto_start=False)
+        handle.completed.connect(self._on_new_camera_sizes_read, Qt.ConnectionType.QueuedConnection)
+        self.task_manager.start_task(handle.task_id)
+
+    def _on_new_camera_sizes_read(self, sizes: dict[int, tuple[int, int]]) -> None:
+        """Add cameras whose video headers were read in the background."""
+        added = False
+        for cam_id, size in sizes.items():
+            # A later discovery or load may have added the camera meanwhile.
+            if cam_id not in self.camera_array.cameras:
+                self.camera_array.cameras[cam_id] = CameraData(cam_id=cam_id, size=size)
+                added = True
+        if added:
+            self.camera_repository.save(self.camera_array)
+            self.calibration_changed.emit()
+            self.status_changed.emit()
 
     def update_intrinsic_target_type(self, target_type: IntrinsicTargetType) -> None:
         """Update which target type is used for intrinsic calibration."""
@@ -570,18 +557,22 @@ class WorkspaceCoordinator(QObject):
 
         for cam_id in sorted(all_cam_ids):
             if cam_id not in self.camera_array.cameras:
-                self._add_camera_from_source(cam_id)
+                size = self._read_camera_size(cam_id)
+                if size is not None:
+                    self.camera_array.cameras[cam_id] = CameraData(cam_id=cam_id, size=size)
+                    self.camera_repository.save(self.camera_array)
 
         # Load any persisted intrinsic reports for overlay restoration
         self._intrinsic_reports = self.intrinsic_report_repository.load_all()
         if self._intrinsic_reports:
             logger.info(f"Loaded intrinsic reports for cam_ids: {list(self._intrinsic_reports.keys())}")
 
-    def _add_camera_from_source(self, cam_id: int):
-        """Add a new camera discovered from video file.
+    def _read_camera_size(self, cam_id: int) -> tuple[int, int] | None:
+        """Read a camera's resolution from its video header.
 
-        Tries intrinsic directory first, falls back to extrinsic. Raises
-        CalibrationError if both exist with different resolutions.
+        Tries intrinsic directory first, falls back to extrinsic. Returns None
+        when neither video exists. Raises CalibrationError if both exist with
+        different resolutions. Opens video files, so call it off the GUI thread.
         """
         from caliscope.exceptions import CalibrationError
 
@@ -602,10 +593,8 @@ class WorkspaceCoordinator(QObject):
             size = read_video_properties(extrinsic_path)["size"]
         else:
             logger.warning(f"No video found for cam_{cam_id}")
-            return
-
-        self.camera_array.cameras[cam_id] = CameraData(cam_id=cam_id, size=size)
-        self.camera_repository.save(self.camera_array)
+            return None
+        return size
 
     def create_intrinsic_presenter(self, cam_id: int) -> IntrinsicCalibrationPresenter:
         """Create presenter for intrinsic calibration of a single camera.
@@ -832,14 +821,6 @@ class WorkspaceCoordinator(QObject):
         self.calibration_changed.emit()
         self.status_changed.emit()
 
-    def get_intrinsic_report(self, cam_id: int) -> IntrinsicCalibrationReport | None:
-        """Get cached intrinsic calibration report for a camera."""
-        return self._intrinsic_reports.get(cam_id)
-
-    def get_intrinsic_points(self, cam_id: int) -> list[tuple[int, PointPacket]] | None:
-        """Get cached collected points for a camera (session-only)."""
-        return self._intrinsic_points.get(cam_id)
-
     # -------------------------------------------------------------------------
     # CaptureVolume API
     # -------------------------------------------------------------------------
@@ -870,7 +851,7 @@ class WorkspaceCoordinator(QObject):
     def update_capture_volume(self, capture_volume: CaptureVolume) -> None:
         """Update the in-memory capture volume and persist in background.
 
-        Emits capture_volume_updated immediately (for UI refresh using in-memory state).
+        Emits calibration_changed immediately (for UI refresh using in-memory state).
         Emits status_changed after save completes (for filesystem-based status checks).
 
         Also updates the main camera_array so that on restart, the calibrated
@@ -881,7 +862,6 @@ class WorkspaceCoordinator(QObject):
         """
         self._capture_volume = capture_volume
         self.camera_array = capture_volume.camera_array  # Keep main camera_array in sync
-        self.capture_volume_updated.emit()  # Immediate - consumers use in-memory state
         self.calibration_changed.emit()
 
         # Capture for closure (background worker)
@@ -907,32 +887,6 @@ class WorkspaceCoordinator(QObject):
         handle.completed.connect(lambda _: self.status_changed.emit())  # Post-save
         self.task_manager.start_task(handle.task_id)
 
-    def rotate_capture_volume(self, axis: Literal["x", "y", "z"], angle_degrees: float) -> None:
-        """Rotate the capture volume and persist.
-
-        The CaptureVolume.rotate() method returns a new immutable instance with transformed
-        world points and camera extrinsics. We update and persist via update_capture_volume().
-        """
-        capture_volume = self.capture_volume
-        if capture_volume is None:
-            logger.warning("Cannot rotate: no capture volume loaded")
-            return
-        new_capture_volume = capture_volume.rotate(axis, angle_degrees)
-        self.update_capture_volume(new_capture_volume)
-
-    def set_capture_volume_origin(self, sync_index: int) -> None:
-        """Set world origin to board position at sync_index and persist.
-
-        Uses the charuco board detected at the given sync_index to define
-        a new coordinate frame, transforming all points and cameras accordingly.
-        """
-        capture_volume = self.capture_volume
-        if capture_volume is None:
-            logger.warning("Cannot set origin: no capture volume loaded")
-            return
-        new_capture_volume = capture_volume.align_to_object(sync_index)
-        self.update_capture_volume(new_capture_volume)
-
     def cleanup(self) -> None:
         """Shutdown all background operations.
 
@@ -941,5 +895,6 @@ class WorkspaceCoordinator(QObject):
         pool shutdown with configurable timeout.
         """
         logger.info("WorkspaceCoordinator cleanup initiated")
+        self._recording_poll_timer.stop()
         self.task_manager.shutdown(timeout_ms=5000)
         logger.info("WorkspaceCoordinator cleanup complete")

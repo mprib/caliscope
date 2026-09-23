@@ -19,7 +19,6 @@ class FrameGeometry:
     """Holds the raw buffers for a single frame, ready for the GPU."""
 
     points: NDArray[np.float32]  # (N, 3) float32, includes NaNs for missing points
-    colors: NDArray[np.float32]  # (N, 3) float32, RGB
 
 
 class PlaybackViewModel:
@@ -41,7 +40,6 @@ class PlaybackViewModel:
             self.n_points = 0
             self.id_to_index: dict[tuple[int, int], int] = {}
             self._static_lines = np.empty((0, 2), dtype=np.int32)
-            self._static_line_colors = np.empty((0, 3), dtype=np.float32)
             self._grouped_points: dict[Any, Any] = {}
             logger.info("PlaybackViewModel initialized in camera-only mode (no points).")
             return
@@ -61,7 +59,7 @@ class PlaybackViewModel:
         # 2. Pre-compute Static Wireframe Topology
         # This converts point IDs to buffer indices.
         # Result is (n_lines, 2) array: [index_A, index_B] per row.
-        self._static_lines, self._static_line_colors = self._build_static_topology()
+        self._static_lines = self._build_static_topology()
 
         # 3. Pre-group data for fast lookup during playback
         # We group by sync_index so we don't have to filter the huge dataframe every frame.
@@ -152,15 +150,9 @@ class PlaybackViewModel:
 
         return np.array(positions, dtype=np.float64)
 
-    def get_static_wireframe_data(self) -> tuple[NDArray[np.int32], NDArray[np.float32]]:
-        """
-        Returns the static connectivity data for the wireframe.
-
-        Returns:
-            lines: (L, 2) int32 array of edge pairs. Format: [index_A, index_B]
-            colors: (L, 3) float32 array. RGB colors for each line segment.
-        """
-        return self._static_lines, self._static_line_colors
+    def get_static_wireframe_data(self) -> NDArray[np.int32]:
+        """Return the wireframe as an (L, 2) int32 array of point buffer index pairs."""
+        return self._static_lines
 
     def get_frame_geometry(self, sync_index: int) -> FrameGeometry:
         """
@@ -172,9 +164,6 @@ class PlaybackViewModel:
         # Initialize with NaN (invisible — Qt3D moves these off-screen)
         # Shape is (N, 3)
         points_buffer = np.full((self.n_points, 3), np.nan, dtype=np.float32)
-
-        # Default color: Light Grey
-        colors_buffer = np.full((self.n_points, 3), 0.8, dtype=np.float32)
 
         if sync_index in self._grouped_points:
             frame_df = self._grouped_points[sync_index]
@@ -193,9 +182,6 @@ class PlaybackViewModel:
             if indices:
                 points_buffer[indices] = coords[valid_rows]
 
-                # Here you could also scatter dynamic colors (e.g. confidence) if available
-                # colors_buffer[indices] = ...
-
         # Static points (rigid objects) are present at every frame
         if STATIC_SYNC_INDEX in self._grouped_points and sync_index != STATIC_SYNC_INDEX:
             static_df = self._grouped_points[STATIC_SYNC_INDEX]
@@ -205,35 +191,22 @@ class PlaybackViewModel:
                 if key in self.id_to_index:
                     points_buffer[self.id_to_index[key]] = static_coords[i]
 
-        return FrameGeometry(points=points_buffer, colors=colors_buffer)
+        return FrameGeometry(points=points_buffer)
 
-    def _build_static_topology(self) -> tuple[NDArray[np.int32], NDArray[np.float32]]:
+    def _build_static_topology(self) -> NDArray[np.int32]:
         """
         Converts the logical wireframe (Point A -> Point B) into
         buffer indices (Index 5 -> Index 12).
         """
         lines = []
-        colors = []
 
         for segment in self.wireframe_segments:
             # Wireframe segments use keypoint IDs within object 0
             key_a = (0, segment.point_a_id)
             key_b = (0, segment.point_b_id)
             if key_a in self.id_to_index and key_b in self.id_to_index:
-                idx_a = self.id_to_index[key_a]
-                idx_b = self.id_to_index[key_b]
-
-                lines.append([idx_a, idx_b])
-                colors.append(segment.color_rgb)
+                lines.append([self.id_to_index[key_a], self.id_to_index[key_b]])
 
         if not lines:
-            # Return empty arrays if no wireframe
-            return (
-                np.empty((0, 2), dtype=np.int32),
-                np.empty((0, 3), dtype=np.float32),
-            )
-
-        return (
-            np.array(lines, dtype=np.int32),
-            np.array(colors, dtype=np.float32),
-        )
+            return np.empty((0, 2), dtype=np.int32)
+        return np.array(lines, dtype=np.int32)

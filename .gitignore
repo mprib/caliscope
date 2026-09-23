@@ -1,13 +1,18 @@
+# scripts/ is a local scratch space. A script is committed only once it is a
+# demo worth sharing or a workflow tool, such as a widget visualization that
+# checks the GUI works and looks as intended. Add it to this list when you do.
 scripts/*
-!scripts/ralph_wiggum_viz/
-!scripts/benchmark_frame_seeking.py
+!scripts/demo_api.py
 !scripts/demo/
 scripts/demo/*
 !scripts/demo/demo_joint_intrinsic_extrinsic_calibration.py
 !scripts/demo/demo_markerless_calibration.py
 !scripts/demo/demo_opencap_calibration.py
 !scripts/demo/demo_shared_video_calibration.py
-scripts/ralph_wiggum_viz/output/
+!scripts/widget_visualization/
+scripts/widget_visualization/*
+!scripts/widget_visualization/README.md
+!scripts/widget_visualization/utils.py
 tests/debug/*
 *context.txt
 *.png

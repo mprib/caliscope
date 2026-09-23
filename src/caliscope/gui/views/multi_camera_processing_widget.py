@@ -126,6 +126,7 @@ class MultiCameraProcessingWidget(QWidget):
         button_row = QHBoxLayout()
         button_row.addStretch()
         self._action_btn = QPushButton("Start Processing")
+        self._action_btn.setObjectName("processingActionButton")
         self._action_btn.setStyleSheet(Styles.PRIMARY_BUTTON)
         self._action_btn.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
         self._action_btn.clicked.connect(self._on_action_clicked)

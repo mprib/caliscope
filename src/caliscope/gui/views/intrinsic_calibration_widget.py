@@ -5,7 +5,6 @@ and results display. Connects to IntrinsicCalibrationPresenter for business logi
 """
 
 import logging
-from dataclasses import dataclass
 from queue import Empty, Queue
 from threading import Event
 from typing import Any
@@ -28,29 +27,17 @@ from PySide6.QtWidgets import (
 
 from caliscope.cameras.camera_array import CameraData
 from caliscope.core.calibrate_intrinsics import IntrinsicCalibrationOutput
-from caliscope.gui.frame_emitters.tools import (
-    apply_rotation,
-    cv2_to_qlabel,
-    resize_to_square,
-)
 from caliscope.gui.lens_model_visualizer import LensModelVisualizer
 from caliscope.gui.presenters.intrinsic_calibration_presenter import (
     IntrinsicCalibrationPresenter,
     IntrinsicCalibrationState,
 )
 from caliscope.gui.theme import Colors, Styles
+from caliscope.gui.utils.frame_display import cv2_to_qlabel, resize_to_square
 from caliscope.packets import PixelFormat, PointPacket, TrackedFrame
+from caliscope.trackers.helper import apply_rotation
 
 logger = logging.getLogger(__name__)
-
-
-@dataclass
-class OverlaySettings:
-    """User-toggleable overlay visibility."""
-
-    show_current_points: bool = True
-    show_accumulated: bool = True
-    show_selected_grids: bool = True
 
 
 class CalibrationResultsDisplay(QWidget):
@@ -369,9 +356,8 @@ class FrameRenderThread(QThread):
         self._undistort_enabled = False
         self._visualizer: LensModelVisualizer | None = None
         self._keep_running = Event()
-        self._overlay_settings = OverlaySettings()
 
-        # Cache last tracked frame for re-rendering when overlay settings change
+        # Cache last tracked frame for re-rendering when display settings change
         self._last_tracked_frame: TrackedFrame | None = None
 
         # Compute overlay sizes based on image dimensions
@@ -389,17 +375,6 @@ class FrameRenderThread(QThread):
         if enabled and self._visualizer is None and calibrated_camera is not None:
             self._visualizer = LensModelVisualizer(calibrated_camera)
 
-    def set_overlay_visibility(
-        self,
-        current_points: bool,
-        accumulated: bool,
-        selected_grids: bool,
-    ) -> None:
-        """Configure which overlay layers to show."""
-        self._overlay_settings.show_current_points = current_points
-        self._overlay_settings.show_accumulated = accumulated
-        self._overlay_settings.show_selected_grids = selected_grids
-
     @property
     def shows_boundary(self) -> bool:
         """True if the visualizer draws the original frame boundary."""
@@ -412,9 +387,9 @@ class FrameRenderThread(QThread):
         self._keep_running.clear()
 
     def rerender_cached(self) -> None:
-        """Re-render the last tracked frame with current overlay settings.
+        """Re-render the last tracked frame with current display settings.
 
-        Call this when overlay visibility changes instead of requesting
+        Call this when display settings change instead of requesting
         a new frame from the presenter.
         """
         if self._last_tracked_frame is not None:
@@ -480,7 +455,7 @@ class FrameRenderThread(QThread):
         return frame
 
     def _render_tracked_frame(self, tracked_frame: TrackedFrame) -> None:
-        """Render a tracked frame with current overlay settings and emit pixmap."""
+        """Render a tracked frame with its overlays and emit pixmap."""
         if tracked_frame.frame is None:
             return
 
@@ -490,15 +465,13 @@ class FrameRenderThread(QThread):
             frame = cv2.cvtColor(frame, cv2.COLOR_GRAY2BGR)
 
         # Layer 1: Accumulated points (behind current)
-        if self._overlay_settings.show_accumulated:
-            frame = self._draw_accumulated(frame)
+        frame = self._draw_accumulated(frame)
 
         # Layer 2: Selected board grids (coverage map)
-        if self._overlay_settings.show_selected_grids:
-            frame = self._draw_selected_grids(frame)
+        frame = self._draw_selected_grids(frame)
 
         # Layer 3: Current frame points (on top)
-        if self._overlay_settings.show_current_points and tracked_frame.points is not None:
+        if tracked_frame.points is not None:
             frame = self._draw_current_points(frame, tracked_frame.points)
 
         # Undistortion
@@ -669,10 +642,6 @@ class IntrinsicCalibrationWidget(QWidget):
 
         # Add stretch below to complete vertical centering
         right_column.addStretch(1)
-
-        # TODO: overlay checkboxes removed as dead code - revisit if needed
-        # Previously had: Current Points, All Points, Selected Grids checkboxes
-        # The FrameRenderThread still supports overlay rendering if these are restored
 
         main_layout.addLayout(right_column)
 

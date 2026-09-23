@@ -35,19 +35,6 @@ def _flat_material(color: QColor, parent: Qt3DCore.QEntity) -> Qt3DExtras.QPhong
     return mat
 
 
-def _flat_alpha_material(
-    color: QColor, parent: Qt3DCore.QEntity, opacity: float = 0.6
-) -> Qt3DExtras.QPhongAlphaMaterial:
-    """Create a flat (unlit) transparent material."""
-    mat = Qt3DExtras.QPhongAlphaMaterial(parent)
-    mat.setAmbient(color)
-    mat.setDiffuse(_BLACK)
-    mat.setSpecular(_BLACK)
-    mat.setShininess(0.0)
-    mat.setAlpha(opacity)
-    return mat
-
-
 def numpy_to_qbytearray(arr: np.ndarray) -> QByteArray:
     """Convert numpy array to QByteArray for Qt3D buffers."""
     return QByteArray(arr.astype(np.float32).tobytes())

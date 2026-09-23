@@ -16,7 +16,7 @@ from typing import cast
 
 import numpy as np
 from PySide6.QtCore import QEvent, QObject, Qt, QTimer, Signal
-from PySide6.QtGui import QColor, QHideEvent, QIcon, QImage, QMouseEvent, QVector3D, QWheelEvent
+from PySide6.QtGui import QColor, QHideEvent, QIcon, QMouseEvent, QVector3D, QWheelEvent
 from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
@@ -132,7 +132,6 @@ class Qt3DPlaybackWidget(QWidget):
         self._sphere_cloud: SphereCloud | None = None
         self._wire_entity: Qt3DCore.QEntity | None = None
         self._wire_buffer: Qt3DCore.QBuffer | None = None
-        self._wire_indices: np.ndarray | None = None
 
         # Container entities for selective rebuilding — cameras and grid can be
         # rebuilt independently when their slider changes, without touching the
@@ -176,14 +175,6 @@ class Qt3DPlaybackWidget(QWidget):
         # --- Qt3DWindow ---
         self._view = Qt3DExtras.Qt3DWindow()
         self._view.defaultFrameGraph().setClearColor(QColor(25, 25, 25))
-
-        # QRenderCapture is created lazily in capture_screenshot() because
-        # merely attaching it to the frame graph crashes under xvfb/software
-        # rendering (Mesa llvmpipe). The RHI OpenGL backend segfaults in the
-        # render thread when QRenderCapture tries to read back framebuffer
-        # pixels from a virtual framebuffer. Deferring creation means headless
-        # tests never trigger the crash.
-        self._render_capture: Qt3DRender.QRenderCapture | None = None
 
         # Forward mouse/wheel events from the Qt3DWindow to our terrain controller.
         # Qt3DWindow is a QWindow (not a QWidget), so we install a filter on it.
@@ -450,7 +441,7 @@ class Qt3DPlaybackWidget(QWidget):
             return
 
         frame_geom = self.view_model.get_frame_geometry(self.sync_index)
-        lines, line_colors = self.view_model.get_static_wireframe_data()
+        lines = self.view_model.get_static_wireframe_data()
 
         # Sphere cloud — one sphere per tracked point
         assert self._scene is not None
@@ -473,7 +464,6 @@ class Qt3DPlaybackWidget(QWidget):
                 self._scene,
             )
             self._retained_entities.append(self._wire_entity)  # retain for shiboken GC safety
-            self._wire_indices = wire_indices
         else:
             self._wire_entity = None
             self._wire_buffer = None
@@ -929,35 +919,3 @@ class Qt3DPlaybackWidget(QWidget):
         """
         self.stop_playback()
         super().hideEvent(event)
-
-    def capture_screenshot(self) -> QImage | None:
-        """Capture the Qt3D scene via QRenderCapture.
-
-        widget.grab() cannot capture Qt3D content because Qt3DWindow renders
-        to its own GPU surface via createWindowContainer. QRenderCapture
-        intercepts the render pipeline directly and returns the framebuffer
-        contents as a QImage.
-
-        QRenderCapture is created lazily on first call because attaching it
-        to the frame graph crashes under xvfb/software rendering (Mesa
-        llvmpipe segfault in glReadPixels path).
-
-        Returns:
-            QImage on success, None if the capture does not complete within
-            500ms (e.g., render pipeline not yet initialised).
-        """
-        from PySide6.QtCore import QEventLoop
-
-        if self._render_capture is None:
-            self._render_capture = Qt3DRender.QRenderCapture(self._view.activeFrameGraph())
-
-        reply = self._render_capture.requestCapture()
-
-        loop = QEventLoop()
-        reply.completed.connect(loop.quit)
-        QTimer.singleShot(500, loop.quit)
-        loop.exec()
-
-        if reply.isComplete():
-            return reply.image()
-        return None

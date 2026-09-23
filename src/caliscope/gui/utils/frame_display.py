@@ -1,9 +1,7 @@
-import logging
+"""Convert OpenCV frames for display in Qt widgets."""
 
 import cv2
 from PySide6.QtGui import QImage
-
-logger = logging.getLogger(__name__)
 
 
 def resize_to_square(frame):
@@ -26,19 +24,6 @@ def resize_to_square(frame):
         cv2.BORDER_CONSTANT,
         value=pad_color,
     )
-
-    return frame
-
-
-def apply_rotation(frame, rotation_count: int):
-    if rotation_count == 0:
-        pass
-    elif rotation_count in [1, -3]:
-        frame = cv2.rotate(frame, cv2.ROTATE_90_CLOCKWISE)
-    elif rotation_count in [2, -2]:
-        frame = cv2.rotate(frame, cv2.ROTATE_180)
-    elif rotation_count in [-1, 3]:
-        frame = cv2.rotate(frame, cv2.ROTATE_90_COUNTERCLOCKWISE)
 
     return frame
 

@@ -116,8 +116,3 @@ class CameraListWidget(QListWidget):
                 self.setCurrentRow(self._cam_id_to_row[current_cam_id])
             finally:
                 self.blockSignals(False)
-
-    def select_cam_id(self, cam_id: int) -> None:
-        """Programmatically select a camera by cam_id."""
-        if cam_id in self._cam_id_to_row:
-            self.setCurrentRow(self._cam_id_to_row[cam_id])

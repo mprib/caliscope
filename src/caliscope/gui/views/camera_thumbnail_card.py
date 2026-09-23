@@ -21,7 +21,8 @@ from PySide6.QtWidgets import (
 from numpy.typing import NDArray
 
 from caliscope.gui import ICONS_DIR
-from caliscope.gui.frame_emitters.tools import apply_rotation, cv2_to_qlabel
+from caliscope.gui.utils.frame_display import cv2_to_qlabel
+from caliscope.trackers.helper import apply_rotation
 
 if TYPE_CHECKING:
     from caliscope.packets import PointPacket

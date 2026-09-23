@@ -742,6 +742,7 @@ class ExtrinsicCalibrationView(QWidget):
             extrinsic_dir=self._quality_data.extrinsic_dir,
             depth_ratios=depth_ratios,
             initial_cam_id=cam_id,
+            task_manager=self._presenter.task_manager,
             parent=self,
         )
         dialog.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)

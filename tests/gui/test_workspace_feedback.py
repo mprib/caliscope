@@ -57,7 +57,7 @@ def coordinator(tmp_path: Path, qapp, monkeypatch: pytest.MonkeyPatch) -> Iterat
     coordinator.cleanup()
 
 
-def test_project_feedback_follows_directory_change(coordinator: WorkspaceCoordinator) -> None:
+def test_project_feedback_follows_directory_change(coordinator: WorkspaceCoordinator, qtbot) -> None:
     extrinsic = coordinator.workspace_guide.extrinsic_dir
     view = ProjectSetupView(coordinator)
 
@@ -65,6 +65,7 @@ def test_project_feedback_follows_directory_change(coordinator: WorkspaceCoordin
 
     (extrinsic / "cam_0.mp4").touch()
     coordinator._on_directory_changed(str(extrinsic))
+    qtbot.waitUntil(lambda: 0 in coordinator.camera_array.cameras)
 
     assert "No extrinsic camera videos found" not in view._file_feedback_label.text()
     assert tuple(coordinator.camera_array.cameras) == (0,)
@@ -141,7 +142,7 @@ def test_reconstruction_folder_links_follow_selected_recording_and_results(
         tracker_registry._model_cards.pop(tracker_name, None)
 
 
-def test_open_extract_tab_follows_extrinsic_videos(coordinator: WorkspaceCoordinator) -> None:
+def test_open_extract_tab_follows_extrinsic_videos(coordinator: WorkspaceCoordinator, qtbot) -> None:
     extrinsic = coordinator.workspace_guide.extrinsic_dir
     for cam_id in (0, 1):
         (extrinsic / f"cam_{cam_id}.mp4").touch()
@@ -165,6 +166,7 @@ def test_open_extract_tab_follows_extrinsic_videos(coordinator: WorkspaceCoordin
     (extrinsic / "cam_1.mp4").touch()
     (extrinsic / "cam_2.mp4").touch()
     coordinator._on_directory_changed(str(extrinsic))
+    qtbot.waitUntil(lambda: 2 in coordinator.camera_array.cameras)
 
     assert label.isHidden()
     assert tab._presenter.state == MultiCameraProcessingState.READY

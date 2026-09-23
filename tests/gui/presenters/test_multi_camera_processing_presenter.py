@@ -7,6 +7,7 @@ Canary tests for:
 - Lifecycle (cleanup, config locking during processing)
 """
 
+import threading
 from pathlib import Path
 from unittest.mock import MagicMock
 
@@ -19,7 +20,9 @@ from caliscope.gui.presenters.multi_camera_processing_presenter import (
     MultiCameraProcessingPresenter,
     MultiCameraProcessingState,
 )
+from caliscope.core.process_synchronized_recording import get_initial_thumbnails
 from caliscope.helper import copy_contents_to_clean_dest
+from caliscope.task_manager.task_manager import TaskManager
 from caliscope.cameras.camera_array import CameraArray
 from caliscope.task_manager.task_state import TaskState
 from caliscope.workspace_guide import WorkspaceGuide
@@ -117,20 +120,21 @@ class TestProcessingControl:
         mock_task_manager.submit.assert_not_called()
 
     def test_start_processing_submits_task(
-        self, presenter, minimal_cameras, workspace_with_recordings, mock_task_manager
+        self, minimal_cameras, workspace_with_recordings, fake_task_manager, mock_tracker, tmp_path
     ):
         """start_processing() submits task to TaskManager when READY."""
+        presenter = MultiCameraProcessingPresenter(
+            task_manager=fake_task_manager,
+            tracker=mock_tracker,
+            workspace_guide=WorkspaceGuide(tmp_path),
+        )
         recording_dir = workspace_with_recordings / "recordings" / "recording_1"
         presenter.set_recording_dir(recording_dir)
         presenter.set_cameras(minimal_cameras)
 
-        mock_handle = MagicMock()
-        mock_handle.state = TaskState.RUNNING
-        mock_task_manager.submit.return_value = mock_handle
-
         presenter.start_processing()
 
-        mock_task_manager.submit.assert_called_once()
+        assert len(fake_task_manager.handles("Multi-camera processing")) == 1
 
     def test_cancel_processing_cancels_task(
         self, presenter, minimal_cameras, workspace_with_recordings, mock_task_manager
@@ -183,26 +187,58 @@ class TestRotationControl:
 class TestThumbnailLoading:
     """Thumbnail extraction from video files."""
 
-    def test_thumbnails_loaded_on_configuration(
-        self, workspace_with_recordings, real_camera_array, mock_task_manager, mock_tracker, qapp
+    def test_thumbnails_load_off_the_gui_thread(
+        self, workspace_with_recordings, real_camera_array, mock_tracker, qtbot, monkeypatch
     ):
-        """Thumbnails are extracted when recording_dir and cameras are configured."""
+        """Thumbnails are decoded in a worker thread and arrive on the GUI thread."""
+        from caliscope.gui.presenters import multi_camera_processing_presenter as module
+
+        reader_threads = []
+
+        def recording_reader(recording_dir, cameras):
+            reader_threads.append(threading.current_thread())
+            return get_initial_thumbnails(recording_dir, cameras)
+
+        monkeypatch.setattr(module, "get_initial_thumbnails", recording_reader)
+        task_manager = TaskManager()
         presenter = MultiCameraProcessingPresenter(
-            task_manager=mock_task_manager,
+            task_manager=task_manager,
             tracker=mock_tracker,
             workspace_guide=WorkspaceGuide(workspace_with_recordings),
         )
-
-        recording_dir = workspace_with_recordings / "recordings" / "recording_1"
         cameras_dict = {cam.cam_id: cam for cam in real_camera_array.cameras.values()}
 
-        presenter.set_recording_dir(recording_dir)
+        presenter.set_recording_dir(workspace_with_recordings / "recordings" / "recording_1")
         presenter.set_cameras(cameras_dict)
 
-        thumbnails = presenter.thumbnails
-        assert len(thumbnails) > 0
-        for frame in thumbnails.values():
-            assert isinstance(frame, np.ndarray)
+        qtbot.waitUntil(lambda: len(presenter.thumbnails) == len(cameras_dict), timeout=10000)
+        assert reader_threads
+        assert all(thread is not threading.main_thread() for thread in reader_threads)
+        assert all(isinstance(frame, np.ndarray) for frame in presenter.thumbnails.values())
+        task_manager.shutdown()
+
+    def test_thumbnails_for_a_replaced_camera_set_are_ignored(
+        self, workspace_with_recordings, real_camera_array, mock_tracker, fake_task_manager, qapp
+    ):
+        """A thumbnail load that finishes after the camera set changed does not publish."""
+        presenter = MultiCameraProcessingPresenter(
+            task_manager=fake_task_manager,
+            tracker=mock_tracker,
+            workspace_guide=WorkspaceGuide(workspace_with_recordings),
+        )
+        cameras_dict = {cam.cam_id: cam for cam in real_camera_array.cameras.values()}
+        presenter.set_recording_dir(workspace_with_recordings / "recordings" / "recording_1")
+        presenter.set_cameras(cameras_dict)
+        presenter.set_cameras({0: cameras_dict[0]})
+        stale, current = fake_task_manager.handles("Load thumbnails")[-2:]
+
+        fake_task_manager.run(stale)
+        qapp.processEvents()
+        assert presenter.thumbnails == {}
+
+        fake_task_manager.run(current)
+        qapp.processEvents()
+        assert list(presenter.thumbnails) == [0]
 
 
 class TestLifecycle:

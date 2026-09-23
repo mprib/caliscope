@@ -27,6 +27,7 @@ from PySide6.QtWidgets import (
 from caliscope.cameras.camera_array import CameraData
 from caliscope.gui.lens_model_visualizer import LensModelVisualizer
 from caliscope.recording.frame_source import FrameSource
+from caliscope.task_manager.task_manager import TaskManager
 
 logger = logging.getLogger(__name__)
 
@@ -80,6 +81,7 @@ class LensModelDialog(QDialog):
         self,
         cameras: dict[int, CameraData],
         extrinsic_dir: Path,
+        task_manager: TaskManager,
         depth_ratios: dict[int, float | None] | None = None,
         initial_cam_id: int | None = None,
         parent: QWidget | None = None,
@@ -87,7 +89,11 @@ class LensModelDialog(QDialog):
         super().__init__(parent)
         self._cameras = cameras
         self._extrinsic_dir = extrinsic_dir
+        self._task_manager = task_manager
         self._depth_ratios = depth_ratios or {}
+        # First video frame per camera; None when the video could not be read.
+        self._first_frames: dict[int, NDArray | None] = {}
+        self._frames_loading: set[int] = set()
         self.setWindowTitle("Lens Model Visualization")
         self.setModal(False)
         self.setMinimumSize(700, 400)
@@ -126,6 +132,7 @@ class LensModelDialog(QDialog):
         # Image labels side by side
         images_row = QHBoxLayout()
         self._before_label = QLabel("Before")
+        self._before_label.setObjectName("lens_before")
         self._before_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self._before_label.setStyleSheet("background-color: #1a1a1a; border: 1px solid #333;")
         self._before_label.setMinimumHeight(250)
@@ -186,11 +193,15 @@ class LensModelDialog(QDialog):
             self._depth_ratio_label.setToolTip("")
 
         use_real = self._source_combo.currentIndex() == 0
-        if use_real:
-            frame = _grab_first_frame(self._extrinsic_dir, cam_id)
-            if frame is None:
-                frame = _generate_synthetic_grid(w, h)
-        else:
+        if use_real and cam_id not in self._first_frames:
+            self._request_first_frame(cam_id)
+            for label in (self._before_label, self._after_label):
+                label.setPixmap(QPixmap())
+                label.setText("Loading frame…")
+            return
+
+        frame = self._first_frames[cam_id] if use_real else None
+        if frame is None:
             frame = _generate_synthetic_grid(w, h)
 
         visualizer = LensModelVisualizer(camera)
@@ -199,3 +210,23 @@ class LensModelDialog(QDialog):
         available_width = max(self.width() // 2 - 24, 200)
         self._before_label.setPixmap(_ndarray_to_pixmap(frame, max_width=available_width))
         self._after_label.setPixmap(_ndarray_to_pixmap(undistorted, max_width=available_width))
+
+    def _request_first_frame(self, cam_id: int) -> None:
+        """Decode the camera's first frame in a background task."""
+        if cam_id in self._frames_loading:
+            return
+        self._frames_loading.add(cam_id)
+        extrinsic_dir = self._extrinsic_dir
+
+        def worker(_token, _handle) -> tuple[int, NDArray | None]:
+            return cam_id, _grab_first_frame(extrinsic_dir, cam_id)
+
+        handle = self._task_manager.submit(worker, name=f"Lens model frame cam_id {cam_id}", auto_start=False)
+        handle.completed.connect(self._on_first_frame_loaded, Qt.ConnectionType.QueuedConnection)
+        self._task_manager.start_task(handle.task_id)
+
+    def _on_first_frame_loaded(self, result: tuple[int, NDArray | None]) -> None:
+        cam_id, frame = result
+        self._frames_loading.discard(cam_id)
+        self._first_frames[cam_id] = frame
+        self._update_images()

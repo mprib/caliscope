@@ -4,7 +4,7 @@ from datetime import datetime
 from typing import Literal
 
 import cv2
-from PySide6.QtCore import QObject, QFileSystemWatcher, Signal
+from PySide6.QtCore import QObject, QFileSystemWatcher, Qt, Signal
 
 from caliscope.task_manager import TaskHandle, TaskManager
 
@@ -463,18 +463,44 @@ class WorkspaceCoordinator(QObject):
         if not self.camera_array.cameras:
             self.camera_array = self.camera_repository.load()
             camera_array_changed = bool(self.camera_array.cameras)
-        intrinsic_ids = set(self.workspace_guide.get_cam_ids_in_dir(self.workspace_guide.intrinsic_dir))
-        extrinsic_ids = set(self.workspace_guide.get_cam_ids_in_dir(self.workspace_guide.extrinsic_dir))
-        for cam_id in sorted(intrinsic_ids | extrinsic_ids):
-            if cam_id in self.camera_array.cameras:
-                continue
-            try:
-                self._add_camera_from_source(cam_id)
-                camera_array_changed |= cam_id in self.camera_array.cameras
-            except Exception as error:
-                logger.warning("Could not add camera %s from new video files: %s", cam_id, error)
         if camera_array_changed:
             self.calibration_changed.emit()
+
+        intrinsic_ids = set(self.workspace_guide.get_cam_ids_in_dir(self.workspace_guide.intrinsic_dir))
+        extrinsic_ids = set(self.workspace_guide.get_cam_ids_in_dir(self.workspace_guide.extrinsic_dir))
+        new_cam_ids = sorted((intrinsic_ids | extrinsic_ids) - set(self.camera_array.cameras))
+        if not new_cam_ids:
+            return
+
+        # Reading video headers is file I/O; keep it off the GUI thread.
+        def worker(_token, _handle) -> dict[int, tuple[int, int]]:
+            sizes: dict[int, tuple[int, int]] = {}
+            for cam_id in new_cam_ids:
+                try:
+                    size = self._read_camera_size(cam_id)
+                except Exception as error:
+                    logger.warning("Could not add camera %s from new video files: %s", cam_id, error)
+                    continue
+                if size is not None:
+                    sizes[cam_id] = size
+            return sizes
+
+        handle = self.task_manager.submit(worker, name="Discover cameras", auto_start=False)
+        handle.completed.connect(self._on_new_camera_sizes_read, Qt.ConnectionType.QueuedConnection)
+        self.task_manager.start_task(handle.task_id)
+
+    def _on_new_camera_sizes_read(self, sizes: dict[int, tuple[int, int]]) -> None:
+        """Add cameras whose video headers were read in the background."""
+        added = False
+        for cam_id, size in sizes.items():
+            # A later discovery or load may have added the camera meanwhile.
+            if cam_id not in self.camera_array.cameras:
+                self.camera_array.cameras[cam_id] = CameraData(cam_id=cam_id, size=size)
+                added = True
+        if added:
+            self.camera_repository.save(self.camera_array)
+            self.calibration_changed.emit()
+            self.status_changed.emit()
 
     def update_intrinsic_target_type(self, target_type: IntrinsicTargetType) -> None:
         """Update which target type is used for intrinsic calibration."""
@@ -570,18 +596,22 @@ class WorkspaceCoordinator(QObject):
 
         for cam_id in sorted(all_cam_ids):
             if cam_id not in self.camera_array.cameras:
-                self._add_camera_from_source(cam_id)
+                size = self._read_camera_size(cam_id)
+                if size is not None:
+                    self.camera_array.cameras[cam_id] = CameraData(cam_id=cam_id, size=size)
+                    self.camera_repository.save(self.camera_array)
 
         # Load any persisted intrinsic reports for overlay restoration
         self._intrinsic_reports = self.intrinsic_report_repository.load_all()
         if self._intrinsic_reports:
             logger.info(f"Loaded intrinsic reports for cam_ids: {list(self._intrinsic_reports.keys())}")
 
-    def _add_camera_from_source(self, cam_id: int):
-        """Add a new camera discovered from video file.
+    def _read_camera_size(self, cam_id: int) -> tuple[int, int] | None:
+        """Read a camera's resolution from its video header.
 
-        Tries intrinsic directory first, falls back to extrinsic. Raises
-        CalibrationError if both exist with different resolutions.
+        Tries intrinsic directory first, falls back to extrinsic. Returns None
+        when neither video exists. Raises CalibrationError if both exist with
+        different resolutions. Opens video files, so call it off the GUI thread.
         """
         from caliscope.exceptions import CalibrationError
 
@@ -602,10 +632,8 @@ class WorkspaceCoordinator(QObject):
             size = read_video_properties(extrinsic_path)["size"]
         else:
             logger.warning(f"No video found for cam_{cam_id}")
-            return
-
-        self.camera_array.cameras[cam_id] = CameraData(cam_id=cam_id, size=size)
-        self.camera_repository.save(self.camera_array)
+            return None
+        return size
 
     def create_intrinsic_presenter(self, cam_id: int) -> IntrinsicCalibrationPresenter:
         """Create presenter for intrinsic calibration of a single camera.

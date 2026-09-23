@@ -285,6 +285,11 @@ class ExtrinsicCalibrationPresenter(QObject):
         return ExtrinsicCalibrationState.NEEDS_CALIBRATION
 
     @property
+    def task_manager(self) -> TaskManager:
+        """TaskManager instance for background operations."""
+        return self._task_manager
+
+    @property
     def capture_volume(self) -> CaptureVolume | None:
         """Current capture volume (None before calibration)."""
         return self._capture_volume

@@ -7,6 +7,7 @@ compiles board-geometry distance constraints for the default (charuco)
 target, and still wires the ArUco marker-set factory for the ArUco target.
 """
 
+import threading
 from pathlib import Path
 import numpy as np
 import pytest
@@ -106,11 +107,15 @@ def test_deleted_extrinsic_video_is_reported_as_missing(
 def test_directory_change_discovers_cameras_and_keeps_persisted_calibration(
     coordinator: WorkspaceCoordinator,
     monkeypatch: pytest.MonkeyPatch,
+    qtbot,
 ):
-    monkeypatch.setattr(
-        "caliscope.workspace_coordinator.read_video_properties",
-        lambda _path: {"size": (640, 480)},
-    )
+    reader_threads = []
+
+    def read_video_properties(_path):
+        reader_threads.append(threading.current_thread())
+        return {"size": (640, 480)}
+
+    monkeypatch.setattr("caliscope.workspace_coordinator.read_video_properties", read_video_properties)
     calibrated = CameraData(cam_id=0, size=(640, 480), matrix=np.eye(3), distortions=np.zeros(5))
     coordinator.camera_repository.save(CameraArray({0: calibrated}))
     extrinsic = coordinator.workspace_guide.extrinsic_dir
@@ -123,7 +128,10 @@ def test_directory_change_discovers_cameras_and_keeps_persisted_calibration(
     assert coordinator.multi_camera_tab_enabled is False
 
     coordinator._on_directory_changed(str(extrinsic))
+    qtbot.waitUntil(lambda: 1 in coordinator.camera_array.cameras)
 
+    assert reader_threads
+    assert all(thread is not threading.main_thread() for thread in reader_threads)
     assert tuple(coordinator.camera_array.cameras) == (0, 1)
     assert coordinator.camera_array.cameras[0].matrix is not None
     assert coordinator.camera_repository.load().cameras[0].matrix is not None

@@ -1,9 +1,10 @@
 import logging
 from pathlib import Path
 from datetime import datetime
+from typing import NamedTuple
 
 import cv2
-from PySide6.QtCore import QObject, QFileSystemWatcher, Qt, Signal
+from PySide6.QtCore import QObject, QFileSystemWatcher, Qt, QTimer, Signal
 
 from caliscope.task_manager import TaskHandle, TaskManager
 
@@ -43,6 +44,15 @@ from caliscope.gui.presenters.reconstruction_presenter import ReconstructionPres
 from caliscope.packets import PointPacket
 
 logger = logging.getLogger(__name__)
+
+RECORDING_POLL_INTERVAL_MS = 2000
+
+
+class _SessionSnapshot(NamedTuple):
+    """Direct-child names and canonical video (mtime_ns, size) of one session."""
+
+    names: frozenset[str]
+    videos: dict[Path, tuple[int, int]]
 
 
 class WorkspaceCoordinator(QObject):
@@ -115,15 +125,14 @@ class WorkspaceCoordinator(QObject):
         self._intrinsic_frame_skip: int = 5
 
     def _setup_filesystem_watcher(self) -> None:
-        """Watch calibration, recording directories, and canonical recording videos."""
+        """Watch calibration and recording roots, and poll recording sessions.
+
+        Only directories the workspace keeps are watched. Session folders and
+        their videos are polled instead: on Windows, Qt's watcher can hang in
+        removePaths() after a watched folder nested in another watched folder
+        is deleted.
+        """
         self._watcher = QFileSystemWatcher(parent=self)
-        # Session watches this coordinator added. Qt's own directories() list
-        # lags behind deletions on macOS and Windows, so it is not the record.
-        self._session_watches: set[str] = set()
-        # Desired canonical recording-video paths. QFileSystemWatcher can drop
-        # a file watch when an editor atomically replaces the file, so actual
-        # watcher membership is checked during every reconciliation.
-        self._recording_video_watches: set[str] = set()
 
         dirs_to_watch = [
             self.workspace_guide.intrinsic_dir,
@@ -136,63 +145,65 @@ class WorkspaceCoordinator(QObject):
                 self._watcher.addPath(str(dir_path.resolve()))
                 logger.debug(f"Watching directory: {dir_path}")
 
-        self._reconcile_recording_watches()
-
         self._watcher.directoryChanged.connect(self._on_directory_changed)
-        self._watcher.fileChanged.connect(self._on_recording_video_changed)
 
-    def _recording_session_dirs(self) -> set[str]:
-        """Return immediate recording session directories currently on disk."""
+        self._recording_snapshot = self._snapshot_recordings()
+        self._recording_poll_timer = QTimer(self)
+        self._recording_poll_timer.setInterval(RECORDING_POLL_INTERVAL_MS)
+        self._recording_poll_timer.timeout.connect(self._poll_recordings)
+        self._recording_poll_timer.start()
+
+    def _snapshot_recordings(self) -> dict[Path, _SessionSnapshot]:
+        """Return each session's entry names and canonical video stats."""
         recording_dir = self.workspace_guide.recording_dir
-        if not recording_dir.exists():
-            return set()
+        snapshot: dict[Path, _SessionSnapshot] = {}
+        try:
+            session_dirs = [path for path in recording_dir.iterdir() if path.is_dir()]
+        except OSError:
+            return snapshot
+
         recording_root = recording_dir.absolute()
-        return {str(recording_root / path.name) for path in recording_dir.iterdir() if path.is_dir()}
+        for session_dir in session_dirs:
+            session_path = recording_root / session_dir.name
+            try:
+                names = frozenset(path.name for path in session_dir.iterdir())
+                videos: dict[Path, tuple[int, int]] = {}
+                for cam_id in self.workspace_guide.get_cam_ids_in_dir(session_dir):
+                    # Keyed by the in-session path, so replacing a linked video
+                    # with a regular file reads as an edit of the same video.
+                    video = session_path / f"cam_{cam_id}.mp4"
+                    stat = video.stat()
+                    videos[video] = (stat.st_mtime_ns, stat.st_size)
+            except OSError:
+                # The session changed mid-scan. The next poll sees it settled.
+                continue
+            snapshot[session_path] = _SessionSnapshot(names, videos)
+        return snapshot
 
-    def _recording_video_paths(self) -> set[str]:
-        """Return canonical direct-child camera videos in every recording session."""
-        return {
-            str((Path(session_dir) / f"cam_{cam_id}.mp4").resolve())
-            for session_dir in self._recording_session_dirs()
-            for cam_id in self.workspace_guide.get_cam_ids_in_dir(Path(session_dir))
-        }
+    def _poll_recordings(self, *, root_changed: bool = False) -> None:
+        """Emit recording signals for what changed since the last snapshot.
 
-    def _reconcile_recording_watches(self) -> None:
-        """Keep session and canonical video watches aligned with recordings on disk.
-
-        removePaths() is best effort. Qt cannot remove an already-deleted
-        directory on every platform, but every platform drops it on its own
-        once events are processed. Paths addPaths() rejects are retried on the
-        next reconcile.
+        root_changed forces a root notice for a watcher event, which also
+        covers loose files at the root that no session snapshot records.
         """
-        desired = self._recording_session_dirs()
-        stale = self._session_watches - desired
-        if stale:
-            self._watcher.removePaths(sorted(stale))
+        previous = self._recording_snapshot
+        current = self._snapshot_recordings()
+        self._recording_snapshot = current
 
-        new = desired - self._session_watches
-        if new:
-            new -= set(self._watcher.addPaths(sorted(new)))
-            for path in sorted(new):
-                logger.debug(f"Watching recording session: {path}")
-
-        self._session_watches = (self._session_watches - stale) | new
-
-        desired_videos = self._recording_video_paths()
-        stale_videos = self._recording_video_watches - desired_videos
-        if stale_videos:
-            self._watcher.removePaths(sorted(stale_videos))
-
-        # Compare against Qt's live file-watch list, not only our desired-path
-        # record. Atomic replacement removes an existing file watch on several
-        # platforms while leaving the replacement at the same path.
-        unwatched_videos = desired_videos - set(self._watcher.files())
-        if unwatched_videos:
-            failed = set(self._watcher.addPaths(sorted(unwatched_videos)))
-            for path in sorted(unwatched_videos - failed):
-                logger.debug(f"Watching recording video: {path}")
-
-        self._recording_video_watches = desired_videos
+        changed = root_changed or previous.keys() != current.keys()
+        if changed:
+            self.recording_directory_changed.emit(self.workspace_guide.recording_dir.absolute())
+        for session_dir in previous.keys() & current.keys():
+            before, after = previous[session_dir], current[session_dir]
+            if before.names != after.names:
+                self.recording_directory_changed.emit(session_dir)
+                changed = True
+            for video, stats in after.videos.items():
+                if video in before.videos and before.videos[video] != stats:
+                    self.recording_video_changed.emit(video)
+                    changed = True
+        if changed:
+            self.status_changed.emit()
 
     def _on_directory_changed(self, path: str) -> None:
         """Handle filesystem change in watched directory."""
@@ -203,21 +214,9 @@ class WorkspaceCoordinator(QObject):
             self.workspace_guide.extrinsic_dir.resolve(),
         }:
             self._discover_new_cameras()
-        self._reconcile_recording_watches()
-        recording_roots = {
-            self.workspace_guide.recording_dir.absolute(),
-            self.workspace_guide.recording_dir.resolve(),
-        }
-        if changed_path in recording_roots or changed_path.parent in recording_roots:
-            self.recording_directory_changed.emit(changed_path)
-        self.status_changed.emit()
-
-    def _on_recording_video_changed(self, path: str) -> None:
-        """Refresh recording feedback after a watched camera-video change."""
-        logger.info(f"Recording video changed: {path}")
-        changed_path = Path(path).absolute()
-        self._reconcile_recording_watches()
-        self.recording_video_changed.emit(changed_path)
+        if changed_path.resolve() == self.workspace_guide.recording_dir.resolve():
+            self._poll_recordings(root_changed=True)
+            return
         self.status_changed.emit()
 
     @property
@@ -896,5 +895,6 @@ class WorkspaceCoordinator(QObject):
         pool shutdown with configurable timeout.
         """
         logger.info("WorkspaceCoordinator cleanup initiated")
+        self._recording_poll_timer.stop()
         self.task_manager.shutdown(timeout_ms=5000)
         logger.info("WorkspaceCoordinator cleanup complete")

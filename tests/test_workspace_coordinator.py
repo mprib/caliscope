@@ -168,36 +168,33 @@ def test_reconstruction_tab_only_requires_capture_volume_bundle(
     assert coordinator.reconstruction_tab_enabled is True
 
 
-def test_recording_session_watches_follow_root_directory_changes(
+def test_recording_sessions_and_videos_are_polled_not_watched(
     coordinator: WorkspaceCoordinator,
 ):
-    """Session watches are the coordinator's record, reconciled on every root change.
+    """Only the recordings root is watched.
 
-    Qt's own directories() list is not asserted here: fsevents and the Windows
-    engine only drop a deleted directory asynchronously, through the event loop.
+    Qt's Windows watcher can hang in removePaths() once a watched folder
+    nested in another watched folder is deleted, so sessions are polled.
     """
-    recording_dir = str(coordinator.workspace_guide.recording_dir)
     session = coordinator.workspace_guide.recording_dir / "walk"
     session.mkdir()
+    video = session / "cam_0.mp4"
+    video.touch()
 
-    coordinator._on_directory_changed(recording_dir)
+    coordinator._on_directory_changed(str(coordinator.workspace_guide.recording_dir))
 
-    assert str(session.resolve()) in coordinator._session_watches
-
-    session.rmdir()
-    coordinator._on_directory_changed(recording_dir)
-
-    assert str(session.resolve()) not in coordinator._session_watches
+    assert str(session.resolve()) not in coordinator._watcher.directories()
+    assert str(video.resolve()) not in coordinator._watcher.files()
+    assert session.absolute() in coordinator._recording_snapshot
 
 
 @pytest.mark.parametrize("linked_inputs", [False, True], ids=["regular", "linked-session-and-video"])
-def test_atomic_recording_video_replacement_readds_file_watch(
+def test_recording_poll_reports_each_change_once(
     coordinator: WorkspaceCoordinator,
-    qtbot,
     tmp_path: Path,
     linked_inputs: bool,
 ):
-    """Reconciliation restores a dropped Qt file watch after atomic replacement."""
+    """Each session or video change produces one signal, and a quiet poll none."""
     session = coordinator.workspace_guide.recording_dir / "walk"
     if linked_inputs:
         session_target = tmp_path / "external-session"
@@ -215,36 +212,32 @@ def test_atomic_recording_video_replacement_readds_file_watch(
         video = session / "cam_4.mp4"
         video.write_bytes(b"first")
     coordinator._on_directory_changed(str(coordinator.workspace_guide.recording_dir))
-    assert str(video.resolve()) in coordinator._watcher.files()
 
     directory_spy = QSignalSpy(coordinator.recording_directory_changed)
+    video_spy = QSignalSpy(coordinator.recording_video_changed)
 
-    def session_changed_since(previous_count: int) -> bool:
-        return any(
-            Path(directory_spy.at(index)[0]) == session.absolute()
-            for index in range(previous_count, directory_spy.count())
-        )
+    def emitted(spy: QSignalSpy) -> list[Path]:
+        return [Path(spy.at(index)[0]).resolve() for index in range(spy.count())]
 
     (session / "notes.txt").touch()
-    qtbot.waitUntil(lambda: session_changed_since(0))
+    coordinator._poll_recordings()
+    assert emitted(directory_spy) == [session.resolve()]
+    assert emitted(video_spy) == []
 
-    video_spy = QSignalSpy(coordinator.recording_video_changed)
-    previous_count = video_spy.count()
     video.write_bytes(b"changed")
-    qtbot.waitUntil(lambda: video_spy.count() > previous_count)
-    assert Path(video_spy.at(video_spy.count() - 1)[0]) == video.resolve()
+    coordinator._poll_recordings()
+    assert emitted(video_spy) == [video.resolve()]
 
-    previous_directory_count = directory_spy.count()
+    # Atomic replacement keeps the name, so it reads as an edit of that video.
     replacement = session / "replacement.tmp"
     replacement.write_bytes(b"replacement")
     replacement.replace(video)
+    coordinator._poll_recordings()
+    assert emitted(video_spy) == [video.resolve(), video.resolve()]
 
-    qtbot.waitUntil(lambda: session_changed_since(previous_directory_count))
-
-    previous_video_count = video_spy.count()
-    video.write_bytes(b"replacement changed")
-    qtbot.waitUntil(lambda: video_spy.count() > previous_video_count)
-    assert Path(video_spy.at(video_spy.count() - 1)[0]) == video.resolve()
+    coordinator._poll_recordings()
+    assert directory_spy.count() == 1
+    assert video_spy.count() == 2
 
 
 def test_rotation_from_multi_camera_presenter_is_persisted(tmp_path: Path, qapp):

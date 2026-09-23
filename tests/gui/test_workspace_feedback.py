@@ -156,13 +156,13 @@ def _camera_card_ids(tab: QWidget) -> list[int]:
     return sorted(int(name.removeprefix("cameraCard")) for name in names)
 
 
-def test_reconstruction_tab_follows_nested_recording_changes_through_real_watcher(
+def test_reconstruction_tab_follows_nested_recording_changes_on_disk(
     tmp_path: Path,
     qtbot,
     monkeypatch: pytest.MonkeyPatch,
     registered_tracker: str,
 ) -> None:
-    """A built tab follows nested camera files through QFileSystemWatcher."""
+    """A built tab follows nested camera files through the root watcher and session poll."""
     dimensions_match = [True]
 
     def matching_dimensions(_recording_dir: Path, expected_sizes):
@@ -184,6 +184,7 @@ def test_reconstruction_tab_follows_nested_recording_changes_through_real_watche
         "caliscope.gui.presenters.reconstruction_presenter.check_recording_dimensions",
         matching_dimensions,
     )
+    monkeypatch.setattr("caliscope.workspace_coordinator.RECORDING_POLL_INTERVAL_MS", 50)
     monkeypatch.chdir(tmp_path.parent)
     relative_workspace = Path(tmp_path.name)
     coordinator = WorkspaceCoordinator(relative_workspace)
@@ -214,13 +215,8 @@ def test_reconstruction_tab_follows_nested_recording_changes_through_real_watche
     try:
         session = coordinator.workspace_guide.recording_dir / "walk"
         session.mkdir()
-        qtbot.waitUntil(
-            lambda: (
-                str(session.resolve()) in coordinator._watcher.directories()
-                and recording_list.count() == 1
-                and selected_name() == "walk"
-            )
-        )
+        qtbot.waitUntil(lambda: recording_list.count() == 1 and selected_name() == "walk")
+        assert str(session.resolve()) not in coordinator._watcher.directories()
 
         for cam_id in (0, 1):
             (session / f"cam_{cam_id}.mp4").touch()
@@ -260,20 +256,11 @@ def test_reconstruction_tab_follows_nested_recording_changes_through_real_watche
         for cam_id in (0, 1):
             (session / f"cam_{cam_id}.mp4").unlink()
         session.rmdir()
-        qtbot.waitUntil(
-            lambda: recording_list.count() == 0 and str(session.resolve()) not in coordinator._watcher.directories()
-        )
-        assert all(
-            str((session / f"cam_{cam_id}.mp4").resolve()) not in coordinator._watcher.files() for cam_id in (0, 1)
-        )
-        assert all(
-            str((session / f"cam_{cam_id}.mp4").resolve()) not in coordinator._recording_video_watches
-            for cam_id in (0, 1)
-        )
+        qtbot.waitUntil(lambda: recording_list.count() == 0)
         assert presenter.selected_recording is None
 
         session.mkdir()
-        qtbot.waitUntil(lambda: recording_list.count() == 1 and str(session.resolve()) in coordinator._session_watches)
+        qtbot.waitUntil(lambda: recording_list.count() == 1)
     finally:
         tab.cleanup()
         coordinator.cleanup()

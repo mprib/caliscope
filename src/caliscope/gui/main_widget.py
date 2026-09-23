@@ -10,11 +10,10 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 import rtoml
-from PySide6.QtCore import QTimer, Qt
+from PySide6.QtCore import QTimer
 from PySide6.QtGui import QAction, QCloseEvent, QIcon
 from PySide6.QtWidgets import (
     QApplication,
-    QDockWidget,
     QFileDialog,
     QMainWindow,
     QMenu,
@@ -342,17 +341,6 @@ class MainWindow(QMainWindow):
             self._replace_placeholder_tab(TabName.EXTRINSICS)
         if self.coordinator.reconstruction_tab_enabled:
             self._replace_placeholder_tab(TabName.RECONSTRUCT)
-
-    def build_docked_logger(self):
-        from caliscope.gui.log_widget import LogWidget
-
-        self.docked_logger = QDockWidget("Log", self)
-        self.docked_logger.setFeatures(QDockWidget.DockWidgetFeature.DockWidgetMovable)
-        self.docked_logger.setAllowedAreas(Qt.DockWidgetArea.BottomDockWidgetArea)
-        self.log_widget = LogWidget()
-        self.docked_logger.setWidget(self.log_widget)
-
-        self.addDockWidget(Qt.DockWidgetArea.BottomDockWidgetArea, self.docked_logger)
 
     def launch_workspace(self, path_to_workspace: str) -> TaskHandle | None:
         """Launch workspace and return TaskHandle for additional callbacks."""

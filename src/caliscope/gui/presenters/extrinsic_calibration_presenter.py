@@ -189,7 +189,6 @@ class ExtrinsicCalibrationPresenter(QObject):
     volumetric_accuracy_updated = Signal(object)  # VolumetricScaleReport
     coverage_updated = Signal(object, object)  # (coverage_matrix, cam_id_labels)
     capture_volume_changed = Signal(object)  # CaptureVolume
-    calibration_run_updated = Signal(object)  # CalibrationRun
     workflow_updated = Signal(object)  # CalibrationStepData
     view_model_updated = Signal(object)  # PlaybackViewModel
 
@@ -704,7 +703,6 @@ class ExtrinsicCalibrationPresenter(QObject):
         self._refresh_volumetric_accuracy()
         self._refresh_workflow_strip()
         self.capture_volume_changed.emit(capture_volume)
-        self.calibration_run_updated.emit(run)
         self._emit_state_changed()
 
     def _on_reoptimization_completed(self, capture_volume: CaptureVolume) -> None:
@@ -726,9 +724,6 @@ class ExtrinsicCalibrationPresenter(QObject):
         self._refresh_volumetric_accuracy()
         self._refresh_workflow_strip()
         self.capture_volume_changed.emit(capture_volume)
-
-        if self._calibration_run is not None:
-            self.calibration_run_updated.emit(self._calibration_run)
         self._emit_state_changed()
 
     def _on_calibration_failed(self, exc_type: str, message: str) -> None:
@@ -1058,10 +1053,6 @@ class ExtrinsicCalibrationPresenter(QObject):
 
         self._refresh_workflow_strip()
 
-    def emit_initial_coverage(self) -> None:
-        """Deprecated: Use emit_initial_state() instead."""
-        self.emit_initial_state()
-
     def _refresh_initial_coverage(self) -> None:
         """Emit coverage matrix from pre-loaded ImagePoints.
 
@@ -1171,6 +1162,3 @@ class ExtrinsicCalibrationPresenter(QObject):
         self._refresh_volumetric_accuracy()
         self._refresh_workflow_strip()
         self.capture_volume_changed.emit(capture_volume)
-
-        if self._calibration_run is not None:
-            self.calibration_run_updated.emit(self._calibration_run)

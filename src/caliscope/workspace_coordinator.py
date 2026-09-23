@@ -1,7 +1,6 @@
 import logging
 from pathlib import Path
 from datetime import datetime
-from typing import Literal
 
 import cv2
 from PySide6.QtCore import QObject, QFileSystemWatcher, Qt, Signal
@@ -46,11 +45,6 @@ from caliscope.packets import PointPacket
 logger = logging.getLogger(__name__)
 
 
-FILTERED_FRACTION = (
-    0.025  # by default, 2.5% of image points with highest reprojection error are filtered out during calibration
-)
-
-
 class WorkspaceCoordinator(QObject):
     """
     Application-level coordinator for a calibration workspace.
@@ -67,7 +61,6 @@ class WorkspaceCoordinator(QObject):
 
     intrinsic_target_changed = Signal()  # Emitted when intrinsic target config is updated
     extrinsic_target_changed = Signal()  # Emitted when extrinsic target config is updated
-    capture_volume_updated = Signal()  # Immediate: in-memory state changed, use for UI refresh
     status_changed = Signal()  # Deferred: fires after filesystem operations complete
     recording_directory_changed = Signal(Path)  # Recording root or immediate session changed
     recording_video_changed = Signal(Path)  # Canonical recording video changed
@@ -228,16 +221,6 @@ class WorkspaceCoordinator(QObject):
         self.status_changed.emit()
 
     @property
-    def camera_count(self) -> int:
-        """Derived camera count from extrinsic directory (source of truth)."""
-        return self.workspace_guide.get_camera_count()
-
-    @property
-    def cam_ids(self) -> list[int]:
-        """Authoritative list of camera IDs from extrinsic directory."""
-        return self.workspace_guide.get_cam_ids()
-
-    @property
     def expected_cam_ids(self) -> set[int]:
         """Cameras the workspace expects calibration videos for.
 
@@ -365,22 +348,6 @@ class WorkspaceCoordinator(QObject):
     def start_load(self, handle: TaskHandle) -> None:
         self.task_manager.start_task(handle.task_id)
 
-    def all_instrinsic_mp4s_available(self) -> bool:
-        """Check if all intrinsic calibration videos are present."""
-        return self.workspace_guide.all_instrinsic_mp4s_available()
-
-    def all_extrinsic_mp4s_available(self) -> bool:
-        """Check if all extrinsic calibration videos are present."""
-        return self.workspace_guide.all_extrinsic_mp4s_available()
-
-    def all_intrinsics_estimated(self) -> bool:
-        """
-        Check if all cameras have complete intrinsic calibration.
-
-        At this point, processing extrinsics and calibrating capture volume should be allowed.
-        """
-        return self.camera_array.all_intrinsics_calibrated()
-
     def all_extrinsics_estimated(self) -> bool:
         """
         Check if full extrinsic calibration is complete.
@@ -398,11 +365,6 @@ class WorkspaceCoordinator(QObject):
         logger.info(f"All underlying data available: {all_data_available}")
 
         return cameras_good and point_estimates_good and all_data_available
-
-    def recordings_available(self) -> bool:
-        """Check if any valid recording directories exist."""
-        expected_cam_ids = self._reconstruction_cam_ids()
-        return bool(self.workspace_guide.ready_recording_dirs(expected_cam_ids))
 
     def _reconstruction_cam_ids(self) -> set[int]:
         """Camera IDs required by the camera array used for reconstruction."""
@@ -860,14 +822,6 @@ class WorkspaceCoordinator(QObject):
         self.calibration_changed.emit()
         self.status_changed.emit()
 
-    def get_intrinsic_report(self, cam_id: int) -> IntrinsicCalibrationReport | None:
-        """Get cached intrinsic calibration report for a camera."""
-        return self._intrinsic_reports.get(cam_id)
-
-    def get_intrinsic_points(self, cam_id: int) -> list[tuple[int, PointPacket]] | None:
-        """Get cached collected points for a camera (session-only)."""
-        return self._intrinsic_points.get(cam_id)
-
     # -------------------------------------------------------------------------
     # CaptureVolume API
     # -------------------------------------------------------------------------
@@ -898,7 +852,7 @@ class WorkspaceCoordinator(QObject):
     def update_capture_volume(self, capture_volume: CaptureVolume) -> None:
         """Update the in-memory capture volume and persist in background.
 
-        Emits capture_volume_updated immediately (for UI refresh using in-memory state).
+        Emits calibration_changed immediately (for UI refresh using in-memory state).
         Emits status_changed after save completes (for filesystem-based status checks).
 
         Also updates the main camera_array so that on restart, the calibrated
@@ -909,7 +863,6 @@ class WorkspaceCoordinator(QObject):
         """
         self._capture_volume = capture_volume
         self.camera_array = capture_volume.camera_array  # Keep main camera_array in sync
-        self.capture_volume_updated.emit()  # Immediate - consumers use in-memory state
         self.calibration_changed.emit()
 
         # Capture for closure (background worker)
@@ -934,32 +887,6 @@ class WorkspaceCoordinator(QObject):
         handle = self.task_manager.submit(worker, name="save_capture_volume", auto_start=False)
         handle.completed.connect(lambda _: self.status_changed.emit())  # Post-save
         self.task_manager.start_task(handle.task_id)
-
-    def rotate_capture_volume(self, axis: Literal["x", "y", "z"], angle_degrees: float) -> None:
-        """Rotate the capture volume and persist.
-
-        The CaptureVolume.rotate() method returns a new immutable instance with transformed
-        world points and camera extrinsics. We update and persist via update_capture_volume().
-        """
-        capture_volume = self.capture_volume
-        if capture_volume is None:
-            logger.warning("Cannot rotate: no capture volume loaded")
-            return
-        new_capture_volume = capture_volume.rotate(axis, angle_degrees)
-        self.update_capture_volume(new_capture_volume)
-
-    def set_capture_volume_origin(self, sync_index: int) -> None:
-        """Set world origin to board position at sync_index and persist.
-
-        Uses the charuco board detected at the given sync_index to define
-        a new coordinate frame, transforming all points and cameras accordingly.
-        """
-        capture_volume = self.capture_volume
-        if capture_volume is None:
-            logger.warning("Cannot set origin: no capture volume loaded")
-            return
-        new_capture_volume = capture_volume.align_to_object(sync_index)
-        self.update_capture_volume(new_capture_volume)
 
     def cleanup(self) -> None:
         """Shutdown all background operations.

@@ -139,8 +139,6 @@ class MultiCameraProcessingPresenter(QObject):
         # ETA and coverage state
         self._processing_start_time: float = 0.0
         self._last_coverage_time: float = 0.0
-        self._sync_frames_done: int = 0
-        self._frames_total: int = 0
 
         # Incremental coverage matrix — updated per sync index, never rebuilt
         self._coverage_matrix: np.ndarray | None = None
@@ -363,8 +361,6 @@ class MultiCameraProcessingPresenter(QObject):
 
         self._processing_start_time = time.time()
         self._last_coverage_time = 0.0
-        self._sync_frames_done = 0
-        self._frames_total = 0
 
         # Initialize incremental coverage matrix
         cam_ids = sorted(cameras.keys())
@@ -464,7 +460,6 @@ class MultiCameraProcessingPresenter(QObject):
         Called from worker thread. Thread-safe because progress_updated
         is a Qt signal (cross-thread emission handled by Qt event loop).
         """
-        self._frames_total = total
         percent = int(100 * current / total) if total > 0 else 0
 
         # ETA computation (wait 3 seconds for rate to stabilize)
@@ -491,7 +486,6 @@ class MultiCameraProcessingPresenter(QObject):
         Coverage signal emission throttled to COVERAGE_INTERVAL.
         """
         now = time.time()
-        self._sync_frames_done += 1
 
         # --- Incremental coverage matrix update (cheap, every call) ---
         if self._coverage_matrix is not None:
@@ -562,8 +556,6 @@ class MultiCameraProcessingPresenter(QObject):
         self._result = None
         self._coverage_report = None
         self._task_handle = None
-        self._sync_frames_done = 0
-        self._frames_total = 0
         self._coverage_matrix = None
         self._coverage_cam_ids = []
         self._coverage_cam_id_to_index = {}

@@ -160,8 +160,6 @@ class MainWindow(QMainWindow):
         self.central_tab.addTab(self.project_tab, TabName.PROJECT)
 
         self.coordinator.status_changed.connect(self._refresh_tab_enablement)
-        self._previous_tab_index: int = 0
-        self.central_tab.currentChanged.connect(self._on_tab_changed)
 
         # Remaining tabs added one per event loop tick so the UI stays responsive.
         # Capture the current build generation so a relaunch mid-build abandons this
@@ -436,32 +434,6 @@ class MainWindow(QMainWindow):
         idx = self.find_tab_index_by_title(tab_name)
         if idx >= 0 and self.central_tab.isTabEnabled(idx):
             self.central_tab.setCurrentIndex(idx)
-
-    def _on_tab_changed(self, new_index: int) -> None:
-        """Suspend/resume 3D rendering when switching tabs.
-
-        QTabWidget doesn't fire hideEvent/showEvent on tab contents when switching
-        tabs - it only stops painting them. We manually notify 3D rendering widgets
-        when their tab becomes inactive to reduce CPU usage.
-        """
-        from caliscope.gui.extrinsic_calibration_tab import ExtrinsicCalibrationTab
-        from caliscope.gui.reconstruction_tab import ReconstructionTab
-
-        _3d_tab_types = (ExtrinsicCalibrationTab, ReconstructionTab)
-
-        # Suspend rendering on previous tab if it supports it
-        prev_widget = self.central_tab.widget(self._previous_tab_index)
-        if isinstance(prev_widget, _3d_tab_types):
-            logger.debug(f"Suspending rendering on tab {self._previous_tab_index}")
-            prev_widget.suspend_rendering()
-
-        # Resume rendering on new tab if it supports it
-        new_widget = self.central_tab.widget(new_index)
-        if isinstance(new_widget, _3d_tab_types):
-            logger.debug(f"Resuming rendering on tab {new_index}")
-            new_widget.resume_rendering()
-
-        self._previous_tab_index = new_index
 
     def add_to_recent_project(self, project_path: str):
         recent_project_action = QAction(project_path, self)

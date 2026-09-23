@@ -87,14 +87,6 @@ class ReconstructionTab(QWidget):
         self._presenter.cleanup()
         logger.info("ReconstructionTab cleaned up")
 
-    def suspend_rendering(self) -> None:
-        """Pause 3D rendering when tab is not active."""
-        self._widget.suspend_rendering()
-
-    def resume_rendering(self) -> None:
-        """Resume 3D rendering when tab becomes active."""
-        self._widget.resume_rendering()
-
     def closeEvent(self, event) -> None:
         """Defensive cleanup if explicit cleanup wasn't called."""
         self.cleanup()

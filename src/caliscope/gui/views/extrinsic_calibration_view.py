@@ -849,16 +849,6 @@ class ExtrinsicCalibrationView(QWidget):
     # Lifecycle
     # -------------------------------------------------------------------------
 
-    def suspend_rendering(self) -> None:
-        """Pause 3D rendering when tab not active."""
-        if self._viz_widget is not None:
-            self._viz_widget.suspend_rendering()
-
-    def resume_rendering(self) -> None:
-        """Resume 3D rendering when tab becomes active."""
-        if self._viz_widget is not None:
-            self._viz_widget.resume_rendering()
-
     def cleanup(self) -> None:
         """Explicit cleanup - call before destruction."""
         if self._scale_detail_dialog is not None:

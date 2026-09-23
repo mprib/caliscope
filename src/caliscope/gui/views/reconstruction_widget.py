@@ -189,7 +189,7 @@ class ReconstructionWidget(QWidget):
         self._presenter.reconstruction_complete.connect(self._on_reconstruction_complete)
         self._presenter.reconstruction_failed.connect(self._on_reconstruction_failed)
         self._presenter.recordings_changed.connect(self._refresh_recording_list)
-        self._presenter.reconstruction_starting.connect(self.suspend_rendering)
+        self._presenter.reconstruction_starting.connect(self._stop_playback)
 
         # View -> Presenter (via adapters)
         self._recording_list.currentTextChanged.connect(self._on_recording_changed)
@@ -254,7 +254,6 @@ class ReconstructionWidget(QWidget):
         state = self._presenter.state
         if state == ReconstructionState.RECONSTRUCTING:
             self._presenter.cancel_reconstruction()
-            self.resume_rendering()
         else:
             self._presenter.start_reconstruction()
 
@@ -402,15 +401,13 @@ class ReconstructionWidget(QWidget):
         self._progress_label.setText(message)
 
     def _on_reconstruction_complete(self, output_path) -> None:
-        """Handle successful reconstruction - resume rendering and update visualization."""
+        """Handle successful reconstruction - update visualization."""
         logger.info(f"Reconstruction complete: {output_path}")
-        self.resume_rendering()
         self._update_visualization(force=True)
 
     def _on_reconstruction_failed(self, error: str) -> None:
-        """Handle reconstruction failure - resume rendering."""
+        """Handle reconstruction failure."""
         logger.error(f"Reconstruction failed: {error}")
-        self.resume_rendering()
 
     def _on_camera_array_changed(self) -> None:
         """Refresh the scene after the active calibration changes."""
@@ -542,15 +539,10 @@ class ReconstructionWidget(QWidget):
             self._viz_widget.close()
             self._viz_widget = None
 
-    def suspend_rendering(self) -> None:
-        """Pause 3D rendering when widget is not active."""
+    def _stop_playback(self) -> None:
+        """Stop 3D playback so rendering does not compete with reconstruction."""
         if self._viz_widget is not None:
-            self._viz_widget.suspend_rendering()
-
-    def resume_rendering(self) -> None:
-        """Resume 3D rendering when widget becomes active."""
-        if self._viz_widget is not None:
-            self._viz_widget.resume_rendering()
+            self._viz_widget.stop_playback()
 
     def closeEvent(self, event) -> None:
         """Handle close event."""

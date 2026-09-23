@@ -16,7 +16,7 @@ from typing import cast
 
 import numpy as np
 from PySide6.QtCore import QEvent, QObject, Qt, QTimer, Signal
-from PySide6.QtGui import QColor, QIcon, QImage, QMouseEvent, QVector3D, QWheelEvent
+from PySide6.QtGui import QColor, QHideEvent, QIcon, QImage, QMouseEvent, QVector3D, QWheelEvent
 from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
@@ -720,7 +720,7 @@ class Qt3DPlaybackWidget(QWidget):
 
     def _toggle_playback(self, checked: bool) -> None:
         if not self._has_playable_timeline:
-            self._stop_playback()
+            self.stop_playback()
             return
 
         self.is_playing = checked
@@ -741,7 +741,7 @@ class Qt3DPlaybackWidget(QWidget):
 
     def _start_playback(self) -> None:
         if not self._has_playable_timeline or self.view_model.frame_rate <= 0:
-            self._stop_playback()
+            self.stop_playback()
             return
         interval_ms = max(1, int(1000 / (self.view_model.frame_rate * self.speed_multiplier)))
         self.playback_timer.start(interval_ms)
@@ -749,7 +749,7 @@ class Qt3DPlaybackWidget(QWidget):
     def _advance_frame(self) -> None:
         valid_sync_indices = self.view_model.valid_sync_indices
         if len(valid_sync_indices) < 2:
-            self._stop_playback()
+            self.stop_playback()
             return
 
         current_position = self.slider.value()
@@ -758,7 +758,7 @@ class Qt3DPlaybackWidget(QWidget):
             if self.loop_enabled:
                 next_position = 0
             else:
-                self._stop_playback()
+                self.stop_playback()
                 return
         self.slider.setValue(next_position)
 
@@ -775,7 +775,7 @@ class Qt3DPlaybackWidget(QWidget):
         self.speed_slider.setEnabled(playable)
         self.slider.setEnabled(playable)
 
-    def _stop_playback(self) -> None:
+    def stop_playback(self) -> None:
         """Return playback controls and rendering to their idle state."""
         self.is_playing = False
         self.playback_timer.stop()
@@ -848,7 +848,7 @@ class Qt3DPlaybackWidget(QWidget):
             }
 
         # Stop playback
-        self._stop_playback()
+        self.stop_playback()
 
         # Clear active references so _on_sync_index_changed returns early
         # during slider range updates below (stale geometry guard).
@@ -921,31 +921,14 @@ class Qt3DPlaybackWidget(QWidget):
         """Show or hide the appearance control bar (camera size, grid size sliders)."""
         self._appearance_bar.setVisible(visible)
 
-    def suspend_rendering(self) -> None:
-        """Suspend Qt3D rendering by switching to OnDemand render policy.
+    def hideEvent(self, event: QHideEvent) -> None:
+        """Stop playback when hidden (tab switch, minimize).
 
-        Stops the render thread's continuous loop. Critical during heavy
-        background processing (reconstruction) because Mesa llvmpipe's
-        software renderer can conflict with multi-threaded video decode
-        when both compete for CPU/memory resources.
+        Playback forces a redraw per frame even after the render policy drops
+        to OnDemand, so a hidden widget left playing keeps burning CPU.
         """
-        settings = self._view.renderSettings()
-        if settings is not None:
-            settings.setRenderPolicy(Qt3DRender.QRenderSettings.RenderPolicy.OnDemand)
-            logger.info("Qt3D rendering suspended (OnDemand policy)")
-
-    def resume_rendering(self) -> None:
-        """Resume Qt3D rendering by switching back to OnDemand render policy.
-
-        Restores on-demand rendering after background processing completes
-        or when the tab becomes active. OnDemand re-renders only when the
-        scene graph changes, avoiding continuous CPU usage under software
-        rendering. Active playback switches to Always independently.
-        """
-        settings = self._view.renderSettings()
-        if settings is not None:
-            settings.setRenderPolicy(Qt3DRender.QRenderSettings.RenderPolicy.OnDemand)
-            logger.info("Qt3D rendering resumed (OnDemand policy)")
+        self.stop_playback()
+        super().hideEvent(event)
 
     def capture_screenshot(self) -> QImage | None:
         """Capture the Qt3D scene via QRenderCapture.

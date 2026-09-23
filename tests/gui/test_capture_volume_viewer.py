@@ -9,6 +9,7 @@ from typing import cast
 
 import pandas as pd
 import pytest
+from PySide6.QtWidgets import QTabWidget, QWidget
 
 from caliscope.cameras.camera_array import CameraArray
 from caliscope.core.point_data import WorldPoints
@@ -107,6 +108,23 @@ def test_view_model_replacement_preserves_exact_sync_or_uses_first_available(qap
     widget.set_view_model(_view_model([2, 3, 8]))
     assert widget.sync_index == 2
     assert widget.slider.value() == 0
+
+
+def test_switching_away_from_the_tab_stops_playback(qapp) -> None:  # noqa: ARG001
+    """A hidden widget left playing keeps forcing redraws, so hiding stops playback."""
+    tabs = QTabWidget()
+    widget = Qt3DPlaybackWidget(_view_model([0, 3, 6]))
+    tabs.addTab(widget, "3D")
+    tabs.addTab(QWidget(), "other")
+    tabs.show()
+    widget.play_button.click()
+    assert widget.playback_timer.isActive()
+
+    tabs.setCurrentIndex(1)
+
+    assert not widget.is_playing
+    assert not widget.playback_timer.isActive()
+    tabs.close()
 
 
 @pytest.mark.parametrize("indices", [[], [-1], [0]])

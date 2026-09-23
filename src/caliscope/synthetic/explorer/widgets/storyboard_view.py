@@ -244,22 +244,11 @@ class StoryboardView(QWidget):
         """
         pass
 
-    def suspend_rendering(self) -> None:
-        """Pause Qt3D rendering to reduce CPU when widget is not visible."""
-        for panel in self._panels.values():
-            panel.suspend_rendering()
-
-    def resume_rendering(self) -> None:
-        """Resume Qt3D rendering when widget becomes visible."""
-        for panel in self._panels.values():
-            panel.resume_rendering()
-
     def cleanup(self) -> None:
         """Explicit cleanup - MUST be called before destruction."""
-        self.suspend_rendering()
-
         for key in list(self._panels.keys()):
             panel = self._panels.pop(key)
+            panel.stop_playback()
             panel.deleteLater()
 
         self._view_models = {k: None for k in self._view_models}

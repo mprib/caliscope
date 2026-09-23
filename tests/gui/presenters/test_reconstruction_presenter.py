@@ -1,13 +1,11 @@
 """Tests for ReconstructionPresenter.
 
-Tests focus on:
-- State computation from mocked file existence and task states
-- Signal emissions on state transitions
-- Selection clears error state
-- cleanup() cancels active task
+Tasks are driven through real TaskHandles from FakeTaskManager: the dimension
+check ("recording-dimension-check") and the reconstruction ("reconstruction").
 """
 
 import copy
+import shutil
 from pathlib import Path
 from unittest.mock import MagicMock
 
@@ -15,26 +13,23 @@ import numpy as np
 import pytest
 
 from caliscope import __root__
+from caliscope.cameras.camera_array import CameraArray
 from caliscope.gui.presenters.reconstruction_presenter import (
     ReconstructionPresenter,
     ReconstructionState,
 )
 from caliscope.helper import copy_contents_to_clean_dest
-from caliscope.cameras.camera_array import CameraArray
 from caliscope.recording.recording_validation import (
     CameraDimensionOutcome,
     RecordingDimensionAssessment,
 )
-from caliscope.task_manager.task_state import TaskState
+from caliscope.task_manager.task_handle import TaskHandle
 from caliscope.trackers import tracker_registry
 from caliscope.workspace_guide import WorkspaceGuide
 
-# Test session with 4 cameras and recordings
 TEST_SESSION = Path(__root__) / "tests" / "sessions" / "4_cam_recording"
-_CHARUCO_SESSION = Path(__root__) / "tests" / "sessions" / "post_optimization"
-
-# Tracker key used throughout this test module
-_TEST_TRACKER = "CHARUCO"
+DIMENSION_CHECK = "recording-dimension-check"
+RESTART_NOTICE = "Recording check restarted. Select Process when it finishes."
 
 
 def _create_recording_session(workspace: Path, name: str) -> Path:
@@ -45,218 +40,201 @@ def _create_recording_session(workspace: Path, name: str) -> Path:
     return session
 
 
-def _remove_recording_session(session: Path) -> None:
-    for child in session.iterdir():
-        child.unlink()
-    session.rmdir()
-
-
-def _compatible_dimensions(presenter: ReconstructionPresenter) -> RecordingDimensionAssessment:
-    """Build a completed selected-session check from the current calibration."""
+def _compatible_dimensions(camera_array: CameraArray) -> RecordingDimensionAssessment:
     return RecordingDimensionAssessment(
         tuple(
             CameraDimensionOutcome(cam_id, camera.size, camera.size, None)
-            for cam_id, camera in sorted(presenter._camera_array.cameras.items())
+            for cam_id, camera in sorted(camera_array.cameras.items())
         )
     )
 
 
-def _publish_current_dimensions(presenter: ReconstructionPresenter) -> None:
-    """Deterministically finish the current validation request without a thread."""
-    request = presenter._active_dimension_request
-    assert request is not None
-    presenter._on_dimension_check_completed(request, _compatible_dimensions(presenter))
-
-
-def _mismatched_dimensions(presenter: ReconstructionPresenter) -> RecordingDimensionAssessment:
-    """Build one exact-size mismatch while retaining outcomes for every camera."""
-    outcomes = []
-    for cam_id, camera in sorted(presenter._camera_array.cameras.items()):
-        actual = (camera.size[0] - 1, camera.size[1]) if cam_id == min(presenter._camera_array.cameras) else camera.size
-        outcomes.append(CameraDimensionOutcome(cam_id, camera.size, actual, None))
-    return RecordingDimensionAssessment(tuple(outcomes))
+def _mismatched_dimensions(camera_array: CameraArray) -> RecordingDimensionAssessment:
+    """One exact-size mismatch, with outcomes for every camera."""
+    first = min(camera_array.cameras)
+    return RecordingDimensionAssessment(
+        tuple(
+            CameraDimensionOutcome(
+                cam_id, camera.size, (camera.size[0] - 1, camera.size[1]) if cam_id == first else camera.size, None
+            )
+            for cam_id, camera in sorted(camera_array.cameras.items())
+        )
+    )
 
 
 @pytest.fixture
-def registered_test_tracker():
-    """Register a real CharucoTracker under the test tracker key for the duration of a test.
-
-    The reconstruction presenter uses tracker_registry.available_names() to determine
-    which trackers can be selected. This fixture ensures the test tracker key is registered
-    so presenter selection methods work correctly.
-    """
-    from caliscope.core.charuco import Charuco
-    from caliscope.trackers.charuco_tracker import CharucoTracker
-
-    charuco = Charuco.from_toml(_CHARUCO_SESSION / "charuco.toml")
-    tracker_registry.register(_TEST_TRACKER, lambda: CharucoTracker(charuco), display_name="Charuco")
-    yield
-    # Remove just the test key to avoid polluting other tests
-    tracker_registry._factories.pop(_TEST_TRACKER, None)
-    tracker_registry._display_names.pop(_TEST_TRACKER, None)
-    tracker_registry._wireframes.pop(_TEST_TRACKER, None)
-
-
-@pytest.fixture
-def mock_task_manager():
-    """Mock task manager."""
-    return MagicMock()
-
-
-@pytest.fixture
-def workspace_with_recordings(tmp_path):
-    """Copy test session to tmp_path for isolated testing."""
+def workspace(tmp_path):
     copy_contents_to_clean_dest(TEST_SESSION, tmp_path)
     return tmp_path
 
 
 @pytest.fixture
-def camera_array(workspace_with_recordings):
-    """Load real camera array from test session."""
-    return CameraArray.from_toml(workspace_with_recordings / "camera_array.toml")
+def recording(workspace) -> Path:
+    return workspace / "recordings" / "recording_1"
 
 
 @pytest.fixture
-def presenter(workspace_with_recordings, camera_array, mock_task_manager, qapp):
-    """Create a ReconstructionPresenter for testing."""
+def camera_array(workspace):
+    return CameraArray.from_toml(workspace / "camera_array.toml")
+
+
+@pytest.fixture
+def workspace_guide(workspace):
+    return WorkspaceGuide(workspace)
+
+
+@pytest.fixture
+def presenter(workspace, workspace_guide, camera_array, fake_task_manager):
     return ReconstructionPresenter(
-        workspace_dir=workspace_with_recordings,
-        workspace_guide=WorkspaceGuide(workspace_with_recordings),
+        workspace_dir=workspace,
+        workspace_guide=workspace_guide,
         camera_array=camera_array,
-        task_manager=mock_task_manager,
+        task_manager=fake_task_manager,
     )
 
 
+@pytest.fixture
+def finish_check(fake_task_manager, camera_array, qapp):
+    """Complete the newest dimension check, compatible unless told otherwise."""
+
+    def finish(assessment: RecordingDimensionAssessment | None = None) -> TaskHandle:
+        handle = fake_task_manager.handles(DIMENSION_CHECK)[-1]
+        fake_task_manager.complete(handle, assessment or _compatible_dimensions(camera_array))
+        qapp.processEvents()
+        return handle
+
+    return finish
+
+
+@pytest.fixture
+def submit_reconstruction(presenter, fake_task_manager, finish_check, registered_tracker):
+    """Select recording_1, pass both dimension checks, and return the PENDING reconstruction handle."""
+
+    def submit() -> TaskHandle:
+        presenter.select_recording("recording_1")
+        presenter.select_tracker(registered_tracker)
+        finish_check()
+        presenter.start_reconstruction()
+        finish_check()
+        (handle,) = fake_task_manager.handles("reconstruction")
+        return handle
+
+    return submit
+
+
 class TestStateComputation:
-    """Tests for state computation from reality."""
-
     def test_initial_state_is_idle(self, presenter):
-        """Presenter starts in IDLE state."""
         assert presenter.state == ReconstructionState.IDLE
 
-    def test_state_reconstructing_when_task_running(self, presenter):
-        """State is RECONSTRUCTING when task is running."""
-        mock_task = MagicMock()
-        mock_task.state = TaskState.RUNNING
-        presenter._processing_task = mock_task
+    @pytest.mark.parametrize(
+        ("finish", "expected"),
+        [
+            pytest.param(None, ReconstructionState.RECONSTRUCTING, id="pending"),
+            pytest.param("start", ReconstructionState.RECONSTRUCTING, id="running"),
+            pytest.param("fail", ReconstructionState.ERROR, id="failed"),
+            pytest.param("cancel", ReconstructionState.IDLE, id="cancelled"),
+        ],
+    )
+    def test_task_state_maps_to_presenter_state(
+        self, presenter, submit_reconstruction, fake_task_manager, qapp, finish, expected
+    ):
+        handle = submit_reconstruction()
+        if finish is not None:
+            getattr(fake_task_manager, finish)(handle)
+            qapp.processEvents()
 
-        assert presenter.state == ReconstructionState.RECONSTRUCTING
+        assert presenter.state == expected
 
-    def test_state_reconstructing_when_task_pending(self, presenter):
-        """A submitted task is active before its worker thread starts."""
-        mock_task = MagicMock()
-        mock_task.state = TaskState.PENDING
-        presenter._processing_task = mock_task
+    def test_state_error_when_start_is_rejected(self, presenter):
+        presenter.start_reconstruction()
 
-        assert presenter.has_active_task is True
-        assert presenter.state == ReconstructionState.RECONSTRUCTING
-
-    def test_state_error_when_task_failed(self, presenter):
-        """State is ERROR when task has failed."""
-        mock_task = MagicMock()
-        mock_task.state = TaskState.FAILED
-        presenter._processing_task = mock_task
-
+        assert presenter.last_error is not None
         assert presenter.state == ReconstructionState.ERROR
 
-    def test_state_error_when_last_error_set(self, presenter):
-        """State is ERROR when _last_error is set."""
-        presenter._last_error = "Something went wrong"
-
-        assert presenter.state == ReconstructionState.ERROR
-
-    def test_state_idle_when_task_cancelled(self, presenter):
-        """State returns to IDLE when task is cancelled."""
-        mock_task = MagicMock()
-        mock_task.state = TaskState.CANCELLED
-        presenter._processing_task = mock_task
-
-        assert presenter.state == ReconstructionState.IDLE
-
-    def test_state_complete_when_xyz_exists(self, presenter, workspace_with_recordings):
+    def test_state_complete_when_xyz_exists(self, presenter, recording, registered_tracker):
         """Existing output remains complete even if its source recording degrades."""
-        presenter._selected_recording = "recording_1"
-        presenter._selected_tracker = "CHARUCO"
-
-        # Create the output file (exist_ok because test session may have partial data)
-        output_dir = workspace_with_recordings / "recordings" / "recording_1" / "CHARUCO"
+        presenter.select_recording("recording_1")
+        presenter.select_tracker(registered_tracker)
+        output_dir = recording / registered_tracker
         output_dir.mkdir(parents=True, exist_ok=True)
-        (output_dir / "xyz_CHARUCO.csv").touch()
-        (workspace_with_recordings / "recordings" / "recording_1" / "cam_2.mp4").unlink()
+        (output_dir / f"xyz_{registered_tracker}.csv").touch()
+        (recording / "cam_2.mp4").unlink()
 
         assert presenter.state == ReconstructionState.COMPLETE
         assert presenter.selected_recording_is_ready is False
 
-    def test_task_state_takes_precedence_over_file(self, presenter, workspace_with_recordings):
-        """Task RUNNING state takes precedence over file existence."""
-        presenter._selected_recording = "recording_1"
-        presenter._selected_tracker = "CHARUCO"
+    def test_task_state_takes_precedence_over_file(
+        self, presenter, submit_reconstruction, fake_task_manager, recording, registered_tracker
+    ):
+        handle = submit_reconstruction()
+        fake_task_manager.start(handle)
+        (recording / registered_tracker / f"xyz_{registered_tracker}.csv").touch()
 
-        # Create the output file (exist_ok because test session may have partial data)
-        output_dir = workspace_with_recordings / "recordings" / "recording_1" / "CHARUCO"
-        output_dir.mkdir(parents=True, exist_ok=True)
-        (output_dir / "xyz_CHARUCO.csv").touch()
-
-        # But task is running
-        mock_task = MagicMock()
-        mock_task.state = TaskState.RUNNING
-        presenter._processing_task = mock_task
-
-        # Task state should win
         assert presenter.state == ReconstructionState.RECONSTRUCTING
 
 
-class TestAvailableOptions:
-    """Tests for available recordings and trackers."""
+class TestTaskSignals:
+    """Handle signals reach the presenter through its queued connections."""
 
-    def test_available_recordings_includes_invalid_session_directories(self, presenter, workspace_with_recordings):
+    def test_progress_and_completion(
+        self, presenter, submit_reconstruction, fake_task_manager, qapp, recording, registered_tracker
+    ):
+        progress = []
+        completed = []
+        presenter.progress_updated.connect(lambda percent, message: progress.append((percent, message)))
+        presenter.reconstruction_complete.connect(completed.append)
+        handle = submit_reconstruction()
+
+        fake_task_manager.start(handle)
+        handle.report_progress(40, "Stage 1: 50% - Detecting 2D landmarks")
+        qapp.processEvents()
+
+        assert progress == [(40, "Stage 1: 50% - Detecting 2D landmarks")]
+        assert presenter.state == ReconstructionState.RECONSTRUCTING
+
+        tracker_dir = recording / registered_tracker
+        (tracker_dir / f"xyz_{registered_tracker}.csv").touch()
+        fake_task_manager.complete(handle, tracker_dir)
+        qapp.processEvents()
+
+        assert completed == [tracker_dir / f"xyz_{registered_tracker}.csv"]
+        assert presenter.state == ReconstructionState.COMPLETE
+
+
+class TestAvailableOptions:
+    def test_available_recordings_includes_invalid_session_directories(self, presenter, workspace):
         """The list mirrors immediate session directories instead of filtering them."""
-        (workspace_with_recordings / "recordings" / "empty_session").mkdir()
+        (workspace / "recordings" / "empty_session").mkdir()
 
         recordings = presenter.available_recordings
 
         assert "recording_1" in recordings
         assert "empty_session" in recordings
 
-    def test_available_trackers_excludes_charuco(self, presenter):
-        """CHARUCO is a calibration tracker and must not appear in reconstruction trackers."""
-        trackers = presenter.available_trackers
-
-        assert "CHARUCO" not in trackers
-
 
 class TestSelection:
-    """Tests for recording and tracker selection."""
-
     def test_select_recording(self, presenter):
-        """Selecting a recording updates selection."""
         presenter.select_recording("recording_1")
         assert presenter.selected_recording == "recording_1"
 
-    def test_select_tracker(self, presenter, registered_test_tracker):
-        """Selecting a tracker updates selection."""
-        presenter.select_tracker("CHARUCO")
-        assert presenter.selected_tracker == "CHARUCO"
+    def test_select_tracker(self, presenter, registered_tracker):
+        presenter.select_tracker(registered_tracker)
+        assert presenter.selected_tracker == registered_tracker
 
-    def test_select_recording_clears_error(self, presenter):
-        """Selecting a recording clears previous error."""
-        presenter._last_error = "Previous error"
+    def test_selection_clears_error(self, presenter, registered_tracker):
+        presenter.start_reconstruction()
+        assert presenter.last_error is not None
         presenter.select_recording("recording_1")
-        assert presenter._last_error is None
+        assert presenter.last_error is None
 
-    def test_select_tracker_clears_error(self, presenter, registered_test_tracker):
-        """Selecting a tracker clears previous error."""
-        presenter._last_error = "Previous error"
-        presenter.select_tracker("CHARUCO")
-        assert presenter._last_error is None
+        presenter.start_reconstruction()
+        assert presenter.last_error is not None
+        presenter.select_tracker(registered_tracker)
+        assert presenter.last_error is None
 
-    def test_select_structurally_invalid_recording_shows_its_assessment(
-        self,
-        presenter,
-        workspace_with_recordings,
-    ):
+    def test_select_structurally_invalid_recording_shows_its_assessment(self, presenter, workspace):
         """Invalid session rows remain selectable so their feedback is visible."""
-        invalid = workspace_with_recordings / "recordings" / "partial"
+        invalid = workspace / "recordings" / "partial"
         invalid.mkdir()
         (invalid / "cam_0.mp4").touch()
 
@@ -272,20 +250,17 @@ class TestSelection:
         assert presenter.selected_recording is None
 
     def test_refresh_preserves_selection_and_recovers_after_video_restore(
-        self,
-        presenter,
-        workspace_with_recordings,
-        registered_test_tracker,
+        self, presenter, recording, registered_tracker
     ):
-        recording = workspace_with_recordings / "recordings" / "recording_1"
         presenter.select_recording("recording_1")
-        presenter.select_tracker("CHARUCO")
+        presenter.select_tracker(registered_tracker)
 
         (recording / "cam_2.mp4").unlink()
         presenter.refresh_from_workspace()
 
         assert presenter.selected_recording == "recording_1"
         assert presenter.can_process is False
+        assert presenter.selected_recording_assessment is not None
         assert [issue.relative_path for issue in presenter.selected_recording_assessment.issues] == [
             "recordings/recording_1/cam_2.mp4"
         ]
@@ -297,18 +272,11 @@ class TestSelection:
         assert presenter.is_checking_dimensions is True
         assert presenter.can_process is False
 
-    def test_disappearing_session_suppresses_stale_dimension_errors(
-        self,
-        presenter,
-        workspace_with_recordings,
-    ):
+    def test_disappearing_session_suppresses_stale_dimension_errors(self, presenter, recording, finish_check):
         """The structural missing-directory issue is enough when a scan finishes late."""
-        presenter._selected_recording = "recording_1"
-        presenter._dimension_assessment_generation = presenter._dimension_generation
-        presenter._dimension_assessment = RecordingDimensionAssessment(
-            (CameraDimensionOutcome(0, (1280, 720), None, "video disappeared"),)
-        )
-        _remove_recording_session(workspace_with_recordings / "recordings" / "recording_1")
+        presenter.select_recording("recording_1")
+        finish_check(RecordingDimensionAssessment((CameraDimensionOutcome(0, (1280, 720), None, "video disappeared"),)))
+        shutil.rmtree(recording)
 
         assert [issue.code for issue in presenter.selected_recording_issues] == ["missing_recording_directory"]
         assert presenter.selected_recording_dimension_issues == ()
@@ -321,83 +289,52 @@ class TestSelection:
         ],
     )
     def test_dimension_outcomes_block_processing_with_actionable_feedback(
-        self,
-        presenter,
-        registered_test_tracker,
-        outcome,
-        expected_code,
+        self, presenter, registered_tracker, finish_check, outcome, expected_code
     ):
         """Mismatch and read failure both remain visible and block Process."""
-        presenter._selected_recording = "recording_1"
-        presenter._selected_tracker = "CHARUCO"
-        presenter._dimension_assessment_generation = presenter._dimension_generation
-        presenter._dimension_assessment = RecordingDimensionAssessment((outcome,))
+        presenter.select_recording("recording_1")
+        presenter.select_tracker(registered_tracker)
+        finish_check(RecordingDimensionAssessment((outcome,)))
 
         assert presenter.can_process is False
         issues = presenter.selected_recording_dimension_issues
         assert [issue.code for issue in issues] == [expected_code]
         assert issues[0].relative_path == "recordings/recording_1/cam_0.mp4"
 
-    @pytest.mark.parametrize("task_state", [TaskState.PENDING, TaskState.RUNNING])
+    @pytest.mark.parametrize("running", [False, True], ids=["pending", "running"])
     def test_refresh_reports_removed_active_session_without_cancelling(
-        self,
-        presenter,
-        workspace_with_recordings,
-        task_state,
+        self, presenter, submit_reconstruction, fake_task_manager, recording, running
     ):
-        recording = workspace_with_recordings / "recordings" / "recording_1"
-        presenter.select_recording("recording_1")
-        active_task = MagicMock()
-        active_task.state = task_state
-        presenter._processing_task = active_task
-        _remove_recording_session(recording)
+        handle = submit_reconstruction()
+        if running:
+            fake_task_manager.start(handle)
+        shutil.rmtree(recording)
 
         presenter.refresh_from_workspace()
 
         assert presenter.selected_recording == "recording_1"
         assert [issue.code for issue in presenter.selected_recording_issues] == ["missing_recording_directory"]
-        active_task.cancel.assert_not_called()
-
-
-class TestXyzOutputPath:
-    """Tests for xyz_output_path computation."""
-
-    def test_xyz_output_path_none_when_no_selection(self, presenter):
-        """Path is None when recording or tracker not selected."""
-        assert presenter.xyz_output_path is None
-
-    def test_xyz_output_path_computed_from_selection(self, presenter, workspace_with_recordings):
-        """Path is computed from selected recording and tracker."""
-        presenter._selected_recording = "recording_1"
-        presenter._selected_tracker = "CHARUCO"
-
-        expected = workspace_with_recordings / "recordings" / "recording_1" / "CHARUCO" / "xyz_CHARUCO.csv"
-        assert presenter.xyz_output_path == expected
+        assert not fake_task_manager.cancel_requested(handle)
 
 
 class TestSignalEmissions:
-    """Tests for signal emissions."""
-
-    def test_state_changed_emitted_on_selection(self, presenter, qapp):
-        """state_changed signal emitted when selection changes."""
-        signal_received = []
-        presenter.state_changed.connect(lambda s: signal_received.append(s))
+    def test_state_changed_emitted_on_selection(self, presenter):
+        states = []
+        presenter.state_changed.connect(states.append)
 
         presenter.select_recording("recording_1")
 
-        assert signal_received
-        assert signal_received[-1] == ReconstructionState.IDLE
+        assert states[-1] == ReconstructionState.IDLE
 
-    def test_state_changed_emitted_on_tracker_selection(self, presenter, qapp, registered_test_tracker):
-        """state_changed signal emitted when tracker selection changes."""
-        signal_received = []
-        presenter.state_changed.connect(lambda s: signal_received.append(s))
+    def test_state_changed_emitted_on_tracker_selection(self, presenter, registered_tracker):
+        states = []
+        presenter.state_changed.connect(states.append)
 
-        presenter.select_tracker("CHARUCO")
+        presenter.select_tracker(registered_tracker)
 
-        assert signal_received
+        assert states
 
-    def test_dimension_completion_updates_state_without_rebuilding_recording_list(self, presenter, qapp):
+    def test_dimension_completion_updates_state_without_rebuilding_recording_list(self, presenter, finish_check):
         """Dimension results update feedback controls, not the recording list or preview."""
         recordings_changed = []
         states = []
@@ -406,17 +343,17 @@ class TestSignalEmissions:
         presenter.select_recording("recording_1")
         states.clear()
 
-        _publish_current_dimensions(presenter)
+        finish_check()
 
         assert recordings_changed == []
         assert states
 
 
 class TestScopedWorkspaceRefresh:
-    def test_selected_assessment_reads_only_selected_directory(self, presenter, monkeypatch):
+    def test_selected_assessment_reads_only_selected_directory(self, presenter, workspace_guide, monkeypatch):
         presenter.select_recording("recording_1")
         all_recordings = MagicMock(side_effect=AssertionError("selected feedback must not scan every session"))
-        monkeypatch.setattr(presenter._workspace_guide, "assess_recordings", all_recordings)
+        monkeypatch.setattr(workspace_guide, "assess_recordings", all_recordings)
 
         assessment = presenter.selected_recording_assessment
 
@@ -424,105 +361,85 @@ class TestScopedWorkspaceRefresh:
         all_recordings.assert_not_called()
 
     def test_other_recording_changes_do_not_request_metadata(
-        self, presenter, workspace_with_recordings, mock_task_manager
+        self, presenter, workspace, fake_task_manager, finish_check
     ):
-        other = _create_recording_session(workspace_with_recordings, "other")
+        other = _create_recording_session(workspace, "other")
         presenter.select_recording("recording_1")
-        _publish_current_dimensions(presenter)
-        submitted = mock_task_manager.submit.call_count
+        finish_check()
+        submitted = len(fake_task_manager.submitted)
 
         presenter.refresh_recording_structure(other)
         presenter.recheck_selected_video(other / "cam_0.mp4")
 
         assert presenter.selected_recording_is_ready
-        assert mock_task_manager.submit.call_count == submitted
+        assert len(fake_task_manager.submitted) == submitted
 
     def test_same_size_calibration_change_cancels_process_preflight(
-        self, presenter, registered_test_tracker, mock_task_manager
+        self, presenter, registered_tracker, fake_task_manager, finish_check, camera_array, qapp
     ):
         presenter.select_recording("recording_1")
-        presenter.select_tracker("CHARUCO")
-        _publish_current_dimensions(presenter)
+        presenter.select_tracker(registered_tracker)
+        finish_check()
         presenter.start_reconstruction()
-        process_request = presenter._active_dimension_request
-        assert process_request is not None and process_request.handle is not None
-        changed_calibration = copy.deepcopy(presenter._camera_array)
+        process_check = fake_task_manager.handles(DIMENSION_CHECK)[-1]
+        changed_calibration = copy.deepcopy(camera_array)
         assert changed_calibration.cameras[0].matrix is not None
         changed_calibration.cameras[0].matrix += np.eye(3)
 
         presenter.refresh_camera_array(changed_calibration)
-        presenter._on_dimension_check_completed(process_request, _compatible_dimensions(presenter))
+        fake_task_manager.complete(process_check, _compatible_dimensions(camera_array))
+        qapp.processEvents()
 
-        process_request.handle.cancel.assert_called_once()
-        assert presenter.dimension_check_notice == "Recording check restarted. Select Process when it finishes."
-        assert all(call.kwargs["name"] != "reconstruction" for call in mock_task_manager.submit.call_args_list)
+        assert fake_task_manager.cancel_requested(process_check)
+        assert presenter.dimension_check_notice == RESTART_NOTICE
+        assert fake_task_manager.handles("reconstruction") == []
 
     def test_tracker_selection_cancels_process_continuation(
-        self, presenter, registered_test_tracker, mock_task_manager
+        self, presenter, registered_tracker, fake_task_manager, finish_check, camera_array, qapp
     ):
         presenter.select_recording("recording_1")
-        _publish_current_dimensions(presenter)
-        presenter.select_tracker("CHARUCO")
+        finish_check()
+        presenter.select_tracker(registered_tracker)
         assert presenter.selected_recording_is_ready
         presenter.start_reconstruction()
-        process_request = presenter._active_dimension_request
-        assert process_request is not None and process_request.handle is not None
+        process_check = fake_task_manager.handles(DIMENSION_CHECK)[-1]
 
-        presenter.select_tracker("CHARUCO")
-        presenter._on_dimension_check_completed(process_request, _compatible_dimensions(presenter))
+        presenter.select_tracker(registered_tracker)
+        fake_task_manager.complete(process_check, _compatible_dimensions(camera_array))
+        qapp.processEvents()
 
-        process_request.handle.cancel.assert_called_once()
-        assert all(call.kwargs["name"] != "reconstruction" for call in mock_task_manager.submit.call_args_list)
+        assert fake_task_manager.cancel_requested(process_check)
+        assert fake_task_manager.handles("reconstruction") == []
 
 
 class TestStartReconstruction:
-    """Tests for starting reconstruction."""
-
-    def test_cannot_start_without_selection(self, presenter, qapp):
-        """Cannot start reconstruction without both selections."""
+    def test_cannot_start_without_selection(self, presenter, fake_task_manager):
         presenter.start_reconstruction()
 
-        # Should set error and not submit task
-        assert presenter._last_error is not None
-        presenter._task_manager.submit.assert_not_called()
+        assert presenter.last_error is not None
+        assert fake_task_manager.submitted == []
 
     def test_start_submits_reconstruction_after_fresh_preflight(
-        self, presenter, mock_task_manager, qapp, registered_test_tracker
+        self, presenter, fake_task_manager, finish_check, registered_tracker
     ):
         """A Process click submits a fresh check before the reconstruction task."""
-        mock_handle = MagicMock()
-        mock_handle.state = TaskState.RUNNING
-        mock_task_manager.submit.return_value = mock_handle
-
         presenter.select_recording("recording_1")
-        presenter.select_tracker("CHARUCO")
-        _publish_current_dimensions(presenter)
+        presenter.select_tracker(registered_tracker)
+        finish_check()
         presenter.start_reconstruction()
-        process_request = presenter._active_dimension_request
-        assert process_request is not None
-        events = []
-        presenter.reconstruction_starting.connect(lambda: events.append("signal"))
-        mock_task_manager.start_task.side_effect = lambda _task_id: events.append("start_task")
-        _publish_current_dimensions(presenter)
+        started_at_signal = []
+        presenter.reconstruction_starting.connect(lambda: started_at_signal.extend(fake_task_manager.started))
 
-        reconstruction_calls = [
-            call for call in mock_task_manager.submit.call_args_list if call.kwargs["name"] == "reconstruction"
-        ]
-        assert len(reconstruction_calls) == 1
-        assert reconstruction_calls[0].kwargs["auto_start"] is False
-        assert events == ["signal", "start_task"]
+        finish_check()
+
+        (handle,) = fake_task_manager.handles("reconstruction")
+        assert handle.task_id not in started_at_signal
+        assert fake_task_manager.started[-1] == handle.task_id
 
     def test_incompatible_process_preflight_has_no_output_side_effects(
-        self,
-        presenter,
-        workspace_with_recordings,
-        mock_task_manager,
-        qapp,
-        registered_test_tracker,
-        monkeypatch,
+        self, presenter, recording, fake_task_manager, finish_check, camera_array, registered_tracker, monkeypatch
     ):
         """Fresh Process dimensions failure stops before timestamps, tracker, and output."""
-        recording = workspace_with_recordings / "recordings" / "recording_1"
         load_timestamps = MagicMock()
         create_tracker = MagicMock()
         monkeypatch.setattr(
@@ -530,55 +447,37 @@ class TestStartReconstruction:
             load_timestamps,
         )
         monkeypatch.setattr(tracker_registry, "create", create_tracker)
-        handle = MagicMock()
-        handle.state = TaskState.RUNNING
-        mock_task_manager.submit.return_value = handle
         presenter.select_recording("recording_1")
-        presenter.select_tracker("CHARUCO")
-        _publish_current_dimensions(presenter)
-
+        presenter.select_tracker(registered_tracker)
+        finish_check()
         presenter.start_reconstruction()
-        request = presenter._active_dimension_request
-        assert request is not None
         starts = []
         presenter.reconstruction_starting.connect(lambda: starts.append(True))
-        presenter._on_dimension_check_completed(request, _mismatched_dimensions(presenter))
+
+        finish_check(_mismatched_dimensions(camera_array))
 
         load_timestamps.assert_not_called()
         create_tracker.assert_not_called()
-        assert not (recording / "CHARUCO").exists()
-        assert all(call.kwargs["name"] != "reconstruction" for call in mock_task_manager.submit.call_args_list)
+        assert not (recording / registered_tracker).exists()
+        assert fake_task_manager.handles("reconstruction") == []
         assert starts == []
 
     def test_missing_camera_video_blocks_submission_even_with_timestamps(
-        self,
-        presenter,
-        workspace_with_recordings,
-        mock_task_manager,
-        qapp,
-        registered_test_tracker,
+        self, presenter, recording, fake_task_manager, registered_tracker
     ):
-        recording = workspace_with_recordings / "recordings" / "recording_1"
         assert (recording / "timestamps.csv").exists()
         (recording / "cam_3.mp4").unlink()
         presenter.select_recording("recording_1")
-        presenter.select_tracker("CHARUCO")
+        presenter.select_tracker(registered_tracker)
 
         presenter.start_reconstruction()
 
-        mock_task_manager.submit.assert_not_called()
+        assert fake_task_manager.submitted == []
         assert presenter.selected_recording_is_ready is False
 
     def test_timestamp_failure_creates_no_tracker_output_or_task(
-        self,
-        presenter,
-        workspace_with_recordings,
-        mock_task_manager,
-        qapp,
-        registered_test_tracker,
-        monkeypatch,
+        self, presenter, recording, fake_task_manager, finish_check, registered_tracker, monkeypatch
     ):
-        recording = workspace_with_recordings / "recordings" / "recording_1"
         load_timestamps = MagicMock(side_effect=ValueError("Timestamp data is incompatible"))
         create_tracker = MagicMock()
         monkeypatch.setattr(
@@ -587,66 +486,44 @@ class TestStartReconstruction:
         )
         monkeypatch.setattr(tracker_registry, "create", create_tracker)
         presenter.select_recording("recording_1")
-        presenter.select_tracker("CHARUCO")
-        _publish_current_dimensions(presenter)
+        presenter.select_tracker(registered_tracker)
+        finish_check()
 
         presenter.start_reconstruction()
-        _publish_current_dimensions(presenter)
+        finish_check()
 
         load_timestamps.assert_called_once()
         create_tracker.assert_not_called()
-        assert not (recording / "CHARUCO").exists()
-        assert all(call.kwargs["name"] != "reconstruction" for call in mock_task_manager.submit.call_args_list)
+        assert not (recording / registered_tracker).exists()
+        assert fake_task_manager.handles("reconstruction") == []
 
     def test_repeated_start_does_not_submit_while_first_task_is_pending(
-        self,
-        presenter,
-        mock_task_manager,
-        qapp,
-        registered_test_tracker,
+        self, presenter, submit_reconstruction, fake_task_manager
     ):
-        pending_handle = MagicMock()
-        pending_handle.state = TaskState.PENDING
-        mock_task_manager.submit.return_value = pending_handle
-        presenter.select_recording("recording_1")
-        presenter.select_tracker("CHARUCO")
+        submit_reconstruction()
 
-        _publish_current_dimensions(presenter)
-        presenter.start_reconstruction()
-        _publish_current_dimensions(presenter)
         presenter.start_reconstruction()
 
-        reconstruction_calls = [
-            call for call in mock_task_manager.submit.call_args_list if call.kwargs["name"] == "reconstruction"
-        ]
-        assert len(reconstruction_calls) == 1
-        assert reconstruction_calls[0].kwargs["auto_start"] is False
+        assert len(fake_task_manager.handles("reconstruction")) == 1
 
     def test_invalidating_process_preflight_drops_automatic_continuation(
-        self,
-        presenter,
-        mock_task_manager,
-        qapp,
-        registered_test_tracker,
+        self, presenter, fake_task_manager, finish_check, camera_array, registered_tracker, qapp
     ):
         """A changed session cannot continue into output creation after Process."""
-        handle = MagicMock()
-        handle.state = TaskState.RUNNING
-        mock_task_manager.submit.return_value = handle
         presenter.select_recording("recording_1")
-        presenter.select_tracker("CHARUCO")
-        _publish_current_dimensions(presenter)
+        presenter.select_tracker(registered_tracker)
+        finish_check()
         presenter.start_reconstruction()
-        process_request = presenter._active_dimension_request
-        assert process_request is not None
+        process_check = fake_task_manager.handles(DIMENSION_CHECK)[-1]
 
         presenter.refresh_from_workspace()
-        presenter._on_dimension_check_completed(process_request, _compatible_dimensions(presenter))
+        fake_task_manager.complete(process_check, _compatible_dimensions(camera_array))
+        qapp.processEvents()
 
-        assert all(call.kwargs["name"] != "reconstruction" for call in mock_task_manager.submit.call_args_list)
-        assert presenter.dimension_check_notice == "Recording check restarted. Select Process when it finishes."
+        assert fake_task_manager.handles("reconstruction") == []
+        assert presenter.dimension_check_notice == RESTART_NOTICE
 
-        _publish_current_dimensions(presenter)
+        finish_check()
         presenter.start_reconstruction()
 
         assert presenter.dimension_check_notice is None
@@ -654,94 +531,70 @@ class TestStartReconstruction:
 
 class TestTerminalSelectionReconciliation:
     def test_completion_emits_original_result_before_selecting_remaining_session(
-        self,
-        presenter,
-        workspace_with_recordings,
-        registered_test_tracker,
+        self, presenter, submit_reconstruction, fake_task_manager, workspace, recording, registered_tracker, qapp
     ):
-        remaining = _create_recording_session(workspace_with_recordings, "remaining")
-        original = workspace_with_recordings / "recordings" / "recording_1"
-        presenter.select_recording("recording_1")
-        presenter.select_tracker("CHARUCO")
-        completed_task = MagicMock()
-        completed_task.state = TaskState.COMPLETED
-        presenter._processing_task = completed_task
-        _remove_recording_session(original)
-        result_dir = workspace_with_recordings / "completed-result"
+        remaining = _create_recording_session(workspace, "remaining")
+        handle = submit_reconstruction()
+        shutil.rmtree(recording)
+        result_dir = workspace / "completed-result"
         observed: list[tuple[Path, str | None]] = []
         presenter.reconstruction_complete.connect(lambda path: observed.append((path, presenter.selected_recording)))
 
-        presenter._on_reconstruction_complete(result_dir)
+        fake_task_manager.complete(handle, result_dir)
+        qapp.processEvents()
 
-        assert observed == [(result_dir / "xyz_CHARUCO.csv", "recording_1")]
+        assert observed == [(result_dir / f"xyz_{registered_tracker}.csv", "recording_1")]
         assert presenter.selected_recording == remaining.name
 
     def test_failure_reconciles_removed_selection_after_failure_signal(
-        self,
-        presenter,
-        workspace_with_recordings,
+        self, presenter, submit_reconstruction, fake_task_manager, workspace, recording, qapp
     ):
-        remaining = _create_recording_session(workspace_with_recordings, "remaining")
-        original = workspace_with_recordings / "recordings" / "recording_1"
-        presenter.select_recording("recording_1")
-        failed_task = MagicMock()
-        failed_task.state = TaskState.FAILED
-        presenter._processing_task = failed_task
-        _remove_recording_session(original)
+        remaining = _create_recording_session(workspace, "remaining")
+        handle = submit_reconstruction()
+        shutil.rmtree(recording)
         observed: list[tuple[str, str | None]] = []
         presenter.reconstruction_failed.connect(
             lambda message: observed.append((message, presenter.selected_recording))
         )
 
-        presenter._on_reconstruction_failed("RuntimeError", "worker failed")
+        fake_task_manager.fail(handle, "RuntimeError", "worker failed")
+        qapp.processEvents()
 
         assert observed == [("RuntimeError: worker failed", "recording_1")]
         assert presenter.selected_recording == remaining.name
         assert presenter.last_error == "RuntimeError: worker failed"
         assert presenter.state == ReconstructionState.ERROR
 
-    def test_cancellation_reconciles_removed_selection(self, presenter, workspace_with_recordings):
-        remaining = _create_recording_session(workspace_with_recordings, "remaining")
-        original = workspace_with_recordings / "recordings" / "recording_1"
-        presenter.select_recording("recording_1")
-        cancelled_task = MagicMock()
-        cancelled_task.state = TaskState.CANCELLED
-        presenter._processing_task = cancelled_task
-        _remove_recording_session(original)
+    def test_cancellation_reconciles_removed_selection(
+        self, presenter, submit_reconstruction, fake_task_manager, workspace, recording, qapp
+    ):
+        remaining = _create_recording_session(workspace, "remaining")
+        handle = submit_reconstruction()
+        shutil.rmtree(recording)
 
-        presenter._on_reconstruction_cancelled()
+        fake_task_manager.cancel(handle)
+        qapp.processEvents()
 
         assert presenter.selected_recording == remaining.name
         assert presenter.state == ReconstructionState.IDLE
 
 
 class TestCleanup:
-    """Tests for cleanup behavior."""
-
-    def test_cleanup_cancels_running_task(self, presenter):
-        """cleanup() cancels any running task."""
-        mock_task = MagicMock()
-        mock_task.state = TaskState.RUNNING
-        presenter._processing_task = mock_task
+    def test_cleanup_cancels_running_task(self, presenter, submit_reconstruction, fake_task_manager):
+        handle = submit_reconstruction()
+        fake_task_manager.start(handle)
 
         presenter.cleanup()
 
-        mock_task.cancel.assert_called_once()
+        assert fake_task_manager.cancel_requested(handle)
 
     def test_cleanup_safe_when_no_task(self, presenter):
-        """cleanup() is safe to call when no task exists."""
-        presenter.cleanup()  # Should not raise
+        presenter.cleanup()
 
-    def test_cancel_accepts_pending_task(self, presenter):
+    def test_cancel_accepts_pending_task(self, presenter, submit_reconstruction, fake_task_manager):
         """A task can be cancelled before its worker thread begins."""
-        mock_task = MagicMock()
-        mock_task.state = TaskState.PENDING
-        presenter._processing_task = mock_task
+        handle = submit_reconstruction()
 
         presenter.cancel_reconstruction()
 
-        mock_task.cancel.assert_called_once()
-
-
-if __name__ == "__main__":
-    pytest.main([__file__, "-v"])
+        assert fake_task_manager.cancel_requested(handle)

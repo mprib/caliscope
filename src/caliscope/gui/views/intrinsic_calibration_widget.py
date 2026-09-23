@@ -630,7 +630,7 @@ class IntrinsicCalibrationWidget(QWidget):
         video_layout.addLayout(controls)
 
         self._error_label = QLabel("")
-        self._error_label.setObjectName("calibration_error")
+        self._error_label.setObjectName("calibrationErrorLabel")
         self._error_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self._error_label.setWordWrap(True)
         self._error_label.setStyleSheet(f"color: {Colors.ERROR};")

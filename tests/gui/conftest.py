@@ -3,13 +3,20 @@
 from __future__ import annotations
 
 import uuid
+from pathlib import Path
 from typing import Any
 
 import pytest
 from PySide6.QtCore import QObject
 
+from caliscope import __root__
+from caliscope.core.charuco import Charuco
 from caliscope.task_manager.cancellation import CancellationToken
 from caliscope.task_manager.task_handle import TaskHandle
+from caliscope.trackers import tracker_registry
+from caliscope.trackers.charuco_tracker import CharucoTracker
+
+REGISTERED_TRACKER = "CHARUCO"
 
 
 class FakeTaskManager(QObject):
@@ -37,12 +44,6 @@ class FakeTaskManager(QObject):
     def start_task(self, task_id: str) -> bool:
         self.started.append(task_id)
         return True
-
-    def cancel_all(self) -> int:
-        return 0
-
-    def shutdown(self, timeout_ms: int = 5000) -> None:
-        pass
 
     def handles(self, name: str) -> list[TaskHandle]:
         return [handle for handle, _ in self.submitted if handle.name == name]
@@ -76,7 +77,20 @@ class FakeTaskManager(QObject):
     def cancel(handle: TaskHandle) -> None:
         handle._emit_cancelled()
 
+    @staticmethod
+    def cancel_requested(handle: TaskHandle) -> bool:
+        return handle._token.is_cancelled
+
 
 @pytest.fixture
 def fake_task_manager(qapp) -> FakeTaskManager:
     return FakeTaskManager()
+
+
+@pytest.fixture
+def registered_tracker():
+    """Register a real CharucoTracker as REGISTERED_TRACKER for one test."""
+    charuco = Charuco.from_toml(Path(__root__, "tests", "sessions", "post_optimization", "charuco.toml"))
+    tracker_registry.register(REGISTERED_TRACKER, lambda: CharucoTracker(charuco), display_name="Charuco")
+    yield REGISTERED_TRACKER
+    tracker_registry.unregister(REGISTERED_TRACKER)

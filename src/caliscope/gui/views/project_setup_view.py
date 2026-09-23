@@ -418,6 +418,7 @@ class ProjectSetupView(QWidget):
         layout.addWidget(self._camera_count_label)
 
         self._file_feedback_label = QLabel()
+        self._file_feedback_label.setObjectName("fileFeedbackLabel")
         self._file_feedback_label.setTextFormat(Qt.TextFormat.PlainText)
         self._file_feedback_label.setWordWrap(True)
         self._file_feedback_label.setStyleSheet("color: #888;")

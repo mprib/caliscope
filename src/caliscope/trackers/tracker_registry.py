@@ -42,6 +42,14 @@ def register(
         _model_cards[key] = model_card
 
 
+def unregister(key: str) -> None:
+    """Remove one registration. Missing keys are ignored."""
+    _factories.pop(key, None)
+    _display_names.pop(key, None)
+    _wireframes.pop(key, None)
+    _model_cards.pop(key, None)
+
+
 def create(key: str) -> Tracker:
     """Construct a fresh Tracker instance by registry key.
 

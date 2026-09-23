@@ -56,7 +56,7 @@ def test_calibration_failure_is_shown_in_widget(presenter, fake_task_manager, qt
     qapp.processEvents()
 
     assert presenter.state == IntrinsicCalibrationState.READY
-    error_label = widget.findChild(QLabel, "calibration_error")
+    error_label = widget.findChild(QLabel, "calibrationErrorLabel")
     assert error_label is not None
     assert not error_label.isHidden()
     assert "calibrateCamera diverged" in error_label.text()

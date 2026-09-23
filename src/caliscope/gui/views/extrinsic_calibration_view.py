@@ -279,7 +279,7 @@ class ExtrinsicCalibrationView(QWidget):
         layout.addWidget(self._progress_label)
 
         self._error_label = QLabel("")
-        self._error_label.setObjectName("calibration_error")
+        self._error_label.setObjectName("calibrationErrorLabel")
         self._error_label.setWordWrap(True)
         self._error_label.setStyleSheet(f"color: {Colors.ERROR};")
         self._error_label.hide()

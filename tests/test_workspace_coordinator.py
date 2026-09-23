@@ -11,21 +11,10 @@ import threading
 from pathlib import Path
 import numpy as np
 import pytest
-from PySide6.QtCore import QElapsedTimer, QEventLoop
 from PySide6.QtTest import QSignalSpy
 
 from caliscope.cameras.camera_array import CameraArray, CameraData
 from caliscope.workspace_coordinator import WorkspaceCoordinator
-
-
-def _wait_for(qapp, condition, timeout_ms: int = 3000) -> None:
-    """Process Qt filesystem events until a bounded condition becomes true."""
-    timer = QElapsedTimer()
-    timer.start()
-    while not condition():
-        qapp.processEvents(QEventLoop.ProcessEventsFlag.AllEvents, 50)
-        if timer.elapsed() >= timeout_ms:
-            raise AssertionError("Timed out waiting for filesystem watcher event")
 
 
 @pytest.fixture
@@ -204,7 +193,7 @@ def test_recording_session_watches_follow_root_directory_changes(
 @pytest.mark.parametrize("linked_inputs", [False, True], ids=["regular", "linked-session-and-video"])
 def test_atomic_recording_video_replacement_readds_file_watch(
     coordinator: WorkspaceCoordinator,
-    qapp,
+    qtbot,
     tmp_path: Path,
     linked_inputs: bool,
 ):
@@ -237,12 +226,12 @@ def test_atomic_recording_video_replacement_readds_file_watch(
         )
 
     (session / "notes.txt").touch()
-    _wait_for(qapp, lambda: session_changed_since(0))
+    qtbot.waitUntil(lambda: session_changed_since(0))
 
     video_spy = QSignalSpy(coordinator.recording_video_changed)
     previous_count = video_spy.count()
     video.write_bytes(b"changed")
-    _wait_for(qapp, lambda: video_spy.count() > previous_count)
+    qtbot.waitUntil(lambda: video_spy.count() > previous_count)
     assert Path(video_spy.at(video_spy.count() - 1)[0]) == video.resolve()
 
     previous_directory_count = directory_spy.count()
@@ -250,11 +239,11 @@ def test_atomic_recording_video_replacement_readds_file_watch(
     replacement.write_bytes(b"replacement")
     replacement.replace(video)
 
-    _wait_for(qapp, lambda: session_changed_since(previous_directory_count))
+    qtbot.waitUntil(lambda: session_changed_since(previous_directory_count))
 
     previous_video_count = video_spy.count()
     video.write_bytes(b"replacement changed")
-    _wait_for(qapp, lambda: video_spy.count() > previous_video_count)
+    qtbot.waitUntil(lambda: video_spy.count() > previous_video_count)
     assert Path(video_spy.at(video_spy.count() - 1)[0]) == video.resolve()
 
 

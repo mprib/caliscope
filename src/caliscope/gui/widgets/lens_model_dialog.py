@@ -132,7 +132,7 @@ class LensModelDialog(QDialog):
         # Image labels side by side
         images_row = QHBoxLayout()
         self._before_label = QLabel("Before")
-        self._before_label.setObjectName("lens_before")
+        self._before_label.setObjectName("lensBeforeLabel")
         self._before_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self._before_label.setStyleSheet("background-color: #1a1a1a; border: 1px solid #333;")
         self._before_label.setMinimumHeight(250)

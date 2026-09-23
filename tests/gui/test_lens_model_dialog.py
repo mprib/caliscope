@@ -33,7 +33,7 @@ def test_first_frame_is_decoded_in_a_worker_thread(qtbot, monkeypatch):
         initial_cam_id=0,
     )
     qtbot.addWidget(dialog)
-    before = dialog.findChild(QLabel, "lens_before")
+    before = dialog.findChild(QLabel, "lensBeforeLabel")
     assert before is not None
 
     qtbot.waitUntil(lambda: not before.pixmap().isNull(), timeout=10000)

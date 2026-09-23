@@ -10,9 +10,10 @@ def test_construction_empty_recents(qapp):
 
 
 def test_construction_populated_recents(qapp, tmp_path):
-    paths = [str(tmp_path / f"project_{i}") for i in range(3)]
-    for p in paths:
-        (tmp_path / p.split("/")[-1]).mkdir()
+    paths = []
+    for i in range(3):
+        (tmp_path / f"project_{i}").mkdir()
+        paths.append(str(tmp_path / f"project_{i}"))
 
     w = WelcomeWidget(recent_projects=paths)
     assert not w._recents_container.isHidden()
@@ -68,41 +69,3 @@ def test_set_error_reenables_controls(qapp, tmp_path):
     assert "bad things happened" in w._status_label.text()
     for link in w._recent_links:
         assert link.isEnabled()
-
-
-if __name__ == "__main__":
-    import os
-
-    os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
-    from PySide6.QtWidgets import QApplication
-
-    app = QApplication.instance() or QApplication([])
-
-    test_construction_empty_recents(app)
-    print("PASS: test_construction_empty_recents")
-
-    from pathlib import Path
-    import tempfile
-
-    with tempfile.TemporaryDirectory() as td:
-        tmp = Path(td)
-        test_construction_populated_recents(app, tmp)
-        print("PASS: test_construction_populated_recents")
-
-    test_open_project_signal(app)
-    print("PASS: test_open_project_signal")
-
-    with tempfile.TemporaryDirectory() as td:
-        tmp = Path(td)
-        test_recent_project_signal(app, tmp)
-        print("PASS: test_recent_project_signal")
-
-    with tempfile.TemporaryDirectory() as td:
-        tmp = Path(td)
-        test_set_loading_disables_controls(app, tmp)
-        print("PASS: test_set_loading_disables_controls")
-
-    with tempfile.TemporaryDirectory() as td:
-        tmp = Path(td)
-        test_set_error_reenables_controls(app, tmp)
-        print("PASS: test_set_error_reenables_controls")

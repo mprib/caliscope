@@ -68,6 +68,7 @@ class CameraThumbnailCard(QFrame):
 
     def __init__(self, cam_id: int, parent: QWidget | None = None) -> None:
         super().__init__(parent)
+        self.setObjectName(f"cameraCard{cam_id}")
         self._cam_id = cam_id
         self._rotation_count = 0
 
@@ -87,6 +88,7 @@ class CameraThumbnailCard(QFrame):
 
         # Thumbnail display
         self._thumbnail_label = QLabel()
+        self._thumbnail_label.setObjectName("thumbnailLabel")
         self._thumbnail_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self._thumbnail_label.setMinimumSize(self.THUMBNAIL_SIZE, self.THUMBNAIL_SIZE)
         self._thumbnail_label.setStyleSheet("background-color: #1a1a1a; color: #888;")

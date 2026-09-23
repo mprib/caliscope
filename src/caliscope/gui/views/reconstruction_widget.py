@@ -440,7 +440,7 @@ class ReconstructionWidget(QWidget):
             return
         if not self._viz_pending and (force or self._visualization_input_key() != self._last_displayed_input_key):
             self._viz_pending = True
-            QTimer.singleShot(0, self._do_update_visualization)
+            QTimer.singleShot(0, self, self._do_update_visualization)
 
     def _do_update_visualization(self) -> None:
         """Actually rebuild the visualization. Called from debounce timer."""

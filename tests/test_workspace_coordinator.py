@@ -248,3 +248,24 @@ def test_atomic_recording_video_replacement_readds_file_watch(
     video.write_bytes(b"replacement changed")
     _wait_for(qapp, lambda: video_spy.count() > previous_video_count)
     assert Path(video_spy.at(video_spy.count() - 1)[0]) == video.resolve()
+
+
+def test_rotation_from_multi_camera_presenter_is_persisted(tmp_path: Path, qapp):
+    """The presenter must not mutate the coordinator's cameras in place, or the
+    coordinator sees no change and skips the save."""
+    camera = CameraData(cam_id=0, size=(640, 480), matrix=np.eye(3), distortions=np.zeros(5))
+    coordinator = WorkspaceCoordinator(tmp_path)
+    coordinator.camera_repository.save(CameraArray({0: camera}))
+    coordinator.load_camera_array()
+    assert coordinator.camera_array.cameras[0].rotation_count == 0
+
+    presenter = coordinator.create_multi_camera_presenter()
+    presenter.rotation_changed.connect(coordinator.persist_camera_rotation)
+    presenter.set_cameras(coordinator.camera_array.cameras)
+    calibration_spy = QSignalSpy(coordinator.calibration_changed)
+
+    presenter.set_rotation(0, 1)
+
+    assert coordinator.camera_repository.load().cameras[0].rotation_count == 1
+    assert calibration_spy.count() == 1
+    presenter.cleanup()

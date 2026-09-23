@@ -7,6 +7,7 @@ This is a "scratchpad" presenter - processing results are transient until
 emitted to the Coordinator for persistence.
 """
 
+import copy
 import logging
 import time
 from enum import Enum, auto
@@ -246,8 +247,9 @@ class MultiCameraProcessingPresenter(QObject):
             logger.warning("Cannot change cameras while processing")
             return
 
-        # Shallow copy - rotation_count may be modified via set_rotation()
-        self._cameras = {cam_id: cam for cam_id, cam in cameras.items()}
+        # Copy each camera: set_rotation() must not mutate the coordinator's
+        # CameraData, or persist_camera_rotation() sees no change and skips the save.
+        self._cameras = {cam_id: copy.copy(cam) for cam_id, cam in cameras.items()}
         self._reset_results()
         self._thumbnails = {}
         self._load_initial_thumbnails()
@@ -307,8 +309,6 @@ class MultiCameraProcessingPresenter(QObject):
         # Normalize to 0-3 range
         normalized = rotation_count % 4
 
-        # Update local copy (note: shallow copy means this is the same object
-        # the coordinator holds; signal notifies it to persist)
         self._cameras[cam_id].rotation_count = normalized
 
         # Signal for coordinator persistence

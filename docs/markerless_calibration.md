@@ -6,8 +6,8 @@ Here, a pose tracker identifies matching body keypoints across synchronized came
 
 Without a target of known size, the result needs a separate scale measurement and coordinate frame.
 The example uses a measured distance between cameras for scale, Caliscope's built-in vertical estimate to find which direction is up, and a low tracked point to set the floor height.
-It then centers the origin among the cameras.
 The vertical estimate runs a [GeoCalib](https://github.com/cvg/GeoCalib) model converted to ONNX, so it needs nothing beyond the `[tracking]` extra.
+The example then centers the origin between the cameras.
 
 !!! warning "Experimental"
     This workflow has been exercised in synthetic tests and limited real-world demonstrations.
@@ -112,7 +112,7 @@ volume.camera_array.to_aniposelib_toml(OUTPUT_DIR.parent / "camera_array_anipose
 ```
 
 The first run downloads the RTMPose weights if they are absent from `MODELS_DIR`.
-The GeoCalib model downloads to the same folder the first time `estimate_vertical` runs.
+The GeoCalib model also downloads to `MODELS_DIR` the first time `estimate_vertical` runs.
 
 Grounding places the lowest tracked point at `Z=0`.
 It does not detect the physical floor.

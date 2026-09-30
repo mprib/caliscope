@@ -23,7 +23,7 @@ Run it from the desktop app, which visualizes each stage of processing, or from 
 | Double-sided targets | Use both faces of a calibration target for cameras facing each other. See the [target guide](https://mprib.github.io/caliscope/calibration_targets/) for how to build and configure one. |
 | Measured marker distances | Add measured distances between ArUco markers for the optimizer to fit to. |
 | Calibration review | Inspect overlapping calibration board views, reprojection error, and scale accuracy of the calibration target. |
-| Align to calibration board origin | Use the calibration board at a chosen frame to set the frame of reference. |
+| Align to calibration board origin | Set the world origin and axes from the board's position in a chosen video frame. |
 | Align to vertical from video | Estimate which way is up from each camera's video. Scripting API only. |
 | Calibration export | Save the calibration as TOML, with an aniposelib-compatible copy for [Pose2Sim](https://github.com/perfanalytics/pose2sim) and [anipose](https://anipose.readthedocs.io/). |
 
@@ -62,8 +62,8 @@ volume.save("capture_volume_level")
 ```
 
 Vertical estimates come from a [GeoCalib](https://github.com/cvg/GeoCalib) model converted to ONNX.
-It estimates up from images, so expect it to land within a few degrees of true vertical.
-It needs the `[tracking]` extra and downloads its model on first use.
+Because they work from images alone, expect them to land within a few degrees of true vertical.
+They need the `[tracking]` extra, and the model downloads on first use.
 The [scripting guide](https://mprib.github.io/caliscope/scripting/) covers the full workflow, including setting world scale and the floor plane without a board.
 
 ## Demo

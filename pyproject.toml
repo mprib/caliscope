@@ -132,14 +132,18 @@ markers = [
 ]
 
 [dependency-groups]
+# Everything the docs build needs, so docs CI can install it alone from uv.lock.
+docs = [
+    "pymdown-extensions>=9.11,<13.0",
+    "mkdocs-material>=9.1.6",
+    "mkdocs-git-revision-date-localized-plugin>=1.2.0",
+]
 dev = [
+    {include-group = "docs"},
     "pytest>=7.3.0",
     "pytest-xdist>=3.8.0",
     "pre-commit>=4.3.0",
     "ipykernel>=6.22.0",
-    "pymdown-extensions>=9.11,<13.0",
-    "mkdocs-material>=9.1.6",
-    "mkdocs-git-revision-date-localized-plugin>=1.2.0",
     "ruff>=0.6.5",
     "basedpyright>=1.18.0",
     "matplotlib>=3.7.0",

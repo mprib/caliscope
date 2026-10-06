@@ -201,6 +201,11 @@ dev = [
     { name = "pytest-xdist" },
     { name = "ruff" },
 ]
+docs = [
+    { name = "mkdocs-git-revision-date-localized-plugin" },
+    { name = "mkdocs-material" },
+    { name = "pymdown-extensions" },
+]
 
 [package.metadata]
 requires-dist = [
@@ -237,6 +242,11 @@ dev = [
     { name = "pytest-qt", specifier = ">=4.5.0" },
     { name = "pytest-xdist", specifier = ">=3.8.0" },
     { name = "ruff", specifier = ">=0.6.5" },
+]
+docs = [
+    { name = "mkdocs-git-revision-date-localized-plugin", specifier = ">=1.2.0" },
+    { name = "mkdocs-material", specifier = ">=9.1.6" },
+    { name = "pymdown-extensions", specifier = ">=9.11,<13.0" },
 ]
 
 [[package]]

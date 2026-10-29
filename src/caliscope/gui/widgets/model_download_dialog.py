@@ -25,8 +25,12 @@ from caliscope.trackers.model_card import ModelCard
 class ModelDownloadDialog(QDialog):
     """Modal dialog for downloading ONNX model weights.
 
+    Downloads every file the card needs that is missing: the pose model and,
+    for top-down cards, its person detector. Each comes from its own upstream
+    source, which the dialog names along with its license.
+
     Three-phase lifecycle:
-    1. Confirmation: Shows model info, license, checkbox to accept terms
+    1. Confirmation: Shows each file's source, size, license, checkbox to accept terms
     2. Downloading: Progress bar with cancel button
     3a. Success: Brief confirmation then auto-close
     3b. Failure: Error message with fallback manual instructions
@@ -42,6 +46,7 @@ class ModelDownloadDialog(QDialog):
     ) -> None:
         super().__init__(parent)
         self._card = card
+        self._downloads = card.missing_downloads or [card]
         self._models_dir = models_dir
         self._task_manager = task_manager
         self._task_handle = None
@@ -58,7 +63,12 @@ class ModelDownloadDialog(QDialog):
         self._main_layout.setSpacing(12)
 
         # Header - visible in all phases
-        self._header = QLabel(f'The model "<b>{self._card.name}</b>" needs to be downloaded.')
+        if len(self._downloads) == 1:
+            header = f'The model "<b>{self._downloads[0].name}</b>" needs to be downloaded.'
+        else:
+            names = " and ".join(f"<b>{source.name}</b>" for source in self._downloads)
+            header = f'The tracker "<b>{self._card.name}</b>" needs {names} to be downloaded.'
+        self._header = QLabel(header)
         self._header.setWordWrap(True)
         self._main_layout.addWidget(self._header)
 
@@ -83,20 +93,22 @@ class ModelDownloadDialog(QDialog):
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(12)
 
-        # File size (if available)
-        if self._card.file_size_mb is not None:
-            size_label = QLabel(f"<b>File size:</b> ~{self._card.file_size_mb:.0f} MB")
-            layout.addWidget(size_label)
-
-        # License info with clickable link (if available)
-        if self._card.license_info is not None:
-            license_text = f"<b>License:</b> {self._card.license_info}"
-            if self._card.license_url:
-                license_text += f' (<a href="{self._card.license_url}">view full license</a>)'
-            license_label = QLabel(license_text)
-            license_label.setWordWrap(True)
-            license_label.setOpenExternalLinks(True)
-            layout.addWidget(license_label)
+        # Per file: name, upstream source, size, and license (where available)
+        for source in self._downloads:
+            lines = [f"<b>{source.name}</b>"]
+            if source.source_url is not None:
+                lines.append(f"Downloaded from: {source.source_url}")
+            if source.file_size_mb is not None:
+                lines.append(f"File size: ~{source.file_size_mb:.0f} MB")
+            if source.license_info is not None:
+                license_text = f"License: {source.license_info}"
+                if source.license_url:
+                    license_text += f' (<a href="{source.license_url}">view full license</a>)'
+                lines.append(license_text)
+            info_label = QLabel("<br>".join(lines))
+            info_label.setWordWrap(True)
+            info_label.setOpenExternalLinks(True)
+            layout.addWidget(info_label)
 
         layout.addSpacing(8)
 
@@ -217,24 +229,29 @@ class ModelDownloadDialog(QDialog):
         self._result_widget.hide()
         self._download_widget.show()
 
-        card = self._card
+        downloads = self._downloads
         models_dir = self._models_dir
 
         def worker(token, handle):
             from caliscope.trackers.model_download import download_and_extract_model
 
-            return download_and_extract_model(
-                card,
-                models_dir,
-                progress_callback=lambda downloaded, total: handle.report_progress(
-                    int(downloaded / total * 100) if total > 0 else 0,
-                    f"Downloading... {downloaded // (1024 * 1024)} MB"
-                    + (f" / {total // (1024 * 1024)} MB" if total > 0 else ""),
-                ),
-                cancellation_check=lambda: token.is_cancelled,
-            )
+            paths = []
+            for source in downloads:
+                paths.append(
+                    download_and_extract_model(
+                        source,
+                        models_dir,
+                        progress_callback=lambda downloaded, total, name=source.name: handle.report_progress(
+                            int(downloaded / total * 100) if total > 0 else 0,
+                            f"Downloading {name}... {downloaded // (1024 * 1024)} MB"
+                            + (f" / {total // (1024 * 1024)} MB" if total > 0 else ""),
+                        ),
+                        cancellation_check=lambda: token.is_cancelled,
+                    )
+                )
+            return paths
 
-        self._task_handle = self._task_manager.submit(worker, name=f"download_{card.name}", auto_start=False)
+        self._task_handle = self._task_manager.submit(worker, name=f"download_{self._card.name}", auto_start=False)
 
         # Connect signals with QueuedConnection (signals come from worker thread)
         self._task_handle.completed.connect(
@@ -310,11 +327,12 @@ class ModelDownloadDialog(QDialog):
         self._task_handle = None
 
     def _copy_download_link(self) -> None:
-        """Copy the model download URL to clipboard."""
-        if self._card.source_url:
+        """Copy the download URLs to clipboard, one per line."""
+        urls = [source.source_url for source in self._downloads if source.source_url]
+        if urls:
             clipboard = QApplication.clipboard()
             if clipboard is not None:
-                clipboard.setText(self._card.source_url)
+                clipboard.setText("\n".join(urls))
 
     def _open_models_folder(self) -> None:
         """Open the models directory in the system file manager."""

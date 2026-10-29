@@ -85,12 +85,13 @@ def is_model_ready(key: str) -> bool:
     """Check if a registered tracker's model weights are available.
 
     Returns True for built-in trackers (always ready).
-    For ONNX trackers, delegates to ModelCard.onnx_exists (live filesystem check).
+    For ONNX trackers, checks that the pose weights and any detector weights are
+    on disk (live filesystem check).
     """
     card = _model_cards.get(key)
     if card is None:
         return True  # Built-in tracker, always ready
-    return card.onnx_exists
+    return not card.missing_downloads
 
 
 def model_card_for(key: str) -> ModelCard | None:
@@ -107,19 +108,38 @@ def has_source_url(key: str) -> bool:
 
 
 def scan_onnx_models(models_dir: Path) -> None:
-    """Scan directory for .toml model cards and register each as ONNX tracker.
+    """Register an ONNX tracker for each built-in card and each .toml card in models_dir.
+
+    Built-in cards come from the installed package (BUILTIN_CARDS_DIR), so a
+    Caliscope release updates them. Cards in models_dir are the user's own; one
+    with a built-in card's filename is ignored. Detector cards (a [detector]
+    section and no [model] section) are skipped: pose cards reference them.
+    Weights for every card resolve against models_dir.
 
     Logs warnings for malformed .toml files but does not raise.
     """
-    if not models_dir.exists():
-        logger.debug("Models directory not found: %s", models_dir)
-        return
+    import rtoml
 
-    from caliscope.trackers.model_card import ModelCard
+    from caliscope.trackers.model_card import BUILTIN_CARDS_DIR, ModelCard
     from caliscope.trackers.onnx_tracker import OnnxTracker
 
-    for toml_path in sorted(models_dir.glob("*.toml")):
+    builtin_paths = sorted(BUILTIN_CARDS_DIR.glob("*.toml"))
+    builtin_names = {path.name for path in builtin_paths}
+    user_paths = []
+    if models_dir.exists():
+        for path in sorted(models_dir.glob("*.toml")):
+            if path.name in builtin_names:
+                logger.info("Ignoring %s: a built-in card has the same name", path)
+            else:
+                user_paths.append(path)
+    else:
+        logger.debug("Models directory not found: %s", models_dir)
+
+    for toml_path in builtin_paths + user_paths:
         try:
+            config = rtoml.load(toml_path)
+            if "detector" in config and "model" not in config:
+                continue
             card = ModelCard.from_toml(toml_path, models_dir=models_dir)
         except Exception as e:
             logger.warning("Skipping malformed model card %s: %s", toml_path, e)

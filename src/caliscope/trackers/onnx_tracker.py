@@ -4,7 +4,10 @@ Supports two model output formats:
 - SimCC (Simulated Coordinate Classification): 1D probability vectors
 - Heatmap: 2D spatial probability maps
 
-Model configuration is loaded from a TOML "model card" file.
+Model configuration is loaded from a TOML "model card" file. A card that names
+a detector runs top-down: the detector finds the largest person in each frame,
+and pose runs on a crop around that box. No box means no keypoints. A card
+without a detector runs pose once on the full frame.
 """
 
 import logging
@@ -64,10 +67,11 @@ class OnnxTracker(Tracker):
         # Get input name from model
         self.input_name = self.session.get_inputs()[0].name
 
-        # Tracking state: per-camera previous bounding box in post-rotation coords.
-        # Keyed by cam_id to isolate state across cameras (a single tracker instance
-        # is shared across all cameras by process_synchronized_recording).
-        self._prev_bboxes: dict[int, tuple[int, int, int, int]] = {}
+        self.detector = None
+        if card.detector is not None:
+            from caliscope.trackers.person_detector import PersonDetector
+
+            self.detector = PersonDetector(card.detector)
 
         logger.info(
             f"OnnxTracker initialized: {card.name}, "
@@ -194,31 +198,22 @@ class OnnxTracker(Tracker):
 
         return keypoints, confidence
 
-    def _bbox_from_keypoints(
-        self, keypoints: np.ndarray, confidence: np.ndarray, frame_w: int, frame_h: int, padding: float = 0.3
+    def _pose_region(
+        self, box: tuple[float, float, float, float], frame_w: int, frame_h: int, padding: float = 0.125
     ) -> tuple[int, int, int, int]:
-        """Compute a padded, aspect-ratio-correct bounding box from keypoints.
+        """Expand a detector box into the crop the pose model sees.
 
-        Takes detected keypoints, adds padding, then expands to match the
-        model's aspect ratio (3:4 portrait for RTMPose). Clamps to frame bounds.
+        Pads each side by a fraction of the box size (0.125 per side is the
+        1.25 box scale RTMPose was trained with), widens or heightens it to the
+        model's aspect ratio (3:4 portrait for RTMPose), and clamps to the frame.
         """
-        mask = confidence >= self.card.confidence_threshold
-        if not np.any(mask):
-            return (0, 0, frame_w, frame_h)
-
-        valid_kps = keypoints[mask]
-        x_min, y_min = valid_kps.min(axis=0)
-        x_max, y_max = valid_kps.max(axis=0)
-
-        # Add padding proportional to bbox size
+        x_min, y_min, x_max, y_max = box
         w = x_max - x_min
         h = y_max - y_min
-        pad_w = w * padding
-        pad_h = h * padding
-        x_min -= pad_w
-        y_min -= pad_h
-        x_max += pad_w
-        y_max += pad_h
+        x_min -= w * padding
+        y_min -= h * padding
+        x_max += w * padding
+        y_max += h * padding
 
         # Expand to match model aspect ratio (width/height)
         target_aspect = self.card.input_width / self.card.input_height
@@ -240,41 +235,7 @@ class OnnxTracker(Tracker):
         y1 = int(max(0, cy - box_h / 2))
         x2 = int(min(frame_w, cx + box_w / 2))
         y2 = int(min(frame_h, cy + box_h / 2))
-
-        # Ensure bbox has at least 1px in each dimension (single-keypoint edge case)
-        if x2 <= x1:
-            x2 = min(x1 + 1, frame_w)
-        if y2 <= y1:
-            y2 = min(y1 + 1, frame_h)
-
         return (x1, y1, x2, y2)
-
-    def _scan_positions(self, frame_w: int, frame_h: int) -> list[tuple[int, int, int, int]]:
-        """Generate sliding window crop positions across the frame.
-
-        Creates aspect-ratio-correct windows at full frame height,
-        sliding horizontally with 50% overlap.
-        """
-        target_aspect = self.card.input_width / self.card.input_height
-        crop_h = frame_h
-        crop_w = int(crop_h * target_aspect)
-
-        if crop_w >= frame_w:
-            # Frame is narrower than one crop — single centered crop
-            return [(0, 0, frame_w, frame_h)]
-
-        # Slide with 50% overlap
-        step = max(crop_w // 2, 1)
-        positions = []
-        x = 0
-        while x + crop_w <= frame_w:
-            positions.append((x, 0, x + crop_w, frame_h))
-            x += step
-        # Ensure we cover the right edge
-        if positions[-1][2] < frame_w:
-            positions.append((frame_w - crop_w, 0, frame_w, frame_h))
-
-        return positions
 
     def _detect_in_region(self, frame: np.ndarray, x1: int, y1: int, x2: int, y2: int) -> tuple[np.ndarray, np.ndarray]:
         """Run inference on a crop region, return keypoints in original frame coords."""
@@ -295,14 +256,11 @@ class OnnxTracker(Tracker):
         return keypoints, confidence
 
     def _detect(self, frame: np.ndarray, cam_id: int = 0, rotation_count: int = 0) -> PointPacket:
-        """Detect pose keypoints in frame using three-tier search.
+        """Detect pose keypoints in one frame.
 
-        Tier 1: Crop to previous detection (fast, common case)
-        Tier 2: Full-frame letterbox (cold start or lost tracking)
-        Tier 3: Sliding window scan (thorough search when full-frame fails)
-
-        After any successful detection, stores the bounding box for Tier 1
-        on the next frame.
+        With a detector, pose runs on a crop around the largest person box and
+        an empty PointPacket is returned when no person is found. Without one,
+        pose runs on the full frame. Nothing carries over between frames.
 
         Args:
             frame: BGR image from cv2.VideoCapture
@@ -316,39 +274,21 @@ class OnnxTracker(Tracker):
             frame = apply_rotation(frame, rotation_count)
 
         frame_h, frame_w = frame.shape[:2]
-        keypoints: np.ndarray | None = None
-        confidence: np.ndarray | None = None
-        prev_bbox = self._prev_bboxes.get(cam_id)
+        if self.detector is None:
+            region = (0, 0, frame_w, frame_h)
+        else:
+            box = self.detector.largest_person(frame)
+            if box is None:
+                return PointPacket(
+                    object_id=np.array([], dtype=np.int32),
+                    keypoint_id=np.array([], dtype=np.int32),
+                    img_loc=np.empty((0, 2), dtype=np.float32),
+                    obj_loc=None,
+                    confidence=np.array([], dtype=np.float32),
+                )
+            region = self._pose_region(box, frame_w, frame_h)
 
-        # Tier 1: Crop to previous detection
-        if prev_bbox is not None:
-            keypoints, confidence = self._detect_in_region(frame, *prev_bbox)
-            if np.sum(confidence >= self.card.confidence_threshold) == 0:
-                keypoints, confidence = None, None
-
-        # Tier 2: Full-frame letterbox
-        if keypoints is None:
-            keypoints, confidence = self._detect_in_region(frame, 0, 0, frame_w, frame_h)
-            if np.sum(confidence >= self.card.confidence_threshold) == 0:
-                keypoints, confidence = None, None
-
-        # Tier 3: Sliding window scan
-        if keypoints is None:
-            best_count = 0
-            for x1, y1, x2, y2 in self._scan_positions(frame_w, frame_h):
-                kps, conf = self._detect_in_region(frame, x1, y1, x2, y2)
-                count = int(np.sum(conf >= self.card.confidence_threshold))
-                if count > best_count:
-                    best_count = count
-                    keypoints, confidence = kps, conf
-            # If scan also found nothing, use the last attempt
-            if keypoints is None:
-                keypoints, confidence = self._detect_in_region(frame, 0, 0, frame_w, frame_h)
-
-        assert confidence is not None  # All paths above assign confidence
-
-        # Update tracking state for this camera
-        self._prev_bboxes[cam_id] = self._bbox_from_keypoints(keypoints, confidence, frame_w, frame_h)
+        keypoints, confidence = self._detect_in_region(frame, *region)
 
         # Unrotate points if needed
         if rotation_count != 0:
@@ -389,7 +329,8 @@ class OnnxTracker(Tracker):
         Idempotent — safe to call multiple times (multiple FramePacketStreamers
         share a single tracker instance and each calls cleanup on close).
         """
-        self._prev_bboxes.clear()
         if hasattr(self, "session"):
             del self.session
             logger.debug(f"OnnxTracker cleaned up: {self.card.name}")
+        if self.detector is not None and hasattr(self.detector, "session"):
+            del self.detector.session

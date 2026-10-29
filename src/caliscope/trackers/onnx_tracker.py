@@ -255,6 +255,17 @@ class OnnxTracker(Tracker):
 
         return keypoints, confidence
 
+    def keypoints_in_box(
+        self, frame: np.ndarray, box: tuple[float, float, float, float]
+    ) -> tuple[np.ndarray, np.ndarray]:
+        """Run pose on the crop around one person box, in an unrotated BGR frame.
+
+        Returns all keypoints (N, 2) in frame pixels and their confidences (N,),
+        before the confidence threshold is applied.
+        """
+        frame_h, frame_w = frame.shape[:2]
+        return self._detect_in_region(frame, *self._pose_region(box, frame_w, frame_h))
+
     def _detect(self, frame: np.ndarray, cam_id: int = 0, rotation_count: int = 0) -> PointPacket:
         """Detect pose keypoints in one frame.
 

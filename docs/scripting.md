@@ -333,6 +333,23 @@ Only posed cameras are written, with rotations as Rodrigues vectors.
 `save` leaves this out on purpose.
 Its directory stays a self-contained snapshot of the calibration, not a mix of snapshot and handoff files.
 
+## Triangulate with calibrated cameras
+
+To reconstruct detected image points with known camera poses:
+
+```python
+world_points = image_points.triangulate(cameras, min_views=3)
+world_points.to_csv("world_points.csv")
+```
+
+`min_views` is the minimum number of distinct posed cameras observing each keypoint at a synchronized moment.
+The default is two.
+Points below the minimum are omitted, leaving gaps in the reconstruction.
+This setting applies to this scripting call; it does not change the GUI's reconstruction settings.
+
+For objects declared static with `static_object_ids`, observations are pooled across frames and the minimum counts distinct cameras over those pooled observations.
+Repeated observations from one camera count as one view.
+
 ## Calibrating without intrinsics (experimental)
 
 !!! warning "Experimental"

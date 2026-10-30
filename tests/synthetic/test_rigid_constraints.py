@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import cv2
 import numpy as np
+import pytest
 
 from caliscope.cameras.camera_array import CameraArray
 from caliscope.core.aruco_marker import ArucoMarker, ArucoMarkerSet
@@ -83,6 +84,38 @@ class TestStaticMarkerTriangulation:
         mobile_rows = world_df[world_df["object_id"] == 0]
         assert not mobile_rows.empty, "Expected per-frame world rows for the mobile marker"
         assert set(mobile_rows["sync_index"]) != {STATIC_SYNC_INDEX}
+
+    def test_min_views_applies_to_distinct_cameras_for_static_markers(self) -> None:
+        scene, constraints, camera_array = _make_aruco_scene()
+
+        world_points = scene.image_points_noisy.triangulate(
+            camera_array,
+            min_views=4,
+            static_object_ids=constraints.static_object_ids,
+        )
+
+        static_rows = world_points.df[
+            (world_points.df["object_id"] == 1) & (world_points.df["sync_index"] == STATIC_SYNC_INDEX)
+        ]
+        assert len(static_rows) == 4
+
+        no_points = scene.image_points_noisy.triangulate(
+            camera_array,
+            min_views=5,
+            static_object_ids=constraints.static_object_ids,
+        )
+        assert no_points.df.empty
+
+    @pytest.mark.parametrize("min_views", [1, 2.0, True])
+    def test_min_views_requires_an_integer_of_at_least_two(self, min_views: object) -> None:
+        scene, constraints, camera_array = _make_aruco_scene()
+
+        with pytest.raises(ValueError, match="integer >= 2"):
+            scene.image_points_noisy.triangulate(
+                camera_array,
+                min_views=min_views,  # type: ignore[arg-type]
+                static_object_ids=constraints.static_object_ids,
+            )
 
 
 class TestConstrainedVsUnconstrainedOptimization:

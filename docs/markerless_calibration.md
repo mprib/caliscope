@@ -26,7 +26,20 @@ uv pip install "caliscope[tracking]"
 You need calibrated intrinsics for every camera.
 Follow the [intrinsic-calibration scripting workflow](scripting.md#step-3-intrinsic-calibration) to create the camera-array TOML.
 
-Record a single person while each camera sees the person at the same time for enough of the motion to connect the rig.
+Record one calibration subject moving through the shared capture space.
+Camera views must overlap through enough of the motion to connect the rig.
+Keep other people out of view when using the extraction example below.
+
+On the person-detector development branch, RTMPose first detects people, then estimates keypoints inside the largest detected box in each processed frame.
+It returns no points when the detector finds no person, and discards keypoints outside the image.
+The largest box can belong to a bystander, even a still one.
+This frame-by-frame selection does not maintain the subject's identity across frames or cameras.
+
+Motion-based subject selection is being evaluated separately: link boxes into tracks within each camera, estimate pose for those tracks, then keep the track with the greatest total confident-keypoint movement in each camera.
+That approach assumes one person moves through the space while others remain relatively still.
+It does not associate identities across cameras and is not yet part of the extraction call below.
+A detector-scale border margin is also being evaluated to exclude views where the selected person is partly outside the image.
+
 Each video needs the same camera ID it had during intrinsic calibration.
 Use a `timestamps.csv` file when the recordings did not start at exactly the same time.
 Its `frame_time` values must use a common time basis across cameras.
@@ -154,3 +167,13 @@ It does not reproduce the recording timestamps.
 Inspect the report, camera layout, and motion before using the calibration for measurement.
 A low reprojection error and a plausible 3D view do not establish measurement accuracy.
 Look for views that overlap through the motion, a vertical direction that agrees with the scene, and a scale that agrees with an independent measurement.
+
+## Calibration and motion capture
+
+The person detector and pose estimator supply image observations for calibration and reconstruction.
+Calibration uses those correspondences to estimate camera poses; reconstruction uses known camera poses to triangulate them.
+Both depend on selecting the same person across views.
+
+Caliscope's reconstruction supports calibration inspection and landmark export.
+For downstream motion-capture processing, export the camera calibration to tools such as Pose2Sim or anipose.
+See [the reconstruction scope](reconstruction.md) and [aniposelib export](scripting.md#aniposelib-export).

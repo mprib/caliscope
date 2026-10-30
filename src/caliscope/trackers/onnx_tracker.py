@@ -253,6 +253,15 @@ class OnnxTracker(Tracker):
         keypoints[:, 0] += x1
         keypoints[:, 1] += y1
 
+        # A keypoint placed beyond the image edge was not seen: the model is
+        # guessing where a cut-off body part is. Zero confidence drops it at
+        # the confidence threshold.
+        frame_h, frame_w = frame.shape[:2]
+        outside = (
+            (keypoints[:, 0] < 0) | (keypoints[:, 0] >= frame_w) | (keypoints[:, 1] < 0) | (keypoints[:, 1] >= frame_h)
+        )
+        confidence[outside] = 0.0
+
         return keypoints, confidence
 
     def keypoints_in_box(

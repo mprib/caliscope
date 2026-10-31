@@ -1,8 +1,8 @@
 """YOLOX person detector that tells a top-down pose model where to look.
 
-Markerless calibration assumes one prominent person in the recording, so the
-detector returns a single box per frame: the largest person it finds, or None.
-There is no tracking between frames and no association between people.
+The detector returns all person boxes for a frame; largest_person selects one
+for the generic frame-local pose path. Recording-level box association and
+primary-subject selection belong to the separate box-first extraction stages.
 
 The ONNX file is Megvii's YOLOX export, which emits the raw prediction grid
 (strides 8, 16 and 32 over the letterboxed input). Each row is cx, cy, log w,
@@ -24,7 +24,7 @@ PAD_VALUE = 114  # gray used for letterbox padding in YOLOX training
 
 
 class PersonDetector:
-    """Find the largest person in a BGR frame with a YOLOX ONNX model."""
+    """Find person boxes in a BGR frame with a YOLOX ONNX model."""
 
     def __init__(self, card: DetectorCard) -> None:
         if not card.onnx_exists:

@@ -339,8 +339,10 @@ For human recordings, you can select one person's box track before estimating ke
 
 ```python
 from caliscope.api import BoxTracks, estimate_keypoints, track_people
+from caliscope.recording.synchronized_timestamps import SynchronizedTimestamps
 
-box_tracks = track_people(videos, pose_tracker.detector, frame_step=4)
+timestamps = SynchronizedTimestamps.from_anchor_frames(videos, {cam_id: 0 for cam_id in videos})
+box_tracks = track_people(videos, pose_tracker.detector, timestamps=timestamps, frame_step=4)
 subject_ids = box_tracks.primary_track_ids()
 subject_boxes = box_tracks.filter_to_tracks(subject_ids)
 usable_boxes = subject_boxes.exclude_edge_boxes(margin_px=24)

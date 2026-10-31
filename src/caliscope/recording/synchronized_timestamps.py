@@ -302,6 +302,66 @@ class SynchronizedTimestamps:
         return cls(MappingProxyType(camera_timestamps))
 
     @classmethod
+    def from_anchor_frames(
+        cls,
+        videos: Mapping[int, Path],
+        anchors: Mapping[int, int],
+        *,
+        fps: float | None = None,
+    ) -> Self:
+        """Align videos from one frame per camera known to show the same instant.
+
+        Each camera's frames are assumed to have a constant interval, so frame
+        ``i`` is at ``(i - anchors[cam_id]) / fps`` seconds. Frames before the
+        anchor have negative times. Nothing is assumed about where videos end,
+        so a difference in length stays at the end of the recording.
+
+        Frame indices count decoded frames, while frame counts come from video
+        metadata. Metadata can list frames that never decode, and those frames
+        simply produce no observations.
+
+        Args:
+            videos: Camera ID to video path.
+            anchors: Camera ID to the frame index at the shared instant.
+            fps: Frame rate applied to every camera. If omitted, each camera
+                uses the rate its video reports. Set this when the true rate is
+                known, because reported rates can be inexact.
+
+        Raises:
+            ValueError: If cameras do not match, an anchor is outside its video,
+                or a frame count or frame rate is not positive.
+            FileNotFoundError: If any video path does not exist.
+        """
+        if not videos:
+            raise ValueError("No video paths provided -- cannot build timestamps")
+        if set(videos) != set(anchors):
+            raise ValueError(f"Anchors must cover the same cameras as videos: {sorted(videos)} vs {sorted(anchors)}")
+        if fps is not None and fps <= 0:
+            raise ValueError(f"fps must be positive, got {fps}")
+
+        camera_timestamps: dict[int, FrameTimestamps] = {}
+        for cam_id, video_path in videos.items():
+            if not video_path.exists():
+                raise FileNotFoundError(f"Video file not found: {video_path}")
+
+            props = read_video_properties(video_path)
+            frame_count = props["frame_count"]
+            camera_fps = props["fps"] if fps is None else fps
+            anchor = anchors[cam_id]
+
+            if frame_count <= 0:
+                raise ValueError(f"Could not determine frame count for cam_{cam_id}")
+            if camera_fps <= 0:
+                raise ValueError(f"Could not determine frame rate for cam_{cam_id}")
+            if not 0 <= anchor < frame_count:
+                raise ValueError(f"Anchor {anchor} is outside cam_{cam_id}, which has {frame_count} frames")
+
+            frame_times = {i: (i - anchor) / camera_fps for i in range(frame_count)}
+            camera_timestamps[cam_id] = FrameTimestamps(MappingProxyType(frame_times))
+
+        return cls(MappingProxyType(camera_timestamps))
+
+    @classmethod
     def from_videos(cls, recording_dir: Path, cam_ids: Sequence[int]) -> Self:
         """Infer timestamps from video metadata.
 

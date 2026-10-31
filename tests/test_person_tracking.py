@@ -6,7 +6,7 @@ import pytest
 
 from caliscope.api import track_people as public_track_people
 from caliscope.core.box_tracks import BoxTracks
-from caliscope.recording import person_tracking
+from caliscope.recording import person_tracking, synchronized_timestamps
 from caliscope.recording.person_tracking import (
     _empty_image_points,
     _rotate_box,
@@ -15,6 +15,7 @@ from caliscope.recording.person_tracking import (
     _validate_selected_tracks,
     estimate_keypoints,
 )
+from caliscope.recording.synchronized_timestamps import SynchronizedTimestamps
 
 
 def _box_tracks(rows: list[dict]) -> BoxTracks:
@@ -131,10 +132,11 @@ def test_track_people_records_source_coordinates_and_frame_metadata(tmp_path, mo
     video = tmp_path / "cam_0.mp4"
     video.touch()
     detector = _Detector()
-    monkeypatch.setattr(person_tracking, "read_video_properties", lambda _path: {"fps": 4.0, "frame_count": 5})
+    monkeypatch.setattr(synchronized_timestamps, "read_video_properties", lambda _path: {"fps": 4.0, "frame_count": 5})
     monkeypatch.setattr(person_tracking, "FrameSource", _Source)
+    timestamps = SynchronizedTimestamps.from_anchor_frames({0: video}, {0: 0})
 
-    tracks = person_tracking.track_people({0: video}, detector, rotation_counts={0: 1}).df
+    tracks = person_tracking.track_people({0: video}, detector, timestamps=timestamps, rotation_counts={0: 1}).df
 
     assert detector.min_scores == [0.1]
     assert tracks.loc[0, ["sync_index", "frame_index", "frame_time", "rotation_count"]].tolist() == [4, 4, 1.0, 1]
@@ -143,8 +145,8 @@ def test_track_people_records_source_coordinates_and_frame_metadata(tmp_path, mo
     )
 
 
-def test_track_people_samples_each_video_at_source_frame_indices(tmp_path, monkeypatch):
-    """Each video keeps its own FPS without duration normalization."""
+def test_track_people_leaves_a_length_difference_at_the_end(tmp_path, monkeypatch):
+    """A shorter video drops out at its end and shifts no earlier frame."""
 
     class _Source:
         def __init__(self, wanted_indices):
@@ -173,49 +175,30 @@ def test_track_people_samples_each_video_at_source_frame_indices(tmp_path, monke
         video.touch()
     properties = {
         videos[0]: {"fps": 10.0, "frame_count": 5},
-        videos[1]: {"fps": 20.0, "frame_count": 5},
+        videos[1]: {"fps": 10.0, "frame_count": 3},
     }
-    monkeypatch.setattr(person_tracking, "read_video_properties", properties.__getitem__)
+    monkeypatch.setattr(synchronized_timestamps, "read_video_properties", properties.__getitem__)
     monkeypatch.setattr(person_tracking, "FrameSource", _Source)
+    timestamps = SynchronizedTimestamps.from_anchor_frames(videos, {0: 0, 1: 0})
 
-    tracks = public_track_people(videos, _Detector(), frame_step=2, progress=None).df
+    tracks = public_track_people(videos, _Detector(), timestamps=timestamps, frame_step=2, progress=None).df
 
     by_camera = {cam_id: group.sort_values("frame_index") for cam_id, group in tracks.groupby("cam_id")}
     assert by_camera[0][["sync_index", "frame_index"]].values.tolist() == [[0, 0], [2, 2], [4, 4]]
-    assert by_camera[1][["sync_index", "frame_index"]].values.tolist() == [[0, 0], [2, 2], [4, 4]]
+    assert by_camera[1][["sync_index", "frame_index"]].values.tolist() == [[0, 0], [2, 2]]
     assert by_camera[0]["frame_time"].tolist() == pytest.approx([0.0, 0.2, 0.4])
-    assert by_camera[1]["frame_time"].tolist() == pytest.approx([0.0, 0.1, 0.2])
+    assert by_camera[1]["frame_time"].tolist() == pytest.approx([0.0, 0.2])
 
 
-def test_track_people_truncates_videos_to_the_shortest(tmp_path, monkeypatch):
-    """Frames past the shortest video's end are never requested from any camera."""
-    requested = {}
+def test_track_people_rejects_a_camera_absent_from_timestamps(tmp_path, monkeypatch):
+    video_0, video_1 = tmp_path / "cam_0.mp4", tmp_path / "cam_1.mp4"
+    video_0.touch()
+    video_1.touch()
+    monkeypatch.setattr(synchronized_timestamps, "read_video_properties", lambda _path: {"fps": 10.0, "frame_count": 3})
+    timestamps = SynchronizedTimestamps.from_anchor_frames({0: video_0}, {0: 0})
 
-    class _Source:
-        @classmethod
-        def from_path(cls, path, *_args, wanted_indices, **_kwargs):
-            requested[path.name] = sorted(wanted_indices)
-            return cls()
-
-        def next_frame(self):
-            return None
-
-        def close(self):
-            pass
-
-    videos = {0: tmp_path / "cam_0.mp4", 1: tmp_path / "cam_1.mp4"}
-    for video in videos.values():
-        video.touch()
-    properties = {
-        videos[0]: {"fps": 10.0, "frame_count": 5},
-        videos[1]: {"fps": 10.0, "frame_count": 3},
-    }
-    monkeypatch.setattr(person_tracking, "read_video_properties", properties.__getitem__)
-    monkeypatch.setattr(person_tracking, "FrameSource", _Source)
-
-    public_track_people(videos, object(), progress=None)
-
-    assert requested == {"cam_0.mp4": [0, 1, 2], "cam_1.mp4": [0, 1, 2]}
+    with pytest.raises(ValueError, match="no entry for cameras"):
+        public_track_people({0: video_0, 1: video_1}, object(), timestamps=timestamps, progress=None)
 
 
 @pytest.mark.parametrize("rotation_count", [1, 2, -1])

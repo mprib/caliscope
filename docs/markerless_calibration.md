@@ -40,10 +40,10 @@ It is separate from detector confidence and overlap-suppression settings.
 The generic `extract_image_points_multicam` entry point remains available; with a detector-backed ONNX tracker, it chooses the largest box independently in each frame.
 
 Each video needs the same camera ID it had during intrinsic calibration.
-Align the videos before calling `track_people`: source frame `i` in each video must represent the same moment.
-The tracking workflow uses that source frame index as `sync_index`.
-It does not read timestamps or infer timing offsets from body motion.
-No synchronization or duration normalization is performed.
+Choose the alignment policy by building a `SynchronizedTimestamps` object and passing it to `track_people`.
+`SynchronizedTimestamps.from_anchor_frames` takes one frame per camera known to show the same instant, and assumes each camera has a constant frame interval.
+`SynchronizedTimestamps.from_csv_path` uses per-frame timestamps, and `SynchronizedTimestamps.from_video_paths` assumes the videos start and stop together.
+The tracking workflow does not infer timing offsets from body motion.
 The generic [multicamera extraction workflow](scripting.md#step-4-extract-time-aligned-points-for-extrinsic-calibration) still supports timestamp-based synchronization.
 
 Measure the distance between two cameras in meters.
@@ -70,6 +70,7 @@ from caliscope.api import (
     estimate_vertical,
     track_people,
 )
+from caliscope.recording.synchronized_timestamps import SynchronizedTimestamps
 from caliscope.reporting import print_extrinsic_report
 from caliscope.trackers.model_card import ModelCard
 from caliscope.trackers.model_download import download_and_extract_model
@@ -97,7 +98,8 @@ tracker = OnnxTracker(card)
 
 # Detect and track boxes, then select the most prominent person per camera.
 cameras = CameraArray.from_toml(CAMERA_ARRAY_TOML)
-box_tracks = track_people(VIDEOS, tracker.detector, frame_step=1)
+timestamps = SynchronizedTimestamps.from_anchor_frames(VIDEOS, {cam_id: 0 for cam_id in VIDEOS})
+box_tracks = track_people(VIDEOS, tracker.detector, timestamps=timestamps, frame_step=1)
 subject_ids = box_tracks.primary_track_ids()
 subject_boxes = box_tracks.filter_to_tracks(subject_ids)
 usable_boxes = subject_boxes.exclude_edge_boxes(margin_px=EDGE_MARGIN_PX)

@@ -71,6 +71,7 @@ from caliscope.trackers.charuco_tracker import CharucoTracker
 from caliscope.trackers.chessboard_tracker import ChessboardTracker
 
 if TYPE_CHECKING:
+    from caliscope.recording.synchronized_timestamps import SynchronizedTimestamps
     from caliscope.reporting import ProgressCallback
 
 # Sentinel meaning "create a RichProgressBar automatically for this call".
@@ -139,18 +140,17 @@ def track_people(
     videos: Mapping[int, Path | str],
     detector: Any,
     *,
+    timestamps: SynchronizedTimestamps,
     frame_step: int = 1,
     rotation_counts: Mapping[int, int] | None = None,
     progress: ProgressCallback | None = _AUTO,
 ) -> BoxTracks:
-    """Detect and track every person box at matching source frame indices.
+    """Detect and track every person box at sampled synchronized moments.
 
-    Each video is sampled independently. ``sync_index`` matches its source
-    ``frame_index`` and ``frame_time`` is derived from that video's FPS.
-    Inputs must already be aligned frame for frame from their first decoded frame;
-    no synchronization or duration normalization is performed. Every video is
-    truncated to the shortest reported frame count. Boxes are returned in original
-    video pixels, ready for explicit subject selection.
+    ``timestamps`` sets the alignment policy, for example through
+    ``SynchronizedTimestamps.from_anchor_frames``. ``frame_step`` counts
+    synchronized moments. Boxes are returned in original video pixels, ready for
+    explicit subject selection.
 
     The detector may be called concurrently, once per camera. Supply a
     thread-safe detector or serialize access before calling this function.
@@ -161,6 +161,7 @@ def track_people(
         return _track_people(
             videos,
             detector,
+            timestamps=timestamps,
             frame_step=frame_step,
             rotation_counts=rotation_counts,
             progress=resolved_progress,

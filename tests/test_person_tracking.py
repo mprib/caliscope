@@ -187,8 +187,22 @@ def test_track_people_samples_each_video_at_source_frame_indices(tmp_path, monke
     assert by_camera[1]["frame_time"].tolist() == pytest.approx([0.0, 0.1, 0.2])
 
 
-def test_track_people_rejects_unequal_frame_counts(tmp_path, monkeypatch):
-    """Matching frame numbers mean nothing when the videos differ in length."""
+def test_track_people_truncates_videos_to_the_shortest(tmp_path, monkeypatch):
+    """Frames past the shortest video's end are never requested from any camera."""
+    requested = {}
+
+    class _Source:
+        @classmethod
+        def from_path(cls, path, *_args, wanted_indices, **_kwargs):
+            requested[path.name] = sorted(wanted_indices)
+            return cls()
+
+        def next_frame(self):
+            return None
+
+        def close(self):
+            pass
+
     videos = {0: tmp_path / "cam_0.mp4", 1: tmp_path / "cam_1.mp4"}
     for video in videos.values():
         video.touch()
@@ -197,9 +211,11 @@ def test_track_people_rejects_unequal_frame_counts(tmp_path, monkeypatch):
         videos[1]: {"fps": 10.0, "frame_count": 3},
     }
     monkeypatch.setattr(person_tracking, "read_video_properties", properties.__getitem__)
+    monkeypatch.setattr(person_tracking, "FrameSource", _Source)
 
-    with pytest.raises(ValueError, match="equal frame counts"):
-        public_track_people(videos, object(), progress=None)
+    public_track_people(videos, object(), progress=None)
+
+    assert requested == {"cam_0.mp4": [0, 1, 2], "cam_1.mp4": [0, 1, 2]}
 
 
 @pytest.mark.parametrize("rotation_count", [1, 2, -1])

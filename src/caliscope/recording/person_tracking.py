@@ -49,25 +49,22 @@ def track_people(
 
     Each video is sampled independently at ``0, frame_step, 2 * frame_step, ...``.
     A row's ``sync_index`` equals its source ``frame_index`` and ``frame_time`` is
-    computed from that video's FPS. Inputs must already be aligned frame for frame;
-    no synchronization or duration normalization is performed.
-
-    Raises:
-        ValueError: If the videos report different frame counts.
+    computed from that video's FPS. Inputs must already be aligned frame for frame
+    from their first decoded frame; no synchronization or duration normalization is
+    performed. Every video is truncated to the shortest reported frame count.
     """
     if frame_step < 1:
         raise ValueError(f"frame_step must be >= 1, got {frame_step}")
     video_paths = _video_paths(videos)
     frame_counts = {cam_id: read_video_properties(path)["frame_count"] for cam_id, path in video_paths.items()}
-    if len(set(frame_counts.values())) > 1:
-        raise ValueError(f"Frame-aligned videos must have equal frame counts, got {frame_counts}")
+    shortest = min(frame_counts.values())
     rotations = rotation_counts or {}
     decode_threads = max(1, (os.cpu_count() or 4) // len(video_paths))
 
     def process_camera(cam_id: int, path: Path) -> list[dict[str, Any]]:
         properties = read_video_properties(path)
         fps = properties["fps"]
-        work = range(0, properties["frame_count"], frame_step)
+        work = range(0, shortest, frame_step)
         if progress is not None:
             progress.on_video_start(cam_id, len(work))
         if not work:

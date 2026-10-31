@@ -147,9 +147,10 @@ def track_people(
 
     Each video is sampled independently. ``sync_index`` matches its source
     ``frame_index`` and ``frame_time`` is derived from that video's FPS.
-    Inputs must already be aligned frame for frame; no synchronization or duration
-    normalization is performed. Boxes are returned in original video pixels, ready
-    for explicit subject selection.
+    Inputs must already be aligned frame for frame from their first decoded frame;
+    no synchronization or duration normalization is performed. Every video is
+    truncated to the shortest reported frame count. Boxes are returned in original
+    video pixels, ready for explicit subject selection.
 
     The detector may be called concurrently, once per camera. Supply a
     thread-safe detector or serialize access before calling this function.

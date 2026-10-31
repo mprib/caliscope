@@ -35,10 +35,11 @@ It returns no points when the detector finds no person, and discards keypoints o
 The largest box can belong to a bystander, even a still one.
 This frame-by-frame selection does not maintain the subject's identity across frames or cameras.
 
-Motion-based subject selection is being evaluated separately: link boxes into tracks within each camera, estimate pose for those tracks, then keep the track with the greatest total confident-keypoint movement in each camera.
-That approach assumes one person moves through the space while others remain relatively still.
+Whole-recording subject selection is being developed separately: link boxes into tracks within each camera and choose the track with the greatest accumulated bounding-box area.
+Then estimate keypoints only for the selected subject's retained observations.
+This assumes the intended calibration subject is the most prominent person across the recording in each camera.
 It does not associate identities across cameras and is not yet part of the extraction call below.
-A detector-scale border margin is also being evaluated to exclude views where the selected person is partly outside the image.
+An explicit box-edge margin is also being evaluated to exclude observations where the selected person's box approaches the image border.
 
 Each video needs the same camera ID it had during intrinsic calibration.
 Use a `timestamps.csv` file when the recordings did not start at exactly the same time.

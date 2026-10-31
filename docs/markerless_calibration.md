@@ -26,20 +26,18 @@ uv pip install "caliscope[tracking]"
 You need calibrated intrinsics for every camera.
 Follow the [intrinsic-calibration scripting workflow](scripting.md#step-3-intrinsic-calibration) to create the camera-array TOML.
 
-Record one calibration subject moving through the shared capture space.
+Record one calibration subject walking through the shared capture space.
 Camera views must overlap through enough of the motion to connect the rig.
-Keep other people out of view when using the extraction example below.
+Other people can be visible, but the intended subject must have the greatest accumulated bounding-box area in each camera.
 
-On the person-detector development branch, RTMPose first detects people, then estimates keypoints inside the largest detected box in each processed frame.
-It returns no points when the detector finds no person, and discards keypoints outside the image.
-The largest box can belong to a bystander, even a still one.
-This frame-by-frame selection does not maintain the subject's identity across frames or cameras.
+The example first detects people and links their boxes into camera-local tracks.
+It selects the primary track by summed observed box area, excludes boxes near the image edge, and estimates keypoints only for the retained observations.
+Track IDs are local to each camera; this workflow relies on the recording protocol to select the same person across views.
+It does not match several people across cameras or join fragmented tracks automatically.
 
-Whole-recording subject selection is being developed separately: link boxes into tracks within each camera and choose the track with the greatest accumulated bounding-box area.
-Then estimate keypoints only for the selected subject's retained observations.
-This assumes the intended calibration subject is the most prominent person across the recording in each camera.
-It does not associate identities across cameras and is not yet part of the extraction call below.
-An explicit box-edge margin is also being evaluated to exclude observations where the selected person's box approaches the image border.
+The box-edge margin is an explicit threshold in original image pixels.
+It is separate from detector confidence and overlap-suppression settings.
+The generic `extract_image_points_multicam` entry point remains available; with a detector-backed ONNX tracker, it chooses the largest box independently in each frame.
 
 Each video needs the same camera ID it had during intrinsic calibration.
 Use a `timestamps.csv` file when the recordings did not start at exactly the same time.
@@ -51,8 +49,8 @@ See [the timestamp CSV schema](scripting.md#step-4-extract-time-aligned-points-f
 Measure the distance between two cameras in meters.
 This measurement supplies the metric scale that pose keypoints cannot supply on their own.
 
-For sideways videos, pass `rotation_counts` to `extract_image_points_multicam`, for example `rotation_counts={2: 1}` to turn camera 2 by one quarter turn for tracking.
-The rotation is applied only while tracking, and the extracted points return in the original image coordinates.
+For sideways videos, pass `rotation_counts` to `track_people`, for example `rotation_counts={2: 1}` to turn camera 2 by one quarter turn for tracking.
+Saved boxes record the rotation for the keypoint pass; both boxes and keypoints return in the original image coordinates.
 
 ## Run the calibration
 
@@ -68,8 +66,9 @@ from caliscope.api import (
     CameraArray,
     CameraDistance,
     calibrate_extrinsics,
+    estimate_keypoints,
     estimate_vertical,
-    extract_image_points_multicam,
+    track_people,
 )
 from caliscope.reporting import print_extrinsic_report
 from caliscope.trackers.model_card import ModelCard
@@ -84,6 +83,7 @@ VIDEOS = {
     2: Path("markerless/cam_2.mp4"),
 }
 TIMESTAMPS = None  # Or: Path("markerless/timestamps.csv")
+EDGE_MARGIN_PX = 24  # Source-image pixels; set for your recording.
 BASELINE = CameraDistance(cam_a=0, cam_b=2, meters=3.20)
 OUTPUT_DIR = Path("markerless_capture_volume")
 
@@ -92,15 +92,20 @@ card_path = Path(str(files("caliscope.trackers.model_cards"))) / "rtmpose_l_halp
 card = ModelCard.from_toml(card_path, models_dir=MODELS_DIR)
 if not card.onnx_exists:
     download_and_extract_model(card, MODELS_DIR)
+if not card.detector.onnx_exists:
+    download_and_extract_model(card.detector, MODELS_DIR)
 tracker = OnnxTracker(card)
 
-# Load real intrinsics and track every synchronized moment.
+# Detect and track boxes, then select the most prominent person per camera.
 cameras = CameraArray.from_toml(CAMERA_ARRAY_TOML)
-image_points = extract_image_points_multicam(
-    VIDEOS,
-    tracker,
-    frame_step=1,
-    timestamps=TIMESTAMPS,
+box_tracks = track_people(VIDEOS, tracker.detector, frame_step=1, timestamps=TIMESTAMPS)
+subject_ids = box_tracks.primary_track_ids()
+subject_boxes = box_tracks.filter_to_tracks(subject_ids)
+usable_boxes = subject_boxes.exclude_edge_boxes(margin_px=EDGE_MARGIN_PX)
+
+# Estimate keypoints only in the retained boxes.
+image_points = estimate_keypoints(
+    VIDEOS, tracker, usable_boxes, min_confidence=card.confidence_threshold
 )
 
 # Solve poses from unconstrained body keypoints.
@@ -125,8 +130,16 @@ volume.save(OUTPUT_DIR)
 volume.camera_array.to_aniposelib_toml(OUTPUT_DIR.parent / "camera_array_aniposelib.toml")
 ```
 
-The first run downloads the RTMPose weights if they are absent from `MODELS_DIR`.
+The first run downloads the RTMPose and detector weights if they are absent from `MODELS_DIR`.
+The detector sees every processed frame; keypoint inference sees only the retained subject boxes.
+Each pass reads the source videos; no wall-time speedup is assumed.
 The GeoCalib model also downloads to `MODELS_DIR` the first time `estimate_vertical` runs.
+
+`BoxTracks` supports `to_csv` and `from_csv`, so you can save detections and change the selected track or edge margin without repeating detection.
+Keypoints already saved as `ImagePoints` can also be reloaded.
+Selecting previously unprocessed boxes requires keypoint inference for those boxes.
+The returned image points use `object_id=0` for the selected person and retain camera-local `track_id` and keypoint confidence as additional columns.
+Missing observations remain absent; no boxes or keypoints are interpolated by these stages.
 
 Grounding places the lowest tracked point at `Z=0`.
 It does not detect the physical floor.

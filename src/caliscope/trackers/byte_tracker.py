@@ -29,11 +29,12 @@ class ByteTracker:
         self.tracks: list[_KalmanBoxTrack] = []
         self._next_id = 1
 
-    def update(self, boxes: np.ndarray, scores: np.ndarray) -> list[tuple[int, np.ndarray]]:
+    def update(self, boxes: np.ndarray, scores: np.ndarray) -> list[tuple[int, np.ndarray, float]]:
         """Process one frame's boxes (N, 4 as x1, y1, x2, y2) and scores (N,).
 
-        Returns (track_id, box) for every track matched in this frame. The box is
-        the detector's box, not the filtered estimate, so a caller can crop it.
+        Returns (track_id, box, detector_score) for every track matched in this
+        frame. The box is the detector's box, not the filtered estimate, so a
+        caller can crop it. The score belongs to that matched detector box.
         """
         for track in self.tracks:
             track.predict()
@@ -43,23 +44,23 @@ class ByteTracker:
         high_boxes, high_scores = boxes[high], scores[high]
         low_boxes, low_scores = boxes[low], scores[low]
 
-        matched: list[tuple[int, np.ndarray]] = []
+        matched: list[tuple[int, np.ndarray, float]] = []
         pairs, unmatched_tracks, unmatched_boxes = _match(self.tracks, high_boxes, self.match_threshold)
         for track_index, box_index in pairs:
             self.tracks[track_index].update(high_boxes[box_index], float(high_scores[box_index]))
-            matched.append((self.tracks[track_index].track_id, high_boxes[box_index]))
+            matched.append((self.tracks[track_index].track_id, high_boxes[box_index], float(high_scores[box_index])))
 
         remaining = [self.tracks[i] for i in unmatched_tracks]
         low_pairs, _, _ = _match(remaining, low_boxes, self.match_threshold)
         for track_index, box_index in low_pairs:
             remaining[track_index].update(low_boxes[box_index], float(low_scores[box_index]))
-            matched.append((remaining[track_index].track_id, low_boxes[box_index]))
+            matched.append((remaining[track_index].track_id, low_boxes[box_index], float(low_scores[box_index])))
 
         for box_index in unmatched_boxes:
             track = _KalmanBoxTrack(high_boxes[box_index], float(high_scores[box_index]), self._next_id)
             self._next_id += 1
             self.tracks.append(track)
-            matched.append((track.track_id, high_boxes[box_index]))
+            matched.append((track.track_id, high_boxes[box_index], float(high_scores[box_index])))
 
         self.tracks = [track for track in self.tracks if track.time_since_update <= self.max_lost]
         return matched

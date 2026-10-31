@@ -333,6 +333,35 @@ Only posed cameras are written, with rotations as Rodrigues vectors.
 `save` leaves this out on purpose.
 Its directory stays a self-contained snapshot of the calibration, not a mix of snapshot and handoff files.
 
+## Track a primary person before pose estimation
+
+For human recordings, you can select one person's box track before estimating keypoints:
+
+```python
+from caliscope.api import BoxTracks, estimate_keypoints, track_people
+
+box_tracks = track_people(videos, pose_tracker.detector, frame_step=4, timestamps=timestamps_path)
+subject_ids = box_tracks.primary_track_ids()
+subject_boxes = box_tracks.filter_to_tracks(subject_ids)
+usable_boxes = subject_boxes.exclude_edge_boxes(margin_px=24)
+image_points = estimate_keypoints(
+    videos, pose_tracker, usable_boxes, min_confidence=pose_tracker.card.confidence_threshold
+)
+```
+
+`BoxTracks` stores observed boxes, camera-local track IDs, source frame indices, synchronized indices, timestamps, image dimensions and inference rotations.
+`primary_track_ids` chooses the largest summed box area in each camera and returns a camera-to-track-ID mapping.
+Filtering returns a new container, leaving the original available for inspection.
+`exclude_edge_boxes` takes a margin in original image pixels, with boxes touching that margin excluded.
+The keypoint pass uses the saved frame correspondence and rotations; it does not independently resynchronize the videos.
+The supplied detector and pose tracker are shared across camera workers and must support concurrent inference; each camera has its own box-association state.
+
+Use `box_tracks.to_csv(path)` and `BoxTracks.from_csv(path)` to save and reload the box stage.
+Empty results retain their schema; these new entry points return empty containers when nothing is observed.
+No source gaps are filled.
+The generic extraction entry points retain their existing behavior.
+See [markerless calibration](markerless_calibration.md) for model setup, recording assumptions and the complete workflow.
+
 ## Triangulate with calibrated cameras
 
 To reconstruct detected image points with known camera poses:

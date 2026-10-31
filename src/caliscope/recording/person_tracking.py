@@ -51,10 +51,16 @@ def track_people(
     A row's ``sync_index`` equals its source ``frame_index`` and ``frame_time`` is
     computed from that video's FPS. Inputs must already be aligned frame for frame;
     no synchronization or duration normalization is performed.
+
+    Raises:
+        ValueError: If the videos report different frame counts.
     """
     if frame_step < 1:
         raise ValueError(f"frame_step must be >= 1, got {frame_step}")
     video_paths = _video_paths(videos)
+    frame_counts = {cam_id: read_video_properties(path)["frame_count"] for cam_id, path in video_paths.items()}
+    if len(set(frame_counts.values())) > 1:
+        raise ValueError(f"Frame-aligned videos must have equal frame counts, got {frame_counts}")
     rotations = rotation_counts or {}
     decode_threads = max(1, (os.cpu_count() or 4) // len(video_paths))
 

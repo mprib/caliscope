@@ -144,7 +144,7 @@ def test_track_people_records_source_coordinates_and_frame_metadata(tmp_path, mo
 
 
 def test_track_people_samples_each_video_at_source_frame_indices(tmp_path, monkeypatch):
-    """Each video keeps its own FPS and endpoint without duration normalization."""
+    """Each video keeps its own FPS without duration normalization."""
 
     class _Source:
         def __init__(self, wanted_indices):
@@ -173,7 +173,7 @@ def test_track_people_samples_each_video_at_source_frame_indices(tmp_path, monke
         video.touch()
     properties = {
         videos[0]: {"fps": 10.0, "frame_count": 5},
-        videos[1]: {"fps": 20.0, "frame_count": 3},
+        videos[1]: {"fps": 20.0, "frame_count": 5},
     }
     monkeypatch.setattr(person_tracking, "read_video_properties", properties.__getitem__)
     monkeypatch.setattr(person_tracking, "FrameSource", _Source)
@@ -182,9 +182,24 @@ def test_track_people_samples_each_video_at_source_frame_indices(tmp_path, monke
 
     by_camera = {cam_id: group.sort_values("frame_index") for cam_id, group in tracks.groupby("cam_id")}
     assert by_camera[0][["sync_index", "frame_index"]].values.tolist() == [[0, 0], [2, 2], [4, 4]]
-    assert by_camera[1][["sync_index", "frame_index"]].values.tolist() == [[0, 0], [2, 2]]
+    assert by_camera[1][["sync_index", "frame_index"]].values.tolist() == [[0, 0], [2, 2], [4, 4]]
     assert by_camera[0]["frame_time"].tolist() == pytest.approx([0.0, 0.2, 0.4])
-    assert by_camera[1]["frame_time"].tolist() == pytest.approx([0.0, 0.1])
+    assert by_camera[1]["frame_time"].tolist() == pytest.approx([0.0, 0.1, 0.2])
+
+
+def test_track_people_rejects_unequal_frame_counts(tmp_path, monkeypatch):
+    """Matching frame numbers mean nothing when the videos differ in length."""
+    videos = {0: tmp_path / "cam_0.mp4", 1: tmp_path / "cam_1.mp4"}
+    for video in videos.values():
+        video.touch()
+    properties = {
+        videos[0]: {"fps": 10.0, "frame_count": 5},
+        videos[1]: {"fps": 10.0, "frame_count": 3},
+    }
+    monkeypatch.setattr(person_tracking, "read_video_properties", properties.__getitem__)
+
+    with pytest.raises(ValueError, match="equal frame counts"):
+        public_track_people(videos, object(), progress=None)
 
 
 @pytest.mark.parametrize("rotation_count", [1, 2, -1])

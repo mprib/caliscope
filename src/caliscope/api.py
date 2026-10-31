@@ -140,14 +140,16 @@ def track_people(
     detector: Any,
     *,
     frame_step: int = 1,
-    timestamps: Path | str | None = None,
     rotation_counts: Mapping[int, int] | None = None,
     progress: ProgressCallback | None = _AUTO,
 ) -> BoxTracks:
-    """Detect and track every person box in synchronized camera videos.
+    """Detect and track every person box at matching source frame indices.
 
-    Boxes are returned in original video pixels, including their source timing
-    and inference rotation, ready for explicit subject selection.
+    Each video is sampled independently. ``sync_index`` matches its source
+    ``frame_index`` and ``frame_time`` is derived from that video's FPS.
+    Inputs must already be aligned frame for frame; no synchronization or duration
+    normalization is performed. Boxes are returned in original video pixels, ready
+    for explicit subject selection.
 
     The detector may be called concurrently, once per camera. Supply a
     thread-safe detector or serialize access before calling this function.
@@ -159,7 +161,6 @@ def track_people(
             videos,
             detector,
             frame_step=frame_step,
-            timestamps=timestamps,
             rotation_counts=rotation_counts,
             progress=resolved_progress,
         )

@@ -40,11 +40,11 @@ It is separate from detector confidence and overlap-suppression settings.
 The generic `extract_image_points_multicam` entry point remains available; with a detector-backed ONNX tracker, it chooses the largest box independently in each frame.
 
 Each video needs the same camera ID it had during intrinsic calibration.
-Use a `timestamps.csv` file when the recordings did not start at exactly the same time.
-Its `frame_time` values must use a common time basis across cameras.
-The pipeline uses those supplied timestamps to form synchronized moments.
-It does not infer timing offsets from body motion.
-See [the timestamp CSV schema](scripting.md#step-4-extract-time-aligned-points-for-extrinsic-calibration).
+Align the videos before calling `track_people`: source frame `i` in each video must represent the same moment.
+The tracking workflow uses that source frame index as `sync_index`.
+It does not read timestamps or infer timing offsets from body motion.
+No synchronization or duration normalization is performed.
+The generic [multicamera extraction workflow](scripting.md#step-4-extract-time-aligned-points-for-extrinsic-calibration) still supports timestamp-based synchronization.
 
 Measure the distance between two cameras in meters.
 This measurement supplies the metric scale that pose keypoints cannot supply on their own.
@@ -82,7 +82,6 @@ VIDEOS = {
     1: Path("markerless/cam_1.mp4"),
     2: Path("markerless/cam_2.mp4"),
 }
-TIMESTAMPS = None  # Or: Path("markerless/timestamps.csv")
 EDGE_MARGIN_PX = 24  # Source-image pixels; set for your recording.
 BASELINE = CameraDistance(cam_a=0, cam_b=2, meters=3.20)
 OUTPUT_DIR = Path("markerless_capture_volume")
@@ -98,7 +97,7 @@ tracker = OnnxTracker(card)
 
 # Detect and track boxes, then select the most prominent person per camera.
 cameras = CameraArray.from_toml(CAMERA_ARRAY_TOML)
-box_tracks = track_people(VIDEOS, tracker.detector, frame_step=1, timestamps=TIMESTAMPS)
+box_tracks = track_people(VIDEOS, tracker.detector, frame_step=1)
 subject_ids = box_tracks.primary_track_ids()
 subject_boxes = box_tracks.filter_to_tracks(subject_ids)
 usable_boxes = subject_boxes.exclude_edge_boxes(margin_px=EDGE_MARGIN_PX)

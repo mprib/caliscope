@@ -19,7 +19,7 @@ import pandas as pd
 from caliscope.core.box_tracks import BOX_TRACK_COLUMNS, BoxTracks
 from caliscope.core.point_data import ImagePoints
 from caliscope.recording.frame_source import FrameSource
-from caliscope.recording.synchronized_timestamps import SynchronizedTimestamps
+from caliscope.recording.video_utils import read_video_properties
 from caliscope.reporting import ProgressCallback
 from caliscope.trackers.byte_tracker import ByteTracker, LOW_SCORE_THRESHOLD
 from caliscope.trackers.helper import apply_rotation, unrotate_points
@@ -42,21 +42,26 @@ def track_people(
     detector: PersonDetector,
     *,
     frame_step: int = 1,
-    timestamps: Path | str | None = None,
     rotation_counts: Mapping[int, int] | None = None,
     progress: ProgressCallback | None = None,
 ) -> BoxTracks:
-    """Detect and associate every person box at sampled synchronized moments."""
+    """Detect and associate person boxes at matching source frame indices.
+
+    Each video is sampled independently at ``0, frame_step, 2 * frame_step, ...``.
+    A row's ``sync_index`` equals its source ``frame_index`` and ``frame_time`` is
+    computed from that video's FPS. Inputs must already be aligned frame for frame;
+    no synchronization or duration normalization is performed.
+    """
     if frame_step < 1:
         raise ValueError(f"frame_step must be >= 1, got {frame_step}")
     video_paths = _video_paths(videos)
     rotations = rotation_counts or {}
-    synced = _synchronized_timestamps(video_paths, timestamps)
-    selected_sync_indices = synced.sync_indices[::frame_step]
     decode_threads = max(1, (os.cpu_count() or 4) // len(video_paths))
 
     def process_camera(cam_id: int, path: Path) -> list[dict[str, Any]]:
-        work = _sync_work(synced, cam_id, selected_sync_indices)
+        properties = read_video_properties(path)
+        fps = properties["fps"]
+        work = range(0, properties["frame_count"], frame_step)
         if progress is not None:
             progress.on_video_start(cam_id, len(work))
         if not work:
@@ -65,10 +70,7 @@ def track_people(
             return []
 
         tracker = ByteTracker()
-        sync_for_frame = {frame_index: sync_index for sync_index, frame_index in work}
-        source = FrameSource.from_path(
-            path, cam_id=cam_id, decode_threads=decode_threads, wanted_indices=set(sync_for_frame)
-        )
+        source = FrameSource.from_path(path, cam_id=cam_id, decode_threads=decode_threads, wanted_indices=set(work))
         rows: list[dict[str, Any]] = []
         try:
             processed = 0
@@ -80,10 +82,10 @@ def track_people(
                     source_box = _unrotate_box(detected_box, rotation_count, raw.frame.shape[1], raw.frame.shape[0])
                     rows.append(
                         {
-                            "sync_index": sync_for_frame[raw.frame_index],
+                            "sync_index": raw.frame_index,
                             "cam_id": cam_id,
                             "frame_index": raw.frame_index,
-                            "frame_time": synced.time_for(cam_id, raw.frame_index),
+                            "frame_time": raw.frame_index / fps,
                             "track_id": track_id,
                             "box_x1": source_box[0],
                             "box_y1": source_box[1],
@@ -216,20 +218,6 @@ def _video_paths(videos: Mapping[int, Path | str]) -> dict[int, Path]:
         detail = "\n".join(f"  cam {cam_id}: {path}" for cam_id, path in missing.items())
         raise FileNotFoundError(f"Video files not found:\n{detail}")
     return paths
-
-
-def _synchronized_timestamps(videos: Mapping[int, Path], timestamps: Path | str | None) -> SynchronizedTimestamps:
-    if timestamps is not None:
-        return SynchronizedTimestamps.from_csv_path(Path(timestamps))
-    return SynchronizedTimestamps.from_video_paths(videos)
-
-
-def _sync_work(synced: SynchronizedTimestamps, cam_id: int, sync_indices: list[int]) -> list[tuple[int, int]]:
-    return [
-        (sync_index, frame_index)
-        for sync_index in sync_indices
-        if (frame_index := synced.frame_for(sync_index, cam_id)) is not None
-    ]
 
 
 def _run_per_camera(videos: Mapping[int, Path], work: Any) -> list[dict[str, Any]]:

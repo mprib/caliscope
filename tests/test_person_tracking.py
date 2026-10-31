@@ -4,6 +4,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
+from caliscope.api import track_people as public_track_people
 from caliscope.core.box_tracks import BoxTracks
 from caliscope.recording import person_tracking
 from caliscope.recording.person_tracking import (
@@ -99,19 +100,8 @@ def test_keypoint_estimation_requires_a_finite_nonnegative_cutoff(min_confidence
         estimate_keypoints({}, object(), tracks, min_confidence=min_confidence)
 
 
-def test_track_people_records_source_coordinates_and_sync_metadata(tmp_path, monkeypatch):
+def test_track_people_records_source_coordinates_and_frame_metadata(tmp_path, monkeypatch):
     """Detection uses rotated pixels but the persisted record uses source pixels."""
-
-    class _Synced:
-        sync_indices = [12]
-
-        @staticmethod
-        def frame_for(sync_index, cam_id):
-            return 4
-
-        @staticmethod
-        def time_for(cam_id, frame_index):
-            return 1.25
 
     class _Source:
         def __init__(self):
@@ -141,16 +131,60 @@ def test_track_people_records_source_coordinates_and_sync_metadata(tmp_path, mon
     video = tmp_path / "cam_0.mp4"
     video.touch()
     detector = _Detector()
-    monkeypatch.setattr(person_tracking, "_synchronized_timestamps", lambda *args: _Synced())
+    monkeypatch.setattr(person_tracking, "read_video_properties", lambda _path: {"fps": 4.0, "frame_count": 5})
     monkeypatch.setattr(person_tracking, "FrameSource", _Source)
 
     tracks = person_tracking.track_people({0: video}, detector, rotation_counts={0: 1}).df
 
     assert detector.min_scores == [0.1]
-    assert tracks.loc[0, ["sync_index", "frame_index", "frame_time", "rotation_count"]].tolist() == [12, 4, 1.25, 1]
+    assert tracks.loc[0, ["sync_index", "frame_index", "frame_time", "rotation_count"]].tolist() == [4, 4, 1.0, 1]
     assert tuple(tracks.loc[0, ["box_x1", "box_y1", "box_x2", "box_y2"]]) == pytest.approx(
         _unrotate_box(np.array([20, 10, 80, 40]), 1, 100, 120)
     )
+
+
+def test_track_people_samples_each_video_at_source_frame_indices(tmp_path, monkeypatch):
+    """Each video keeps its own FPS and endpoint without duration normalization."""
+
+    class _Source:
+        def __init__(self, wanted_indices):
+            self._frames = iter(sorted(wanted_indices))
+
+        @classmethod
+        def from_path(cls, *_args, wanted_indices, **_kwargs):
+            return cls(wanted_indices)
+
+        def next_frame(self):
+            try:
+                frame_index = next(self._frames)
+            except StopIteration:
+                return None
+            return type("Raw", (), {"frame_index": frame_index, "frame": np.zeros((20, 30, 3), dtype=np.uint8)})()
+
+        def close(self):
+            pass
+
+    class _Detector:
+        def people(self, _frame, min_score=None):
+            return np.array([[1, 2, 10, 12]], dtype=np.float32), np.array([0.9], dtype=np.float32)
+
+    videos = {0: tmp_path / "cam_0.mp4", 1: tmp_path / "cam_1.mp4"}
+    for video in videos.values():
+        video.touch()
+    properties = {
+        videos[0]: {"fps": 10.0, "frame_count": 5},
+        videos[1]: {"fps": 20.0, "frame_count": 3},
+    }
+    monkeypatch.setattr(person_tracking, "read_video_properties", properties.__getitem__)
+    monkeypatch.setattr(person_tracking, "FrameSource", _Source)
+
+    tracks = public_track_people(videos, _Detector(), frame_step=2, progress=None).df
+
+    by_camera = {cam_id: group.sort_values("frame_index") for cam_id, group in tracks.groupby("cam_id")}
+    assert by_camera[0][["sync_index", "frame_index"]].values.tolist() == [[0, 0], [2, 2], [4, 4]]
+    assert by_camera[1][["sync_index", "frame_index"]].values.tolist() == [[0, 0], [2, 2]]
+    assert by_camera[0]["frame_time"].tolist() == pytest.approx([0.0, 0.2, 0.4])
+    assert by_camera[1]["frame_time"].tolist() == pytest.approx([0.0, 0.1])
 
 
 @pytest.mark.parametrize("rotation_count", [1, 2, -1])

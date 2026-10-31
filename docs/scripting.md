@@ -340,7 +340,7 @@ For human recordings, you can select one person's box track before estimating ke
 ```python
 from caliscope.api import BoxTracks, estimate_keypoints, track_people
 
-box_tracks = track_people(videos, pose_tracker.detector, frame_step=4, timestamps=timestamps_path)
+box_tracks = track_people(videos, pose_tracker.detector, frame_step=4)
 subject_ids = box_tracks.primary_track_ids()
 subject_boxes = box_tracks.filter_to_tracks(subject_ids)
 usable_boxes = subject_boxes.exclude_edge_boxes(margin_px=24)
@@ -349,7 +349,10 @@ image_points = estimate_keypoints(
 )
 ```
 
-`BoxTracks` stores observed boxes, camera-local track IDs, source frame indices, synchronized indices, timestamps, image dimensions and inference rotations.
+`BoxTracks` stores observed boxes, camera-local track IDs, source frame indices, image dimensions and inference rotations.
+For this workflow, `sync_index` equals `frame_index` and `frame_time` is `frame_index / FPS` for each video.
+Align the inputs frame for frame before tracking.
+This workflow does not synchronize videos or normalize their durations.
 `primary_track_ids` chooses the largest summed box area in each camera and returns a camera-to-track-ID mapping.
 Filtering returns a new container, leaving the original available for inspection.
 `exclude_edge_boxes` takes a margin in original image pixels, with boxes touching that margin excluded.

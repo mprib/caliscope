@@ -355,7 +355,7 @@ image_points = estimate_keypoints(
 For this workflow, `sync_index` equals `frame_index` and `frame_time` is `frame_index / FPS` for each video.
 Align the inputs frame for frame before tracking.
 This workflow does not synchronize videos or normalize their durations.
-`primary_track_ids` chooses the largest summed box area in each camera and returns a camera-to-track-ID mapping.
+`primary_track_ids` chooses the track whose boxes cover the most image area in each camera, counting each pixel once, and returns a camera-to-track-ID mapping.
 Filtering returns a new container, leaving the original available for inspection.
 `exclude_edge_boxes` takes a margin in original image pixels, with boxes touching that margin excluded.
 The keypoint pass uses the saved frame correspondence and rotations; it does not independently resynchronize the videos.

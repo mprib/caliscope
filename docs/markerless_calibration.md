@@ -28,10 +28,10 @@ Follow the [intrinsic-calibration scripting workflow](scripting.md#step-3-intrin
 
 Record one calibration subject walking through the shared capture space.
 Camera views must overlap through enough of the motion to connect the rig.
-Other people can be visible, but the intended subject must have the greatest accumulated bounding-box area in each camera.
+Other people can be visible, but the intended subject's bounding boxes must cover the most image area in each camera, counting each pixel once.
 
 The example first detects people and links their boxes into camera-local tracks.
-It selects the primary track by summed observed box area, excludes boxes near the image edge, and estimates keypoints only for the retained observations.
+It selects the primary track by the image area its boxes cover, excludes boxes near the image edge, and estimates keypoints only for the retained observations.
 Track IDs are local to each camera; this workflow relies on the recording protocol to select the same person across views.
 It does not match several people across cameras or join fragmented tracks automatically.
 

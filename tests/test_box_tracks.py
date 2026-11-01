@@ -43,7 +43,7 @@ def _rows() -> list[dict[str, int | float]]:
     ]
 
 
-def test_primary_track_ids_uses_accumulated_box_area_and_stable_ties():
+def test_primary_track_ids_uses_covered_area_and_stable_ties():
     tracks = BoxTracks(pd.DataFrame(_rows()))
 
     assert tracks.primary_track_ids() == {0: 2, 4: 7}
@@ -51,6 +51,28 @@ def test_primary_track_ids_uses_accumulated_box_area_and_stable_ties():
     tied = pd.DataFrame(_rows()[:2])
     tied.loc[1, "track_id"] = 3
     assert BoxTracks(tied).primary_track_ids() == {0: 1}
+
+
+def test_primary_track_ids_counts_repeated_coverage_once():
+    template = _rows()[0]
+    standing = [
+        template | {"sync_index": frame, "frame_index": frame, "frame_time": frame / 10, "track_id": 1}
+        for frame in range(5)
+    ]
+    walking = [
+        template
+        | {
+            "track_id": 2,
+            "sync_index": frame,
+            "frame_index": frame,
+            "frame_time": frame / 10,
+            "box_x1": 10.0 + 12 * frame,
+            "box_x2": 19.0 + 12 * frame,
+        }
+        for frame in range(2)
+    ]
+
+    assert BoxTracks(pd.DataFrame(standing + walking)).primary_track_ids() == {0: 2}
 
 
 def test_df_is_a_defensive_copy():

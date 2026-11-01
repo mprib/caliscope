@@ -30,6 +30,21 @@ BOX_TRACK_COLUMNS: dict[str, dict[str, object]] = {
 }
 
 
+def _covered_area(track: pd.DataFrame) -> int:
+    """Count the image pixels covered by at least one of a track's boxes."""
+    width = int(track["image_width"].iloc[0])
+    height = int(track["image_height"].iloc[0])
+    stamped = np.zeros((height, width), dtype=bool)
+
+    corners = track[["box_x1", "box_y1", "box_x2", "box_y2"]].to_numpy(dtype=float)
+    for x1, y1, x2, y2 in corners:
+        left, top = max(int(np.floor(x1)), 0), max(int(np.floor(y1)), 0)
+        right, bottom = max(int(np.ceil(x2)), 0), max(int(np.ceil(y2)), 0)
+        stamped[top:bottom, left:right] = True
+
+    return int(stamped.sum())
+
+
 class BoxTracks:
     """An immutable table of tracked detection boxes in original image pixels."""
 
@@ -86,19 +101,23 @@ class BoxTracks:
             raise PersistenceError(f"Failed to save box tracks to {path}: {e}") from e
 
     def primary_track_ids(self) -> dict[int, int]:
-        """Choose each camera's track with the greatest accumulated box area."""
+        """Choose each camera's track whose boxes cover the most image area.
+
+        Each box stamps its pixels onto a blank image, so a pixel counts once
+        however many frames cover it. A person crossing the view therefore
+        outranks one standing still for the whole recording.
+        """
         if self._df.empty:
             return {}
 
-        areas = (self._df["box_x2"] - self._df["box_x1"]) * (self._df["box_y2"] - self._df["box_y1"])
-        footprints = (
-            self._df.assign(_area=areas)
-            .groupby(["cam_id", "track_id"], sort=True)["_area"]
-            .sum()
-            .reset_index()
-            .sort_values(["cam_id", "_area", "track_id"], ascending=[True, False, True], kind="stable")
+        coverage = [
+            (cam_id, track_id, _covered_area(track))
+            for (cam_id, track_id), track in self._df.groupby(["cam_id", "track_id"], sort=True)
+        ]
+        ranked = pd.DataFrame(coverage, columns=["cam_id", "track_id", "covered_area"]).sort_values(
+            ["cam_id", "covered_area", "track_id"], ascending=[True, False, True], kind="stable"
         )
-        selected = footprints.drop_duplicates("cam_id", keep="first")
+        selected = ranked.drop_duplicates("cam_id", keep="first")
         return {cast(int, row.cam_id): cast(int, row.track_id) for row in selected.itertuples(index=False)}
 
     def filter_to_tracks(self, track_ids: Mapping[int, int]) -> BoxTracks:

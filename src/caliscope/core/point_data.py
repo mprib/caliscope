@@ -3,6 +3,7 @@
 from __future__ import annotations
 import logging
 from collections.abc import Iterable
+from numbers import Integral
 from pathlib import Path
 from time import time
 import numpy as np
@@ -37,6 +38,7 @@ def triangulate_sync_index(
     object_ids: np.ndarray,
     keypoint_ids: np.ndarray,
     img_xy: np.ndarray,
+    min_views: int = 2,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """Triangulate 2D observations to 3D points for a single sync index.
 
@@ -60,8 +62,12 @@ def triangulate_sync_index(
     groups_cams = np.split(sorted_cams, breaks)
     groups_xy = np.split(sorted_xy, breaks)
 
-    # Filter to groups with 2+ observations (need at least 2 views to triangulate)
-    valid = [(o[0], k[0], c, xy) for o, k, c, xy in zip(groups_obj, groups_kp, groups_cams, groups_xy) if len(c) > 1]
+    # A repeated observation from one camera does not add a triangulation view.
+    valid = [
+        (o[0], k[0], c, xy)
+        for o, k, c, xy in zip(groups_obj, groups_kp, groups_cams, groups_xy)
+        if len(np.unique(c)) >= min_views
+    ]
 
     if not valid:
         return np.array([], dtype=np.int64), np.array([], dtype=np.int64), np.zeros((0, 3))
@@ -125,11 +131,13 @@ def triangulate_image_points(
     object_ids: np.ndarray,
     keypoint_ids: np.ndarray,
     img_xy: np.ndarray,
+    min_views: int = 2,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     """Triangulate all 2D observations across all sync indices in bulk.
 
-    Groups by (sync_index, object_id, keypoint_id) composite key, batches SVD
-    by camera set. Returns (sync_indices, object_ids, keypoint_ids, xyz).
+    Groups by (sync_index, object_id, keypoint_id) composite key, retains groups
+    observed by at least min_views distinct cameras, then batches SVD by camera
+    set. Returns (sync_indices, object_ids, keypoint_ids, xyz).
     """
     n_obs = len(keypoint_ids)
     if n_obs < 2:
@@ -164,7 +172,7 @@ def triangulate_image_points(
     by_cam_set: dict[tuple[int, ...], list[tuple[int, int, int, np.ndarray]]] = defaultdict(list)
 
     for gs, go, gk, gc, gxy in zip(grp_sync, grp_obj, grp_kp, grp_cam, grp_xy):
-        if len(gc) < 2:
+        if len(np.unique(gc)) < min_views:
             continue
         # CRITICAL: sort xy to match the sorted camera order
         sort_order = np.argsort(gc)
@@ -417,14 +425,22 @@ class ImagePoints:
         self,
         camera_array: CameraArray,
         static_object_ids: frozenset[int] = frozenset(),
+        *,
+        min_views: int = 2,
     ) -> WorldPoints:
         """Triangulates 2D points to create 3D points using the provided CameraArray.
+
+        Only point groups observed by at least min_views distinct posed cameras
+        are triangulated.
 
         Observations whose object_id is in static_object_ids are treated as a single
         rigid object across all frames: their sync_index is ignored and all observations
         of a given (object_id, keypoint_id) are triangulated together into one 3D point,
         stored under STATIC_SYNC_INDEX.
         """
+        if isinstance(min_views, bool) or not isinstance(min_views, Integral) or min_views < 2:
+            raise ValueError(f"min_views must be an integer >= 2, got {min_views!r}")
+
         xy_df = self.df
         if xy_df.empty:
             return WorldPoints(pd.DataFrame(columns=list(WORLD_POINT_COLUMNS.keys())))
@@ -485,6 +501,7 @@ class ImagePoints:
                 obj_arr,
                 kp_arr,
                 xy_arr,
+                min_views=min_views,
             )
 
             if len(out_kp) > 0:
@@ -524,6 +541,7 @@ class ImagePoints:
                 obj_arr,
                 kp_arr,
                 xy_arr,
+                min_views=min_views,
             )
 
             if len(out_kp) > 0:

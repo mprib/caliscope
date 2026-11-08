@@ -397,3 +397,73 @@ class TestMeanFps:
         """Duplicate timestamps give a zero span; no division by zero."""
         synced = self._synced({0: {0: 5.0, 1: 5.0}})
         assert synced.mean_fps == pytest.approx(30.0)
+
+
+# ---------------------------------------------------------------------------
+# from_anchor_frames
+# ---------------------------------------------------------------------------
+
+
+def _anchor_videos(tmp_path: Path, properties: dict[int, tuple[int, float]]):
+    """Create empty video paths and metadata keyed by path."""
+    videos = {}
+    by_path = {}
+    for cam_id, (frame_count, fps) in properties.items():
+        videos[cam_id] = tmp_path / f"cam_{cam_id}.mp4"
+        videos[cam_id].touch()
+        by_path[videos[cam_id]] = {"frame_count": frame_count, "fps": fps}
+    return videos, by_path.__getitem__
+
+
+def test_shared_first_frame_keeps_frame_numbers_and_leaves_extra_frames_at_end(tmp_path):
+    videos, properties = _anchor_videos(tmp_path, {0: (6, 200.0), 1: (4, 200.0)})
+
+    with patch("caliscope.recording.synchronized_timestamps.read_video_properties", properties):
+        synced = SynchronizedTimestamps.from_anchor_frames(videos, {0: 0, 1: 0})
+
+    assert synced.sync_indices == list(range(6))
+    assert [synced.frame_for(i, 0) for i in synced.sync_indices] == [0, 1, 2, 3, 4, 5]
+    assert [synced.frame_for(i, 1) for i in synced.sync_indices] == [0, 1, 2, 3, None, None]
+    assert synced.time_for(0, 5) == pytest.approx(0.025)
+
+
+def test_anchors_can_differ_by_camera(tmp_path):
+    videos, properties = _anchor_videos(tmp_path, {0: (6, 100.0), 1: (6, 100.0)})
+
+    with patch("caliscope.recording.synchronized_timestamps.read_video_properties", properties):
+        synced = SynchronizedTimestamps.from_anchor_frames(videos, {0: 2, 1: 0})
+
+    assert synced.time_for(0, 0) == pytest.approx(-0.02)
+    pairs = [(synced.frame_for(i, 0), synced.frame_for(i, 1)) for i in synced.sync_indices]
+    assert (2, 0) in pairs and (5, 3) in pairs
+
+
+def test_fps_override_prevents_reported_rates_from_splitting_frames(tmp_path):
+    """Rates reported per file drift apart; one known rate keeps cameras together."""
+    videos, properties = _anchor_videos(tmp_path, {0: (1500, 200.0), 1: (1500, 200.19)})
+
+    with patch("caliscope.recording.synchronized_timestamps.read_video_properties", properties):
+        reported = SynchronizedTimestamps.from_anchor_frames(videos, {0: 0, 1: 0})
+        overridden = SynchronizedTimestamps.from_anchor_frames(videos, {0: 0, 1: 0}, fps=200)
+
+    assert reported.time_for(1, 1499) != pytest.approx(reported.time_for(0, 1499))
+    assert overridden.time_for(1, 1499) == pytest.approx(overridden.time_for(0, 1499))
+    assert overridden.frame_for(1499, 0) == 1499
+    assert overridden.frame_for(1499, 1) == 1499
+
+
+@pytest.mark.parametrize(
+    ("anchors", "fps", "message"),
+    [
+        ({0: 0}, None, "same cameras"),
+        ({0: 0, 1: 3}, None, "outside cam_1"),
+        ({0: -1, 1: 0}, None, "outside cam_0"),
+        ({0: 0, 1: 0}, 0, "fps must be positive"),
+    ],
+)
+def test_anchor_inputs_are_validated(tmp_path, anchors, fps, message):
+    videos, properties = _anchor_videos(tmp_path, {0: (3, 10.0), 1: (3, 10.0)})
+
+    with patch("caliscope.recording.synchronized_timestamps.read_video_properties", properties):
+        with pytest.raises(ValueError, match=message):
+            SynchronizedTimestamps.from_anchor_frames(videos, anchors, fps=fps)

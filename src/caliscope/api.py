@@ -56,6 +56,7 @@ from caliscope.core.calibrate_intrinsics import (
     IntrinsicCalibrationReport,
 )
 from caliscope.core.capture_volume import CaptureVolume
+from caliscope.core.box_tracks import BoxTracks
 from caliscope.core.charuco import Charuco
 from caliscope.core.chessboard import Chessboard
 from caliscope.core.constraints import ConstraintSet
@@ -70,6 +71,7 @@ from caliscope.trackers.charuco_tracker import CharucoTracker
 from caliscope.trackers.chessboard_tracker import ChessboardTracker
 
 if TYPE_CHECKING:
+    from caliscope.recording.synchronized_timestamps import SynchronizedTimestamps
     from caliscope.reporting import ProgressCallback
 
 # Sentinel meaning "create a RichProgressBar automatically for this call".
@@ -109,6 +111,7 @@ __all__ = [
     "CameraData",
     "CameraArray",
     "ImagePoints",
+    "BoxTracks",
     "CaptureVolume",
     # Scale cues
     "CameraDistance",
@@ -122,6 +125,8 @@ __all__ = [
     # Functions
     "extract_image_points",
     "extract_image_points_multicam",
+    "track_people",
+    "estimate_keypoints",
     "calibrate_intrinsics",
     "calibrate_extrinsics",
     "estimate_vertical",
@@ -129,6 +134,63 @@ __all__ = [
     # Exceptions
     "CalibrationError",
 ]
+
+
+def track_people(
+    videos: Mapping[int, Path | str],
+    detector: Any,
+    *,
+    timestamps: SynchronizedTimestamps,
+    frame_step: int = 1,
+    rotation_counts: Mapping[int, int] | None = None,
+    progress: ProgressCallback | None = _AUTO,
+) -> BoxTracks:
+    """Detect and track every person box at sampled synchronized moments.
+
+    ``timestamps`` sets the alignment policy, for example through
+    ``SynchronizedTimestamps.from_anchor_frames``. ``frame_step`` counts
+    synchronized moments. Boxes are returned in original video pixels, ready for
+    explicit subject selection.
+
+    The detector may be called concurrently, once per camera. Supply a
+    thread-safe detector or serialize access before calling this function.
+    """
+    from caliscope.recording.person_tracking import track_people as _track_people
+
+    with _auto_progress(progress) as resolved_progress:
+        return _track_people(
+            videos,
+            detector,
+            timestamps=timestamps,
+            frame_step=frame_step,
+            rotation_counts=rotation_counts,
+            progress=resolved_progress,
+        )
+
+
+def estimate_keypoints(
+    videos: Mapping[int, Path | str],
+    pose_tracker: Any,
+    box_tracks: BoxTracks,
+    *,
+    min_confidence: float,
+    progress: ProgressCallback | None = _AUTO,
+) -> ImagePoints:
+    """Estimate pose in selected tracked boxes without rebuilding synchronization.
+
+    The pose tracker may be called concurrently, once per camera. Supply a
+    thread-safe tracker or serialize access before calling this function.
+    """
+    from caliscope.recording.person_tracking import estimate_keypoints as _estimate_keypoints
+
+    with _auto_progress(progress) as resolved_progress:
+        return _estimate_keypoints(
+            videos,
+            pose_tracker,
+            box_tracks,
+            min_confidence=min_confidence,
+            progress=resolved_progress,
+        )
 
 
 def extract_image_points(

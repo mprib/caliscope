@@ -1,0 +1,19 @@
+# Person detector for top-down pose cards: [detector] card = "yolox_m_person".
+# Megvii's YOLOX-M trained on COCO; class 0 is person. The ONNX file emits the
+# raw 8400 x 85 grid, which caliscope.trackers.person_detector decodes.
+[detector]
+name = "YOLOX-M person detector"
+model_path = "yolox_m.onnx"
+format = "yolox"
+input_size = [640, 640]
+class_id = 0
+score_threshold = 0.5
+nms_threshold = 0.45
+
+[source]
+url = "https://github.com/Megvii-BaseDetection/YOLOX/releases/download/0.1.1rc0/yolox_m.onnx"
+extraction = "direct"
+license = "Apache-2.0 (Megvii YOLOX)"
+license_url = "https://github.com/Megvii-BaseDetection/YOLOX/blob/main/LICENSE"
+file_size_mb = 101
+sha256 = "21ff6cfdeb53b013bac2249599e55f00bff3cfdfdab37ed7a4620818c1d15b3f"

@@ -1,3 +1,4 @@
+import importlib.resources
 import logging
 from dataclasses import dataclass
 from pathlib import Path
@@ -7,6 +8,125 @@ import rtoml
 from caliscope.tracker import Segment, WireFrameView
 
 logger = logging.getLogger(__name__)
+
+# Cards shipped with Caliscope. They are read from the installed package, so a
+# release updates them; MODELS_DIR holds downloaded weights and user cards.
+BUILTIN_CARDS_DIR = Path(str(importlib.resources.files("caliscope.trackers.model_cards")))
+
+
+@dataclass(frozen=True, slots=True)
+class DetectorCard:
+    """Configuration for an ONNX object detector that finds the subject before pose inference.
+
+    A pose ModelCard names its detector with ``[detector] card = "<stem>"``.
+    The detector card's own TOML has a ``[detector]`` section instead of
+    ``[model]``, so the tracker registry does not list it as a tracker.
+    """
+
+    name: str
+    model_path: Path
+    format: str  # "yolox"
+    input_width: int
+    input_height: int
+    class_id: int
+    score_threshold: float
+    nms_threshold: float
+    source_url: str | None = None
+    license_info: str | None = None
+    file_size_mb: float | None = None
+    sha256: str | None = None
+    extraction: str | None = None
+    license_url: str | None = None
+
+    @property
+    def onnx_exists(self) -> bool:
+        return self.model_path.exists()
+
+    @property
+    def has_source_url(self) -> bool:
+        return self.source_url is not None
+
+    @staticmethod
+    def from_toml(path: Path, models_dir: Path | None = None) -> "DetectorCard":
+        """Load and validate a detector card TOML file.
+
+        Raises:
+            FileNotFoundError: If the TOML file doesn't exist
+            ValueError: If required fields are missing or malformed
+        """
+        if not path.exists():
+            raise FileNotFoundError(f"Detector card TOML not found: {path}")
+
+        config = rtoml.load(path)
+        if "detector" not in config:
+            raise ValueError(f"Missing required [detector] section in {path}")
+        section = config["detector"]
+
+        for field in ("model_path", "format", "input_size", "class_id"):
+            if field not in section:
+                raise ValueError(f"Missing required field '{field}' in [detector] section of {path}")
+        if section["format"] != "yolox":
+            raise ValueError(f"Invalid detector format '{section['format']}' in {path}. Must be 'yolox'.")
+        input_size = section["input_size"]
+        if not isinstance(input_size, list) or len(input_size) != 2:
+            raise ValueError(f"input_size must be a 2-element list [width, height], got {input_size} in {path}")
+
+        raw_model_path = Path(section["model_path"])
+        if not raw_model_path.is_absolute() and models_dir is not None:
+            model_path = models_dir / raw_model_path
+        else:
+            model_path = raw_model_path
+
+        source_url, license_info, file_size_mb, sha256, extraction, license_url = _parse_source(config, path)
+
+        return DetectorCard(
+            name=section.get("name", raw_model_path.stem),
+            model_path=model_path,
+            format=section["format"],
+            input_width=input_size[0],
+            input_height=input_size[1],
+            class_id=section["class_id"],
+            score_threshold=section.get("score_threshold", 0.5),
+            nms_threshold=section.get("nms_threshold", 0.45),
+            source_url=source_url,
+            license_info=license_info,
+            file_size_mb=file_size_mb,
+            sha256=sha256,
+            extraction=extraction,
+            license_url=license_url,
+        )
+
+
+def _parse_source(config: dict, path: Path) -> tuple:
+    """Read the optional [source] section shared by pose and detector cards."""
+    source_section = config.get("source", {})
+    source_url = source_section.get("url")
+    extraction = source_section.get("extraction")
+
+    # If [source] has url, extraction is required
+    if source_url is not None:
+        if extraction is None:
+            raise ValueError(f"'extraction' field is required when [source] has a 'url' in {path}")
+        if extraction not in ("zip_end2end", "direct"):
+            raise ValueError(f"Invalid extraction '{extraction}' in {path}. Must be 'zip_end2end' or 'direct'.")
+
+    return (
+        source_url,
+        source_section.get("license"),
+        source_section.get("file_size_mb"),
+        source_section.get("sha256"),
+        extraction,
+        source_section.get("license_url"),
+    )
+
+
+def _find_detector_card(stem: str, card_path: Path) -> Path:
+    """Locate a detector card beside the pose card, then among the built-in cards."""
+    for folder in (card_path.parent, BUILTIN_CARDS_DIR):
+        candidate = folder / f"{stem}.toml"
+        if candidate.exists():
+            return candidate
+    raise ValueError(f"Detector card '{stem}' named in {card_path} not found beside it or among built-in cards")
 
 
 @dataclass(frozen=True, slots=True)
@@ -32,6 +152,7 @@ class ModelCard:
     sha256: str | None = None
     extraction: str | None = None  # "zip_end2end" or "direct"
     license_url: str | None = None
+    detector: DetectorCard | None = None  # None: pose runs once on the full frame
 
     @property
     def keypoint_id_to_name(self) -> dict[int, str]:
@@ -50,6 +171,14 @@ class ModelCard:
     def has_source_url(self) -> bool:
         """Whether this card has a download URL configured."""
         return self.source_url is not None
+
+    @property
+    def missing_downloads(self) -> list["ModelCard | DetectorCard"]:
+        """Cards whose weights are not on disk: the pose model and its detector."""
+        cards: list[ModelCard | DetectorCard] = [self]
+        if self.detector is not None:
+            cards.append(self.detector)
+        return [card for card in cards if not card.onnx_exists]
 
     @staticmethod
     def from_toml(path: Path, models_dir: Path | None = None) -> "ModelCard":
@@ -140,21 +269,16 @@ class ModelCard:
         else:
             resolved_path = raw_model_path
 
-        # Parse optional [source] section
-        source_section = config.get("source", {})
-        source_url = source_section.get("url")
-        license_info = source_section.get("license")
-        file_size_mb = source_section.get("file_size_mb")
-        sha256 = source_section.get("sha256")
-        extraction = source_section.get("extraction")
-        license_url = source_section.get("license_url")
+        source_url, license_info, file_size_mb, sha256, extraction, license_url = _parse_source(config, path)
 
-        # Validate: if [source] has url, extraction is required
-        if source_url is not None:
-            if extraction is None:
-                raise ValueError(f"'extraction' field is required when [source] has a 'url' in {path}")
-            if extraction not in ("zip_end2end", "direct"):
-                raise ValueError(f"Invalid extraction '{extraction}' in {path}. Must be 'zip_end2end' or 'direct'.")
+        # Parse optional [detector] section naming a detector card
+        detector = None
+        detector_section = config.get("detector")
+        if detector_section is not None:
+            if "card" not in detector_section:
+                raise ValueError(f"[detector] section needs a 'card' field in {path}")
+            detector_path = _find_detector_card(detector_section["card"], path)
+            detector = DetectorCard.from_toml(detector_path, models_dir=models_dir)
 
         # Construct ModelCard
         return ModelCard(
@@ -172,4 +296,5 @@ class ModelCard:
             sha256=sha256,
             extraction=extraction,
             license_url=license_url,
+            detector=detector,
         )

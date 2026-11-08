@@ -5,6 +5,9 @@ format = "simcc"
 input_size = [288, 384]
 confidence_threshold = 0.3
 
+[detector]
+card = "yolox_s_person"
+
 [source]
 url = "https://download.openmmlab.com/mmpose/v1/projects/rtmposev1/onnx_sdk/rtmpose-l_simcc-ucoco_dw-ucoco_270e-384x288-2438fd99_20230728.zip"
 extraction = "zip_end2end"

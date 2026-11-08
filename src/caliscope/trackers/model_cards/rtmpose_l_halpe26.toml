@@ -5,6 +5,9 @@ format = "simcc"
 input_size = [192, 256]
 confidence_threshold = 0.3
 
+[detector]
+card = "yolox_s_person"
+
 [source]
 url = "https://download.openmmlab.com/mmpose/v1/projects/rtmposev1/onnx_sdk/rtmpose-l_simcc-body7_pt-body7-halpe26_700e-256x192-2abb7558_20230605.zip"
 extraction = "zip_end2end"

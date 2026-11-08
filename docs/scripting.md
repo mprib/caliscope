@@ -23,7 +23,7 @@ The recording must include varied board positions and tilts in every camera as w
 ```python
 from pathlib import Path
 from caliscope.api import (
-    Charuco, CharucoTracker, CameraArray, CaptureVolume, ConstraintSet,
+    CameraDistance, Charuco, CharucoTracker, CameraArray, CaptureVolume, ConstraintSet,
     extract_image_points, extract_image_points_multicam,
     calibrate_intrinsics, calibrate_extrinsics, estimate_vertical,
 )
@@ -259,18 +259,54 @@ Estimate the vertical direction from the extrinsic calibration videos before you
 vertical = estimate_vertical(extrinsic_videos, cameras)
 volume = volume.oriented(up=vertical.up_per_cam)   # +Z becomes vertical
 volume = volume.scaled(CameraDistance(cam_a=0, cam_b=3, meters=4.2))
-volume = volume.grounded()                          # floor at Z=0
+volume = volume.grounded(lowest_point_height_m=0.02)
 volume = volume.centered()                          # XY origin at the camera centroid
 ```
 
-Call them in that order.
-`grounded` assumes Z is already vertical, and `centered` assumes the floor is already at zero.
+Set the vertical direction and metric scale before grounding.
+You can call `oriented` and `scaled` in either order.
+`grounded` assumes Z is vertical and its height offset is in meters.
+`centered` changes only XY, so it can follow grounding without changing floor height.
 `oriented` takes a per-camera up vector, which `estimate_vertical` produces from the video.
+
+### Set metric scale
+
+Use a measured camera baseline when you have one:
+
+```python
+volume = volume.scaled(CameraDistance(cam_a=0, cam_b=3, meters=4.2))
+```
+
+Otherwise, a Halpe26 model card can create a stature cue from a measured stature.
+Load the same card used for pose tracking, then pass its cue as the only scale source:
+
+```python
+from importlib.resources import files
+
+from caliscope import MODELS_DIR
+from caliscope.trackers.model_card import ModelCard
+
+card_path = Path(str(files("caliscope.trackers.model_cards"))) / "rtmpose_l_halpe26.toml"
+card = ModelCard.from_toml(card_path, models_dir=MODELS_DIR)
+volume = volume.scaled(card.stature_cue(meters=1.78))
+```
+
+Select the primary person before pose estimation, then use the resulting reconstruction for the cue.
+Do not combine a stature cue with a camera-distance cue in this workflow.
+
+For each complete frame, the stature cue sums heel-to-ankle, ankle-to-knee, knee-to-hip, and hip-to-shoulder distances on each side.
+It averages the two side totals, adds the distance from the shoulder midpoint to the head, and takes the median across frames.
+It applies no posture filter or correction factor.
+Frames missing any required point are skipped.
+If no complete frames remain, the cue raises `ValueError`.
+`stature_cue` also raises `ValueError` for model cards without a stature chain or whose chain names points absent from the card.
 
 ### Aligning to the floor without a board
 
 You may have one point that should align with the ground plane, such as a marker on the foot.
 The `grounded` method will shift the cameras and tracked subject such that the lowest point intersects with the ground plane.
+Supply `lowest_point_height_m` yourself when that point has a known height above the floor.
+Model cards do not provide a floor-height default.
 
 ```python
 volume = volume.grounded()
@@ -285,7 +321,7 @@ For example, a pose tracker might place its lowest point 2 cm above the bottom o
 volume = volume.grounded(lowest_point_height_m=0.02)
 ```
 
-The above will place the lowest point 2cm above the ground plane.
+The above places the lowest point 2 cm above the ground plane.
 
 Sometimes one bad 3D point appears far below the person.
 The default setting would use that point and place the rest of the reconstruction too high.

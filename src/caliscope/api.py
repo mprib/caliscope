@@ -62,7 +62,7 @@ from caliscope.core.chessboard import Chessboard
 from caliscope.core.constraints import ConstraintSet
 from caliscope.estimators.vertical import VerticalEstimate, estimate_vertical
 from caliscope.core.point_data import ImagePoints
-from caliscope.core.scale_cues import CameraDistance, DepthObservation, SegmentLength
+from caliscope.core.scale_cues import CameraDistance, DepthObservation, SegmentLength, Stature
 from caliscope.exceptions import CalibrationError
 from caliscope.export.blender_scene import write_blender_scene
 from caliscope.tracker import Tracker
@@ -116,6 +116,7 @@ __all__ = [
     # Scale cues
     "CameraDistance",
     "SegmentLength",
+    "Stature",
     "DepthObservation",
     # Result types
     "IntrinsicCalibrationOutput",

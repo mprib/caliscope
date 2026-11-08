@@ -5,6 +5,12 @@ format = "simcc"
 input_size = [192, 256]
 confidence_threshold = 0.3
 
+[stature]
+left_path = ["left_heel", "left_ankle", "left_knee", "left_hip", "left_shoulder"]
+right_path = ["right_heel", "right_ankle", "right_knee", "right_hip", "right_shoulder"]
+shoulders = ["left_shoulder", "right_shoulder"]
+head = "head"
+
 [detector]
 card = "yolox_m_person"
 

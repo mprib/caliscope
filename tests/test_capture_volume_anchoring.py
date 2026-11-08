@@ -18,7 +18,7 @@ from scipy.spatial.transform import Rotation
 from caliscope.cameras.camera_array import CameraArray, CameraData
 from caliscope.core.capture_volume import CaptureVolume
 from caliscope.core.point_data import ImagePoints, WorldPoints
-from caliscope.core.scale_cues import CameraDistance, DepthObservation, SegmentLength
+from caliscope.core.scale_cues import CameraDistance, DepthObservation, SegmentLength, Stature
 
 DEFAULT_K = np.array([[600.0, 0.0, 320.0], [0.0, 600.0, 240.0], [0.0, 0.0, 1.0]])
 
@@ -88,6 +88,37 @@ def camera_center(volume: CaptureVolume, cam_id: int) -> np.ndarray:
     return -cam.rotation.T @ cam.translation
 
 
+def _stature_rows(
+    sync_index: int, left_segments: tuple[float, ...], right_segments: tuple[float, ...], head: float
+) -> list[dict]:
+    """Create bent Halpe26 stature-chain points with known segment sums."""
+
+    directions = (
+        np.array((1.0, 0.0, 0.0)),
+        np.array((0.0, 0.0, 1.0)),
+        np.array((1.0, 0.0, 0.0)),
+        np.array((0.0, 0.0, 1.0)),
+    )
+
+    def path(origin: np.ndarray, segments: tuple[float, ...]) -> list[np.ndarray]:
+        positions = [origin]
+        for segment, direction in zip(segments, directions):
+            positions.append(positions[-1] + segment * direction)
+        return positions
+
+    left = path(np.zeros(3), left_segments)
+    right = path(np.array((100.0, 0.0, 0.0)), right_segments)
+    rows = [
+        world_row(sync_index, keypoint_id, tuple(position)) for keypoint_id, position in zip((24, 15, 13, 11, 5), left)
+    ]
+    rows.extend(
+        world_row(sync_index, keypoint_id, tuple(position)) for keypoint_id, position in zip((25, 16, 14, 12, 6), right)
+    )
+    shoulder_midpoint = (left[-1] + right[-1]) / 2.0
+    rows.append(world_row(sync_index, 17, tuple(shoulder_midpoint + np.array((0.0, head, 0.0)))))
+    return rows
+
+
 # ---------------------------------------------------------------------------
 # Scale
 # ---------------------------------------------------------------------------
@@ -130,6 +161,52 @@ def test_single_segment_length_recovers_scale():
     p11 = df[(df["sync_index"] == 0) & (df["keypoint_id"] == 11)][["x_coord", "y_coord", "z_coord"]].to_numpy()[0]
     recovered = float(np.linalg.norm(p10 - p11))
     assert abs(recovered - 2.5) < 1e-10
+
+
+def test_stature_recovers_scale_from_bilateral_chain_median():
+    cameras = {
+        0: make_camera(0, np.eye(3), np.array([0.0, 0.0, 0.0])),
+        1: make_camera(1, np.eye(3), np.array([10.0, 0.0, 0.0])),
+    }
+    # Frame totals: ((10 + 20) / 2 + 4) = 19 and ((20 + 30) / 2 + 6) = 31.
+    # The incomplete final frame is ignored, leaving a median arbitrary stature of 25.
+    rows = _stature_rows(0, (1.0, 2.0, 3.0, 4.0), (2.0, 4.0, 6.0, 8.0), 4.0)
+    rows.extend(_stature_rows(1, (2.0, 4.0, 6.0, 8.0), (3.0, 6.0, 9.0, 12.0), 6.0))
+    incomplete = _stature_rows(2, (3.0, 6.0, 9.0, 12.0), (4.0, 8.0, 12.0, 16.0), 8.0)
+    rows.extend(row for row in incomplete if row["keypoint_id"] != 17)
+    volume = make_volume(cameras, rows)
+
+    cue = Stature(
+        left_path=(24, 15, 13, 11, 5),
+        right_path=(25, 16, 14, 12, 6),
+        shoulder_ids=(5, 6),
+        head=17,
+        meters=2.5,
+    )
+    scaled = volume.scaled(cue)
+
+    assert np.linalg.norm(camera_center(scaled, 0) - camera_center(scaled, 1)) == pytest.approx(1.0)
+
+
+def test_stature_requires_a_complete_frame_and_unambiguous_object():
+    cameras = {
+        0: make_camera(0, np.eye(3), np.array([0.0, 0.0, 0.0])),
+        1: make_camera(1, np.eye(3), np.array([1.0, 0.0, 0.0])),
+    }
+    incomplete = [
+        row for row in _stature_rows(0, (1.0, 2.0, 3.0, 4.0), (2.0, 4.0, 6.0, 8.0), 4.0) if row["keypoint_id"] != 17
+    ]
+    cue = Stature((24, 15, 13, 11, 5), (25, 16, 14, 12, 6), (5, 6), 17, meters=1.78)
+    with pytest.raises(ValueError, match="no complete frames"):
+        make_volume(cameras, incomplete).scaled(cue)
+
+    second_object = [
+        dict(row, object_id=1) for row in _stature_rows(1, (1.0, 2.0, 3.0, 4.0), (2.0, 4.0, 6.0, 8.0), 4.0)
+    ]
+    with pytest.raises(ValueError, match="multiple reconstructed object_ids"):
+        make_volume(cameras, _stature_rows(0, (1.0, 2.0, 3.0, 4.0), (2.0, 4.0, 6.0, 8.0), 4.0) + second_object).scaled(
+            cue
+        )
 
 
 def test_single_depth_observation_recovers_scale():

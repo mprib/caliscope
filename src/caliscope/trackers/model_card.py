@@ -5,6 +5,7 @@ from pathlib import Path
 
 import rtoml
 
+from caliscope.core.scale_cues import Stature
 from caliscope.tracker import Segment, WireFrameView
 
 logger = logging.getLogger(__name__)
@@ -130,6 +131,44 @@ def _find_detector_card(stem: str, card_path: Path) -> Path:
 
 
 @dataclass(frozen=True, slots=True)
+class StatureChain:
+    """Named pose-model keypoints used to estimate stature."""
+
+    left_path: tuple[str, ...]
+    right_path: tuple[str, ...]
+    shoulders: tuple[str, str]
+    head: str
+
+
+def _parse_stature_chain(config: dict, path: Path) -> StatureChain | None:
+    section = config.get("stature")
+    if section is None:
+        return None
+    for field in ("left_path", "right_path", "shoulders", "head"):
+        if field not in section:
+            raise ValueError(f"Stature section in {path} is missing required field '{field}'.")
+
+    def names(field: str, expected_length: int | None = None) -> tuple[str, ...]:
+        value = section[field]
+        if not isinstance(value, list) or (expected_length is not None and len(value) != expected_length):
+            expectation = f"a {expected_length}-element list" if expected_length is not None else "a list"
+            raise ValueError(f"Stature field '{field}' in {path} must be {expectation}.")
+        if not all(isinstance(name, str) for name in value):
+            raise ValueError(f"Stature field '{field}' in {path} must contain point names.")
+        return tuple(value)
+
+    left_path = names("left_path")
+    right_path = names("right_path")
+    if len(left_path) < 2 or len(right_path) < 2:
+        raise ValueError(f"Stature paths in {path} must each contain at least two point names.")
+    shoulders = names("shoulders", expected_length=2)
+    head = section["head"]
+    if not isinstance(head, str):
+        raise ValueError(f"Stature field 'head' in {path} must be a point name.")
+    return StatureChain(left_path, right_path, (shoulders[0], shoulders[1]), head)
+
+
+@dataclass(frozen=True, slots=True)
 class ModelCard:
     """Configuration for an ONNX tracking model.
 
@@ -153,6 +192,7 @@ class ModelCard:
     extraction: str | None = None  # "zip_end2end" or "direct"
     license_url: str | None = None
     detector: DetectorCard | None = None  # None: pose runs once on the full frame
+    stature: StatureChain | None = None
 
     @property
     def keypoint_id_to_name(self) -> dict[int, str]:
@@ -179,6 +219,23 @@ class ModelCard:
         if self.detector is not None:
             cards.append(self.detector)
         return [card for card in cards if not card.onnx_exists]
+
+    def stature_cue(self, meters: float) -> Stature:
+        """Create this card's stature scale cue for a measured stature in meters."""
+        if self.stature is None:
+            raise ValueError(f"Model card '{self.name}' does not define a stature chain.")
+        names = (*self.stature.left_path, *self.stature.right_path, *self.stature.shoulders, self.stature.head)
+        missing = sorted(set(names) - self.point_name_to_id.keys())
+        if missing:
+            raise ValueError(f"Model card '{self.name}' stature chain names unknown keypoints: {missing}.")
+        shoulder_ids = tuple(self.point_name_to_id[name] for name in self.stature.shoulders)
+        return Stature(
+            left_path=tuple(self.point_name_to_id[name] for name in self.stature.left_path),
+            right_path=tuple(self.point_name_to_id[name] for name in self.stature.right_path),
+            shoulder_ids=(shoulder_ids[0], shoulder_ids[1]),
+            head=self.point_name_to_id[self.stature.head],
+            meters=meters,
+        )
 
     @staticmethod
     def from_toml(path: Path, models_dir: Path | None = None) -> "ModelCard":
@@ -270,6 +327,7 @@ class ModelCard:
             resolved_path = raw_model_path
 
         source_url, license_info, file_size_mb, sha256, extraction, license_url = _parse_source(config, path)
+        stature = _parse_stature_chain(config, path)
 
         # Parse optional [detector] section naming a detector card
         detector = None
@@ -297,4 +355,5 @@ class ModelCard:
             extraction=extraction,
             license_url=license_url,
             detector=detector,
+            stature=stature,
         )

@@ -23,7 +23,7 @@ The recording must include varied board positions and tilts in every camera as w
 ```python
 from pathlib import Path
 from caliscope.api import (
-    Charuco, CharucoTracker, CameraArray, CaptureVolume, ConstraintSet,
+    CameraDistance, Charuco, CharucoTracker, CameraArray, CaptureVolume, ConstraintSet,
     extract_image_points, extract_image_points_multicam,
     calibrate_intrinsics, calibrate_extrinsics, estimate_vertical,
 )
@@ -259,18 +259,54 @@ Estimate the vertical direction from the extrinsic calibration videos before you
 vertical = estimate_vertical(extrinsic_videos, cameras)
 volume = volume.oriented(up=vertical.up_per_cam)   # +Z becomes vertical
 volume = volume.scaled(CameraDistance(cam_a=0, cam_b=3, meters=4.2))
-volume = volume.grounded()                          # floor at Z=0
+volume = volume.grounded(lowest_point_height_m=0.02)
 volume = volume.centered()                          # XY origin at the camera centroid
 ```
 
-Call them in that order.
-`grounded` assumes Z is already vertical, and `centered` assumes the floor is already at zero.
+Set the vertical direction and metric scale before grounding.
+You can call `oriented` and `scaled` in either order.
+`grounded` assumes Z is vertical and its height offset is in meters.
+`centered` changes only XY, so it can follow grounding without changing floor height.
 `oriented` takes a per-camera up vector, which `estimate_vertical` produces from the video.
+
+### Set metric scale
+
+Use a measured camera baseline when you have one:
+
+```python
+volume = volume.scaled(CameraDistance(cam_a=0, cam_b=3, meters=4.2))
+```
+
+Otherwise, a Halpe26 model card can create a stature cue from a measured stature.
+Load the same card used for pose tracking, then pass its cue as the only scale source:
+
+```python
+from importlib.resources import files
+
+from caliscope import MODELS_DIR
+from caliscope.trackers.model_card import ModelCard
+
+card_path = Path(str(files("caliscope.trackers.model_cards"))) / "rtmpose_l_halpe26.toml"
+card = ModelCard.from_toml(card_path, models_dir=MODELS_DIR)
+volume = volume.scaled(card.stature_cue(meters=1.78))
+```
+
+Select the primary person before pose estimation, then use the resulting reconstruction for the cue.
+Do not combine a stature cue with a camera-distance cue in this workflow.
+
+For each complete frame, the stature cue sums heel-to-ankle, ankle-to-knee, knee-to-hip, and hip-to-shoulder distances on each side.
+It averages the two side totals, adds the distance from the shoulder midpoint to the head, and takes the median across frames.
+It applies no posture filter or correction factor.
+Frames missing any required point are skipped.
+If no complete frames remain, the cue raises `ValueError`.
+`stature_cue` also raises `ValueError` for model cards without a stature chain or whose chain names points absent from the card.
 
 ### Aligning to the floor without a board
 
 You may have one point that should align with the ground plane, such as a marker on the foot.
 The `grounded` method will shift the cameras and tracked subject such that the lowest point intersects with the ground plane.
+Supply `lowest_point_height_m` yourself when that point has a known height above the floor.
+Model cards do not provide a floor-height default.
 
 ```python
 volume = volume.grounded()
@@ -285,7 +321,7 @@ For example, a pose tracker might place its lowest point 2 cm above the bottom o
 volume = volume.grounded(lowest_point_height_m=0.02)
 ```
 
-The above will place the lowest point 2cm above the ground plane.
+The above places the lowest point 2 cm above the ground plane.
 
 Sometimes one bad 3D point appears far below the person.
 The default setting would use that point and place the rest of the reconstruction too high.
@@ -332,6 +368,60 @@ volume.camera_array.to_aniposelib_toml("camera_array_aniposelib.toml")
 Only posed cameras are written, with rotations as Rodrigues vectors.
 `save` leaves this out on purpose.
 Its directory stays a self-contained snapshot of the calibration, not a mix of snapshot and handoff files.
+
+## Track a primary person before pose estimation
+
+For human recordings, you can select one person's box track before estimating keypoints:
+
+```python
+from caliscope.api import BoxTracks, estimate_keypoints, track_people
+from caliscope.recording.synchronized_timestamps import SynchronizedTimestamps
+
+timestamps = SynchronizedTimestamps.from_anchor_frames(videos, {cam_id: 0 for cam_id in videos})
+box_tracks = track_people(videos, pose_tracker.detector, timestamps=timestamps, frame_step=4)
+subject_ids = box_tracks.primary_track_ids()
+subject_boxes = box_tracks.filter_to_tracks(subject_ids)
+usable_boxes = subject_boxes.exclude_edge_boxes(margin_px=24)
+image_points = estimate_keypoints(
+    videos, pose_tracker, usable_boxes, min_confidence=pose_tracker.card.confidence_threshold
+)
+```
+
+`BoxTracks` stores observed boxes, camera-local track IDs, source frame indices, image dimensions and inference rotations.
+The supplied `SynchronizedTimestamps` object determines `sync_index` and `frame_time`.
+`frame_index` remains the decoded source-frame index.
+With `from_anchor_frames`, a frame's time is `(frame_index - anchor_frame) / FPS` for its camera.
+Frames before the anchor have negative times.
+Choose anchors known to show the same instant across cameras.
+This workflow does not infer timing offsets or normalize video durations.
+`primary_track_ids` chooses the track whose boxes cover the most image area in each camera, counting each pixel once, and returns a camera-to-track-ID mapping.
+Filtering returns a new container, leaving the original available for inspection.
+`exclude_edge_boxes` takes a margin in original image pixels, with boxes touching that margin excluded.
+The keypoint pass uses the saved frame correspondence and rotations; it does not independently resynchronize the videos.
+The supplied detector and pose tracker are shared across camera workers and must support concurrent inference; each camera has its own box-association state.
+
+Use `box_tracks.to_csv(path)` and `BoxTracks.from_csv(path)` to save and reload the box stage.
+Empty results retain their schema; these new entry points return empty containers when nothing is observed.
+No source gaps are filled.
+The generic extraction entry points retain their existing behavior.
+See [markerless calibration](markerless_calibration.md) for model setup, recording assumptions and the complete workflow.
+
+## Triangulate with calibrated cameras
+
+To reconstruct detected image points with known camera poses:
+
+```python
+world_points = image_points.triangulate(cameras, min_views=3)
+world_points.to_csv("world_points.csv")
+```
+
+`min_views` is the minimum number of distinct posed cameras observing each keypoint at a synchronized moment.
+The default is two.
+Points below the minimum are omitted, leaving gaps in the reconstruction.
+This setting applies to this scripting call; it does not change the GUI's reconstruction settings.
+
+For objects declared static with `static_object_ids`, observations are pooled across frames and the minimum counts distinct cameras over those pooled observations.
+Repeated observations from one camera count as one view.
 
 ## Calibrating without intrinsics (experimental)
 

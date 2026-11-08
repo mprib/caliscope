@@ -33,6 +33,19 @@ class SegmentLength:
 
 
 @dataclass(frozen=True)
+class Stature:
+    """Measured stature recovered from a pose-model-defined body chain."""
+
+    left_path: tuple[int, ...]
+    right_path: tuple[int, ...]
+    shoulder_ids: tuple[int, int]
+    head: int
+    meters: float
+    sigma_m: float | None = None
+    object_id: int | None = None
+
+
+@dataclass(frozen=True)
 class DepthObservation:
     """Metric depth of one keypoint in one camera at one moment."""
 

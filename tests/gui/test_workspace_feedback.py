@@ -147,7 +147,7 @@ def test_open_extract_tab_follows_extrinsic_videos(coordinator: WorkspaceCoordin
     assert label.isHidden()
     assert tab._presenter.state == MultiCameraProcessingState.READY
     assert action_button.isEnabled()
-    assert _camera_card_ids(tab) == [0, 1, 2]
+    qtbot.waitUntil(lambda: _camera_card_ids(tab) == [0, 1, 2])
     tab.cleanup()
 
 

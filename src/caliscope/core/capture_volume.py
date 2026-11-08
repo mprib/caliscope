@@ -35,7 +35,7 @@ from caliscope.core.scale_accuracy import (
     VolumetricScaleReport,
 )
 from caliscope.core.coordinate_frame import world_basis_from_up_and_forward
-from caliscope.core.scale_cues import CameraDistance, DepthObservation, SegmentLength
+from caliscope.core.scale_cues import CameraDistance, DepthObservation, SegmentLength, Stature
 
 import pandas as pd
 
@@ -1061,7 +1061,7 @@ class CaptureVolume:
             raise ValueError(f"Camera {cam_id} has no pose; cannot compute its center.")
         return -cam.rotation.T @ cam.translation
 
-    def scaled(self, *cues: CameraDistance | SegmentLength | DepthObservation) -> "CaptureVolume":
+    def scaled(self, *cues: CameraDistance | SegmentLength | Stature | DepthObservation) -> "CaptureVolume":
         """Apply uniform metric scale recovered from one or more metric cues.
 
         A single cue sets scale exactly (metric / arbitrary). Multiple cues are
@@ -1150,7 +1150,7 @@ class CaptureVolume:
             _optimization_status=self._optimization_status,
         )
 
-    def _compile_cue(self, cue: CameraDistance | SegmentLength) -> tuple[float, float, float]:
+    def _compile_cue(self, cue: CameraDistance | SegmentLength | Stature) -> tuple[float, float, float]:
         """Reduce a strict (user-typed) cue to (d_arbitrary, d_metric, sigma_m).
 
         Raises ``ValueError`` on any unresolvable reference -- these cues are few
@@ -1183,7 +1183,58 @@ class CaptureVolume:
             d_arb = float(np.median(distances))
             return d_arb, float(cue.meters), float(cue.sigma_m)
 
+        if isinstance(cue, Stature):
+            return self._compile_stature_cue(cue)
+
         raise TypeError(f"Unknown scale cue type: {type(cue).__name__}")
+
+    def _compile_stature_cue(self, cue: Stature) -> tuple[float, float, float]:
+        """Reduce a stature chain to its median complete-frame length."""
+        world_df = self.world_points.df
+        object_ids = sorted(int(object_id) for object_id in world_df["object_id"].unique())
+        if cue.object_id is None:
+            if len(object_ids) != 1:
+                raise ValueError(
+                    f"Stature found multiple reconstructed object_ids {object_ids}; specify object_id explicitly."
+                )
+            object_id = object_ids[0]
+        else:
+            object_id = cue.object_id
+            if object_id not in object_ids:
+                raise ValueError(f"Stature references object_id {object_id}, which has no world points.")
+
+        points = world_df[world_df["object_id"] == object_id]
+        required_ids = set(cue.left_path) | set(cue.right_path) | set(cue.shoulder_ids) | {cue.head}
+
+        coords = ["x_coord", "y_coord", "z_coord"]
+        chain_points = points[points["keypoint_id"].isin(required_ids)]
+        if chain_points.duplicated(subset=["sync_index", "keypoint_id"]).any():
+            raise ValueError(f"Stature found duplicate keypoints for object_id {object_id} in one or more frames.")
+        wide = chain_points.pivot(index="sync_index", columns="keypoint_id", values=coords)
+
+        def locations(keypoint_id: int) -> NDArray:
+            columns = [(coord, keypoint_id) for coord in coords]
+            if not all(column in wide.columns for column in columns):
+                return np.full((len(wide), 3), np.nan)
+            return wide.loc[:, columns].to_numpy(dtype=np.float64)
+
+        def path_length(path: tuple[int, ...]) -> NDArray:
+            length = np.zeros(len(wide), dtype=np.float64)
+            for a, b in zip(path, path[1:]):
+                length += np.linalg.norm(locations(a) - locations(b), axis=1)
+            return length
+
+        left = path_length(cue.left_path)
+        right = path_length(cue.right_path)
+        shoulder_midpoint = (locations(cue.shoulder_ids[0]) + locations(cue.shoulder_ids[1])) / 2.0
+        head = np.linalg.norm(shoulder_midpoint - locations(cue.head), axis=1)
+        complete_lengths = (left + right) / 2.0 + head
+        complete_lengths = complete_lengths[np.isfinite(complete_lengths)]
+        if complete_lengths.size == 0:
+            raise ValueError(f"Stature found no complete frames for object_id {object_id}.")
+
+        sigma_m = cue.sigma_m if cue.sigma_m is not None else cue.meters * 0.01
+        return float(np.median(complete_lengths)), float(cue.meters), float(sigma_m)
 
     def _compile_depth_cue(self, cue: DepthObservation) -> tuple[float, float, float] | str:
         """Reduce a depth cue to (d_arbitrary, d_metric, sigma_m), or a skip reason.

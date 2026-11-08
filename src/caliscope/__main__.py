@@ -4,7 +4,6 @@ import faulthandler
 import os
 import sys
 import tempfile
-from pathlib import Path
 
 # Write faulthandler trace to a file that survives the segfault
 # (pipe buffers don't flush on SIGSEGV)
@@ -14,33 +13,6 @@ _faulthandler_file = open(  # noqa: SIM115
 faulthandler.enable(file=_faulthandler_file, all_threads=True)
 
 from caliscope import MODELS_DIR  # noqa: E402
-
-
-def _seed_default_model_cards(models_dir: "Path") -> None:
-    """Copy shipped model card templates on first run.
-
-    Trigger: MODELS_DIR does not exist yet. If it already exists (even if
-    empty), the user owns that directory and we do not touch it.
-    """
-    import importlib.resources
-    import logging
-
-    logger = logging.getLogger(__name__)
-
-    if models_dir.exists():
-        return
-
-    models_dir.mkdir(parents=True, exist_ok=True)
-
-    package_cards = importlib.resources.files("caliscope.trackers.model_cards")
-    for resource in package_cards.iterdir():
-        if resource.name.endswith(".toml"):
-            try:
-                dest = models_dir / resource.name
-                dest.write_text(resource.read_text())
-                logger.info("Seeded default model card: %s", resource.name)
-            except OSError:
-                logger.warning("Failed to seed model card: %s", resource.name, exc_info=True)
 
 
 def CLI_parser():
@@ -70,8 +42,6 @@ def CLI_parser():
     setup_logging()
     initialize_app()
 
-    # Seed default model cards on first run, then scan
-    _seed_default_model_cards(MODELS_DIR)
     tracker_registry.scan_onnx_models(MODELS_DIR)
 
     import argparse

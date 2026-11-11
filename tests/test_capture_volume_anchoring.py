@@ -163,6 +163,27 @@ def test_single_segment_length_recovers_scale():
     assert abs(recovered - 2.5) < 1e-10
 
 
+def test_segment_length_measures_the_named_object():
+    cameras = {
+        0: make_camera(0, np.eye(3), np.array([0.0, 0.0, 0.0])),
+        1: make_camera(1, np.eye(3), np.array([3.0, 0.0, 0.0])),
+    }
+    # The same segment is 1.0 BA-units on object 0 and 2.0 on object 1.
+    rows = [
+        world_row(0, 10, (0.0, 0.0, 0.0)),
+        world_row(0, 11, (0.0, 0.0, 1.0)),
+        world_row(0, 10, (1.0, 0.0, 0.0), object_id=1),
+        world_row(0, 11, (1.0, 0.0, 2.0), object_id=1),
+    ]
+    volume = make_volume(cameras, rows)
+
+    scaled = volume.scaled(SegmentLength(keypoint_id_a=10, keypoint_id_b=11, meters=4.0, object_id=1))
+
+    df = scaled.world_points.df
+    object_1 = df[df["object_id"] == 1].sort_values("keypoint_id")[["x_coord", "y_coord", "z_coord"]].to_numpy()
+    assert float(np.linalg.norm(object_1[0] - object_1[1])) == pytest.approx(4.0)
+
+
 def test_stature_recovers_scale_from_bilateral_chain_median():
     cameras = {
         0: make_camera(0, np.eye(3), np.array([0.0, 0.0, 0.0])),
@@ -203,10 +224,8 @@ def test_stature_requires_a_complete_frame_and_unambiguous_object():
     second_object = [
         dict(row, object_id=1) for row in _stature_rows(1, (1.0, 2.0, 3.0, 4.0), (2.0, 4.0, 6.0, 8.0), 4.0)
     ]
-    with pytest.raises(ValueError, match="multiple reconstructed object_ids"):
-        make_volume(cameras, _stature_rows(0, (1.0, 2.0, 3.0, 4.0), (2.0, 4.0, 6.0, 8.0), 4.0) + second_object).scaled(
-            cue
-        )
+    with pytest.raises(ValueError, match="references object_id 0, which has no world points"):
+        make_volume(cameras, second_object).scaled(cue)
 
 
 def test_single_depth_observation_recovers_scale():

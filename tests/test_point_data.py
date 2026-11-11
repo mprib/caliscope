@@ -1,11 +1,17 @@
 # tests/test_point_data.py
 
+from collections.abc import Callable
 from pathlib import Path
 
 import pandas as pd
 import pytest
 
+from caliscope.core.calibrate_extrinsics import calibrate_extrinsics
+from caliscope.core.capture_volume import CaptureVolume
 from caliscope.core.point_data import ImagePoints, WorldPoints
+from caliscope.exceptions import CalibrationError, CalibrationWarning
+from caliscope.synthetic.scene_factories import default_ring_scene
+from caliscope.synthetic.synthetic_scene import SyntheticScene
 
 
 # --- Helper functions for data generation ---
@@ -128,6 +134,82 @@ def test_xydata_fill_gaps():
         .reset_index(drop=True)
     )
     pd.testing.assert_frame_equal(expected_data, result_df)
+
+
+def test_untracked_points_have_no_track_id_after_csv(valid_xy_df, tmp_path: Path):
+    csv_path = tmp_path / "xy.csv"
+    ImagePoints(valid_xy_df).to_csv(csv_path)
+
+    assert "track_id" not in ImagePoints.from_csv(csv_path).df.columns
+
+
+def test_tracked_points_keep_int64_track_id_after_csv(valid_xy_df, tmp_path: Path):
+    valid_xy_df["track_id"] = [4, 4, 7, 7]
+    csv_path = tmp_path / "xy.csv"
+    ImagePoints(valid_xy_df).to_csv(csv_path)
+
+    loaded = ImagePoints.from_csv(csv_path).df
+    assert loaded["track_id"].dtype == "int64"
+    assert loaded["track_id"].tolist() == [4, 4, 7, 7]
+
+
+def test_track_id_with_missing_value_rejected(valid_xy_df):
+    valid_xy_df["track_id"] = [4, None, 7, 7]
+
+    with pytest.raises(ValueError, match="track_id"):
+        ImagePoints(valid_xy_df)
+
+
+def test_negative_object_id_shared_by_two_cameras_rejected(valid_xy_df):
+    valid_xy_df["object_id"] = -1
+
+    with pytest.raises(ValueError, match="span more than one cam_id"):
+        ImagePoints(valid_xy_df)
+
+
+# --- Mixed-ID rule ---
+
+ScenePointsConsumer = Callable[[ImagePoints, SyntheticScene], object]
+
+CONSUMERS: dict[str, ScenePointsConsumer] = {
+    "triangulate": lambda points, scene: points.triangulate(scene.camera_array),
+    "bootstrap": lambda points, scene: CaptureVolume.bootstrap(points, scene.intrinsics_only_cameras()),
+    "calibrate_extrinsics": lambda points, scene: calibrate_extrinsics(
+        points, scene.intrinsics_only_cameras(), None, refine_intrinsics=False
+    ),
+}
+
+
+@pytest.fixture(scope="module")
+def ring_scene() -> SyntheticScene:
+    return default_ring_scene()
+
+
+@pytest.mark.parametrize("consumer", list(CONSUMERS.values()), ids=list(CONSUMERS))
+def test_entirely_unlinked_points_raise(consumer: ScenePointsConsumer, ring_scene: SyntheticScene):
+    df = ring_scene.image_points_noisy.df
+    df["object_id"] = -(df["cam_id"] + 1)
+    df["track_id"] = df["cam_id"]
+
+    with pytest.raises(CalibrationError, match="associate_tracks"):
+        consumer(ImagePoints(df), ring_scene)
+
+
+@pytest.mark.parametrize("consumer", list(CONSUMERS.values()), ids=list(CONSUMERS))
+def test_mixed_points_warn_once_with_the_unlinked_count(consumer: ScenePointsConsumer, ring_scene: SyntheticScene):
+    linked = ring_scene.image_points_noisy.df
+    linked["track_id"] = linked["cam_id"]
+    unlinked = linked[linked["cam_id"] == linked["cam_id"].min()].copy()
+    unlinked["object_id"] = -1
+    unlinked["track_id"] = 99
+    points = ImagePoints(pd.concat([linked, unlinked], ignore_index=True))
+
+    with pytest.warns(CalibrationWarning) as record:
+        consumer(points, ring_scene)
+
+    calibration_warnings = [w for w in record if issubclass(w.category, CalibrationWarning)]
+    assert len(calibration_warnings) == 1
+    assert f"dropped {len(unlinked)} of {len(points.df)}" in str(calibration_warnings[0].message)
 
 
 # --- WorldPoints Tests ---

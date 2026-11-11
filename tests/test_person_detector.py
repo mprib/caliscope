@@ -59,7 +59,7 @@ def _predictions(*detections: tuple[float, float, float]) -> np.ndarray:
 def test_people_discards_box_entirely_in_letterbox_padding():
     detector = _detector(_predictions((560, 0.9, 100)))
 
-    boxes, scores = detector.people(np.zeros((480, 640, 3), dtype=np.uint8))
+    boxes, scores = detector.detect(np.zeros((480, 640, 3), dtype=np.uint8))
 
     assert boxes.shape == (0, 4)
     assert scores.shape == (0,)
@@ -70,7 +70,7 @@ def test_people_discards_box_entirely_in_letterbox_padding():
 def test_people_keeps_partial_edge_box_and_its_score():
     detector = _detector(_predictions((560, 0.95, 100), (475, 0.8, 100)))
 
-    boxes, scores = detector.people(np.zeros((480, 640, 3), dtype=np.uint8))
+    boxes, scores = detector.detect(np.zeros((480, 640, 3), dtype=np.uint8))
 
     np.testing.assert_allclose(boxes, [[270, 465, 370, 480]])
     np.testing.assert_allclose(scores, [0.8])

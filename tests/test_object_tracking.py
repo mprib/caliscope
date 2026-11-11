@@ -1,13 +1,13 @@
-"""Focused checks for box-first person tracking helpers and boundaries."""
+"""Focused checks for box-first object tracking helpers and boundaries."""
 
 import numpy as np
 import pandas as pd
 import pytest
 
-from caliscope.api import track_people as public_track_people
+from caliscope.api import track_objects as public_track_objects
+from caliscope.core import object_tracking
 from caliscope.core.box_tracks import BoxTracks
-from caliscope.recording import person_tracking, synchronized_timestamps
-from caliscope.recording.person_tracking import (
+from caliscope.core.object_tracking import (
     _empty_image_points,
     _rotate_box,
     _unrotate_keypoints,
@@ -15,6 +15,7 @@ from caliscope.recording.person_tracking import (
     _validate_selected_tracks,
     estimate_keypoints,
 )
+from caliscope.recording import synchronized_timestamps
 from caliscope.recording.synchronized_timestamps import SynchronizedTimestamps
 
 
@@ -101,7 +102,7 @@ def test_keypoint_estimation_requires_a_finite_nonnegative_cutoff(min_confidence
         estimate_keypoints({}, object(), tracks, min_confidence=min_confidence)
 
 
-def test_track_people_records_source_coordinates_and_frame_metadata(tmp_path, monkeypatch):
+def test_track_objects_records_source_coordinates_and_frame_metadata(tmp_path, monkeypatch):
     """Detection uses rotated pixels but the persisted record uses source pixels."""
 
     class _Source:
@@ -125,7 +126,7 @@ def test_track_people_records_source_coordinates_and_frame_metadata(tmp_path, mo
         def __init__(self):
             self.min_scores = []
 
-        def people(self, frame, min_score=None):
+        def detect(self, frame, min_score=None):
             self.min_scores.append(min_score)
             return np.array([[20, 10, 80, 40]], dtype=np.float32), np.array([0.9], dtype=np.float32)
 
@@ -133,10 +134,10 @@ def test_track_people_records_source_coordinates_and_frame_metadata(tmp_path, mo
     video.touch()
     detector = _Detector()
     monkeypatch.setattr(synchronized_timestamps, "read_video_properties", lambda _path: {"fps": 4.0, "frame_count": 5})
-    monkeypatch.setattr(person_tracking, "FrameSource", _Source)
+    monkeypatch.setattr(object_tracking, "FrameSource", _Source)
     timestamps = SynchronizedTimestamps.from_anchor_frames({0: video}, {0: 0})
 
-    tracks = person_tracking.track_people({0: video}, detector, timestamps=timestamps, rotation_counts={0: 1}).df
+    tracks = object_tracking.track_objects({0: video}, detector, timestamps=timestamps, rotation_counts={0: 1}).df
 
     assert detector.min_scores == [0.1]
     assert tracks.loc[0, ["sync_index", "frame_index", "frame_time", "rotation_count"]].tolist() == [4, 4, 1.0, 1]
@@ -145,7 +146,7 @@ def test_track_people_records_source_coordinates_and_frame_metadata(tmp_path, mo
     )
 
 
-def test_track_people_leaves_a_length_difference_at_the_end(tmp_path, monkeypatch):
+def test_track_objects_leaves_a_length_difference_at_the_end(tmp_path, monkeypatch):
     """A shorter video drops out at its end and shifts no earlier frame."""
 
     class _Source:
@@ -167,7 +168,7 @@ def test_track_people_leaves_a_length_difference_at_the_end(tmp_path, monkeypatc
             pass
 
     class _Detector:
-        def people(self, _frame, min_score=None):
+        def detect(self, _frame, min_score=None):
             return np.array([[1, 2, 10, 12]], dtype=np.float32), np.array([0.9], dtype=np.float32)
 
     videos = {0: tmp_path / "cam_0.mp4", 1: tmp_path / "cam_1.mp4"}
@@ -178,10 +179,10 @@ def test_track_people_leaves_a_length_difference_at_the_end(tmp_path, monkeypatc
         videos[1]: {"fps": 10.0, "frame_count": 3},
     }
     monkeypatch.setattr(synchronized_timestamps, "read_video_properties", properties.__getitem__)
-    monkeypatch.setattr(person_tracking, "FrameSource", _Source)
+    monkeypatch.setattr(object_tracking, "FrameSource", _Source)
     timestamps = SynchronizedTimestamps.from_anchor_frames(videos, {0: 0, 1: 0})
 
-    tracks = public_track_people(videos, _Detector(), timestamps=timestamps, frame_step=2, progress=None).df
+    tracks = public_track_objects(videos, _Detector(), timestamps=timestamps, frame_step=2, progress=None).df
 
     by_camera = {cam_id: group.sort_values("frame_index") for cam_id, group in tracks.groupby("cam_id")}
     assert by_camera[0][["sync_index", "frame_index"]].values.tolist() == [[0, 0], [2, 2], [4, 4]]
@@ -190,7 +191,7 @@ def test_track_people_leaves_a_length_difference_at_the_end(tmp_path, monkeypatc
     assert by_camera[1]["frame_time"].tolist() == pytest.approx([0.0, 0.2])
 
 
-def test_track_people_rejects_a_camera_absent_from_timestamps(tmp_path, monkeypatch):
+def test_track_objects_rejects_a_camera_absent_from_timestamps(tmp_path, monkeypatch):
     video_0, video_1 = tmp_path / "cam_0.mp4", tmp_path / "cam_1.mp4"
     video_0.touch()
     video_1.touch()
@@ -198,7 +199,7 @@ def test_track_people_rejects_a_camera_absent_from_timestamps(tmp_path, monkeypa
     timestamps = SynchronizedTimestamps.from_anchor_frames({0: video_0}, {0: 0})
 
     with pytest.raises(ValueError, match="no entry for cameras"):
-        public_track_people({0: video_0, 1: video_1}, object(), timestamps=timestamps, progress=None)
+        public_track_objects({0: video_0, 1: video_1}, object(), timestamps=timestamps, progress=None)
 
 
 @pytest.mark.parametrize("rotation_count", [1, 2, -1])
@@ -206,7 +207,7 @@ def test_keypoint_unrotation_uses_pixel_centres_from_rotated_image(rotation_coun
     """A coloured source pixel is returned to its exact source index."""
     source = np.zeros((5, 7, 3), dtype=np.uint8)
     source[2, 4] = (17, 83, 201)
-    rotated = person_tracking.apply_rotation(source, rotation_count)
+    rotated = object_tracking.apply_rotation(source, rotation_count)
     rotated_y, rotated_x = np.argwhere((rotated == (17, 83, 201)).all(axis=2))[0]
 
     restored = _unrotate_keypoints(
@@ -231,15 +232,15 @@ def test_keypoint_estimation_rejects_box_frame_missing_from_video(tmp_path, monk
         def close(self):
             pass
 
-    class _PoseTracker:
+    class _KeypointTracker:
         pixel_format = None
 
     video = tmp_path / "cam_0.mp4"
     video.touch()
-    monkeypatch.setattr(person_tracking, "FrameSource", _Source)
+    monkeypatch.setattr(object_tracking, "FrameSource", _Source)
 
     with pytest.raises(ValueError, match="frames unavailable"):
-        estimate_keypoints({0: video}, _PoseTracker(), _box_tracks([_row()]), min_confidence=0)
+        estimate_keypoints({0: video}, _KeypointTracker(), _box_tracks([_row()]), min_confidence=0)
 
 
 def test_keypoint_estimation_rejects_changed_source_geometry(tmp_path, monkeypatch):
@@ -257,12 +258,12 @@ def test_keypoint_estimation_rejects_changed_source_geometry(tmp_path, monkeypat
         def close(self):
             pass
 
-    class _PoseTracker:
+    class _KeypointTracker:
         pixel_format = None
 
     video = tmp_path / "cam_0.mp4"
     video.touch()
-    monkeypatch.setattr(person_tracking, "FrameSource", _Source)
+    monkeypatch.setattr(object_tracking, "FrameSource", _Source)
 
     with pytest.raises(ValueError, match="image dimensions"):
-        estimate_keypoints({0: video}, _PoseTracker(), _box_tracks([_row()]), min_confidence=0)
+        estimate_keypoints({0: video}, _KeypointTracker(), _box_tracks([_row()]), min_confidence=0)

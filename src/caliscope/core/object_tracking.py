@@ -1,7 +1,7 @@
-"""Box-first person selection for synchronized recordings.
+"""Box tracking and box-limited keypoint estimation for synchronized recordings.
 
-This module keeps detection, camera-local association, and pose estimation as
-separate passes.  Boxes are stored in the original video coordinate system so
+This module keeps detection, camera-local box tracking, and keypoint estimation
+as separate passes.  Boxes are stored in the original video coordinate system so
 they can be inspected and persisted without depending on inference rotation.
 """
 
@@ -27,11 +27,11 @@ if TYPE_CHECKING:
     from caliscope.recording.synchronized_timestamps import SynchronizedTimestamps
 
 
-class PersonDetector(Protocol):
-    def people(self, frame: np.ndarray, min_score: float | None = None) -> tuple[np.ndarray, np.ndarray]: ...
+class ObjectDetector(Protocol):
+    def detect(self, frame: np.ndarray, min_score: float | None = None) -> tuple[np.ndarray, np.ndarray]: ...
 
 
-class BoxPoseTracker(Protocol):
+class BoxKeypointTracker(Protocol):
     pixel_format: Any
 
     def keypoints_in_box(
@@ -39,16 +39,16 @@ class BoxPoseTracker(Protocol):
     ) -> tuple[np.ndarray, np.ndarray]: ...
 
 
-def track_people(
+def track_objects(
     videos: Mapping[int, Path | str],
-    detector: PersonDetector,
+    detector: ObjectDetector,
     *,
     timestamps: SynchronizedTimestamps,
     frame_step: int = 1,
     rotation_counts: Mapping[int, int] | None = None,
     progress: ProgressCallback | None = None,
 ) -> BoxTracks:
-    """Detect and associate person boxes at sampled synchronized moments.
+    """Detect and associate boxes at sampled synchronized moments.
 
     ``timestamps`` sets the alignment policy. ``frame_step`` counts synchronized
     moments, and a camera with no frame at a sampled moment is skipped there.
@@ -83,7 +83,7 @@ def track_people(
             while (raw := source.next_frame()) is not None:
                 rotation_count = rotations.get(cam_id, 0)
                 inference_frame = apply_rotation(raw.frame, rotation_count)
-                boxes, scores = detector.people(inference_frame, min_score=LOW_SCORE_THRESHOLD)
+                boxes, scores = detector.detect(inference_frame, min_score=LOW_SCORE_THRESHOLD)
                 for track_id, detected_box, detector_score in tracker.update(boxes, scores):
                     source_box = _unrotate_box(detected_box, rotation_count, raw.frame.shape[1], raw.frame.shape[0])
                     rows.append(
@@ -117,7 +117,7 @@ def track_people(
 
 def estimate_keypoints(
     videos: Mapping[int, Path | str],
-    pose_tracker: BoxPoseTracker,
+    keypoint_tracker: BoxKeypointTracker,
     box_tracks: BoxTracks,
     *,
     min_confidence: float,
@@ -155,7 +155,7 @@ def estimate_keypoints(
             cam_id=cam_id,
             decode_threads=decode_threads,
             wanted_indices=set(by_frame),
-            pixel_format=pose_tracker.pixel_format,
+            pixel_format=keypoint_tracker.pixel_format,
         )
         rows: list[dict[str, Any]] = []
         seen_frames: set[int] = set()
@@ -173,7 +173,7 @@ def estimate_keypoints(
                     raw.frame.shape[1],
                     raw.frame.shape[0],
                 )
-                xy, confidence = pose_tracker.keypoints_in_box(inference_frame, inference_box)
+                xy, confidence = keypoint_tracker.keypoints_in_box(inference_frame, inference_box)
                 xy = _unrotate_keypoints(xy, rotation_count, inference_frame.shape[1], inference_frame.shape[0])
                 keep = _valid_keypoints(xy, confidence, min_confidence, raw.frame.shape[1], raw.frame.shape[0])
                 for keypoint_id in np.flatnonzero(keep):

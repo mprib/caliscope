@@ -126,7 +126,7 @@ __all__ = [
     # Functions
     "extract_image_points",
     "extract_image_points_multicam",
-    "track_people",
+    "track_objects",
     "estimate_keypoints",
     "calibrate_intrinsics",
     "calibrate_extrinsics",
@@ -137,7 +137,7 @@ __all__ = [
 ]
 
 
-def track_people(
+def track_objects(
     videos: Mapping[int, Path | str],
     detector: Any,
     *,
@@ -146,7 +146,7 @@ def track_people(
     rotation_counts: Mapping[int, int] | None = None,
     progress: ProgressCallback | None = _AUTO,
 ) -> BoxTracks:
-    """Detect and track every person box at sampled synchronized moments.
+    """Detect and track every box the detector returns at sampled synchronized moments.
 
     ``timestamps`` sets the alignment policy, for example through
     ``SynchronizedTimestamps.from_anchor_frames``. ``frame_step`` counts
@@ -156,10 +156,10 @@ def track_people(
     The detector may be called concurrently, once per camera. Supply a
     thread-safe detector or serialize access before calling this function.
     """
-    from caliscope.recording.person_tracking import track_people as _track_people
+    from caliscope.core.object_tracking import track_objects as _track_objects
 
     with _auto_progress(progress) as resolved_progress:
-        return _track_people(
+        return _track_objects(
             videos,
             detector,
             timestamps=timestamps,
@@ -171,7 +171,7 @@ def track_people(
 
 def estimate_keypoints(
     videos: Mapping[int, Path | str],
-    pose_tracker: Any,
+    keypoint_tracker: Any,
     box_tracks: BoxTracks,
     *,
     min_confidence: float,
@@ -179,15 +179,15 @@ def estimate_keypoints(
 ) -> ImagePoints:
     """Estimate pose in selected tracked boxes without rebuilding synchronization.
 
-    The pose tracker may be called concurrently, once per camera. Supply a
+    The keypoint tracker may be called concurrently, once per camera. Supply a
     thread-safe tracker or serialize access before calling this function.
     """
-    from caliscope.recording.person_tracking import estimate_keypoints as _estimate_keypoints
+    from caliscope.core.object_tracking import estimate_keypoints as _estimate_keypoints
 
     with _auto_progress(progress) as resolved_progress:
         return _estimate_keypoints(
             videos,
-            pose_tracker,
+            keypoint_tracker,
             box_tracks,
             min_confidence=min_confidence,
             progress=resolved_progress,

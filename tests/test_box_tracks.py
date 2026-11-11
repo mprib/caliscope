@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from collections.abc import Iterable
+
 import pandas as pd
 import pytest
 
@@ -77,6 +79,46 @@ def test_csv_round_trip_and_empty_header_only_table(tmp_path):
 
     assert reloaded.df.empty
     assert reloaded.df.columns.tolist() == list(BOX_TRACK_COLUMNS)
+
+
+def _track(cam_id: int, sync_indices: Iterable[int]) -> list[dict[str, int | float]]:
+    return [
+        _rows()[0] | {"sync_index": sync_index, "cam_id": cam_id, "frame_index": sync_index, "object_id": -(cam_id + 1)}
+        for sync_index in sync_indices
+    ]
+
+
+def _kept_moments(tracks: BoxTracks, cam_id: int) -> set[int]:
+    df = tracks.df
+    return {int(moment) for moment in df.loc[df["cam_id"] == cam_id, "sync_index"]}
+
+
+def test_sample_for_association_keeps_shared_moments_deterministically():
+    rows = _track(0, range(20)) + _track(1, range(20)) + _track(2, [50]) + _track(3, [18, 19, 60])
+    tracks = BoxTracks(pd.DataFrame(rows))
+
+    sampled = tracks.sample_for_association(frames_per_track=4)
+
+    assert _kept_moments(sampled, 0) == _kept_moments(sampled, 1)
+    assert len(_kept_moments(sampled, 0)) >= 4
+    assert _kept_moments(sampled, 2) == set()
+    assert _kept_moments(sampled, 3) == {18, 19}
+    assert sampled.df.equals(tracks.sample_for_association(frames_per_track=4).df)
+    assert BoxTracks(pd.DataFrame(_track(0, range(5)))).sample_for_association().df.empty
+
+    for invalid in (0, True):
+        with pytest.raises(ValueError, match="frames_per_track"):
+            tracks.sample_for_association(frames_per_track=invalid)
+
+
+def test_sample_for_association_short_track_shares_its_moments_with_long_track():
+    tracks = BoxTracks(pd.DataFrame(_track(0, range(100)) + _track(1, range(40, 50))))
+
+    sampled = tracks.sample_for_association(frames_per_track=3)
+
+    short_moments = _kept_moments(sampled, 1)
+    assert len(short_moments) >= 3
+    assert short_moments <= _kept_moments(sampled, 0)
 
 
 @pytest.mark.parametrize(

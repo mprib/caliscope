@@ -47,6 +47,18 @@ def _covered_area(track: pd.DataFrame) -> int:
     return int(stamped.sum())
 
 
+def _bit_reversed_priorities(moments: list[int]) -> dict[int, int]:
+    """Map each sorted moment to its rank with the bits reversed (van der Corput order)."""
+    bits = max(len(moments) - 1, 0).bit_length()
+    priorities: dict[int, int] = {}
+    for rank, moment in enumerate(moments):
+        reversed_rank = 0
+        for bit in range(bits):
+            reversed_rank = (reversed_rank << 1) | ((rank >> bit) & 1)
+        priorities[moment] = reversed_rank
+    return priorities
+
+
 class BoxTracks:
     """An immutable table of tracked detection boxes in original image pixels."""
 
@@ -148,3 +160,36 @@ class BoxTracks:
             & (self._df["box_y2"] < self._df["image_height"] - margin_px)
         )
         return BoxTracks(self._df[keep].copy())
+
+    def sample_for_association(self, frames_per_track: int = 12) -> BoxTracks:
+        """Keep every box at a set of moments chosen so each track is sampled.
+
+        Only moments where at least two cameras have a box are candidates. These
+        are ranked by one global coarse-to-fine order, and each camera track
+        nominates its frames_per_track best-ranked candidates, or all of them if
+        it has fewer. Because the order is shared, tracks of one object in
+        different cameras nominate the same moments. Every box at any nominated
+        moment is kept, in every camera and track, so frames_per_track is a floor
+        per track where enough shared moments exist, not a cap.
+
+        Deterministic, and image position plays no part. Compose with
+        exclude_edge_boxes to drop edge boxes first. The result is ordinary
+        BoxTracks, empty when no moment is shared between cameras.
+
+        Raises:
+            ValueError: if frames_per_track is not an integer >= 1.
+        """
+        if isinstance(frames_per_track, bool) or not isinstance(frames_per_track, int) or frames_per_track < 1:
+            raise ValueError("frames_per_track must be an integer >= 1")
+
+        cameras_per_moment = self._df.groupby("sync_index")["cam_id"].nunique()
+        shared_moments = sorted(int(moment) for moment in cameras_per_moment.index[cameras_per_moment >= 2])
+        priorities = _bit_reversed_priorities(shared_moments)
+
+        eligible = self._df[self._df["sync_index"].isin(shared_moments)]
+        chosen: set[int] = set()
+        for _, track in eligible.groupby(["cam_id", "track_id"]):
+            track_moments = sorted({int(moment) for moment in track["sync_index"]}, key=priorities.__getitem__)
+            chosen.update(track_moments[:frames_per_track])
+
+        return BoxTracks(self._df[self._df["sync_index"].isin(chosen)].copy())

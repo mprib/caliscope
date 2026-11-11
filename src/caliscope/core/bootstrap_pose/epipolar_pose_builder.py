@@ -234,22 +234,82 @@ def resection_camera(
     return rotation, tvec.ravel(), len(object_points), reproj_error
 
 
+def _recover_logged(
+    cam_a: int,
+    cam_b: int,
+    pixels_a: NDArray,
+    pixels_b: NDArray,
+    camera_array: CameraArray,
+    label: str,
+) -> dict | None:
+    """recover_pair_pose with the correspondence floor and logging; None when it cannot recover.
+
+    label prefixes every log message, so callers can name what the pair is.
+    """
+    if len(pixels_a) < MIN_CORRESPONDENCES:
+        return None
+    try:
+        pose = recover_pair_pose(
+            pixels_a,
+            pixels_b,
+            camera_a=camera_array.cameras[cam_a],
+            camera_b=camera_array.cameras[cam_b],
+        )
+    except ValueError as exc:
+        logger.warning(f"{label}: essential-matrix recovery failed ({exc})")
+        return None
+    logger.info(
+        f"{label}: {pose['n_inliers']}/{pose['n_total']} inliers, "
+        f"{pose['cheirality_inliers']} cheirality, E conditioning {pose['conditioning']:.3f}"
+    )
+    if pose["conditioning"] < CONDITIONING_FLOOR:
+        logger.warning(
+            f"{label}: essential matrix poorly conditioned "
+            f"(singular-value ratio {pose['conditioning']:.3f} < {CONDITIONING_FLOOR})."
+        )
+    return pose
+
+
+def _place_camera(
+    cloud: dict[tuple[int, int, int], NDArray],
+    alternatives: list[pd.DataFrame],
+    camera: CameraData,
+) -> tuple[NDArray, NDArray, int, float] | None:
+    """Resection one camera against the cloud using its best-fitting observation set.
+
+    Each alternative is one set of this camera's observations, labelled to match
+    the cloud's keys. Returns (rotation, translation, index of the chosen
+    alternative, reprojection error) for the success with the lowest error, the
+    first one on a tie, or None if no alternative can be resectioned.
+    """
+    best: tuple[NDArray, NDArray, int, float] | None = None
+    for index, observations in enumerate(alternatives):
+        try:
+            rotation, translation, _, reproj_error = resection_camera(cloud, observations, camera)
+        except ValueError:
+            continue
+        if best is None or reproj_error < best[3]:
+            best = (rotation, translation, index, reproj_error)
+    return best
+
+
 def _assemble_from_scaffold(
     scaffold_pair: tuple[int, int],
     scaffold_pose: dict,
     scaffold_keys: NDArray,
     cam_ids: list[int],
-    per_cam: dict[int, pd.DataFrame],
+    candidates_per_cam: dict[int, list[pd.DataFrame]],
     camera_array: CameraArray,
-) -> tuple[dict[int, tuple[NDArray, NDArray]], tuple[int, float, int]]:
+) -> tuple[dict[int, tuple[NDArray, NDArray]], tuple[int, float, int], dict[int, int]]:
     """Build the full pose set from one candidate scaffold and score its global fit.
 
     Triangulates the scaffold cloud (anchor = scaffold_pair[0], at the origin),
-    resections every other camera against it, and returns the poses together with
-    a consistency score. The score is (n_failures, worst third-view reprojection
-    error, -total cheirality inliers): a wrong scaffold reconstructs a cloud that
-    third views cannot fit, inflating the reprojection error, so the correct
-    scaffold minimizes this key. Cameras that cannot be resectioned (too little
+    places every other camera against it from its candidate observation sets, and
+    returns the poses, a consistency score, and for each placed camera the index
+    of the candidate used. The score is (n_failures, worst third-view
+    reprojection error, -total cheirality inliers): a wrong scaffold reconstructs
+    a cloud that third views cannot fit, inflating the reprojection error, so the
+    correct scaffold minimizes this key. Cameras that cannot be placed (too little
     overlap with this cloud) count as failures but do not abort the assembly.
     """
     anchor_cam, other_cam = scaffold_pair
@@ -258,24 +318,55 @@ def _assemble_from_scaffold(
         anchor_cam: (np.eye(3), np.zeros(3)),
         other_cam: (scaffold_pose["rotation"], scaffold_pose["translation"]),
     }
+    chosen: dict[int, int] = {}
     reproj_errors: list[float] = []
     n_failures = 0
     for cam_id in cam_ids:
         if cam_id in poses:
             continue
-        try:
-            rotation, translation, _, reproj_error = resection_camera(
-                cloud, per_cam[cam_id], camera_array.cameras[cam_id]
-            )
-        except ValueError:
+        placement = _place_camera(cloud, candidates_per_cam[cam_id], camera_array.cameras[cam_id])
+        if placement is None:
             n_failures += 1
             continue
+        rotation, translation, chosen_index, reproj_error = placement
         poses[cam_id] = (rotation, translation)
+        chosen[cam_id] = chosen_index
         reproj_errors.append(reproj_error)
 
     worst_reproj = max(reproj_errors) if reproj_errors else 0.0
     score = (n_failures, worst_reproj, -scaffold_pose["cheirality_inliers"])
-    return poses, score
+    return poses, score, chosen
+
+
+def _package_rig(
+    poses: dict[int, tuple[NDArray, NDArray]],
+    anchor_cam: int,
+    camera_array: CameraArray,
+    image_points: ImagePoints,
+) -> PairedPoseNetwork:
+    """Package anchor-frame camera poses as a PairedPoseNetwork with RMSE scores.
+
+    Each camera becomes a StereoPair with the anchor (primary < secondary,
+    matching the PnP path's convention so the shared RMSE and graph machinery
+    key correctly). image_points supplies the common observations the RMSE
+    scores are computed from.
+    """
+    aggregated: dict[tuple[int, int], StereoPair] = {}
+    for cam_id, (rotation, translation) in poses.items():
+        if cam_id == anchor_cam:
+            continue
+        pair = StereoPair(
+            primary_cam_id=anchor_cam,
+            secondary_cam_id=cam_id,
+            error_score=float("nan"),
+            rotation=rotation,
+            translation=translation,
+        )
+        if pair.primary_cam_id > pair.secondary_cam_id:
+            pair = pair.inverted()
+        aggregated[pair.pair] = pair
+
+    return estimate_pnp_paired_pose_network(aggregated, camera_array, image_points)
 
 
 def build_epipolar_pose_network(
@@ -312,34 +403,17 @@ def build_epipolar_pose_network(
         raise CalibrationError(f"Epipolar bootstrap needs at least 2 cameras with observations, found {len(cam_ids)}.")
 
     per_cam = {cam_id: df[df["cam_id"] == cam_id] for cam_id in cam_ids}
+    candidates_per_cam = {cam_id: [per_cam[cam_id]] for cam_id in cam_ids}
 
     pair_poses: dict[tuple[int, int], dict] = {}
     pair_keys: dict[tuple[int, int], NDArray] = {}
     for cam_a, cam_b in combinations(cam_ids, 2):
         keys, pix_a, pix_b = pooled_correspondences(per_cam[cam_a], per_cam[cam_b])
-        if len(keys) < MIN_CORRESPONDENCES:
-            continue
-        try:
-            pose = recover_pair_pose(
-                pix_a,
-                pix_b,
-                camera_a=camera_array.cameras[cam_a],
-                camera_b=camera_array.cameras[cam_b],
-            )
-        except ValueError as exc:
-            logger.warning(f"Pair {cam_a}-{cam_b}: essential-matrix recovery failed ({exc})")
+        pose = _recover_logged(cam_a, cam_b, pix_a, pix_b, camera_array, f"Pair {cam_a}-{cam_b}")
+        if pose is None:
             continue
         pair_poses[(cam_a, cam_b)] = pose
         pair_keys[(cam_a, cam_b)] = keys
-        logger.info(
-            f"Pair {cam_a}-{cam_b}: {pose['n_inliers']}/{pose['n_total']} inliers, "
-            f"{pose['cheirality_inliers']} cheirality, E conditioning {pose['conditioning']:.3f}"
-        )
-        if pose["conditioning"] < CONDITIONING_FLOOR:
-            logger.warning(
-                f"Pair {cam_a}-{cam_b}: essential matrix poorly conditioned "
-                f"(singular-value ratio {pose['conditioning']:.3f} < {CONDITIONING_FLOOR})."
-            )
 
     if not pair_poses:
         raise CalibrationError(
@@ -358,7 +432,9 @@ def build_epipolar_pose_network(
     best_score: tuple[int, float, int] | None = None
     best_pair: tuple[int, int] | None = None
     for pair in candidates:
-        poses, score = _assemble_from_scaffold(pair, pair_poses[pair], pair_keys[pair], cam_ids, per_cam, camera_array)
+        poses, score, _ = _assemble_from_scaffold(
+            pair, pair_poses[pair], pair_keys[pair], cam_ids, candidates_per_cam, camera_array
+        )
         if best_score is None or score < best_score:
             best_poses, best_score, best_pair = poses, score, pair
 
@@ -370,21 +446,4 @@ def build_epipolar_pose_network(
         f"posed {len(best_poses)}/{len(cam_ids)} cameras, anchor = cam {anchor_cam}"
     )
 
-    # Package as anchor-relative StereoPairs (primary < secondary, matching the
-    # PnP path's convention so the shared RMSE/graph machinery keys correctly).
-    aggregated: dict[tuple[int, int], StereoPair] = {}
-    for cam_id, (rotation, translation) in best_poses.items():
-        if cam_id == anchor_cam:
-            continue
-        pair = StereoPair(
-            primary_cam_id=anchor_cam,
-            secondary_cam_id=cam_id,
-            error_score=float("nan"),
-            rotation=rotation,
-            translation=translation,
-        )
-        if pair.primary_cam_id > pair.secondary_cam_id:
-            pair = pair.inverted()
-        aggregated[pair.pair] = pair
-
-    return estimate_pnp_paired_pose_network(aggregated, camera_array, image_points)
+    return _package_rig(best_poses, anchor_cam, camera_array, image_points)

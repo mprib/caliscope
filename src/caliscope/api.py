@@ -47,6 +47,11 @@ from typing import TYPE_CHECKING, Any, Generator
 
 from caliscope.cameras.camera_array import CameraArray, CameraData
 from caliscope.core.aruco_marker import ArucoMarkerSet
+from caliscope.core.bootstrap_pose.bootstrap_extrinsics import (
+    bootstrap_extrinsics,
+    bootstrap_extrinsics_from_linked_points,
+    bootstrap_extrinsics_from_object_geometry,
+)
 from caliscope.core.calibrate_extrinsics import (
     CalibrationRun,
     calibrate_extrinsics,
@@ -130,6 +135,9 @@ __all__ = [
     "estimate_keypoints",
     "calibrate_intrinsics",
     "calibrate_extrinsics",
+    "bootstrap_extrinsics",
+    "bootstrap_extrinsics_from_object_geometry",
+    "bootstrap_extrinsics_from_linked_points",
     "estimate_vertical",
     "write_blender_scene",
     # Exceptions

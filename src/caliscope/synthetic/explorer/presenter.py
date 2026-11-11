@@ -15,9 +15,7 @@ from caliscope.cameras.camera_array import CameraArray
 from caliscope.core.point_data import ImagePoints, WorldPoints
 from caliscope.core.capture_volume import CaptureVolume
 from caliscope.core.constraints import ConstraintSet
-from caliscope.core.bootstrap_pose.build_paired_pose_network import (
-    build_paired_pose_network,
-)
+from caliscope.core.bootstrap_pose.bootstrap_extrinsics import bootstrap_extrinsics
 from caliscope.synthetic.synthetic_scene import SyntheticScene
 from caliscope.synthetic.scene_factories import default_ring_scene
 from caliscope.synthetic.camera_synthesizer import IntrinsicPerturbation, perturb_intrinsics
@@ -289,19 +287,10 @@ class ExplorerPresenter(QObject):
             if perturbation is not None:
                 intrinsics_only = perturb_intrinsics(intrinsics_only, perturbation)
 
-            # Build pose network from stereo pairs
-            pose_network = build_paired_pose_network(
-                image_points,
-                intrinsics_only,
-            )
+            bootstrapped_cameras = bootstrap_extrinsics(image_points, intrinsics_only)
+            bootstrapped_world = image_points.triangulate(bootstrapped_cameras)
 
-            # Apply to get initial extrinsics
-            pose_network.apply_to(intrinsics_only)
-
-            # Triangulate initial world points
-            bootstrapped_world = image_points.triangulate(intrinsics_only)
-
-            result.bootstrapped_cameras = intrinsics_only
+            result.bootstrapped_cameras = bootstrapped_cameras
             result.bootstrapped_world_points = bootstrapped_world
 
             logger.info("Bootstrap complete")

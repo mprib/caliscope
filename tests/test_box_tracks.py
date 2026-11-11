@@ -14,6 +14,7 @@ def _rows() -> list[dict[str, int | float]]:
             "frame_index": 0,
             "frame_time": 0.0,
             "track_id": 1,
+            "object_id": -1,
             "box_x1": 10.0,
             "box_y1": 10.0,
             "box_x2": 20.0,
@@ -29,10 +30,11 @@ def _rows() -> list[dict[str, int | float]]:
     return [
         row(),
         row(sync_index=1, frame_index=1, frame_time=0.1),
-        row(track_id=2, box_x1=20.0, box_y1=20.0, box_x2=50.0, box_y2=50.0, detector_score=0.8),
+        row(track_id=2, object_id=-2, box_x1=20.0, box_y1=20.0, box_x2=50.0, box_y2=50.0, detector_score=0.8),
         row(
             cam_id=4,
             track_id=7,
+            object_id=-3,
             box_x1=5.0,
             box_y1=5.0,
             box_x2=15.0,
@@ -41,38 +43,6 @@ def _rows() -> list[dict[str, int | float]]:
             rotation_count=-1,
         ),
     ]
-
-
-def test_primary_track_ids_uses_covered_area_and_stable_ties():
-    tracks = BoxTracks(pd.DataFrame(_rows()))
-
-    assert tracks.primary_track_ids() == {0: 2, 4: 7}
-
-    tied = pd.DataFrame(_rows()[:2])
-    tied.loc[1, "track_id"] = 3
-    assert BoxTracks(tied).primary_track_ids() == {0: 1}
-
-
-def test_primary_track_ids_counts_repeated_coverage_once():
-    template = _rows()[0]
-    standing = [
-        template | {"sync_index": frame, "frame_index": frame, "frame_time": frame / 10, "track_id": 1}
-        for frame in range(5)
-    ]
-    walking = [
-        template
-        | {
-            "track_id": 2,
-            "sync_index": frame,
-            "frame_index": frame,
-            "frame_time": frame / 10,
-            "box_x1": 10.0 + 12 * frame,
-            "box_x2": 19.0 + 12 * frame,
-        }
-        for frame in range(2)
-    ]
-
-    assert BoxTracks(pd.DataFrame(standing + walking)).primary_track_ids() == {0: 2}
 
 
 def test_df_is_a_defensive_copy():
@@ -86,13 +56,10 @@ def test_df_is_a_defensive_copy():
 def test_filters_copy_rows_and_edge_exclusions_are_inclusive():
     tracks = BoxTracks(pd.DataFrame(_rows()))
 
-    selected = tracks.filter_to_tracks({0: 1})
-    assert set(selected.df["track_id"]) == {1}
-    assert set(selected.df["cam_id"]) == {0}
-    with pytest.raises(ValueError, match="absent"):
-        tracks.filter_to_tracks({4: 1})
-    with pytest.raises(ValueError, match="absent"):
-        tracks.filter_to_tracks({0: 1.5})
+    selected = tracks.filter_to_objects([-1, -3, 99])
+    assert set(selected.df["object_id"]) == {-1, -3}
+    assert len(selected.df) == 3
+    assert tracks.filter_to_objects([]).df.empty
 
     edge_rows = pd.DataFrame(_rows()[:2])
     edge_rows.loc[0, ["box_x1", "box_y1", "box_x2", "box_y2"]] = [10.0, 11.0, 89.0, 69.0]
@@ -132,4 +99,19 @@ def test_rejects_duplicate_camera_frame_track_observation():
     rows = _rows()[:1] * 2
 
     with pytest.raises(ValueError, match="duplicate"):
+        BoxTracks(pd.DataFrame(rows))
+
+
+@pytest.mark.parametrize(
+    ("first_changes", "second_changes", "message"),
+    [
+        ({"object_id": 0}, {"track_id": 2, "object_id": 0}, r"duplicate \(cam_id, frame_index, object_id\)"),
+        ({}, {"track_id": 2, "frame_index": 1}, "negative object_id must belong to a single camera track"),
+        ({}, {"object_id": -2, "frame_index": 1}, "single object_id"),
+    ],
+)
+def test_rejects_inconsistent_object_ids(first_changes, second_changes, message):
+    rows = [_rows()[0] | first_changes, _rows()[0] | second_changes]
+
+    with pytest.raises(ValueError, match=message):
         BoxTracks(pd.DataFrame(rows))

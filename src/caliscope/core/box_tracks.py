@@ -1,10 +1,10 @@
-"""Validated person-detection boxes retained between tracking and pose stages."""
+"""Validated detection boxes retained between tracking and pose stages."""
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+import logging
+from collections.abc import Iterable
 from pathlib import Path
-from typing import cast
 
 import numpy as np
 import pandas as pd
@@ -12,6 +12,7 @@ import pandas as pd
 from caliscope.core.point_data import _validate_dataframe
 from caliscope.persistence import CSV_FLOAT_PRECISION, PersistenceError, _safe_write_csv
 
+logger = logging.getLogger(__name__)
 
 BOX_TRACK_COLUMNS: dict[str, dict[str, object]] = {
     "sync_index": {"dtype": "int", "nullable": False},
@@ -19,6 +20,7 @@ BOX_TRACK_COLUMNS: dict[str, dict[str, object]] = {
     "frame_index": {"dtype": "int", "nullable": False},
     "frame_time": {"dtype": "float", "nullable": False},
     "track_id": {"dtype": "int", "nullable": False},
+    "object_id": {"dtype": "int", "nullable": False},
     "box_x1": {"dtype": "float", "nullable": False},
     "box_y1": {"dtype": "float", "nullable": False},
     "box_x2": {"dtype": "float", "nullable": False},
@@ -79,11 +81,30 @@ class BoxTracks:
         if invalid.any():
             raise ValueError("BoxTracks validation failed: boxes and source image dimensions must have positive area")
 
-        key_columns = ["cam_id", "frame_index", "track_id"]
-        duplicates = self._df.duplicated(subset=key_columns)
-        if duplicates.any():
+        for key_columns in (["cam_id", "frame_index", "track_id"], ["cam_id", "frame_index", "object_id"]):
+            duplicates = self._df.duplicated(subset=key_columns)
+            if duplicates.any():
+                raise ValueError(
+                    f"BoxTracks validation failed: duplicate ({', '.join(key_columns)}) observations are not allowed"
+                )
+
+        object_ids_per_track = self._df.groupby(["cam_id", "track_id"])["object_id"].nunique()
+        split_tracks = object_ids_per_track[object_ids_per_track > 1]
+        if not split_tracks.empty:
+            shown = ", ".join(str(camera_track) for camera_track in split_tracks.index)
             raise ValueError(
-                f"BoxTracks validation failed: duplicate ({', '.join(key_columns)}) observations are not allowed"
+                "BoxTracks validation failed: each (cam_id, track_id) needs a single object_id; "
+                f"found several for {shown}"
+            )
+
+        unlinked = self._df[self._df["object_id"] < 0]
+        tracks_per_unlinked_id = unlinked.drop_duplicates(["cam_id", "track_id"]).groupby("object_id").size()
+        shared_ids = tracks_per_unlinked_id[tracks_per_unlinked_id > 1]
+        if not shared_ids.empty:
+            shown = ", ".join(str(object_id) for object_id in shared_ids.index)
+            raise ValueError(
+                "BoxTracks validation failed: each negative object_id must belong to a single camera track; "
+                f"found {shown}"
             )
 
     @classmethod
@@ -100,46 +121,19 @@ class BoxTracks:
         except Exception as e:
             raise PersistenceError(f"Failed to save box tracks to {path}: {e}") from e
 
-    def primary_track_ids(self) -> dict[int, int]:
-        """Choose each camera's track whose boxes cover the most image area.
+    def filter_to_objects(self, object_ids: Iterable[int]) -> BoxTracks:
+        """Return a copy containing only rows whose object_id is in object_ids.
 
-        Each box stamps its pixels onto a blank image, so a pixel counts once
-        however many frames cover it. A person crossing the view therefore
-        outranks one standing still for the whole recording.
+        Mirrors ImagePoints.filter_to_objects: absent IDs are not an error, and
+        dropped object IDs are logged at info level.
         """
-        if self._df.empty:
-            return {}
-
-        coverage = [
-            (cam_id, track_id, _covered_area(track))
-            for (cam_id, track_id), track in self._df.groupby(["cam_id", "track_id"], sort=True)
-        ]
-        ranked = pd.DataFrame(coverage, columns=["cam_id", "track_id", "covered_area"]).sort_values(
-            ["cam_id", "covered_area", "track_id"], ascending=[True, False, True], kind="stable"
-        )
-        selected = ranked.drop_duplicates("cam_id", keep="first")
-        return {cast(int, row.cam_id): cast(int, row.track_id) for row in selected.itertuples(index=False)}
-
-    def filter_to_tracks(self, track_ids: Mapping[int, int]) -> BoxTracks:
-        """Return only explicitly requested camera-local tracks.
-
-        Cameras omitted from ``track_ids`` are intentionally excluded. Each
-        requested camera and track must occur in this container.
-        """
-        requested = dict(track_ids)
-        available = {
-            cast(int, cam_id): {cast(int, track_id) for track_id in group["track_id"].unique()}
-            for cam_id, group in self._df.groupby("cam_id")
-        }
-        missing = {
-            cam_id: track_id for cam_id, track_id in requested.items() if track_id not in available.get(cam_id, set())
-        }
-        if missing:
-            raise ValueError(f"BoxTracks filter requested absent camera/track IDs: {missing}")
-
-        mask = pd.Series(False, index=self._df.index)
-        for cam_id, track_id in requested.items():
-            mask |= (self._df["cam_id"] == cam_id) & (self._df["track_id"] == track_id)
+        valid = set(object_ids)
+        mask = self._df["object_id"].isin(valid)
+        dropped = self._df[~mask]
+        if len(dropped) > 0:
+            for oid in sorted(dropped["object_id"].unique()):
+                n = int((dropped["object_id"] == oid).sum())
+                logger.info(f"filter_to_objects: dropped object_id={oid} ({n} rows)")
         return BoxTracks(self._df[mask].copy())
 
     def exclude_edge_boxes(self, margin_px: float) -> BoxTracks:

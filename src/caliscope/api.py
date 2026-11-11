@@ -150,8 +150,11 @@ def track_objects(
 
     ``timestamps`` sets the alignment policy, for example through
     ``SynchronizedTimestamps.from_anchor_frames``. ``frame_step`` counts
-    synchronized moments. Boxes are returned in original video pixels, ready for
-    explicit subject selection.
+    synchronized moments. Boxes are returned in original video pixels.
+
+    Every returned box is unlinked: its object_id is negative and unique per
+    camera and track, numbered -1, -2, ... over the (cam_id, track_id) pairs in
+    ascending order.
 
     The detector may be called concurrently, once per camera. Supply a
     thread-safe detector or serialize access before calling this function.
@@ -177,7 +180,10 @@ def estimate_keypoints(
     min_confidence: float,
     progress: ProgressCallback | None = _AUTO,
 ) -> ImagePoints:
-    """Estimate pose in selected tracked boxes without rebuilding synchronization.
+    """Estimate keypoints in each tracked box without rebuilding synchronization.
+
+    Each box may hold a different object, so a camera and frame can have
+    several boxes. Every keypoint copies object_id and track_id from its box.
 
     The keypoint tracker may be called concurrently, once per camera. Supply a
     thread-safe tracker or serialize access before calling this function.

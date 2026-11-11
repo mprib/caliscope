@@ -48,10 +48,14 @@ def track_objects(
     rotation_counts: Mapping[int, int] | None = None,
     progress: ProgressCallback | None = None,
 ) -> BoxTracks:
-    """Detect and associate boxes at sampled synchronized moments.
+    """Detect and track every object box at sampled synchronized moments.
 
     ``timestamps`` sets the alignment policy. ``frame_step`` counts synchronized
     moments, and a camera with no frame at a sampled moment is skipped there.
+
+    Every returned row is unlinked: object_id is negative and unique per camera
+    and track. IDs run -1, -2, ... over the (cam_id, track_id) pairs in
+    ascending order.
     """
     if frame_step < 1:
         raise ValueError(f"frame_step must be >= 1, got {frame_step}")
@@ -112,7 +116,13 @@ def track_objects(
             progress.on_video_complete(cam_id)
         return rows
 
-    return BoxTracks(pd.DataFrame(_run_per_camera(video_paths, process_camera), columns=list(BOX_TRACK_COLUMNS)))
+    rows = _run_per_camera(video_paths, process_camera)
+    # Assigned after all workers finish so thread completion order cannot change the IDs.
+    camera_tracks = sorted({(int(row["cam_id"]), int(row["track_id"])) for row in rows})
+    unlinked_ids = {camera_track: -(position + 1) for position, camera_track in enumerate(camera_tracks)}
+    for row in rows:
+        row["object_id"] = unlinked_ids[(int(row["cam_id"]), int(row["track_id"]))]
+    return BoxTracks(pd.DataFrame(rows, columns=list(BOX_TRACK_COLUMNS)))
 
 
 def estimate_keypoints(
@@ -123,7 +133,11 @@ def estimate_keypoints(
     min_confidence: float,
     progress: ProgressCallback | None = None,
 ) -> ImagePoints:
-    """Estimate pose only in supplied source-coordinate boxes.
+    """Estimate keypoints in each supplied box, copying object_id and track_id from it.
+
+    Accepts several boxes per camera and frame, one per object (guaranteed by
+    BoxTracks validation). Serves both the sampled association pass (unlinked
+    boxes, negative object IDs) and the full-rate pass (linked boxes).
 
     The recorded rows are the timing authority for this pass.  It does not
     resynchronize videos or infer observations for gaps in the box table.
@@ -133,7 +147,6 @@ def estimate_keypoints(
     if not np.isfinite(min_confidence) or min_confidence < 0:
         raise ValueError(f"min_confidence must be finite and non-negative, got {min_confidence}")
     boxes = box_tracks.df
-    _validate_selected_tracks(boxes)
     table_cameras = set(boxes["cam_id"].unique())
     missing_cameras = sorted(table_cameras - set(videos))
     if missing_cameras:
@@ -147,7 +160,7 @@ def estimate_keypoints(
 
     def process_camera(cam_id: int, path: Path) -> list[dict[str, Any]]:
         camera_boxes = boxes.loc[boxes["cam_id"] == cam_id].copy()
-        by_frame = _rows_by_frame(camera_boxes, cam_id)
+        by_frame = _rows_by_frame(camera_boxes)
         if progress is not None:
             progress.on_video_start(cam_id, len(by_frame))
         source = FrameSource.from_path(
@@ -163,40 +176,42 @@ def estimate_keypoints(
             processed = 0
             while (raw := source.next_frame()) is not None:
                 seen_frames.add(raw.frame_index)
-                box = by_frame[raw.frame_index]
-                rotation_count = int(box.rotation_count)
-                _validate_source_geometry(box, raw.frame.shape[1], raw.frame.shape[0], cam_id)
-                inference_frame = apply_rotation(raw.frame, rotation_count)
-                inference_box = _rotate_box(
-                    (box.box_x1, box.box_y1, box.box_x2, box.box_y2),
-                    rotation_count,
-                    raw.frame.shape[1],
-                    raw.frame.shape[0],
-                )
-                xy, confidence = keypoint_tracker.keypoints_in_box(inference_frame, inference_box)
-                xy = _unrotate_keypoints(xy, rotation_count, inference_frame.shape[1], inference_frame.shape[0])
-                keep = _valid_keypoints(xy, confidence, min_confidence, raw.frame.shape[1], raw.frame.shape[0])
-                for keypoint_id in np.flatnonzero(keep):
-                    rows.append(
-                        {
-                            "sync_index": int(box.sync_index),
-                            "cam_id": cam_id,
-                            "frame_index": int(box.frame_index),
-                            "frame_time": float(box.frame_time),
-                            "object_id": 0,
-                            "keypoint_id": int(keypoint_id),
-                            "img_loc_x": float(xy[keypoint_id, 0]),
-                            "img_loc_y": float(xy[keypoint_id, 1]),
-                            "obj_loc_x": np.nan,
-                            "obj_loc_y": np.nan,
-                            "obj_loc_z": np.nan,
-                            "confidence": float(confidence[keypoint_id]),
-                            "track_id": int(box.track_id),
-                        }
+                kept_in_frame = 0
+                for box in by_frame[raw.frame_index]:
+                    rotation_count = int(box.rotation_count)
+                    _validate_source_geometry(box, raw.frame.shape[1], raw.frame.shape[0], cam_id)
+                    inference_frame = apply_rotation(raw.frame, rotation_count)
+                    inference_box = _rotate_box(
+                        (box.box_x1, box.box_y1, box.box_x2, box.box_y2),
+                        rotation_count,
+                        raw.frame.shape[1],
+                        raw.frame.shape[0],
                     )
+                    xy, confidence = keypoint_tracker.keypoints_in_box(inference_frame, inference_box)
+                    xy = _unrotate_keypoints(xy, rotation_count, inference_frame.shape[1], inference_frame.shape[0])
+                    keep = _valid_keypoints(xy, confidence, min_confidence, raw.frame.shape[1], raw.frame.shape[0])
+                    kept_in_frame += int(keep.sum())
+                    for keypoint_id in np.flatnonzero(keep):
+                        rows.append(
+                            {
+                                "sync_index": int(box.sync_index),
+                                "cam_id": cam_id,
+                                "frame_index": int(box.frame_index),
+                                "frame_time": float(box.frame_time),
+                                "object_id": int(box.object_id),
+                                "keypoint_id": int(keypoint_id),
+                                "img_loc_x": float(xy[keypoint_id, 0]),
+                                "img_loc_y": float(xy[keypoint_id, 1]),
+                                "obj_loc_x": np.nan,
+                                "obj_loc_y": np.nan,
+                                "obj_loc_z": np.nan,
+                                "confidence": float(confidence[keypoint_id]),
+                                "track_id": int(box.track_id),
+                            }
+                        )
                 processed += 1
                 if progress is not None:
-                    progress.on_frame(cam_id, processed, int(keep.sum()))
+                    progress.on_frame(cam_id, processed, kept_in_frame)
         finally:
             source.close()
         missing_frames = sorted(set(by_frame) - seen_frames)
@@ -248,22 +263,11 @@ def _run_per_camera(videos: Mapping[int, Path], work: Any) -> list[dict[str, Any
     return rows
 
 
-def _rows_by_frame(boxes: pd.DataFrame, cam_id: int) -> dict[int, Any]:
-    if boxes["frame_index"].duplicated().any():
-        raise ValueError(f"BoxTracks has multiple selected boxes for camera {cam_id} at the same frame")
-    return {
-        int(frame_index): row for frame_index, row in zip(boxes["frame_index"].tolist(), boxes.itertuples(index=False))
-    }
-
-
-def _validate_selected_tracks(boxes: pd.DataFrame) -> None:
-    if boxes.empty:
-        return
-    counts = boxes.groupby("cam_id")["track_id"].nunique()
-    multiple = counts[counts > 1]
-    if not multiple.empty:
-        detail = ", ".join(f"cam {cam_id}: {count} tracks" for cam_id, count in multiple.items())
-        raise ValueError(f"estimate_keypoints requires at most one track per camera; found {detail}")
+def _rows_by_frame(boxes: pd.DataFrame) -> dict[int, list[Any]]:
+    by_frame: dict[int, list[Any]] = {}
+    for frame_index, row in zip(boxes["frame_index"].tolist(), boxes.itertuples(index=False)):
+        by_frame.setdefault(int(frame_index), []).append(row)
+    return by_frame
 
 
 def _valid_keypoints(

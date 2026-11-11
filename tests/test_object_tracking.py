@@ -12,7 +12,6 @@ from caliscope.core.object_tracking import (
     _rotate_box,
     _unrotate_keypoints,
     _unrotate_box,
-    _validate_selected_tracks,
     estimate_keypoints,
 )
 from caliscope.recording import synchronized_timestamps
@@ -29,6 +28,7 @@ def _box_tracks(rows: list[dict]) -> BoxTracks:
                 "frame_index",
                 "frame_time",
                 "track_id",
+                "object_id",
                 "box_x1",
                 "box_y1",
                 "box_x2",
@@ -42,13 +42,14 @@ def _box_tracks(rows: list[dict]) -> BoxTracks:
     )
 
 
-def _row(*, cam_id: int = 0, track_id: int = 1) -> dict:
+def _row(*, cam_id: int = 0, track_id: int = 1, object_id: int = -1) -> dict:
     return {
         "sync_index": 3,
         "cam_id": cam_id,
         "frame_index": 7,
         "frame_time": 1.2,
         "track_id": track_id,
+        "object_id": object_id,
         "box_x1": 10.0,
         "box_y1": 20.0,
         "box_x2": 40.0,
@@ -77,14 +78,90 @@ def test_empty_keypoints_keeps_schema_and_provenance_columns():
     assert {"frame_index", "frame_time", "confidence", "track_id"} <= set(points.columns)
 
 
-def test_multiple_tracks_are_rejected_before_pose_confidence_filtering():
-    first = _row(track_id=1)
-    second = _row(track_id=2)
-    second["frame_index"] = 8
-    tracks = _box_tracks([first, second])
+def test_keypoint_estimation_runs_once_per_object_box_in_a_frame(tmp_path, monkeypatch):
+    """Two objects in one camera and frame each get keypoints with their own identity."""
 
-    with pytest.raises(ValueError, match="at most one track per camera"):
-        _validate_selected_tracks(tracks.df)
+    class _Source:
+        def __init__(self):
+            self._returned = False
+
+        @classmethod
+        def from_path(cls, *args, **kwargs):
+            return cls()
+
+        def next_frame(self):
+            if self._returned:
+                return None
+            self._returned = True
+            return type("Raw", (), {"frame_index": 7, "frame": np.zeros((120, 100, 3), dtype=np.uint8)})()
+
+        def close(self):
+            pass
+
+    class _KeypointTracker:
+        pixel_format = None
+
+        def __init__(self):
+            self.boxes = []
+
+        def keypoints_in_box(self, frame, box):
+            self.boxes.append(box)
+            centre = [[(box[0] + box[2]) / 2, (box[1] + box[3]) / 2]]
+            return np.array(centre, dtype=np.float32), np.array([0.9], dtype=np.float32)
+
+    first = _row(track_id=1, object_id=0)
+    second = _row(track_id=4, object_id=1) | {"box_x1": 50.0, "box_x2": 90.0}
+    video = tmp_path / "cam_0.mp4"
+    video.touch()
+    monkeypatch.setattr(object_tracking, "FrameSource", _Source)
+    keypoint_tracker = _KeypointTracker()
+
+    points = estimate_keypoints(
+        {0: video}, keypoint_tracker, _box_tracks([first, second]), min_confidence=0.5
+    ).df.sort_values("object_id")
+
+    assert len(keypoint_tracker.boxes) == 2
+    assert points[["object_id", "track_id"]].values.tolist() == [[0, 1], [1, 4]]
+    assert points["img_loc_x"].tolist() == pytest.approx([25.0, 70.0])
+
+
+def test_track_objects_numbers_unlinked_objects_by_camera_and_track(tmp_path, monkeypatch):
+    """Negative IDs follow sorted (cam_id, track_id), whatever order cameras are given or finish in."""
+
+    class _Source:
+        def __init__(self, wanted_indices):
+            self._frames = iter(sorted(wanted_indices))
+
+        @classmethod
+        def from_path(cls, *_args, wanted_indices, **_kwargs):
+            return cls(wanted_indices)
+
+        def next_frame(self):
+            try:
+                frame_index = next(self._frames)
+            except StopIteration:
+                return None
+            return type("Raw", (), {"frame_index": frame_index, "frame": np.zeros((20, 30, 3), dtype=np.uint8)})()
+
+        def close(self):
+            pass
+
+    class _Detector:
+        def detect(self, frame, min_score=None):
+            boxes = np.array([[1, 2, 10, 12], [15, 2, 25, 12]], dtype=np.float32)
+            return boxes, np.array([0.9, 0.8], dtype=np.float32)
+
+    videos = {5: tmp_path / "cam_5.mp4", 2: tmp_path / "cam_2.mp4"}
+    for video in videos.values():
+        video.touch()
+    monkeypatch.setattr(synchronized_timestamps, "read_video_properties", lambda _path: {"fps": 10.0, "frame_count": 1})
+    monkeypatch.setattr(object_tracking, "FrameSource", _Source)
+    timestamps = SynchronizedTimestamps.from_anchor_frames(videos, {5: 0, 2: 0})
+
+    tracks = object_tracking.track_objects(videos, _Detector(), timestamps=timestamps).df
+
+    identities = tracks[["cam_id", "track_id", "object_id"]].sort_values(["cam_id", "track_id"])
+    assert identities.values.tolist() == [[2, 1, -1], [2, 2, -2], [5, 1, -3], [5, 2, -4]]
 
 
 def test_keypoint_estimation_reports_table_camera_absent_from_videos():

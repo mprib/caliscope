@@ -6,6 +6,7 @@ import pandas as pd
 import pytest
 
 from caliscope.core.box_tracks import BOX_TRACK_COLUMNS, BoxTracks
+from caliscope.core.track_association import TrackAssociations
 
 
 def _rows() -> list[dict[str, int | float]]:
@@ -119,6 +120,25 @@ def test_sample_for_association_short_track_shares_its_moments_with_long_track()
     short_moments = _kept_moments(sampled, 1)
     assert len(short_moments) >= 3
     assert short_moments <= _kept_moments(sampled, 0)
+
+
+def test_apply_associations_links_tracks_and_rejects_absent_or_overlapping_ones():
+    tracks = BoxTracks(pd.DataFrame(_rows()))
+    associations = TrackAssociations.from_mapping({0: {0: [1]}, 1: {4: [7]}})
+
+    linked = tracks.apply_associations(associations).df
+    assert sorted(zip(linked["cam_id"], linked["track_id"], linked["object_id"])) == [(0, 1, 0), (0, 1, 0), (4, 7, 1)]
+
+    kept = tracks.apply_associations(associations, keep_unlinked=True).df
+    assert len(kept) == len(_rows())
+    assert kept.loc[kept["track_id"] == 2, "object_id"].tolist() == [-2]
+
+    with pytest.raises(ValueError, match="absent"):
+        tracks.apply_associations(TrackAssociations.from_mapping({0: {9: [1]}}))
+
+    # Tracks 1 and 2 both have a box at camera 0, frame 0.
+    with pytest.raises(ValueError, match=r"duplicate \(cam_id, frame_index, object_id\)"):
+        tracks.apply_associations(TrackAssociations.from_mapping({0: {0: [1, 2]}}))
 
 
 @pytest.mark.parametrize(

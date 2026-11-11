@@ -68,6 +68,7 @@ from caliscope.core.constraints import ConstraintSet
 from caliscope.estimators.vertical import VerticalEstimate, estimate_vertical
 from caliscope.core.point_data import ImagePoints
 from caliscope.core.scale_cues import CameraDistance, DepthObservation, SegmentLength, Stature
+from caliscope.core.track_association import TrackAssociations, associate_tracks
 from caliscope.exceptions import CalibrationError
 from caliscope.export.blender_scene import write_blender_scene
 from caliscope.tracker import Tracker
@@ -117,6 +118,7 @@ __all__ = [
     "CameraArray",
     "ImagePoints",
     "BoxTracks",
+    "TrackAssociations",
     "CaptureVolume",
     # Scale cues
     "CameraDistance",
@@ -133,6 +135,7 @@ __all__ = [
     "extract_image_points_multicam",
     "track_objects",
     "estimate_keypoints",
+    "associate_tracks",
     "calibrate_intrinsics",
     "calibrate_extrinsics",
     "bootstrap_extrinsics",

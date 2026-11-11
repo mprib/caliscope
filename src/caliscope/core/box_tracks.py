@@ -5,12 +5,16 @@ from __future__ import annotations
 import logging
 from collections.abc import Iterable
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import numpy as np
 import pandas as pd
 
 from caliscope.core.point_data import _validate_dataframe
 from caliscope.persistence import CSV_FLOAT_PRECISION, PersistenceError, _safe_write_csv
+
+if TYPE_CHECKING:
+    from caliscope.core.track_association import TrackAssociations
 
 logger = logging.getLogger(__name__)
 
@@ -193,3 +197,33 @@ class BoxTracks:
             chosen.update(track_moments[:frames_per_track])
 
         return BoxTracks(self._df[self._df["sync_index"].isin(chosen)].copy())
+
+    def apply_associations(self, associations: TrackAssociations, keep_unlinked: bool = False) -> BoxTracks:
+        """Write linked object IDs onto the boxes of each associated track.
+
+        Rows of tracks absent from associations.linked are dropped, or kept with
+        their current object_id when keep_unlinked is True.
+
+        Raises:
+            ValueError: if associations name a (cam_id, track_id) absent from these
+                boxes, or if two tracks mapped to one object overlap in time in one
+                camera (raised by BoxTracks validation).
+        """
+        links = associations.linked[["cam_id", "track_id", "object_id"]].rename(
+            columns={"object_id": "linked_object_id"}
+        )
+        present = set(zip(self._df["cam_id"].tolist(), self._df["track_id"].tolist()))
+        absent = sorted(
+            (int(cam_id), int(track_id))
+            for cam_id, track_id in zip(links["cam_id"].tolist(), links["track_id"].tolist())
+            if (cam_id, track_id) not in present
+        )
+        if absent:
+            raise ValueError(f"associations name (cam_id, track_id) {absent} absent from these boxes")
+
+        merged = self._df.merge(links, on=["cam_id", "track_id"], how="left", validate="many_to_one")
+        is_linked = merged["linked_object_id"].notna()
+        if not keep_unlinked:
+            merged = merged[is_linked]
+        merged = merged.assign(object_id=merged["linked_object_id"].fillna(merged["object_id"]))
+        return BoxTracks(merged.drop(columns=["linked_object_id"]))

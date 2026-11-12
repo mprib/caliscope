@@ -24,7 +24,16 @@ from numpy.typing import NDArray
 
 from caliscope.cameras.camera_array import CameraArray, CameraData
 from caliscope.core.box_tracks import BoxTracks, _covered_area
+from caliscope.core.moment_matching import (
+    NEUTRAL_AFFINITY,
+    _connected,
+    fuse_affinities,
+    geometric_affinity,
+    match_moment,
+    reidentification_affinity,
+)
 from caliscope.core.point_data import ImagePoints, _validate_dataframe
+from caliscope.core.reidentification_embeddings import ReidentificationEmbeddings
 from caliscope.exceptions import CalibrationError
 from caliscope.persistence import PersistenceError, _safe_write_toml
 
@@ -919,3 +928,222 @@ def _reproject(
         projected = in_camera[:, :2] / depth[:, None]
     residual_px = rig.focal_px[cam_indices] * np.linalg.norm(projected - xy, axis=1)
     return residual_px, depth
+
+
+###############################################################################
+# Linking from matches at single moments
+###############################################################################
+
+# Share of the moments two tracks are both seen at that must match them for the pair to be accepted.
+MIN_AGREEMENT = 0.5
+CONTRADICTORY_GROUP = "in a group holding tracks {a} and {b} of camera {cam_id}, which overlap in time"
+TOO_FEW_MATCHES = "matched too rarely to accept"
+
+
+@dataclass(frozen=True)
+class _MomentLinkResult:
+    """Objects from accumulated per-moment matches, with the evidence for every cross-camera track pair."""
+
+    objects: list[frozenset[_TrackKey]]
+    unresolved: dict[_TrackKey, str]
+    opportunities: dict[tuple[_TrackKey, _TrackKey], frozenset[int]]
+    matches: dict[tuple[_TrackKey, _TrackKey], frozenset[int]]
+    n_inconsistent_moments: int
+    contradictory_groups: list[frozenset[_TrackKey]]
+
+
+def _observation_distances(
+    track_a: _Track,
+    track_b: _Track,
+    box_size_a: NDArray[np.float64],
+    box_size_b: NDArray[np.float64],
+    rig: _Rig,
+) -> tuple[NDArray[np.int64], NDArray[np.float64], NDArray[np.float64]]:
+    """Symmetric epipolar distance of every (sync_index, keypoint_id) two tracks share.
+
+    Returns the sync_index of each shared observation, its distance in pixels,
+    and its distance as a fraction of box size (each side divided by the size
+    of its own box at that moment). Non-finite observations are dropped.
+    """
+    _, rows_a, rows_b = np.intersect1d(track_a.point_keys, track_b.point_keys, assume_unique=True, return_indices=True)
+    empty = np.empty(0)
+    if len(rows_a) == 0:
+        return np.empty(0, dtype=np.int64), empty, empty
+
+    P_a, P_b = rig.projections[track_a.cam_index], rig.projections[track_b.cam_index]
+    rotation = P_b[:, :3] @ P_a[:, :3].T
+    translation = P_b[:, 3] - rotation @ P_a[:, 3]
+    cross = np.array(
+        [
+            [0.0, -translation[2], translation[1]],
+            [translation[2], 0.0, -translation[0]],
+            [-translation[1], translation[0], 0.0],
+        ]
+    )
+    essential = cross @ rotation
+
+    xy_a = np.column_stack([track_a.xy[rows_a], np.ones(len(rows_a))])
+    xy_b = np.column_stack([track_b.xy[rows_b], np.ones(len(rows_b))])
+    lines_in_b = xy_a @ essential.T
+    lines_in_a = xy_b @ essential
+    algebraic = np.abs(np.einsum("ni,ni->n", xy_b, lines_in_b))
+    with np.errstate(divide="ignore", invalid="ignore"):
+        px_a = rig.focal_px[track_a.cam_index] * algebraic / np.linalg.norm(lines_in_a[:, :2], axis=1)
+        px_b = rig.focal_px[track_b.cam_index] * algebraic / np.linalg.norm(lines_in_b[:, :2], axis=1)
+    pixels = 0.5 * (px_a + px_b)
+    relative = 0.5 * (px_a / box_size_a[rows_a] + px_b / box_size_b[rows_b])
+    finite = np.isfinite(relative)
+    return track_a.sync_indices[rows_a][finite], pixels[finite], relative[finite]
+
+
+def _moment_distances(
+    tracks: Mapping[_TrackKey, _Track],
+    box_sizes: Mapping[_TrackKey, NDArray[np.float64]],
+    rig: _Rig,
+    in_pixels: bool,
+) -> dict[int, dict[tuple[_TrackKey, _TrackKey], float]]:
+    """Mean epipolar distance of each cross-camera track pair at each moment they share enough keypoints."""
+    by_moment: dict[int, dict[tuple[_TrackKey, _TrackKey], float]] = {}
+    for key_a, key_b in combinations(sorted(tracks), 2):
+        if key_a[0] == key_b[0] or not tracks[key_a].moments & tracks[key_b].moments:
+            continue
+        moments, pixels, relative = _observation_distances(
+            tracks[key_a], tracks[key_b], box_sizes[key_a], box_sizes[key_b], rig
+        )
+        values = pixels if in_pixels else relative
+        for moment in np.unique(moments):
+            at_moment = values[moments == moment]
+            if len(at_moment) >= MIN_KEYPOINTS_PER_MOMENT:
+                by_moment.setdefault(int(moment), {})[key_a, key_b] = float(at_moment.mean())
+    return by_moment
+
+
+def _link_tracks_by_moment(
+    points: ImagePoints,
+    cameras: CameraArray,
+    box_df: pd.DataFrame,
+    track_moments: Mapping[_TrackKey, frozenset[int]],
+    embeddings: ReidentificationEmbeddings | None = None,
+    *,
+    max_distance: float = MAX_PAIR_DISTANCE,
+    in_pixels: bool = False,
+) -> _MomentLinkResult:
+    """Group tracks by matching boxes at each sampled moment and counting how often two tracks match.
+
+    At every moment, the boxes with keypoints are matched across cameras
+    (moment_matching). A pair of tracks in different cameras has an opportunity
+    at each moment both are seen with enough shared keypoints, and a match at
+    each of those where the matching puts them together. A pair is accepted
+    with at least MIN_SUPPORT_MOMENTS matches and more than MIN_AGREEMENT of
+    its opportunities matched. Accepted pairs are joined into groups. A group
+    holding two tracks of one camera that overlap in time is contradictory and
+    all its tracks stay unresolved.
+    """
+    posed = cameras.posed_cameras
+    df = points.df
+    df = df[df["cam_id"].isin(list(posed))]
+    rig = _Rig.from_cameras(posed)
+    tracks = _index_tracks(df, posed, rig)
+    box_sizes = _box_sizes(tracks, box_df)
+    distances = _moment_distances(tracks, box_sizes, rig, in_pixels)
+
+    vectors: dict[tuple[int, _TrackKey], NDArray[np.float32]] = {}
+    if embeddings is not None:
+        index = embeddings.index[["sync_index", "cam_id", "track_id"]].to_numpy(dtype=np.int64)
+        for (sync_index, cam_id, track_id), vector in zip(index.tolist(), embeddings.vectors):
+            vectors[sync_index, (cam_id, track_id)] = vector
+
+    opportunities: dict[tuple[_TrackKey, _TrackKey], set[int]] = {}
+    matches: dict[tuple[_TrackKey, _TrackKey], set[int]] = {}
+    plausible: set[tuple[_TrackKey, _TrackKey]] = set()
+    n_inconsistent = 0
+    for moment in sorted(distances):
+        pairs = distances[moment]
+        nodes = sorted({key for pair in pairs for key in pair})
+        position = {key: i for i, key in enumerate(nodes)}
+        distance = np.full((len(nodes), len(nodes)), np.inf)
+        for (key_a, key_b), value in pairs.items():
+            distance[position[key_a], position[key_b]] = distance[position[key_b], position[key_a]] = value
+            opportunities.setdefault((key_a, key_b), set()).add(moment)
+        affinity = geometric_affinity(distance, max_distance)
+        if embeddings is not None:
+            for key_a, key_b in pairs:
+                vector_a, vector_b = vectors.get((moment, key_a)), vectors.get((moment, key_b))
+                if vector_a is None or vector_b is None:
+                    continue
+                i, j = position[key_a], position[key_b]
+                similarity = np.array(float(vector_a @ vector_b))
+                affinity[i, j] = affinity[j, i] = fuse_affinities(affinity[i, j], reidentification_affinity(similarity))
+        plausible.update(pair for pair in pairs if affinity[position[pair[0]], position[pair[1]]] >= NEUTRAL_AFFINITY)
+        views = np.array([tracks[key].cam_index for key in nodes], dtype=np.int64)
+        result = match_moment(affinity, views)
+        n_inconsistent += bool(result.inconsistent)
+        for group in result.groups:
+            for i, j in combinations(group, 2):
+                matches.setdefault((nodes[i], nodes[j]), set()).add(moment)
+
+    accepted = [
+        pair
+        for pair, matched in matches.items()
+        if len(matched) >= MIN_SUPPORT_MOMENTS and len(matched) > MIN_AGREEMENT * len(opportunities.get(pair, matched))
+    ]
+    keys = sorted(tracks)
+    position = {key: i for i, key in enumerate(keys)}
+    adjacency = np.zeros((len(keys), len(keys)), dtype=bool)
+    for key_a, key_b in accepted:
+        adjacency[position[key_a], position[key_b]] = adjacency[position[key_b], position[key_a]] = True
+
+    objects: list[frozenset[_TrackKey]] = []
+    contradictory: list[frozenset[_TrackKey]] = []
+    unresolved: dict[_TrackKey, str] = {}
+    # Tracks a track could have matched: at some moment the pair's affinity favoured a match.
+    partners: dict[_TrackKey, set[_TrackKey]] = {}
+    for key_a, key_b in plausible:
+        partners.setdefault(key_a, set()).add(key_b)
+        partners.setdefault(key_b, set()).add(key_a)
+    alone: list[_TrackKey] = []
+    for component in _connected(adjacency):
+        members = frozenset(keys[i] for i in component)
+        if len(members) < 2:
+            alone.extend(members)
+            continue
+        clash = _first_overlap(members, track_moments)
+        if clash is None:
+            objects.append(members)
+            continue
+        contradictory.append(members)
+        for key in members:
+            unresolved[key] = CONTRADICTORY_GROUP.format(a=clash[0][1], b=clash[1][1], cam_id=clash[0][0])
+    for key in alone:
+        if key not in partners:
+            unresolved[key] = NO_GEOMETRIC_SUPPORT
+            continue
+        # A rival is an unlinked track of the same camera, overlapping in time, with a partner in common.
+        rivals = [
+            other
+            for other in alone
+            if other != key
+            and other[0] == key[0]
+            and track_moments.get(other, frozenset()) & track_moments.get(key, frozenset())
+            and partners.get(other, set()) & partners[key]
+        ]
+        unresolved[key] = CONFLICTING_TRACK.format(other=min(rivals)[1]) if rivals else TOO_FEW_MATCHES
+    return _MomentLinkResult(
+        objects=objects,
+        unresolved=unresolved,
+        opportunities={pair: frozenset(moments) for pair, moments in opportunities.items()},
+        matches={pair: frozenset(moments) for pair, moments in matches.items()},
+        n_inconsistent_moments=n_inconsistent,
+        contradictory_groups=contradictory,
+    )
+
+
+def _first_overlap(
+    members: Iterable[_TrackKey], track_moments: Mapping[_TrackKey, frozenset[int]]
+) -> tuple[_TrackKey, _TrackKey] | None:
+    """The first two tracks of one camera in members whose moments intersect, or None."""
+    for keys in _tracks_by_camera(members).values():
+        for key_a, key_b in combinations(keys, 2):
+            if track_moments.get(key_a, frozenset()) & track_moments.get(key_b, frozenset()):
+                return key_a, key_b
+    return None

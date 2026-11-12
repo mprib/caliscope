@@ -5,9 +5,8 @@ extrinsics to decide which tracks in different cameras show the same object,
 and returns the decision as TrackAssociations. BoxTracks.apply_associations then
 writes the linked object IDs onto the boxes.
 
-The linking core, _link_tracks, takes no boxes. It judges whether two tracks in
-one camera overlap in time from a mapping of track to moments, so the unlinked
-bootstrap can call it with the moments of the sampled points.
+Without extrinsics, tracks cannot be linked by geometry. BoxTracks.primary_tracks
+picks one track per camera by bounding box footprint instead.
 """
 
 from __future__ import annotations

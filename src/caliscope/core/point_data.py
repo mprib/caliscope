@@ -624,8 +624,9 @@ def _linked_rows_only(points: ImagePoints, consumer: str) -> ImagePoints:
     if n_unlinked == len(df):
         raise CalibrationError(
             f"{consumer} received only unlinked points: every object_id is negative, so no observation "
-            "is matched across cameras. Link the tracks with associate_tracks and apply_associations, "
-            "then estimate keypoints again."
+            "is matched across cameras. Select one track per camera with BoxTracks.primary_tracks, or link "
+            "tracks with associate_tracks (needs extrinsics) and BoxTracks.apply_associations, then estimate "
+            "keypoints again."
         )
     warnings.warn(
         f"{consumer} dropped {n_unlinked} of {len(df)} image point rows with a negative (unlinked) object_id.",

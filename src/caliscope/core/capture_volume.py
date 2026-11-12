@@ -313,7 +313,7 @@ class CaptureVolume:
         The input CameraArray is not modified.
 
         Rejects entirely unlinked points (every object_id negative) with a
-        CalibrationError that names associate_tracks. Mixed points lose their
+        CalibrationError that names the ways to link tracks. Mixed points lose their
         unlinked rows with a CalibrationWarning.
 
         Raises:

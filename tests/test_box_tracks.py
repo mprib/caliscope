@@ -177,3 +177,20 @@ def test_rejects_inconsistent_object_ids(first_changes, second_changes, message)
 
     with pytest.raises(ValueError, match=message):
         BoxTracks(pd.DataFrame(rows))
+
+
+def test_primary_tracks_keep_each_cameras_largest_footprint_as_object_zero():
+    primary = BoxTracks(pd.DataFrame(_rows())).primary_tracks().df
+
+    assert sorted(set(zip(primary["cam_id"], primary["track_id"], primary["object_id"]))) == [(0, 2, 0), (4, 7, 0)]
+
+    template = _rows()[0]
+    standing = [template | {"sync_index": frame, "frame_index": frame, "frame_time": frame / 10} for frame in range(5)]
+    walking = [
+        template
+        | {"sync_index": frame, "frame_index": frame, "frame_time": frame / 10, "track_id": 2, "object_id": -2}
+        | {"box_x1": 10.0 + 10 * frame, "box_x2": 20.0 + 10 * frame}
+        for frame in range(2)
+    ]
+    crossing = BoxTracks(pd.DataFrame(standing + walking)).primary_tracks().df
+    assert set(crossing["track_id"]) == {2}

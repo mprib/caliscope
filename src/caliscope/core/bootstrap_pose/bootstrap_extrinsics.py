@@ -28,16 +28,9 @@ def bootstrap_extrinsics(points: ImagePoints, cameras: CameraArray) -> CameraArr
     bootstrap_extrinsics_from_linked_points.
 
     Raises:
-        NotImplementedError: if every row is unlinked.
-        CalibrationError: if points name cameras absent from cameras, or a
-            camera lacks intrinsics.
+        CalibrationError: if every row is unlinked, points name cameras absent
+            from cameras, or a camera lacks intrinsics.
     """
-    object_ids = points.df["object_id"]
-    if len(object_ids) > 0 and bool((object_ids < 0).all()):
-        raise NotImplementedError(
-            "bootstrap_extrinsics does not yet handle entirely unlinked points (every object_id negative)."
-        )
-
     points = _linked_rows_only(points, "bootstrap_extrinsics")
     if points.df[["obj_loc_x", "obj_loc_y", "obj_loc_z"]].isna().all().all():
         logger.info("No object geometry (obj_loc all NaN); using epipolar bootstrap.")

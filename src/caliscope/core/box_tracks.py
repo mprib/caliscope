@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 from collections.abc import Iterable
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 import numpy as np
 import pandas as pd
@@ -136,6 +136,25 @@ class BoxTracks:
             _safe_write_csv(self._df, path, index=False, float_format=CSV_FLOAT_PRECISION)
         except Exception as e:
             raise PersistenceError(f"Failed to save box tracks to {path}: {e}") from e
+
+    def primary_tracks(self) -> BoxTracks:
+        """Keep each camera's track with the largest bounding box footprint, as object 0.
+
+        A track's footprint is the count of image pixels covered by at least one
+        of its boxes, so a subject crossing the view outranks one standing still.
+        Ties go to the lower track_id. This assumes the largest track in every
+        camera shows the same subject; it does not check that across cameras.
+        """
+        footprints = pd.DataFrame(
+            [
+                (cast(int, cam_id), cast(int, track_id), _covered_area(track))
+                for (cam_id, track_id), track in self._df.groupby(["cam_id", "track_id"], sort=True)
+            ],
+            columns=["cam_id", "track_id", "footprint"],
+        ).sort_values(["cam_id", "footprint", "track_id"], ascending=[True, False, True], kind="stable")
+        primaries = footprints.drop_duplicates("cam_id", keep="first")[["cam_id", "track_id"]]
+        kept = self._df.merge(primaries, on=["cam_id", "track_id"])
+        return BoxTracks(kept.assign(object_id=0))
 
     def filter_to_objects(self, object_ids: Iterable[int]) -> BoxTracks:
         """Return a copy containing only rows whose object_id is in object_ids.

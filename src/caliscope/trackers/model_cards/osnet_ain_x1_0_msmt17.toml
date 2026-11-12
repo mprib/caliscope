@@ -1,0 +1,10 @@
+# Person re-identification encoder: OSNet-AIN x1.0 (Zhou et al., TPAMI 2021),
+# Torchreid weights trained on MSMT17 with combineall, exported to ONNX with a
+# dynamic batch axis. Output is a 512-value embedding per crop.
+# Input is RGB, 256 high by 128 wide, ImageNet mean and std.
+[reidentification]
+name = "OSNet-AIN x1.0 (MSMT17)"
+model_path = "osnet_ain_x1_0_msmt17.onnx"
+input_size = [128, 256]
+pixel_mean = [0.485, 0.456, 0.406]
+pixel_std = [0.229, 0.224, 0.225]

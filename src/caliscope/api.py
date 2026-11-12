@@ -67,6 +67,7 @@ from caliscope.core.chessboard import Chessboard
 from caliscope.core.constraints import ConstraintSet
 from caliscope.estimators.vertical import VerticalEstimate, estimate_vertical
 from caliscope.core.point_data import ImagePoints
+from caliscope.core.reidentification_embeddings import ReidentificationEmbeddings
 from caliscope.core.scale_cues import CameraDistance, DepthObservation, SegmentLength, Stature
 from caliscope.core.track_association import TrackAssociations, associate_tracks
 from caliscope.exceptions import CalibrationError
@@ -119,6 +120,7 @@ __all__ = [
     "ImagePoints",
     "BoxTracks",
     "TrackAssociations",
+    "ReidentificationEmbeddings",
     "CaptureVolume",
     # Scale cues
     "CameraDistance",
@@ -135,6 +137,7 @@ __all__ = [
     "extract_image_points_multicam",
     "track_objects",
     "estimate_keypoints",
+    "extract_reidentification_embeddings",
     "associate_tracks",
     "calibrate_intrinsics",
     "calibrate_extrinsics",
@@ -209,6 +212,28 @@ def estimate_keypoints(
             min_confidence=min_confidence,
             progress=resolved_progress,
         )
+
+
+def extract_reidentification_embeddings(
+    videos: Mapping[int, Path | str],
+    encoder: Any,
+    box_tracks: BoxTracks,
+    *,
+    progress: ProgressCallback | None = _AUTO,
+) -> ReidentificationEmbeddings:
+    """Encode the crop inside each tracked box as one re-identification embedding.
+
+    Run it on the same sampled boxes as the keypoint pass that feeds
+    associate_tracks. Each embedding is keyed by its box's sync_index, cam_id
+    and track_id.
+
+    The encoder may be called concurrently, once per camera. Supply a
+    thread-safe encoder or serialize access before calling this function.
+    """
+    from caliscope.core.object_tracking import extract_reidentification_embeddings as _extract
+
+    with _auto_progress(progress) as resolved_progress:
+        return _extract(videos, encoder, box_tracks, progress=resolved_progress)
 
 
 def extract_image_points(

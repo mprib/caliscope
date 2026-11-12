@@ -1,15 +1,17 @@
-"""Box tracking and box-limited keypoint estimation for synchronized recordings.
+"""Box tracking and box-limited keypoint and embedding passes for synchronized recordings.
 
-This module keeps detection, camera-local box tracking, and keypoint estimation
-as separate passes.  Boxes are stored in the original video coordinate system so
-they can be inspected and persisted without depending on inference rotation.
+This module keeps detection, camera-local box tracking, keypoint estimation, and
+re-identification embedding extraction as separate passes.  Boxes are stored in
+the original video coordinate system so they can be inspected and persisted
+without depending on inference rotation.
 """
 
 from __future__ import annotations
 
 import concurrent.futures
+import math
 import os
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Protocol
 
@@ -18,6 +20,7 @@ import pandas as pd
 
 from caliscope.core.box_tracks import BOX_TRACK_COLUMNS, BoxTracks
 from caliscope.core.point_data import ImagePoints
+from caliscope.core.reidentification_embeddings import KEY_COLUMNS, ReidentificationEmbeddings
 from caliscope.recording.frame_source import FrameSource
 from caliscope.reporting import ProgressCallback
 from caliscope.trackers.byte_tracker import ByteTracker, LOW_SCORE_THRESHOLD
@@ -37,6 +40,14 @@ class BoxKeypointTracker(Protocol):
     def keypoints_in_box(
         self, frame: np.ndarray, box: tuple[float, float, float, float]
     ) -> tuple[np.ndarray, np.ndarray]: ...
+
+
+class CropEncoder(Protocol):
+    def encode(self, crops: Sequence[np.ndarray]) -> np.ndarray: ...
+
+
+# Crops narrower or shorter than this many pixels after clamping to the frame are skipped.
+MIN_CROP_SIDE_PX = 2
 
 
 def track_objects(
@@ -214,20 +225,127 @@ def estimate_keypoints(
                     progress.on_frame(cam_id, processed, kept_in_frame)
         finally:
             source.close()
-        missing_frames = sorted(set(by_frame) - seen_frames)
-        if missing_frames:
-            shown = ", ".join(str(frame_index) for frame_index in missing_frames[:10])
-            suffix = "..." if len(missing_frames) > 10 else ""
-            raise ValueError(
-                f"BoxTracks references frames unavailable in video for camera {cam_id}: {shown}{suffix}. "
-                "Regenerate boxes from this video or select only available frames."
-            )
+        _check_frames_seen(by_frame, seen_frames, cam_id)
         if progress is not None:
             progress.on_video_complete(cam_id)
         return rows
 
     rows = _run_per_camera({cam_id: video_paths[cam_id] for cam_id in active_cameras}, process_camera)
     return ImagePoints(pd.DataFrame(rows)) if rows else _empty_image_points()
+
+
+def extract_reidentification_embeddings(
+    videos: Mapping[int, Path | str],
+    encoder: CropEncoder,
+    box_tracks: BoxTracks,
+    *,
+    progress: ProgressCallback | None = None,
+) -> ReidentificationEmbeddings:
+    """Encode the crop inside each supplied box as one re-identification embedding.
+
+    Returns one unit-length vector per box keyed by its sync_index, cam_id and
+    track_id. Boxes too small to crop after clamping to the frame are skipped.
+    It is normally run on the same sampled boxes as the association keypoint pass.
+
+    The recorded rows are the timing authority for this pass.  It does not
+    resynchronize videos or infer observations for gaps in the box table.
+    """
+    boxes = box_tracks.df
+    table_cameras = set(boxes["cam_id"].unique())
+    missing_cameras = sorted(table_cameras - set(videos))
+    if missing_cameras:
+        raise ValueError(f"BoxTracks contains camera IDs absent from videos: {missing_cameras}")
+    video_paths = _video_paths(videos)
+
+    active_cameras = [cam_id for cam_id in video_paths if cam_id in table_cameras]
+    if not active_cameras:
+        return _empty_embeddings()
+    decode_threads = max(1, (os.cpu_count() or 4) // len(active_cameras))
+
+    def process_camera(cam_id: int, path: Path) -> list[dict[str, Any]]:
+        camera_boxes = boxes.loc[boxes["cam_id"] == cam_id].copy()
+        by_frame = _rows_by_frame(camera_boxes)
+        if progress is not None:
+            progress.on_video_start(cam_id, len(by_frame))
+        source = FrameSource.from_path(path, cam_id=cam_id, decode_threads=decode_threads, wanted_indices=set(by_frame))
+        rows: list[dict[str, Any]] = []
+        seen_frames: set[int] = set()
+        try:
+            processed = 0
+            while (raw := source.next_frame()) is not None:
+                seen_frames.add(raw.frame_index)
+                inference_frames: dict[int, np.ndarray] = {}
+                crops: list[np.ndarray] = []
+                cropped_boxes: list[Any] = []
+                for box in by_frame[raw.frame_index]:
+                    rotation_count = int(box.rotation_count)
+                    _validate_source_geometry(box, raw.frame.shape[1], raw.frame.shape[0], cam_id)
+                    if rotation_count not in inference_frames:
+                        inference_frames[rotation_count] = apply_rotation(raw.frame, rotation_count)
+                    inference_frame = inference_frames[rotation_count]
+                    inference_box = _rotate_box(
+                        (box.box_x1, box.box_y1, box.box_x2, box.box_y2),
+                        rotation_count,
+                        raw.frame.shape[1],
+                        raw.frame.shape[0],
+                    )
+                    crop = _crop_box(inference_frame, inference_box)
+                    if crop is not None:
+                        crops.append(crop)
+                        cropped_boxes.append(box)
+                if crops:
+                    vectors = np.asarray(encoder.encode(crops), dtype=np.float32)
+                    for box, vector in zip(cropped_boxes, vectors, strict=True):
+                        rows.append(
+                            {
+                                "sync_index": int(box.sync_index),
+                                "cam_id": cam_id,
+                                "track_id": int(box.track_id),
+                                "vector": vector,
+                            }
+                        )
+                processed += 1
+                if progress is not None:
+                    progress.on_frame(cam_id, processed, len(crops))
+        finally:
+            source.close()
+        _check_frames_seen(by_frame, seen_frames, cam_id)
+        if progress is not None:
+            progress.on_video_complete(cam_id)
+        return rows
+
+    rows = _run_per_camera({cam_id: video_paths[cam_id] for cam_id in active_cameras}, process_camera)
+    if not rows:
+        return _empty_embeddings()
+    index = pd.DataFrame([{column: row[column] for column in KEY_COLUMNS} for row in rows], columns=KEY_COLUMNS)
+    return ReidentificationEmbeddings(index, np.stack([row["vector"] for row in rows]))
+
+
+def _crop_box(frame: np.ndarray, box: tuple[float, float, float, float]) -> np.ndarray | None:
+    """Cut a box out of a frame, widened to whole pixels and clamped to the frame."""
+    height, width = frame.shape[:2]
+    x1 = min(max(math.floor(box[0]), 0), width)
+    y1 = min(max(math.floor(box[1]), 0), height)
+    x2 = min(max(math.ceil(box[2]), 0), width)
+    y2 = min(max(math.ceil(box[3]), 0), height)
+    if x2 - x1 < MIN_CROP_SIDE_PX or y2 - y1 < MIN_CROP_SIDE_PX:
+        return None
+    return frame[y1:y2, x1:x2]
+
+
+def _empty_embeddings() -> ReidentificationEmbeddings:
+    return ReidentificationEmbeddings(pd.DataFrame(columns=KEY_COLUMNS), np.empty((0, 0), dtype=np.float32))
+
+
+def _check_frames_seen(by_frame: Mapping[int, Any], seen_frames: set[int], cam_id: int) -> None:
+    missing_frames = sorted(set(by_frame) - seen_frames)
+    if missing_frames:
+        shown = ", ".join(str(frame_index) for frame_index in missing_frames[:10])
+        suffix = "..." if len(missing_frames) > 10 else ""
+        raise ValueError(
+            f"BoxTracks references frames unavailable in video for camera {cam_id}: {shown}{suffix}. "
+            "Regenerate boxes from this video or select only available frames."
+        )
 
 
 def _video_paths(videos: Mapping[int, Path | str]) -> dict[int, Path]:

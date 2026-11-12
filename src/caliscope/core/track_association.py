@@ -30,16 +30,17 @@ from caliscope.persistence import PersistenceError, _safe_write_toml
 
 logger = logging.getLogger(__name__)
 
-# Placeholder gate values, to be tuned from development measurements.
+# Largest pooled epipolar distance, as a fraction of box size, at which two tracks still count as agreeing.
+MAX_PAIR_DISTANCE = 0.12
 # Sampled moments two tracks in different cameras must share before they are tested as a seed pair.
 MIN_SHARED_MOMENTS = 6
-# Supported moments a track needs to join an object.
+# Shared moments two tracks need before their distance counts as evidence for or against a link.
 MIN_SUPPORT_MOMENTS = 3
-# Inlier keypoints that make one moment count as supported.
+# Shared keypoints that make one moment count.
 MIN_KEYPOINTS_PER_MOMENT = 3
 # Share of a track's evaluated observations that must be inliers for it to join an object.
 MIN_INLIER_FRACTION = 0.5
-# A rival track with at least this share of the leader's supported moments makes the match ambiguous.
+# A competing merge with at least this share of a merge's gain makes it ambiguous.
 AMBIGUITY_RATIO = 0.8
 # Smallest line angle between back-projected rays for an observation to count as well conditioned. Ranking only.
 MIN_RAY_ANGLE_DEG = 15.0
@@ -49,9 +50,6 @@ NO_EXTRINSICS = "camera has no extrinsics"
 NO_GEOMETRIC_SUPPORT = "no geometric support"
 CONFLICTING_TRACK = "conflicts with track {other} in the same camera"
 TOO_LITTLE_SUPPORT = "too little support to join object {object_id}"
-
-# When a track collects several reasons, the most specific one is reported.
-_REASON_PRIORITY = {NO_GEOMETRIC_SUPPORT: 0, TOO_LITTLE_SUPPORT: 1, CONFLICTING_TRACK: 2}
 
 LINKED_COLUMNS: dict[str, dict[str, object]] = {
     "object_id": {"dtype": "int", "nullable": False},
@@ -252,8 +250,16 @@ def associate_tracks(
     Objects are numbered by box footprint summed across cameras, largest
     first, using the full-rate boxes. Camera parameters are never changed.
 
-    max_reprojection_px is the inlier gate in each camera's pixels. The default
-    suits a calibrated rig. Pass a looser value for a rig from bootstrap_extrinsics.
+    Two tracks agree when their keypoints lie near each other's epipolar lines,
+    averaged over the sampled moments they share and measured as a fraction of
+    box size (MAX_PAIR_DISTANCE). A track joins an object on its agreement with
+    all the object's tracks together, so one poor camera pair does not split an
+    object. When two overlapping tracks in a camera fit an object about equally
+    well, both stay unresolved.
+
+    max_reprojection_px does not decide which tracks link. It sets which
+    observations count as inliers in the reported n_moments, n_observations,
+    inlier_fraction and keypoint_inlier_rates.
 
     Raises:
         ValueError: if track_id is missing or null, if any row is already
@@ -268,7 +274,7 @@ def associate_tracks(
     box_df = boxes.df
     track_moments = _moments_by_track(box_df)
 
-    result = _link_tracks(unlinked_points, cameras, track_moments, max_reprojection_px)
+    result = _link_tracks(unlinked_points, cameras, box_df, track_moments, max_reprojection_px)
     object_ids = _rank_by_footprint(result.objects, box_df)
 
     tracks_with_points = set(_moments_by_track(unlinked_points.df))
@@ -421,11 +427,6 @@ class _Support:
         return self.n_moments >= MIN_SUPPORT_MOMENTS and self.inlier_fraction >= MIN_INLIER_FRACTION
 
     @property
-    def is_near_miss(self) -> bool:
-        """Consistent where evaluated, but under the support gates."""
-        return self.n_evaluated > 0 and self.inlier_fraction >= MIN_INLIER_FRACTION and not self.passes
-
-    @property
     def rank(self) -> tuple[int, int, int, float]:
         """Sort key, strongest first: more well-conditioned moments, more moments, more inliers, lower residual."""
         return (-self.n_conditioned_moments, -self.n_moments, -self.n_observations, self.median_px)
@@ -498,70 +499,202 @@ class _Track:
 def _link_tracks(
     points: ImagePoints,
     cameras: CameraArray,
+    box_df: pd.DataFrame,
     track_moments: Mapping[_TrackKey, frozenset[int]],
     max_reprojection_px: float,
 ) -> _LinkResult:
     """Group unlinked tracks into objects that agree geometrically across cameras.
 
+    Every pair of tracks in different cameras gets a weight from its pooled
+    epipolar distance: positive under MAX_PAIR_DISTANCE, negative over it.
+    Tracks are then clustered to make the summed weight inside clusters large,
+    so a track joins an object on its agreement with all the members at once.
+
     Only cameras with extrinsics take part; tracks elsewhere are unresolved.
     Two tracks in one camera overlap in time when their track_moments
     intersect, and overlapping tracks never join one object. Callers validate
     the points (unlinked, with track_id) and the cameras' intrinsics.
+    max_reprojection_px only sets which observations the reported support
+    counts as inliers.
     """
     df = points.df
     posed = cameras.posed_cameras
+    observed = df[df["cam_id"].isin(list(posed))]
+    rig = _Rig.from_cameras({int(c): posed[int(c)] for c in observed["cam_id"].unique().tolist()})
+    tracks = _index_tracks(observed, posed, rig)
+    keys = sorted(tracks)
+    overlaps = _overlapping_tracks(tracks, track_moments)
+    box_sizes = _box_sizes(tracks, box_df)
+
+    weights = np.zeros((len(keys), len(keys)))
+    too_few_moments = np.zeros((len(keys), len(keys)), dtype=bool)
+    for a, b in combinations(range(len(keys)), 2):
+        if keys[a][0] == keys[b][0]:
+            continue
+        distance, n_moments = _pair_distance(
+            tracks[keys[a]], tracks[keys[b]], box_sizes[keys[a]], box_sizes[keys[b]], rig
+        )
+        if n_moments >= MIN_SUPPORT_MOMENTS:
+            weights[a, b] = weights[b, a] = float(np.clip(1.0 - distance / MAX_PAIR_DISTANCE, -1.0, 1.0))
+        elif n_moments > 0 and distance <= MAX_PAIR_DISTANCE:
+            too_few_moments[a, b] = too_few_moments[b, a] = True
+
+    cannot_link = np.array([[other in overlaps[key] for other in keys] for key in keys], dtype=bool)
+    clusters, rivals = _cluster_tracks(weights, cannot_link)
+
+    objects: list[frozenset[_TrackKey]] = []
+    member_support: dict[_TrackKey, _Support] = {}
+    object_of: dict[int, int] = {}
+    for cluster in clusters:
+        if len(cluster) < 2:
+            continue
+        members = frozenset(keys[index] for index in cluster)
+        for index in cluster:
+            object_of[index] = len(objects)
+            rest = [tracks[other] for other in sorted(members) if other != keys[index]]
+            member_support[keys[index]] = _support(tracks[keys[index]], rest, rig, max_reprojection_px)
+        objects.append(members)
+
     unresolved: dict[_TrackKey, _Unresolved] = {}
     for key in _moments_by_track(df):
         if key[0] not in posed:
             unresolved[key] = _Unresolved(NO_EXTRINSICS)
-
-    observed = df[df["cam_id"].isin(list(posed))]
-    rig = _Rig.from_cameras({int(c): posed[int(c)] for c in observed["cam_id"].unique().tolist()})
-    tracks = _index_tracks(observed, posed, rig)
-    overlaps = _overlapping_tracks(tracks, track_moments)
-    seeds = _pairwise_seeds(tracks, rig, max_reprojection_px)
-
-    objects: list[frozenset[_TrackKey]] = []
-    member_support: dict[_TrackKey, _Support] = {}
-    assigned: set[_TrackKey] = set()
-    for seed in sorted(seeds, key=lambda pair: (seeds[pair].rank, pair)):
-        if seed[0] in assigned or seed[1] in assigned:
+    for index, key in enumerate(keys):
+        if index in object_of:
             continue
-        rivalry = _seed_rival(seed, seeds, overlaps, assigned)
-        if rivalry is not None:
-            track, rival = rivalry
-            _record(unresolved, track, _Unresolved(CONFLICTING_TRACK, other_track_id=rival[1]))
-            continue
+        near = sorted(
+            {object_of[int(other)] for other in np.flatnonzero(too_few_moments[index]) if int(other) in object_of}
+        )
+        if index in rivals:
+            unresolved[key] = _Unresolved(CONFLICTING_TRACK, other_track_id=keys[rivals[index]][1])
+        elif near:
+            unresolved[key] = _Unresolved(TOO_LITTLE_SUPPORT, object_index=near[0])
+        else:
+            unresolved[key] = _Unresolved(NO_GEOMETRIC_SUPPORT)
 
-        grown, conflicts, near_misses = _grow_object(seed, tracks, overlaps, assigned, rig, max_reprojection_px)
-        members, support, dropped = _refit(grown, tracks, rig, max_reprojection_px)
-        if len({cam_id for cam_id, _ in members}) < 2:
-            continue
-
-        object_index = len(objects)
-        objects.append(frozenset(members))
-        member_support.update(support)
-        assigned |= members
-        for track, other_track_id in sorted(conflicts.items()):
-            _record(unresolved, track, _Unresolved(CONFLICTING_TRACK, other_track_id=other_track_id))
-        for track in sorted(near_misses | dropped):
-            _record(unresolved, track, _Unresolved(TOO_LITTLE_SUPPORT, object_index=object_index))
-
-    for key in tracks:
-        _record(unresolved, key, _Unresolved(NO_GEOMETRIC_SUPPORT))
-    unresolved = {key: reason for key, reason in sorted(unresolved.items()) if key not in assigned}
-
-    logger.info(f"Linked {len(assigned)} of {len(tracks)} tracks into {len(objects)} objects from {len(seeds)} seeds")
+    logger.info(f"Linked {len(object_of)} of {len(tracks)} tracks into {len(objects)} objects")
     return _LinkResult(objects=objects, member_support=member_support, unresolved=unresolved)
 
 
-def _record(unresolved: dict[_TrackKey, _Unresolved], key: _TrackKey, reason: _Unresolved) -> None:
-    """Keep the most specific reason seen for a track; the first wins among equals."""
-    current = unresolved.get(key)
-    if current is None:
-        unresolved[key] = reason
-    elif current.reason in _REASON_PRIORITY and _REASON_PRIORITY[reason.reason] > _REASON_PRIORITY[current.reason]:
-        unresolved[key] = reason
+def _cluster_tracks(
+    weights: NDArray[np.float64], cannot_link: NDArray[np.bool_]
+) -> tuple[list[list[int]], dict[int, int]]:
+    """Merge tracks into clusters, least ambiguous merge first.
+
+    The gain of merging two clusters is the summed weight between them. A
+    merge competes with every merge it excludes: one that would put a
+    cannot-link track into the same cluster. A merge waits while a competitor
+    has at least AMBIGUITY_RATIO of its gain, and among the rest the one with
+    the largest lead over its best competitor goes first. Clusters that grow
+    can settle a merge that was ambiguous between two tracks alone.
+
+    Returns the clusters as lists of track indices, and for each track left
+    waiting at the end, the index of the cannot-link track it competed with.
+    """
+    clusters = [[index] for index in range(len(weights))]
+    gain = weights.copy()
+    blocked = cannot_link.copy()
+    while True:
+        n = len(clusters)
+        allowed = (gain > 0) & ~blocked
+        # rival[i, j]: best gain of a merge (i, k) where k cannot share a cluster with j.
+        possible = np.where(blocked, -np.inf, gain)
+        offered = np.where(blocked[None, :, :], possible[:, :, None], -np.inf)
+        rival_k = offered.argmax(axis=1) if n else np.zeros((0, 0), dtype=np.intp)
+        rival = offered.max(axis=1) if n else np.zeros((0, 0))
+        strongest = np.maximum(rival, rival.T)
+        waiting = allowed & (strongest >= AMBIGUITY_RATIO * gain)
+        ready = np.triu(allowed & ~waiting, k=1)
+        if not ready.any():
+            break
+        lead = np.where(ready, gain - np.maximum(strongest, 0.0), -np.inf)
+        i, j = np.unravel_index(int(lead.argmax()), lead.shape)
+        clusters[i] = sorted(clusters[i] + clusters[j])
+        del clusters[j]
+        gain[i, :] += gain[j, :]
+        gain[:, i] += gain[:, j]
+        gain[i, i] = 0.0
+        blocked[i, :] |= blocked[j, :]
+        blocked[:, i] |= blocked[:, j]
+        gain = np.delete(np.delete(gain, j, axis=0), j, axis=1)
+        blocked = np.delete(np.delete(blocked, j, axis=0), j, axis=1)
+
+    rivals: dict[int, int] = {}
+    for i, j in zip(*np.nonzero(waiting)):
+        # The single track of cluster j competes with a track of cluster rival_k[i, j] for cluster i.
+        if rival[i, j] >= AMBIGUITY_RATIO * gain[i, j] and len(clusters[j]) == 1:
+            competitor = clusters[int(rival_k[i, j])]
+            track = clusters[j][0]
+            rivals.setdefault(track, next(other for other in competitor if cannot_link[track, other]))
+    return clusters, rivals
+
+
+def _box_sizes(tracks: Mapping[_TrackKey, _Track], box_df: pd.DataFrame) -> dict[_TrackKey, NDArray[np.float64]]:
+    """Square root of box area for each observation of each track, from the track's box at that moment.
+
+    A moment without a box takes the track's median size.
+    """
+    corners = box_df[["box_x1", "box_y1", "box_x2", "box_y2"]].to_numpy(dtype=float)
+    indexed = pd.Series(
+        np.sqrt((corners[:, 2] - corners[:, 0]) * (corners[:, 3] - corners[:, 1])),
+        index=pd.MultiIndex.from_arrays([box_df["cam_id"], box_df["track_id"], box_df["sync_index"]]),
+    )
+    indexed = indexed[~indexed.index.duplicated()]
+    box_sizes: dict[_TrackKey, NDArray[np.float64]] = {}
+    for key, track in tracks.items():
+        of_track = indexed.xs(key, level=(0, 1))
+        at_moments = of_track.reindex(track.sync_indices).to_numpy(dtype=float)
+        box_sizes[key] = np.where(np.isfinite(at_moments), at_moments, float(of_track.median()))
+    return box_sizes
+
+
+def _pair_distance(
+    track_a: _Track,
+    track_b: _Track,
+    box_size_a: NDArray[np.float64],
+    box_size_b: NDArray[np.float64],
+    rig: _Rig,
+) -> tuple[float, int]:
+    """Pooled epipolar disagreement of two tracks in different cameras.
+
+    For every (sync_index, keypoint_id) both tracks hold, take the distance
+    from each observation to the epipolar line of the other, in pixels, divide
+    it by the size of its own track's box at that moment, and average the two.
+    Returns the mean over all shared observations, and the number of moments
+    with at least MIN_KEYPOINTS_PER_MOMENT shared keypoints. The distance is
+    inf when nothing is shared.
+    """
+    _, rows_a, rows_b = np.intersect1d(track_a.point_keys, track_b.point_keys, assume_unique=True, return_indices=True)
+    if len(rows_a) == 0:
+        return float("inf"), 0
+
+    P_a, P_b = rig.projections[track_a.cam_index], rig.projections[track_b.cam_index]
+    rotation = P_b[:, :3] @ P_a[:, :3].T
+    translation = P_b[:, 3] - rotation @ P_a[:, 3]
+    cross = np.array(
+        [
+            [0.0, -translation[2], translation[1]],
+            [translation[2], 0.0, -translation[0]],
+            [-translation[1], translation[0], 0.0],
+        ]
+    )
+    essential = cross @ rotation
+
+    xy_a = np.column_stack([track_a.xy[rows_a], np.ones(len(rows_a))])
+    xy_b = np.column_stack([track_b.xy[rows_b], np.ones(len(rows_b))])
+    lines_in_b = xy_a @ essential.T
+    lines_in_a = xy_b @ essential
+    algebraic = np.abs(np.einsum("ni,ni->n", xy_b, lines_in_b))
+    with np.errstate(divide="ignore", invalid="ignore"):
+        px_a = rig.focal_px[track_a.cam_index] * algebraic / np.linalg.norm(lines_in_a[:, :2], axis=1)
+        px_b = rig.focal_px[track_b.cam_index] * algebraic / np.linalg.norm(lines_in_b[:, :2], axis=1)
+    relative = 0.5 * (px_a / box_size_a[rows_a] + px_b / box_size_b[rows_b])
+    relative = relative[np.isfinite(relative)]
+    if len(relative) == 0:
+        return float("inf"), 0
+
+    _, per_moment = np.unique(track_a.sync_indices[rows_a], return_counts=True)
+    return float(relative.mean()), int((per_moment >= MIN_KEYPOINTS_PER_MOMENT).sum())
 
 
 def _index_tracks(df: pd.DataFrame, cameras: Mapping[int, CameraData], rig: _Rig) -> dict[_TrackKey, _Track]:
@@ -615,14 +748,14 @@ def _tracks_by_camera(tracks: Iterable[_TrackKey]) -> dict[int, list[_TrackKey]]
     return by_camera
 
 
-def _pair(key_a: _TrackKey, key_b: _TrackKey) -> tuple[_TrackKey, _TrackKey]:
-    return (key_a, key_b) if key_a < key_b else (key_b, key_a)
-
-
 def _pairwise_seeds(
     tracks: Mapping[_TrackKey, _Track], rig: _Rig, max_reprojection_px: float
 ) -> dict[tuple[_TrackKey, _TrackKey], _Support]:
-    """Two-view support of every cross-camera track pair that shares enough sampled moments."""
+    """Two-view support of every cross-camera track pair that shares enough sampled moments.
+
+    The linker no longer seeds objects from pairs. This remains for the test
+    that ranks pairs by ray angle.
+    """
     by_camera = _tracks_by_camera(tracks)
     seeds: dict[tuple[_TrackKey, _TrackKey], _Support] = {}
     for cam_a, cam_b in combinations(sorted(by_camera), 2):
@@ -634,108 +767,6 @@ def _pairwise_seeds(
                 if support.passes:
                     seeds[(key_a, key_b)] = support
     return seeds
-
-
-def _seed_rival(
-    seed: tuple[_TrackKey, _TrackKey],
-    seeds: Mapping[tuple[_TrackKey, _TrackKey], _Support],
-    overlaps: Mapping[_TrackKey, frozenset[_TrackKey]],
-    assigned: set[_TrackKey],
-) -> tuple[_TrackKey, _TrackKey] | None:
-    """Return (track, rival) when an unassigned rival overlapping one side fits the other side nearly as well."""
-    n_moments = seeds[seed].n_moments
-    key_a, key_b = seed
-    for track, partner in ((key_b, key_a), (key_a, key_b)):
-        for rival in sorted(overlaps[track] - assigned):
-            rival_support = seeds.get(_pair(partner, rival))
-            if rival_support is not None and rival_support.n_moments >= AMBIGUITY_RATIO * n_moments:
-                return track, rival
-    return None
-
-
-def _grow_object(
-    seed: tuple[_TrackKey, _TrackKey],
-    tracks: Mapping[_TrackKey, _Track],
-    overlaps: Mapping[_TrackKey, frozenset[_TrackKey]],
-    assigned: set[_TrackKey],
-    rig: _Rig,
-    max_reprojection_px: float,
-) -> tuple[set[_TrackKey], dict[_TrackKey, int], set[_TrackKey]]:
-    """Add every unassigned track that fits the object, until no more join.
-
-    Returns the members, the conflicts seen (track -> the track_id it conflicted
-    with), and the near misses from the final round.
-    """
-    members = set(seed)
-    conflicts: dict[_TrackKey, int] = {}
-    while True:
-        member_tracks = [tracks[key] for key in sorted(members)]
-        supports: dict[_TrackKey, _Support] = {}
-        for key in sorted(tracks):
-            if key in assigned or key in members or overlaps[key] & members:
-                continue
-            supports[key] = _support(tracks[key], member_tracks, rig, max_reprojection_px)
-
-        near_misses = {key for key, support in supports.items() if support.is_near_miss}
-        passing = {key: support for key, support in supports.items() if support.passes}
-        accepted = _accept_without_overlap(passing, overlaps, conflicts)
-        if not accepted:
-            return members, conflicts, near_misses
-        members |= accepted
-
-
-def _accept_without_overlap(
-    passing: Mapping[_TrackKey, _Support],
-    overlaps: Mapping[_TrackKey, frozenset[_TrackKey]],
-    conflicts: dict[_TrackKey, int],
-) -> set[_TrackKey]:
-    """Accept the strongest passing candidate of each set of time-overlapping tracks in a camera.
-
-    When an overlapping rival has at least AMBIGUITY_RATIO of the leader's
-    moments, neither is accepted, and both block any later candidate that
-    overlaps them. Every candidate turned away for an overlap is recorded in
-    conflicts.
-    """
-    accepted: set[_TrackKey] = set()
-    for keys in _tracks_by_camera(passing).values():
-        kept: list[_TrackKey] = []
-        blocked: list[_TrackKey] = []
-        for key in sorted(keys, key=lambda k: (passing[k].rank, k)):
-            leader = next((other for other in kept if other in overlaps[key]), None)
-            if leader is not None:
-                if passing[key].n_moments >= AMBIGUITY_RATIO * passing[leader].n_moments:
-                    kept.remove(leader)
-                    blocked.extend([leader, key])
-                    conflicts[leader] = key[1]
-                conflicts[key] = leader[1]
-                continue
-            blocker = next((other for other in blocked if other in overlaps[key]), None)
-            if blocker is not None:
-                blocked.append(key)
-                conflicts[key] = blocker[1]
-                continue
-            kept.append(key)
-        accepted.update(kept)
-    return accepted
-
-
-def _refit(
-    members: set[_TrackKey], tracks: Mapping[_TrackKey, _Track], rig: _Rig, max_reprojection_px: float
-) -> tuple[set[_TrackKey], dict[_TrackKey, _Support], set[_TrackKey]]:
-    """Recheck each member against the rest, dropping failures until every member passes."""
-    members = set(members)
-    dropped: set[_TrackKey] = set()
-    while members:
-        support: dict[_TrackKey, _Support] = {}
-        for key in sorted(members):
-            rest = [tracks[other] for other in sorted(members) if other != key]
-            support[key] = _support(tracks[key], rest, rig, max_reprojection_px)
-        failing = {key for key, member_support in support.items() if not member_support.passes}
-        if not failing:
-            return members, support, dropped
-        members -= failing
-        dropped |= failing
-    return members, {}, dropped
 
 
 ###############################################################################

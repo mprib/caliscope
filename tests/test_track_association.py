@@ -9,7 +9,7 @@ import pytest
 from caliscope.cameras.camera_array import CameraArray
 from caliscope.core.box_tracks import BoxTracks
 from caliscope.core.point_data import ImagePoints
-from caliscope.core.track_association import NO_EXTRINSICS, TrackAssociations, associate_tracks
+from caliscope.core.track_association import NO_EXTRINSICS, TrackAssociations, _cluster_tracks, associate_tracks
 from caliscope.exceptions import CalibrationError
 from caliscope.synthetic import CameraSynthesizer
 
@@ -144,3 +144,53 @@ def test_tracks_in_a_camera_without_extrinsics_are_unresolved():
         zip(unresolved["cam_id"], unresolved["track_id"])
     )
     assert sorted(tracks) == [(0, 1), (1, 1), (2, 1)]
+
+
+def _weights(n_tracks: int, pairs: dict[tuple[int, int], float]) -> np.ndarray:
+    weights = np.zeros((n_tracks, n_tracks))
+    for (a, b), weight in pairs.items():
+        weights[a, b] = weights[b, a] = weight
+    return weights
+
+
+def _cannot_link(n_tracks: int, pairs: list[tuple[int, int]]) -> np.ndarray:
+    blocked = np.zeros((n_tracks, n_tracks), dtype=bool)
+    for a, b in pairs:
+        blocked[a, b] = blocked[b, a] = True
+    return blocked
+
+
+def test_clustering_keeps_a_track_whose_one_bad_pair_is_outvoted():
+    # Four cameras, one track each. Tracks 0 and 2 disagree (cameras facing each other), every other pair agrees.
+    agree = {(a, b): 0.8 for a in range(4) for b in range(a + 1, 4)}
+    weights = _weights(4, agree | {(0, 2): -0.5})
+
+    clusters, rivals = _cluster_tracks(weights, _cannot_link(4, []))
+
+    assert clusters == [[0, 1, 2, 3]]
+    assert rivals == {}
+
+
+def test_clustering_settles_an_ambiguous_pair_from_the_other_cameras():
+    # Two people (tracks 0-2 and 3-5) in three cameras. In the first two cameras a swapped match fits as well as
+    # the true one; the third camera tells them apart.
+    person_a, person_b = [0, 1, 2], [3, 4, 5]
+    pairs = {(a, b): -1.0 for a in person_a for b in person_b}
+    pairs |= {(0, 1): 0.9, (0, 2): 0.9, (1, 2): 0.9, (3, 4): 0.9, (3, 5): 0.9, (4, 5): 0.9}
+    pairs |= {(0, 4): 0.9, (1, 3): 0.9}
+    cannot_link = _cannot_link(6, [(0, 3), (1, 4), (2, 5)])
+
+    clusters, rivals = _cluster_tracks(_weights(6, pairs), cannot_link)
+
+    assert clusters == [person_a, person_b]
+    assert rivals == {}
+
+
+def test_clustering_leaves_out_two_overlapping_tracks_that_fit_equally():
+    # Tracks 2 and 3 overlap in one camera and both agree with tracks 0 and 1.
+    pairs = {(0, 1): 0.9, (0, 2): 0.8, (1, 2): 0.8, (0, 3): 0.75, (1, 3): 0.75}
+
+    clusters, rivals = _cluster_tracks(_weights(4, pairs), _cannot_link(4, [(2, 3)]))
+
+    assert clusters == [[0, 1], [2], [3]]
+    assert rivals == {2: 3, 3: 2}

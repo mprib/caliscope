@@ -156,6 +156,13 @@ def _connected(adjacency: NDArray[np.bool_]) -> list[tuple[int, ...]]:
     return components
 
 
-def reidentification_affinity(similarity: NDArray[np.float64]) -> NDArray[np.float64]:
-    """Affinity from the cosine similarity of two unit embeddings, clipped to [0, 1]."""
-    return np.clip(similarity, 0.0, 1.0)
+def reidentification_affinity(
+    similarity: NDArray[np.float64], neutral_similarity: float, full_similarity: float
+) -> NDArray[np.float64]:
+    """Affinity from the cosine similarity of two unit embeddings.
+
+    Linear in the similarity: NEUTRAL_AFFINITY at neutral_similarity, 1 at
+    full_similarity and above, 0 as far below neutral as full is above it.
+    """
+    half_width = full_similarity - neutral_similarity
+    return np.clip(NEUTRAL_AFFINITY + (similarity - neutral_similarity) / (2 * half_width), 0.0, 1.0)

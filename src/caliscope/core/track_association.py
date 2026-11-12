@@ -936,6 +936,13 @@ def _reproject(
 
 # Share of the moments two tracks are both seen at that must match them for the pair to be accepted.
 MIN_AGREEMENT = 0.5
+# Cosine similarity of two embeddings at which re-identification neither favours nor opposes a match,
+# and the similarity at which it favours one fully. Measured with OSNet-AIN x1.0 (MSMT17) on two sources:
+# boxes of different people score 0.48 and 0.50 on average (99th percentile 0.64 and 0.65), boxes of one
+# person 0.75 and 0.83 (1st percentile 0.54 and 0.61), and the best single cuts are 0.59 and 0.66.
+# The same clips were used to test the linker, so these are not held-out values. Another encoder needs its own.
+NEUTRAL_SIMILARITY = 0.62
+FULL_SIMILARITY = 0.74
 CONTRADICTORY_GROUP = "in a group holding tracks {a} and {b} of camera {cam_id}, which overlap in time"
 TOO_FEW_MATCHES = "matched too rarely to accept"
 
@@ -1073,7 +1080,9 @@ def _link_tracks_by_moment(
                     continue
                 i, j = position[key_a], position[key_b]
                 similarity = np.array(float(vector_a @ vector_b))
-                affinity[i, j] = affinity[j, i] = fuse_affinities(affinity[i, j], reidentification_affinity(similarity))
+                affinity[i, j] = affinity[j, i] = fuse_affinities(
+                    affinity[i, j], reidentification_affinity(similarity, NEUTRAL_SIMILARITY, FULL_SIMILARITY)
+                )
         plausible.update(pair for pair in pairs if affinity[position[pair[0]], position[pair[1]]] >= NEUTRAL_AFFINITY)
         views = np.array([tracks[key].cam_index for key in nodes], dtype=np.int64)
         result = match_moment(affinity, views)

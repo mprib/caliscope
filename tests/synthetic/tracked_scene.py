@@ -12,20 +12,16 @@ world origin, which would start every object at the same place.
 
 from __future__ import annotations
 
-import copy
-from collections import Counter
 from collections.abc import Iterable, Mapping, Sequence
 
 import numpy as np
 import pandas as pd
 
-from caliscope.cameras.camera_array import CameraArray, CameraData
-from caliscope.core.alignment import estimate_similarity_transform
+from caliscope.cameras.camera_array import CameraArray
 from caliscope.core.box_tracks import BoxTracks, _covered_area
 from caliscope.core.point_data import ImagePoints
 from caliscope.core.track_association import TrackAssociations
 from caliscope.synthetic import CalibrationObject, CameraSynthesizer, SceneObject, SE3Pose, SyntheticScene, Trajectory
-from tests.synthetic.assertions import pose_error
 
 TrackKey = tuple[int, int]
 
@@ -37,7 +33,6 @@ BOX_PADDING_PX = 12.0
 
 _UP = np.array([0.0, 0.0, 1.0])
 _DUPLICATE_FRAGMENT = 2
-_BODY_DEPTH_M = 0.3
 
 # 17 body-like keypoints in a local frame with the feet at z = 0, spanning
 # 0.4 m (x) by 0.3 m (y) by 1.7 m (z), so no camera pair sees a planar cloud.
@@ -64,14 +59,9 @@ _BODY_POINTS = np.array(
 )
 
 
-def body_target(scale: float = 1.0, depth: float = _BODY_DEPTH_M) -> CalibrationObject:
-    """A non-planar 17-point constellation the size of a standing person, scaled.
-
-    depth is the extent along y in metres before scaling; a small value models a body that is close to flat.
-    """
-    points = _BODY_POINTS.copy()
-    points[:, 1] *= depth / _BODY_DEPTH_M
-    return CalibrationObject.from_points(points * scale)
+def body_target(scale: float = 1.0) -> CalibrationObject:
+    """A non-planar 17-point constellation the size of a standing person, scaled."""
+    return CalibrationObject.from_points(_BODY_POINTS * scale)
 
 
 def ring_cameras(n: int = 4, drop: Iterable[int] = ()) -> CameraArray:
@@ -284,100 +274,6 @@ def identities_by_object(associations: TrackAssociations, truth: Mapping[TrackKe
     ):
         identities.setdefault(int(object_id), set()).add(truth[(int(cam_id), int(track_id))])
     return identities
-
-
-def identity_outcomes(associations: TrackAssociations, truth: Mapping[TrackKey, int]) -> dict[str, int]:
-    """Count linked tracks as correct or wrong, and the unresolved tracks.
-
-    A linked track is correct when its true object is the majority of its object
-    and no other object has that true object as its majority; otherwise wrong.
-    """
-    linked = associations.linked
-    shown: dict[int, list[int]] = {}
-    for object_id, cam_id, track_id in zip(
-        linked["object_id"].tolist(), linked["cam_id"].tolist(), linked["track_id"].tolist()
-    ):
-        shown.setdefault(int(object_id), []).append(truth[(int(cam_id), int(track_id))])
-
-    majority = {
-        object_id: min(set(members), key=lambda true_object: (-members.count(true_object), true_object))
-        for object_id, members in shown.items()
-    }
-    holders = Counter(majority.values())
-    correct = sum(
-        sum(1 for true_object in members if true_object == majority[object_id] and holders[true_object] == 1)
-        for object_id, members in shown.items()
-    )
-    return {"correct": correct, "wrong": len(linked) - correct, "unresolved": len(associations.unresolved)}
-
-
-def rig_errors(cameras: CameraArray, scene: SyntheticScene) -> dict[int, tuple[float, float]]:
-    """Per camera, (rotation error, translation-direction error) in degrees against the scene's cameras.
-
-    With three or more cameras the estimated rig is aligned to the truth by a
-    similarity fit of the camera centres, and the translation direction is that
-    of each centre seen from the centroid of the centres. With two cameras the
-    relative rotation and the baseline direction are compared directly, and the
-    lower cam_id reports (0, 0).
-    """
-    truth = scene.camera_array.cameras
-    cam_ids = sorted(cameras.posed_cameras)
-    if len(cam_ids) < 3:
-        first, second = cam_ids
-        estimated = relative_pose(cameras.cameras[first], cameras.cameras[second])
-        expected = relative_pose(truth[first], truth[second])
-        return {
-            first: (0.0, 0.0),
-            second: (rotation_error_deg(estimated[0], expected[0]), direction_error_deg(estimated[1], expected[1])),
-        }
-
-    centers = {cam_id: _center(cameras.cameras[cam_id]) for cam_id in cam_ids}
-    true_centers = {cam_id: _center(truth[cam_id]) for cam_id in cam_ids}
-    similarity = estimate_similarity_transform(
-        np.array([centers[cam_id] for cam_id in cam_ids]), np.array([true_centers[cam_id] for cam_id in cam_ids])
-    )
-    aligned = {cam_id: similarity.apply(centers[cam_id].reshape(1, 3))[0] for cam_id in cam_ids}
-    centroid = np.mean([aligned[cam_id] for cam_id in cam_ids], axis=0)
-    true_centroid = np.mean([true_centers[cam_id] for cam_id in cam_ids], axis=0)
-
-    errors: dict[int, tuple[float, float]] = {}
-    for cam_id in cam_ids:
-        moved = copy.copy(cameras.cameras[cam_id])
-        assert moved.rotation is not None
-        moved.rotation = moved.rotation @ similarity.rotation.T
-        moved.translation = -moved.rotation @ aligned[cam_id]
-        rotation_deg = pose_error(moved, truth[cam_id]).rotation_deg
-        direction_deg = direction_error_deg(aligned[cam_id] - centroid, true_centers[cam_id] - true_centroid)
-        errors[cam_id] = (rotation_deg, direction_deg)
-    return errors
-
-
-def _center(camera: CameraData) -> np.ndarray:
-    assert camera.rotation is not None and camera.translation is not None
-    return -camera.rotation.T @ np.asarray(camera.translation, dtype=float).reshape(3)
-
-
-def relative_pose(camera_a: CameraData, camera_b: CameraData) -> tuple[np.ndarray, np.ndarray]:
-    """Rotation and translation taking camera a's frame to camera b's."""
-    assert camera_a.rotation is not None and camera_a.translation is not None
-    assert camera_b.rotation is not None and camera_b.translation is not None
-    rotation = camera_b.rotation @ camera_a.rotation.T
-    translation = np.asarray(camera_b.translation, dtype=float).reshape(3) - rotation @ np.asarray(
-        camera_a.translation, dtype=float
-    ).reshape(3)
-    return rotation, translation
-
-
-def rotation_error_deg(estimated: np.ndarray, expected: np.ndarray) -> float:
-    """Geodesic angle between two rotation matrices."""
-    cosine = (float(np.trace(estimated.T @ expected)) - 1.0) / 2.0
-    return float(np.degrees(np.arccos(np.clip(cosine, -1.0, 1.0))))
-
-
-def direction_error_deg(estimated: np.ndarray, expected: np.ndarray) -> float:
-    """Angle between two vectors."""
-    cosine = float(estimated @ expected) / float(np.linalg.norm(estimated) * np.linalg.norm(expected))
-    return float(np.degrees(np.arccos(np.clip(cosine, -1.0, 1.0))))
 
 
 def cameras_by_object(associations: TrackAssociations) -> dict[int, set[int]]:

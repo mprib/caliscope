@@ -1,4 +1,4 @@
-"""TrackAssociations persistence and associate_tracks input checks (no geometry)."""
+"""TrackAssociations persistence, associate_tracks input checks, and the clustering step."""
 
 from __future__ import annotations
 
@@ -9,12 +9,13 @@ import pytest
 from caliscope.cameras.camera_array import CameraArray
 from caliscope.core.box_tracks import BoxTracks
 from caliscope.core.point_data import ImagePoints
+from caliscope.core.reidentification_embeddings import ReidentificationEmbeddings
 from caliscope.core.track_association import NO_EXTRINSICS, TrackAssociations, _cluster_tracks, associate_tracks
 from caliscope.exceptions import CalibrationError
 from caliscope.synthetic import CameraSynthesizer
 
 
-def test_hand_built_associations_round_trip_with_statistics_omitted(tmp_path):
+def test_hand_built_associations_round_trip_with_evidence_omitted(tmp_path):
     associations = TrackAssociations.from_mapping({1: {5: [2]}, 0: {1: [4, 3]}})
     path = tmp_path / "associations.toml"
 
@@ -26,27 +27,23 @@ def test_hand_built_associations_round_trip_with_statistics_omitted(tmp_path):
     assert reloaded.linked[["object_id", "cam_id", "track_id"]].values.tolist() == [[0, 1, 3], [0, 1, 4], [1, 5, 2]]
     assert reloaded.linked["n_moments"].isna().all()
     assert reloaded.unresolved.empty
-    assert reloaded.keypoint_inlier_rates.empty
+    assert reloaded.pair_evidence.empty
+    assert reloaded.objects.empty
 
 
-def test_associations_with_statistics_round_trip(tmp_path):
+def test_associations_with_evidence_round_trip(tmp_path):
     linked = pd.DataFrame(
         [
-            {
-                "object_id": 0,
-                "cam_id": 1,
-                "track_id": 4,
-                "n_moments": 22,
-                "n_observations": 431,
-                "inlier_fraction": 0.91,
-                "median_reprojection_px": 2.3,
-            },
+            {"object_id": 0, "cam_id": 1, "track_id": 4, "n_moments": 22, "agreement": 0.91},
             {"object_id": 1, "cam_id": 5, "track_id": 2},
         ]
     )
-    unresolved = pd.DataFrame([{"cam_id": 2, "track_id": 9, "reason": "no geometric support"}])
-    rates = pd.DataFrame([{"object_id": 0, "keypoint_id": 9, "n_observations": 120, "inlier_rate": 0.42}])
-    associations = TrackAssociations(linked, unresolved, rates)
+    unresolved = pd.DataFrame([{"cam_id": 2, "track_id": 9, "reason": "matched no track in another camera"}])
+    pair_evidence = pd.DataFrame(
+        [{"cam_a": 1, "track_a": 4, "cam_b": 5, "track_b": 2, "n_opportunities": 12, "n_matches": 1}]
+    )
+    objects = pd.DataFrame([{"object_id": 0, "detector_score": 0.82, "keypoint_confidence": 0.74}, {"object_id": 1}])
+    associations = TrackAssociations(linked, unresolved, pair_evidence, objects)
     path = tmp_path / "associations.toml"
 
     associations.to_toml(path)
@@ -54,7 +51,8 @@ def test_associations_with_statistics_round_trip(tmp_path):
 
     pd.testing.assert_frame_equal(reloaded.linked, associations.linked)
     pd.testing.assert_frame_equal(reloaded.unresolved, associations.unresolved)
-    pd.testing.assert_frame_equal(reloaded.keypoint_inlier_rates, associations.keypoint_inlier_rates)
+    pd.testing.assert_frame_equal(reloaded.pair_evidence, associations.pair_evidence)
+    pd.testing.assert_frame_equal(reloaded.objects, associations.objects)
     assert reloaded.linked["n_moments"].tolist()[0] == 22
     assert pd.isna(reloaded.linked["n_moments"].tolist()[1])
 
@@ -65,8 +63,8 @@ def test_from_mapping_rejects_a_shared_track_or_negative_object(mapping):
         TrackAssociations.from_mapping(mapping)
 
 
-def _tiny_inputs() -> tuple[pd.DataFrame, CameraArray, BoxTracks]:
-    """Three posed cameras, one unlinked track each, three moments of three keypoints."""
+def _tiny_inputs() -> tuple[pd.DataFrame, CameraArray, BoxTracks, ReidentificationEmbeddings]:
+    """Three posed cameras, one unlinked track each, three moments of three keypoints, one shared embedding."""
     cameras = CameraSynthesizer().add_ring(n=3, radius=3.0, height=1.0).build()
     rng = np.random.default_rng(0)
     point_rows: list[dict[str, int | float]] = []
@@ -103,7 +101,10 @@ def _tiny_inputs() -> tuple[pd.DataFrame, CameraArray, BoxTracks]:
                     "rotation_count": 0,
                 }
             )
-    return pd.DataFrame(point_rows), cameras, BoxTracks(pd.DataFrame(box_rows))
+    boxes = BoxTracks(pd.DataFrame(box_rows))
+    index = boxes.df[["sync_index", "cam_id", "track_id"]]
+    embeddings = ReidentificationEmbeddings(index, np.tile(np.array([1.0, 0.0], dtype=np.float32), (len(index), 1)))
+    return pd.DataFrame(point_rows), cameras, boxes, embeddings
 
 
 def _remove_extrinsics(cameras: CameraArray, cam_ids: list[int]) -> None:
@@ -113,30 +114,38 @@ def _remove_extrinsics(cameras: CameraArray, cam_ids: list[int]) -> None:
 
 
 def test_associate_tracks_rejects_points_without_track_id_or_with_linked_rows():
-    points, cameras, boxes = _tiny_inputs()
+    points, cameras, boxes, embeddings = _tiny_inputs()
 
     with pytest.raises(ValueError, match="track_id"):
-        associate_tracks(ImagePoints(points.drop(columns=["track_id"])), cameras, boxes)
+        associate_tracks(ImagePoints(points.drop(columns=["track_id"])), cameras, boxes, embeddings)
 
     linked = points.copy()
     linked.loc[0, "object_id"] = 0
     with pytest.raises(ValueError, match="unlinked"):
-        associate_tracks(ImagePoints(linked), cameras, boxes)
+        associate_tracks(ImagePoints(linked), cameras, boxes, embeddings)
+
+
+def test_associate_tracks_rejects_embeddings_of_other_boxes():
+    points, cameras, boxes, embeddings = _tiny_inputs()
+    elsewhere = embeddings.index.assign(sync_index=embeddings.index["sync_index"] + 100)
+
+    with pytest.raises(ValueError, match="extract_reidentification_embeddings"):
+        associate_tracks(ImagePoints(points), cameras, boxes, ReidentificationEmbeddings(elsewhere, embeddings.vectors))
 
 
 def test_associate_tracks_needs_two_cameras_with_extrinsics():
-    points, cameras, boxes = _tiny_inputs()
+    points, cameras, boxes, embeddings = _tiny_inputs()
     _remove_extrinsics(cameras, [1, 2])
 
     with pytest.raises(CalibrationError, match="bootstrap_extrinsics"):
-        associate_tracks(ImagePoints(points), cameras, boxes)
+        associate_tracks(ImagePoints(points), cameras, boxes, embeddings)
 
 
 def test_tracks_in_a_camera_without_extrinsics_are_unresolved():
-    points, cameras, boxes = _tiny_inputs()
+    points, cameras, boxes, embeddings = _tiny_inputs()
     _remove_extrinsics(cameras, [2])
 
-    associations = associate_tracks(ImagePoints(points), cameras, boxes)
+    associations = associate_tracks(ImagePoints(points), cameras, boxes, embeddings)
 
     unresolved = associations.unresolved
     assert unresolved.loc[unresolved["cam_id"] == 2, "reason"].tolist() == [NO_EXTRINSICS]

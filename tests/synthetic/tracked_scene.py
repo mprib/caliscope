@@ -20,6 +20,7 @@ import pandas as pd
 from caliscope.cameras.camera_array import CameraArray
 from caliscope.core.box_tracks import BoxTracks, _covered_area
 from caliscope.core.point_data import ImagePoints
+from caliscope.core.reidentification_embeddings import ReidentificationEmbeddings
 from caliscope.core.track_association import TrackAssociations
 from caliscope.synthetic import CalibrationObject, CameraSynthesizer, SceneObject, SE3Pose, SyntheticScene, Trajectory
 
@@ -247,6 +248,15 @@ def sample_points(points: ImagePoints, boxes: BoxTracks, frames_per_track: int =
     """Keep the points at the boxes sample_for_association keeps, as a user would."""
     kept = boxes.sample_for_association(frames_per_track).df[["cam_id", "sync_index", "track_id"]]
     return ImagePoints(points.df.merge(kept, on=["cam_id", "sync_index", "track_id"]))
+
+
+def embeddings_by_true_object(points: ImagePoints, truth: Mapping[TrackKey, int]) -> ReidentificationEmbeddings:
+    """One embedding per sampled box: boxes of one true object share a vector, different objects are orthogonal."""
+    index = points.df[["sync_index", "cam_id", "track_id"]].drop_duplicates().reset_index(drop=True)
+    vectors = np.zeros((len(index), max(truth.values()) + 2), dtype=np.float32)
+    for row, (cam_id, track_id) in enumerate(zip(index["cam_id"].tolist(), index["track_id"].tolist())):
+        vectors[row, truth[int(cam_id), int(track_id)]] = 1.0
+    return ReidentificationEmbeddings(index, vectors)
 
 
 def assert_exclusive(associations: TrackAssociations, boxes: BoxTracks) -> None:

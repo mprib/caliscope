@@ -6,7 +6,7 @@ Target runtime: <2 seconds total.
 
 import pytest
 
-from caliscope.core.bootstrap_pose.build_paired_pose_network import build_paired_pose_network
+from caliscope.core.bootstrap_pose.bootstrap_extrinsics import bootstrap_extrinsics
 from caliscope.core.point_data import ImagePoints
 from caliscope.core.capture_volume import CaptureVolume
 from caliscope.synthetic.calibration_object import CalibrationObject
@@ -55,24 +55,23 @@ class TestDroppedCameras:
         # Bootstrap uses intrinsics-only cameras
         intrinsics_only = scene.intrinsics_only_cameras()
 
-        # Build pose network (will not find cameras 9, 10)
-        network = build_paired_pose_network(filtered_image_points, intrinsics_only)
-        network.apply_to(intrinsics_only)
+        # Bootstrap extrinsics (will not find cameras 9, 10)
+        bootstrapped = bootstrap_extrinsics(filtered_image_points, intrinsics_only)
 
         # Triangulate with posed cameras only
-        world_points = filtered_image_points.triangulate(intrinsics_only)
+        world_points = filtered_image_points.triangulate(bootstrapped)
 
         # Create capture volume and verify setup
-        capture_volume = CaptureVolume(intrinsics_only, filtered_image_points, world_points)
+        capture_volume = CaptureVolume(bootstrapped, filtered_image_points, world_points)
 
         # Key assertions on camera configuration
-        posed_cam_ids = set(intrinsics_only.posed_cameras.keys())
-        unposed_cam_ids = set(intrinsics_only.unposed_cameras.keys())
+        posed_cam_ids = set(bootstrapped.posed_cameras.keys())
+        unposed_cam_ids = set(bootstrapped.unposed_cameras.keys())
 
         expected_posed = {0, 1, 2, 3, 4, 5, 6, 7, 8, 11}
         assert posed_cam_ids == expected_posed, f"Expected cam_ids {expected_posed} posed, got {posed_cam_ids}"
         assert unposed_cam_ids == {9, 10}, f"Expected cam_ids 9,10 unposed, got {unposed_cam_ids}"
-        assert len(intrinsics_only.posed_cam_id_to_index) == 10
+        assert len(bootstrapped.posed_cam_id_to_index) == 10
 
         # Core test: optimization completes without crashing
         optimized = capture_volume.optimize()
@@ -134,13 +133,12 @@ class TestIsolatedIslands:
         # Bootstrap uses intrinsics-only cameras
         intrinsics_only = scene.intrinsics_only_cameras()
 
-        # Build pose network - this is where the interesting behavior happens
-        network = build_paired_pose_network(filtered_image_points, intrinsics_only)
-        network.apply_to(intrinsics_only)
+        # Bootstrap extrinsics - this is where the interesting behavior happens
+        bootstrapped = bootstrap_extrinsics(filtered_image_points, intrinsics_only)
 
         # Document what happened
-        posed_cam_ids = set(intrinsics_only.posed_cameras.keys())
-        unposed_cam_ids = set(intrinsics_only.unposed_cameras.keys())
+        posed_cam_ids = set(bootstrapped.posed_cameras.keys())
+        unposed_cam_ids = set(bootstrapped.unposed_cameras.keys())
 
         print("\n=== DISCOVERED BEHAVIOR ===")
         print(f"Posed cam_ids: {sorted(posed_cam_ids)}")
@@ -179,8 +177,8 @@ class TestIsolatedIslands:
 
         # Attempt triangulation and optimization (may or may not work)
         if len(posed_cam_ids) >= 2:
-            world_points = filtered_image_points.triangulate(intrinsics_only)
-            capture_volume = CaptureVolume(intrinsics_only, filtered_image_points, world_points)
+            world_points = filtered_image_points.triangulate(bootstrapped)
+            capture_volume = CaptureVolume(bootstrapped, filtered_image_points, world_points)
 
             # Core test: does optimization complete?
             optimized = capture_volume.optimize()
@@ -212,11 +210,10 @@ class TestIsolatedIslands:
         filtered_image_points = ImagePoints(filtered_df)
 
         intrinsics_only = scene.intrinsics_only_cameras()
-        network = build_paired_pose_network(filtered_image_points, intrinsics_only)
-        network.apply_to(intrinsics_only)
+        bootstrapped = bootstrap_extrinsics(filtered_image_points, intrinsics_only)
 
-        posed_cam_ids = set(intrinsics_only.posed_cameras.keys())
-        unposed_cam_ids = set(intrinsics_only.unposed_cameras.keys())
+        posed_cam_ids = set(bootstrapped.posed_cameras.keys())
+        unposed_cam_ids = set(bootstrapped.unposed_cameras.keys())
 
         return posed_cam_ids, unposed_cam_ids
 
@@ -285,10 +282,9 @@ def explore_island_split(island_a_cam_ids: set[int], island_b_cam_ids: set[int],
     filtered_image_points = ImagePoints(filtered_df)
 
     intrinsics_only = scene.intrinsics_only_cameras()
-    network = build_paired_pose_network(filtered_image_points, intrinsics_only)
-    network.apply_to(intrinsics_only)
+    bootstrapped = bootstrap_extrinsics(filtered_image_points, intrinsics_only)
 
-    posed_cam_ids = set(intrinsics_only.posed_cameras.keys())
+    posed_cam_ids = set(bootstrapped.posed_cameras.keys())
     posed_in_a = posed_cam_ids & island_a_cam_ids
     posed_in_b = posed_cam_ids & island_b_cam_ids
 

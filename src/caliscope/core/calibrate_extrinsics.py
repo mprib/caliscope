@@ -17,7 +17,7 @@ from caliscope.cameras.camera_array import CameraArray
 from caliscope.core.bundle_parameterization import IntrinsicEstimate
 from caliscope.core.capture_volume import CaptureVolume
 from caliscope.core.constraints import ConstraintSet, RigidityReport
-from caliscope.core.point_data import ImagePoints
+from caliscope.core.point_data import ImagePoints, _linked_rows_only
 from caliscope.exceptions import CalibrationError
 from caliscope.core.scale_accuracy import compute_depth_ratios
 from caliscope.task_manager.cancellation import CancellationToken
@@ -56,6 +56,9 @@ def calibrate_extrinsics(
     Synthesizes blind intrinsics for uncalibrated cameras, bootstraps poses,
     applies static-marker guard, runs two optimization passes with outlier
     filtering between them.
+
+    Unlinked rows (negative object_id) are dropped with a CalibrationWarning;
+    entirely unlinked points raise CalibrationError.
     """
 
     def _progress(pct: int, msg: str) -> None:
@@ -65,6 +68,9 @@ def calibrate_extrinsics(
     def _check_cancelled() -> None:
         if cancellation_token is not None and cancellation_token.is_cancelled:
             raise InterruptedError("Calibration cancelled")
+
+    # Every later stage, and the saved capture_volume/image_points.csv, sees linked rows only.
+    image_points = _linked_rows_only(image_points, "calibrate_extrinsics")
 
     # 1. Prepare cameras
     _progress(5, "Preparing cameras")

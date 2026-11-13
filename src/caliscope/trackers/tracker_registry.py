@@ -112,8 +112,9 @@ def scan_onnx_models(models_dir: Path) -> None:
 
     Built-in cards come from the installed package (BUILTIN_CARDS_DIR), so a
     Caliscope release updates them. Cards in models_dir are the user's own; one
-    with a built-in card's filename is ignored. Detector cards (a [detector]
-    section and no [model] section) are skipped: pose cards reference them.
+    with a built-in card's filename is ignored. Detector and re-identification
+    cards (a [detector] or [reidentification] section and no [model] section)
+    are skipped: they are not trackers.
     Weights for every card resolve against models_dir.
 
     Logs warnings for malformed .toml files but does not raise.
@@ -138,7 +139,7 @@ def scan_onnx_models(models_dir: Path) -> None:
     for toml_path in builtin_paths + user_paths:
         try:
             config = rtoml.load(toml_path)
-            if "detector" in config and "model" not in config:
+            if "model" not in config and ("detector" in config or "reidentification" in config):
                 continue
             card = ModelCard.from_toml(toml_path, models_dir=models_dir)
         except Exception as e:

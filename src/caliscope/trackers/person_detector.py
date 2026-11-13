@@ -47,7 +47,7 @@ class PersonDetector:
         self._grid_offsets = np.concatenate(offsets).astype(np.float32)
         self._grid_strides = np.concatenate(strides).astype(np.float32)
 
-    def people(self, frame: np.ndarray, min_score: float | None = None) -> tuple[np.ndarray, np.ndarray]:
+    def detect(self, frame: np.ndarray, min_score: float | None = None) -> tuple[np.ndarray, np.ndarray]:
         """Return every person box in a BGR frame and its score.
 
         Boxes are (N, 4) as x1, y1, x2, y2 in frame pixels, clamped to the frame;
@@ -90,7 +90,7 @@ class PersonDetector:
 
     def largest_person(self, frame: np.ndarray) -> tuple[float, float, float, float] | None:
         """Return the largest person box as (x1, y1, x2, y2) in frame pixels, or None."""
-        boxes, _ = self.people(frame)
+        boxes, _ = self.detect(frame)
         if len(boxes) == 0:
             return None
         areas = (boxes[:, 2] - boxes[:, 0]) * (boxes[:, 3] - boxes[:, 1])

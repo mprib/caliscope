@@ -98,8 +98,100 @@ class DetectorCard:
         )
 
 
+@dataclass(frozen=True, slots=True)
+class ReidentificationCard:
+    """Configuration for an ONNX person re-identification model.
+
+    The model turns a crop of one object into an embedding vector. The card's
+    TOML has a ``[reidentification]`` section instead of ``[model]``, so the
+    tracker registry does not list it as a tracker. pixel_mean and pixel_std
+    are in RGB order on the 0-1 scale, applied after dividing pixel values by 255.
+    """
+
+    name: str
+    model_path: Path
+    input_width: int
+    input_height: int
+    pixel_mean: tuple[float, float, float]
+    pixel_std: tuple[float, float, float]
+    source_url: str | None = None
+    license_info: str | None = None
+    file_size_mb: float | None = None
+    sha256: str | None = None
+    extraction: str | None = None
+    license_url: str | None = None
+
+    @property
+    def onnx_exists(self) -> bool:
+        return self.model_path.exists()
+
+    @property
+    def has_source_url(self) -> bool:
+        return self.source_url is not None
+
+    @staticmethod
+    def from_toml(path: Path, models_dir: Path | None = None) -> "ReidentificationCard":
+        """Load and validate a re-identification card TOML file.
+
+        Raises:
+            FileNotFoundError: If the TOML file doesn't exist
+            ValueError: If required fields are missing or malformed
+        """
+        if not path.exists():
+            raise FileNotFoundError(f"Re-identification card TOML not found: {path}")
+
+        config = rtoml.load(path)
+        if "reidentification" not in config:
+            raise ValueError(f"Missing required [reidentification] section in {path}")
+        section = config["reidentification"]
+
+        for field in ("model_path", "input_size", "pixel_mean", "pixel_std"):
+            if field not in section:
+                raise ValueError(f"Missing required field '{field}' in [reidentification] section of {path}")
+        input_size = section["input_size"]
+        if not isinstance(input_size, list) or len(input_size) != 2:
+            raise ValueError(f"input_size must be a 2-element list [width, height], got {input_size} in {path}")
+        pixel_mean = _rgb_triple(section["pixel_mean"], "pixel_mean", path)
+        pixel_std = _rgb_triple(section["pixel_std"], "pixel_std", path)
+        if min(pixel_std) <= 0:
+            raise ValueError(f"pixel_std values must be greater than 0, got {list(pixel_std)} in {path}")
+
+        raw_model_path = Path(section["model_path"])
+        if not raw_model_path.is_absolute() and models_dir is not None:
+            model_path = models_dir / raw_model_path
+        else:
+            model_path = raw_model_path
+
+        source_url, license_info, file_size_mb, sha256, extraction, license_url = _parse_source(config, path)
+
+        return ReidentificationCard(
+            name=section.get("name", raw_model_path.stem),
+            model_path=model_path,
+            input_width=input_size[0],
+            input_height=input_size[1],
+            pixel_mean=pixel_mean,
+            pixel_std=pixel_std,
+            source_url=source_url,
+            license_info=license_info,
+            file_size_mb=file_size_mb,
+            sha256=sha256,
+            extraction=extraction,
+            license_url=license_url,
+        )
+
+
+def _rgb_triple(value: object, field: str, path: Path) -> tuple[float, float, float]:
+    if (
+        not isinstance(value, list)
+        or len(value) != 3
+        or not all(isinstance(v, int | float) and not isinstance(v, bool) for v in value)
+    ):
+        raise ValueError(f"{field} must be a 3-element list [r, g, b], got {value} in {path}")
+    return (float(value[0]), float(value[1]), float(value[2]))
+
+
 def _parse_source(config: dict, path: Path) -> tuple:
-    """Read the optional [source] section shared by pose and detector cards."""
+    """Read the optional [source] section shared by pose, detector and re-identification cards."""
     source_section = config.get("source", {})
     source_url = source_section.get("url")
     extraction = source_section.get("extraction")

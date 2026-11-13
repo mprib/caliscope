@@ -6,7 +6,7 @@ import numpy as np
 import pytest
 
 from caliscope.trackers.model_card import ReidentificationCard
-from caliscope.trackers.reidentification_encoder import BATCH_SIZE, ReidentificationEncoder
+from caliscope.trackers.reidentification_encoder import ReidentificationEncoder
 
 
 def _card(model_path: Path = Path("encoder.onnx")) -> ReidentificationCard:
@@ -58,14 +58,14 @@ def test_solid_bgr_crop_arrives_as_normalized_rgb_nchw():
         np.testing.assert_allclose(batch[0, channel], value, atol=1e-6)
 
 
-def test_embeddings_are_unit_rows_in_input_order_across_batches():
+def test_embeddings_are_unit_rows_in_input_order_from_one_crop_per_call():
     encoder, session = _encoder()
-    colours = [(0, 0, 255), (255, 0, 0)] * ((BATCH_SIZE + 4) // 2)
+    colours = [(0, 0, 255), (255, 0, 0)] * 3
     crops = [_solid(colour, height=10 + i) for i, colour in enumerate(colours)]
 
     embeddings = encoder.encode(crops)
 
-    assert len(session.batches) == 2
+    assert [len(batch) for batch in session.batches] == [1] * len(crops)
     assert embeddings.shape == (len(crops), 3)
     assert embeddings.dtype == np.float32
     np.testing.assert_allclose(np.linalg.norm(embeddings, axis=1), 1.0, atol=1e-6)

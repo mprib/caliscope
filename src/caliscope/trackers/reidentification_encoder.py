@@ -16,8 +16,6 @@ from caliscope.trackers.model_card import ReidentificationCard
 
 logger = logging.getLogger(__name__)
 
-BATCH_SIZE = 32  # the exported model has a dynamic batch axis
-
 
 class ReidentificationEncoder:
     """Encode BGR crops of single objects as unit-length embedding vectors."""
@@ -45,13 +43,14 @@ class ReidentificationEncoder:
             dimension = self.session.get_outputs()[0].shape[-1]
             return np.empty((0, dimension if isinstance(dimension, int) else 0), dtype=np.float32)
 
-        batch = np.stack([self._preprocess(crop) for crop in crops])
-        outputs = []
-        for start in range(0, len(batch), BATCH_SIZE):
-            chunk = batch[start : start + BATCH_SIZE]
-            result = np.asarray(self.session.run(None, {self.input_name: chunk})[0], dtype=np.float32)
-            outputs.append(result.reshape(len(chunk), -1))
-        embeddings = np.concatenate(outputs)
+        # One crop per call keeps the input shape constant. The CUDA provider re-tunes its convolutions whenever
+        # the shape changes, which costs far more than the batching saves.
+        embeddings = np.stack(
+            [
+                np.asarray(self.session.run(None, {self.input_name: self._preprocess(crop)[None]})[0]).reshape(-1)
+                for crop in crops
+            ]
+        ).astype(np.float32)
 
         norms = np.linalg.norm(embeddings, axis=1, keepdims=True)
         return (embeddings / np.maximum(norms, 1e-12)).astype(np.float32)

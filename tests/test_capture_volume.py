@@ -17,6 +17,7 @@ from caliscope.repositories import CaptureVolumeRepository
 from caliscope.core.point_data import ImagePoints, WorldPoints
 from caliscope.cameras.camera_array import CameraArray
 from caliscope.core.charuco import Charuco
+from caliscope.synthetic import IDEAL, CalibrationObject, CameraSynthesizer, SyntheticScene, Trajectory
 
 if TYPE_CHECKING:
     from conftest import CalibrationTestData
@@ -417,6 +418,39 @@ def test_bundle_filter(tmp_path: Path):
     # ground truth data, but filtering worst observations should always help
     assert filtered_rmse <= optimized_rmse, "Filtering should improve RMSE"
     assert final_rmse <= filtered_rmse, "Second optimization should improve or maintain RMSE"
+
+
+# Noise-free projections through a distortion-free lens leave only float32 pixel
+# rounding in undistort_points: under 1e-7 in normalized units, so well under
+# 1 micrometre at the 2 m ring radius. 10 micrometres leaves margin for the
+# triangulation geometry.
+GROUND_TRUTH_TRIANGULATION_TOLERANCE_M = 1e-5
+
+
+def test_from_points_and_extrinsics_reproduces_ground_truth_world_points():
+    scene = SyntheticScene.single(
+        camera_array=CameraSynthesizer().add_ring(n=4, radius=2.0, height=0.5, lens=IDEAL).build(),
+        calibration_object=CalibrationObject.planar_grid(rows=5, cols=7, spacing=0.05),
+        trajectory=Trajectory.orbital(n_frames=20, radius=0.2, arc_extent_deg=360.0, tumble_rate=1.0),
+        pixel_noise_sigma=0.0,
+    )
+    image_points = scene.image_points_perfect
+
+    volume = CaptureVolume.from_points_and_extrinsics(image_points, scene.camera_array)
+
+    keys = ["sync_index", "object_id", "keypoint_id"]
+    views = image_points.df.groupby(keys)["cam_id"].nunique()
+    expected_keys = set(views[views >= 2].index)
+    reconstructed = volume.world_points.df
+    assert set(reconstructed[keys].itertuples(index=False, name=None)) == expected_keys
+
+    merged = reconstructed.merge(scene.world_points.df, on=keys, suffixes=("", "_true"))
+    assert len(merged) == len(reconstructed)
+    error = (
+        merged[["x_coord", "y_coord", "z_coord"]].to_numpy()
+        - merged[["x_coord_true", "y_coord_true", "z_coord_true"]].to_numpy()
+    )
+    assert np.abs(error).max() < GROUND_TRUTH_TRIANGULATION_TOLERANCE_M
 
 
 if __name__ == "__main__":

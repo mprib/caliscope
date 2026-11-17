@@ -48,6 +48,7 @@ nav:
       - ArUco Calibration Set: aruco_calibration_set.md
   - Reconstruction:
       - Tracking & Triangulation: reconstruction.md
+      - Cross-Camera Track Association (Experimental): track_association.md
       - Custom ONNX Trackers: onnx_trackers.md
   - Scripting API: scripting.md
 

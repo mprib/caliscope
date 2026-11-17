@@ -6,7 +6,7 @@ import pandas as pd
 
 from caliscope import __root__
 from caliscope.core.bootstrap_pose.paired_pose_network import PairedPoseNetwork
-from caliscope.core.bootstrap_pose.build_paired_pose_network import build_paired_pose_network
+from caliscope.core.bootstrap_pose.pose_network_builder import build_pnp_camera_pose_network
 from caliscope.core.charuco import Charuco
 from caliscope.cameras.camera_array import CameraArray, CameraData
 from caliscope.core.point_data import ImagePoints, WorldPoints
@@ -97,7 +97,7 @@ def load_fixture_data(session_name: str = "post_optimization") -> dict:
     world_points = WorldPoints.from_csv(csv_dir / "xyz_CHARUCO.csv")
 
     # Build paired pose network
-    paired_pose_network = build_paired_pose_network(image_points, camera_array)
+    paired_pose_network = build_pnp_camera_pose_network(image_points, camera_array)
 
     return {
         "camera_array": camera_array,

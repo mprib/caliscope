@@ -13,7 +13,7 @@ import warnings
 
 from caliscope.cameras.camera_array import CameraArray
 from caliscope.core.constraints import ConstraintSet, ConstraintViolation, RigidityReport
-from caliscope.core.point_data import STATIC_SYNC_INDEX, ImagePoints, WorldPoints
+from caliscope.core.point_data import STATIC_SYNC_INDEX, ImagePoints, WorldPoints, _linked_rows_only
 from caliscope.core.reprojection import (
     ErrorsXY,
     reprojection_errors,
@@ -267,57 +267,64 @@ class CaptureVolume:
         )
 
     @classmethod
+    def from_points_and_extrinsics(
+        cls,
+        image_points: ImagePoints,
+        camera_array: CameraArray,
+        constraints: ConstraintSet | None = None,
+    ) -> CaptureVolume:
+        """Triangulate with the given extrinsics and build a capture volume.
+
+        Applies the mixed-ID rule, so the stored image points are linked only.
+        Objects in the constraints' static set triangulate to one point per
+        keypoint. Does not optimize.
+
+        Raises:
+            CalibrationError: If points are entirely unlinked, or no camera in
+                the points has extrinsics.
+        """
+        from caliscope.exceptions import CalibrationError
+
+        image_points = _linked_rows_only(image_points, "CaptureVolume.from_points_and_extrinsics")
+
+        point_cam_ids = set(image_points.df["cam_id"].unique())
+        if not point_cam_ids & set(camera_array.posed_cameras.keys()):
+            raise CalibrationError(
+                f"No camera in the image points has extrinsics (cameras in the points: {sorted(point_cam_ids)})."
+            )
+
+        static_ids = constraints.static_object_ids if constraints else frozenset()
+        world_points = image_points.triangulate(camera_array, static_object_ids=static_ids)
+
+        return cls(
+            camera_array=camera_array, image_points=image_points, world_points=world_points, constraints=constraints
+        )
+
+    @classmethod
     def bootstrap(
         cls,
         image_points: ImagePoints,
         camera_array: CameraArray,
         constraints: ConstraintSet | None = None,
     ) -> CaptureVolume:
-        """Bootstrap extrinsic calibration from 2D observations.
+        """bootstrap_extrinsics, then from_points_and_extrinsics.
 
-        Pipeline: deepcopy cameras → build pose network → apply poses → triangulate.
         Does NOT auto-optimize. Call .optimize() on the result.
         The input CameraArray is not modified.
 
+        Rejects entirely unlinked points (every object_id negative) with a
+        CalibrationError that names the ways to link tracks. Mixed points lose their
+        unlinked rows with a CalibrationWarning.
+
         Raises:
-            CalibrationError: If cameras lack intrinsics, cam_ids mismatch,
-                or insufficient stereo pairs exist.
+            CalibrationError: If points are entirely unlinked, cameras lack
+                intrinsics, cam_ids mismatch, or insufficient stereo pairs exist.
         """
-        from caliscope.exceptions import CalibrationError
-        from caliscope.core.bootstrap_pose.build_paired_pose_network import (
-            build_paired_pose_network,
-        )
+        from caliscope.core.bootstrap_pose.bootstrap_extrinsics import bootstrap_extrinsics
 
-        # Validate: cam_id mismatch
-        point_cam_ids = set(image_points.df["cam_id"].unique())
-        array_cam_ids = set(camera_array.cameras.keys())
-        missing_cameras = point_cam_ids - array_cam_ids
-        if missing_cameras:
-            raise CalibrationError(f"ImagePoints reference cameras {missing_cameras} not in the CameraArray.")
-
-        # Validate: intrinsics
-        uncalibrated = [
-            cam_id for cam_id, cam in camera_array.cameras.items() if cam.matrix is None or cam.distortions is None
-        ]
-        if uncalibrated:
-            raise CalibrationError(
-                f"Cannot run extrinsic calibration -- cameras {uncalibrated} have "
-                f"no intrinsic calibration.\n\n"
-                f"Run calibrate_intrinsics() for each camera first:\n"
-                f"    output = calibrate_intrinsics(points, cameras[{uncalibrated[0]}])\n"
-                f"    cameras[{uncalibrated[0]}] = output.camera"
-            )
-
-        # obj_loc presence is no longer validated here: build_paired_pose_network
-        # branches on it, using the PnP path when object geometry is present and
-        # the essential-matrix (epipolar) path when obj_loc is all NaN.
-        cameras = deepcopy(camera_array)
-        pose_network = build_paired_pose_network(image_points, cameras)
-        pose_network.apply_to(cameras)
-        static_ids = constraints.static_object_ids if constraints else frozenset()
-        world_points = image_points.triangulate(cameras, static_object_ids=static_ids)
-
-        return cls(camera_array=cameras, image_points=image_points, world_points=world_points, constraints=constraints)
+        image_points = _linked_rows_only(image_points, "CaptureVolume.bootstrap")
+        cameras = bootstrap_extrinsics(image_points, camera_array)
+        return cls.from_points_and_extrinsics(image_points, cameras, constraints)
 
     def optimize(
         self,
@@ -1166,17 +1173,16 @@ class CaptureVolume:
                 raise ValueError(f"Cameras {cue.cam_a} and {cue.cam_b} coincide; distance cue is degenerate.")
             return d_arb, float(cue.meters), float(cue.sigma_m)
 
-        world_df = self.world_points.df
-
         if isinstance(cue, SegmentLength):
+            points = self._object_world_points("SegmentLength", cue.object_id)
             coords = ["x_coord", "y_coord", "z_coord"]
-            side_a = world_df[world_df["keypoint_id"] == cue.keypoint_id_a][["sync_index", "object_id", *coords]]
-            side_b = world_df[world_df["keypoint_id"] == cue.keypoint_id_b][["sync_index", "object_id", *coords]]
-            merged = side_a.merge(side_b, on=["sync_index", "object_id"], suffixes=("_a", "_b"))
+            side_a = points[points["keypoint_id"] == cue.keypoint_id_a][["sync_index", *coords]]
+            side_b = points[points["keypoint_id"] == cue.keypoint_id_b][["sync_index", *coords]]
+            merged = side_a.merge(side_b, on="sync_index", suffixes=("_a", "_b"))
             if merged.empty:
                 raise ValueError(
                     f"SegmentLength found no frame where both keypoints "
-                    f"{cue.keypoint_id_a} and {cue.keypoint_id_b} are triangulated."
+                    f"{cue.keypoint_id_a} and {cue.keypoint_id_b} of object_id {cue.object_id} are triangulated."
                 )
             deltas = merged[[f"{c}_a" for c in coords]].to_numpy() - merged[[f"{c}_b" for c in coords]].to_numpy()
             distances = np.linalg.norm(deltas, axis=1)
@@ -1190,20 +1196,8 @@ class CaptureVolume:
 
     def _compile_stature_cue(self, cue: Stature) -> tuple[float, float, float]:
         """Reduce a stature chain to its median complete-frame length."""
-        world_df = self.world_points.df
-        object_ids = sorted(int(object_id) for object_id in world_df["object_id"].unique())
-        if cue.object_id is None:
-            if len(object_ids) != 1:
-                raise ValueError(
-                    f"Stature found multiple reconstructed object_ids {object_ids}; specify object_id explicitly."
-                )
-            object_id = object_ids[0]
-        else:
-            object_id = cue.object_id
-            if object_id not in object_ids:
-                raise ValueError(f"Stature references object_id {object_id}, which has no world points.")
-
-        points = world_df[world_df["object_id"] == object_id]
+        object_id = cue.object_id
+        points = self._object_world_points("Stature", object_id)
         required_ids = set(cue.left_path) | set(cue.right_path) | set(cue.shoulder_ids) | {cue.head}
 
         coords = ["x_coord", "y_coord", "z_coord"]
@@ -1235,6 +1229,14 @@ class CaptureVolume:
 
         sigma_m = cue.sigma_m if cue.sigma_m is not None else cue.meters * 0.01
         return float(np.median(complete_lengths)), float(cue.meters), float(sigma_m)
+
+    def _object_world_points(self, cue_name: str, object_id: int) -> pd.DataFrame:
+        """World points of one object; raises when the cue's object has none."""
+        world_df = self.world_points.df
+        points = world_df[world_df["object_id"] == object_id]
+        if points.empty:
+            raise ValueError(f"{cue_name} references object_id {object_id}, which has no world points.")
+        return points
 
     def _compile_depth_cue(self, cue: DepthObservation) -> tuple[float, float, float] | str:
         """Reduce a depth cue to (d_arbitrary, d_metric, sigma_m), or a skip reason.

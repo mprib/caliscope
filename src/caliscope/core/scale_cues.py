@@ -24,17 +24,24 @@ class CameraDistance:
 
 @dataclass(frozen=True)
 class SegmentLength:
-    """Known distance between two tracked keypoints (e.g., a body segment)."""
+    """Known distance between two tracked keypoints (e.g., a body segment).
+
+    Measures object 0 unless object_id names another object.
+    """
 
     keypoint_id_a: int  # keypoint id from ImagePoints
     keypoint_id_b: int  # keypoint id from ImagePoints
     meters: float
     sigma_m: float = 0.02
+    object_id: int = 0
 
 
 @dataclass(frozen=True)
 class Stature:
-    """Measured stature recovered from a pose-model-defined body chain."""
+    """Measured stature recovered from a pose-model-defined body chain.
+
+    Measures object 0 unless object_id names another object.
+    """
 
     left_path: tuple[int, ...]
     right_path: tuple[int, ...]
@@ -42,7 +49,7 @@ class Stature:
     head: int
     meters: float
     sigma_m: float | None = None
-    object_id: int | None = None
+    object_id: int = 0
 
 
 @dataclass(frozen=True)

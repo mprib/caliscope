@@ -208,6 +208,21 @@ class PoseNetworkBuilder:
             raise
 
 
+def build_pnp_camera_pose_network(image_points: ImagePoints, camera_array: CameraArray) -> PairedPoseNetwork:
+    """Stereo-pair network from PnP against known object geometry (obj_loc).
+
+    Resections each camera against the target at every shared moment, then
+    aggregates relative poses per camera pair after IQR outlier rejection.
+    """
+    builder = PoseNetworkBuilder(camera_array, image_points)
+    return (
+        builder.estimate_camera_to_object_poses()
+        .estimate_relative_poses()
+        .filter_outliers(threshold=DEFAULT_OUTLIER_THRESHOLD)
+        .build()
+    )
+
+
 def compute_camera_to_object_poses_pnp(
     image_points: ImagePoints,
     camera_array: CameraArray,

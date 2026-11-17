@@ -13,7 +13,7 @@ from typing import TYPE_CHECKING
 import numpy as np
 
 from caliscope import __root__
-from caliscope.core.bootstrap_pose.build_paired_pose_network import build_paired_pose_network
+from caliscope.core.bootstrap_pose.pose_network_builder import build_pnp_camera_pose_network
 
 
 # from caliscope.cameras.camera_array_initializer import CameraArrayInitializer
@@ -45,7 +45,7 @@ def _run_bundle_optimization_test(data: CalibrationTestData):
         logger.info(f"Using FULL data: {obs_count:,} observations")
 
     # Build paired pose network (this step is fast regardless of data size)
-    paired_pose_network = build_paired_pose_network(image_points, camera_array)
+    paired_pose_network = build_pnp_camera_pose_network(image_points, camera_array)
     paired_pose_network.apply_to(camera_array, anchor_cam=8)
 
     # Create initial capture volume

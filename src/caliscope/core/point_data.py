@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 import logging
+import warnings
 from collections.abc import Iterable
 from numbers import Integral
 from pathlib import Path
@@ -12,6 +13,7 @@ import pandas as pd
 from collections import defaultdict
 from scipy.signal import butter, filtfilt
 from caliscope.cameras.camera_array import CameraArray
+from caliscope.exceptions import CalibrationError, CalibrationWarning
 from dataclasses import dataclass
 
 logger = logging.getLogger(__name__)
@@ -273,6 +275,11 @@ IMAGE_POINT_COLUMNS: dict[str, dict] = {
     "obj_loc_z": {"dtype": "float", "nullable": True},
 }
 
+# Validated only when present. Tracked keypoints carry track_id; board and marker points have no such column.
+OPTIONAL_IMAGE_POINT_COLUMNS: dict[str, dict] = {
+    "track_id": {"dtype": "int", "nullable": False},
+}
+
 WORLD_POINT_COLUMNS: dict[str, dict] = {
     "sync_index": {"dtype": "int", "nullable": False},
     "object_id": {"dtype": "int", "nullable": False},
@@ -329,6 +336,22 @@ def _validate_dataframe(
     return df
 
 
+def _validate_unlinked_objects(df: pd.DataFrame) -> None:
+    """Require each negative object_id to come from one camera and, when tracked, one track."""
+    unlinked = df[df["object_id"] < 0]
+    if unlinked.empty:
+        return
+    by_object = unlinked.groupby("object_id")
+    for column in [col for col in ("cam_id", "track_id") if col in df.columns]:
+        counts = by_object[column].nunique()
+        shared = sorted(int(object_id) for object_id in counts[counts > 1].index)
+        if shared:
+            raise ValueError(
+                f"ImagePoints validation failed: unlinked object_id(s) {shared} span more than one {column}. "
+                "A negative object_id names a single track in a single camera."
+            )
+
+
 class ImagePoints:
     """A validated, immutable container for 2D (x,y) point data."""
 
@@ -345,7 +368,10 @@ class ImagePoints:
             if col not in df.columns:
                 df[col] = np.nan
 
-        self._df = _validate_dataframe(df, IMAGE_POINT_COLUMNS, "ImagePoints")
+        df = _validate_dataframe(df, IMAGE_POINT_COLUMNS, "ImagePoints")
+        present_optional = {col: spec for col, spec in OPTIONAL_IMAGE_POINT_COLUMNS.items() if col in df.columns}
+        self._df = _validate_dataframe(df, present_optional, "ImagePoints")
+        _validate_unlinked_objects(self._df)
 
         # Warn about duplicate keys that could cause incorrect triangulation
         key_cols = ["sync_index", "cam_id", "object_id", "keypoint_id"]
@@ -381,10 +407,14 @@ class ImagePoints:
             raise PersistenceError(f"Failed to save image points to {path}: {e}") from e
 
     def fill_gaps(self, max_gap_size: int = 3) -> ImagePoints:
+        """Interpolate short gaps per (cam_id, object_id, keypoint_id).
+
+        The output has no track_id column, because an interpolated row has no source track.
+        """
         xy_filled = pd.DataFrame()
         index_key = "sync_index"
         last_cam_id = -1
-        base_df = self.df
+        base_df = self.df.drop(columns=["track_id"], errors="ignore")
         for (cam_id, object_id, keypoint_id), group in base_df.groupby(["cam_id", "object_id", "keypoint_id"]):
             if last_cam_id != cam_id:
                 logger.info(
@@ -437,11 +467,14 @@ class ImagePoints:
         rigid object across all frames: their sync_index is ignored and all observations
         of a given (object_id, keypoint_id) are triangulated together into one 3D point,
         stored under STATIC_SYNC_INDEX.
+
+        Unlinked rows (negative object_id) are dropped with a CalibrationWarning.
+        Raises CalibrationError when every row is unlinked.
         """
         if isinstance(min_views, bool) or not isinstance(min_views, Integral) or min_views < 2:
             raise ValueError(f"min_views must be an integer >= 2, got {min_views!r}")
 
-        xy_df = self.df
+        xy_df = _linked_rows_only(self, "ImagePoints.triangulate").df
         if xy_df.empty:
             return WorldPoints(pd.DataFrame(columns=list(WORLD_POINT_COLUMNS.keys())))
 
@@ -575,6 +608,32 @@ class ImagePoints:
         )
 
         return WorldPoints(xyz_df)
+
+
+def _linked_rows_only(points: ImagePoints, consumer: str) -> ImagePoints:
+    """Drop unlinked rows (object_id < 0) with one CalibrationWarning that counts them.
+
+    Returns points unchanged when there are none. Raises CalibrationError naming
+    consumer and pointing at associate_tracks when every row is unlinked.
+    """
+    df = points.df
+    unlinked = df["object_id"] < 0
+    n_unlinked = int(unlinked.sum())
+    if n_unlinked == 0:
+        return points
+    if n_unlinked == len(df):
+        raise CalibrationError(
+            f"{consumer} received only unlinked points: every object_id is negative, so no observation "
+            "is matched across cameras. Select one track per camera with BoxTracks.primary_tracks, or link "
+            "tracks with associate_tracks (needs extrinsics) and BoxTracks.apply_associations, then estimate "
+            "keypoints again."
+        )
+    warnings.warn(
+        f"{consumer} dropped {n_unlinked} of {len(df)} image point rows with a negative (unlinked) object_id.",
+        CalibrationWarning,
+        stacklevel=3,
+    )
+    return ImagePoints(df[~unlinked])
 
 
 @dataclass(frozen=True)

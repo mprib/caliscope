@@ -47,6 +47,11 @@ from typing import TYPE_CHECKING, Any, Generator
 
 from caliscope.cameras.camera_array import CameraArray, CameraData
 from caliscope.core.aruco_marker import ArucoMarkerSet
+from caliscope.core.bootstrap_pose.bootstrap_extrinsics import (
+    bootstrap_extrinsics,
+    bootstrap_extrinsics_from_linked_points,
+    bootstrap_extrinsics_from_object_geometry,
+)
 from caliscope.core.calibrate_extrinsics import (
     CalibrationRun,
     calibrate_extrinsics,
@@ -62,7 +67,9 @@ from caliscope.core.chessboard import Chessboard
 from caliscope.core.constraints import ConstraintSet
 from caliscope.estimators.vertical import VerticalEstimate, estimate_vertical
 from caliscope.core.point_data import ImagePoints
+from caliscope.core.reidentification_embeddings import ReidentificationEmbeddings
 from caliscope.core.scale_cues import CameraDistance, DepthObservation, SegmentLength, Stature
+from caliscope.core.track_association import TrackAssociations, associate_tracks
 from caliscope.exceptions import CalibrationError
 from caliscope.export.blender_scene import write_blender_scene
 from caliscope.tracker import Tracker
@@ -112,6 +119,8 @@ __all__ = [
     "CameraArray",
     "ImagePoints",
     "BoxTracks",
+    "TrackAssociations",
+    "ReidentificationEmbeddings",
     "CaptureVolume",
     # Scale cues
     "CameraDistance",
@@ -126,10 +135,15 @@ __all__ = [
     # Functions
     "extract_image_points",
     "extract_image_points_multicam",
-    "track_people",
+    "track_objects",
     "estimate_keypoints",
+    "extract_reidentification_embeddings",
+    "associate_tracks",
     "calibrate_intrinsics",
     "calibrate_extrinsics",
+    "bootstrap_extrinsics",
+    "bootstrap_extrinsics_from_object_geometry",
+    "bootstrap_extrinsics_from_linked_points",
     "estimate_vertical",
     "write_blender_scene",
     # Exceptions
@@ -137,7 +151,7 @@ __all__ = [
 ]
 
 
-def track_people(
+def track_objects(
     videos: Mapping[int, Path | str],
     detector: Any,
     *,
@@ -146,20 +160,23 @@ def track_people(
     rotation_counts: Mapping[int, int] | None = None,
     progress: ProgressCallback | None = _AUTO,
 ) -> BoxTracks:
-    """Detect and track every person box at sampled synchronized moments.
+    """Detect and track every box the detector returns at sampled synchronized moments.
 
     ``timestamps`` sets the alignment policy, for example through
     ``SynchronizedTimestamps.from_anchor_frames``. ``frame_step`` counts
-    synchronized moments. Boxes are returned in original video pixels, ready for
-    explicit subject selection.
+    synchronized moments. Boxes are returned in original video pixels.
+
+    Every returned box is unlinked: its object_id is negative and unique per
+    camera and track, numbered -1, -2, ... over the (cam_id, track_id) pairs in
+    ascending order.
 
     The detector may be called concurrently, once per camera. Supply a
     thread-safe detector or serialize access before calling this function.
     """
-    from caliscope.recording.person_tracking import track_people as _track_people
+    from caliscope.core.object_tracking import track_objects as _track_objects
 
     with _auto_progress(progress) as resolved_progress:
-        return _track_people(
+        return _track_objects(
             videos,
             detector,
             timestamps=timestamps,
@@ -171,27 +188,52 @@ def track_people(
 
 def estimate_keypoints(
     videos: Mapping[int, Path | str],
-    pose_tracker: Any,
+    keypoint_tracker: Any,
     box_tracks: BoxTracks,
     *,
     min_confidence: float,
     progress: ProgressCallback | None = _AUTO,
 ) -> ImagePoints:
-    """Estimate pose in selected tracked boxes without rebuilding synchronization.
+    """Estimate keypoints in each tracked box without rebuilding synchronization.
 
-    The pose tracker may be called concurrently, once per camera. Supply a
+    Each box may hold a different object, so a camera and frame can have
+    several boxes. Every keypoint copies object_id and track_id from its box.
+
+    The keypoint tracker may be called concurrently, once per camera. Supply a
     thread-safe tracker or serialize access before calling this function.
     """
-    from caliscope.recording.person_tracking import estimate_keypoints as _estimate_keypoints
+    from caliscope.core.object_tracking import estimate_keypoints as _estimate_keypoints
 
     with _auto_progress(progress) as resolved_progress:
         return _estimate_keypoints(
             videos,
-            pose_tracker,
+            keypoint_tracker,
             box_tracks,
             min_confidence=min_confidence,
             progress=resolved_progress,
         )
+
+
+def extract_reidentification_embeddings(
+    videos: Mapping[int, Path | str],
+    encoder: Any,
+    box_tracks: BoxTracks,
+    *,
+    progress: ProgressCallback | None = _AUTO,
+) -> ReidentificationEmbeddings:
+    """Encode the crop inside each tracked box as one re-identification embedding.
+
+    Run it on the same sampled boxes as the keypoint pass that feeds
+    associate_tracks. Each embedding is keyed by its box's sync_index, cam_id
+    and track_id.
+
+    The encoder may be called concurrently, once per camera. Supply a
+    thread-safe encoder or serialize access before calling this function.
+    """
+    from caliscope.core.object_tracking import extract_reidentification_embeddings as _extract
+
+    with _auto_progress(progress) as resolved_progress:
+        return _extract(videos, encoder, box_tracks, progress=resolved_progress)
 
 
 def extract_image_points(

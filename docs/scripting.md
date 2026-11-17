@@ -374,16 +374,14 @@ Its directory stays a self-contained snapshot of the calibration, not a mix of s
 For human recordings, you can select one person's box track before estimating keypoints:
 
 ```python
-from caliscope.api import BoxTracks, estimate_keypoints, track_people
+from caliscope.api import BoxTracks, estimate_keypoints, track_objects
 from caliscope.recording.synchronized_timestamps import SynchronizedTimestamps
 
 timestamps = SynchronizedTimestamps.from_anchor_frames(videos, {cam_id: 0 for cam_id in videos})
-box_tracks = track_people(videos, pose_tracker.detector, timestamps=timestamps, frame_step=4)
-subject_ids = box_tracks.primary_track_ids()
-subject_boxes = box_tracks.filter_to_tracks(subject_ids)
-usable_boxes = subject_boxes.exclude_edge_boxes(margin_px=24)
+box_tracks = track_objects(videos, pose_tracker.detector, timestamps=timestamps, frame_step=4)
+subject_boxes = box_tracks.exclude_edge_boxes(margin_px=24).primary_tracks()
 image_points = estimate_keypoints(
-    videos, pose_tracker, usable_boxes, min_confidence=pose_tracker.card.confidence_threshold
+    videos, pose_tracker, subject_boxes, min_confidence=pose_tracker.card.confidence_threshold
 )
 ```
 
@@ -394,7 +392,8 @@ With `from_anchor_frames`, a frame's time is `(frame_index - anchor_frame) / FPS
 Frames before the anchor have negative times.
 Choose anchors known to show the same instant across cameras.
 This workflow does not infer timing offsets or normalize video durations.
-`primary_track_ids` chooses the track whose boxes cover the most image area in each camera, counting each pixel once, and returns a camera-to-track-ID mapping.
+`primary_tracks` keeps the track whose boxes cover the most image area in each camera, counting each pixel once, and gives its boxes `object_id` 0.
+It assumes the largest track in every camera shows the same person and does not check that across cameras.
 Filtering returns a new container, leaving the original available for inspection.
 `exclude_edge_boxes` takes a margin in original image pixels, with boxes touching that margin excluded.
 The keypoint pass uses the saved frame correspondence and rotations; it does not independently resynchronize the videos.
@@ -405,6 +404,7 @@ Empty results retain their schema; these new entry points return empty container
 No source gaps are filled.
 The generic extraction entry points retain their existing behavior.
 See [markerless calibration](markerless_calibration.md) for model setup, recording assumptions and the complete workflow.
+To link several people across calibrated cameras, see [cross-camera track association](track_association.md).
 
 ## Triangulate with calibrated cameras
 

@@ -31,16 +31,17 @@ Camera views must overlap through enough of the motion to connect the rig.
 Other people can be visible, but the intended subject's bounding boxes must cover the most image area in each camera, counting each pixel once.
 
 The example first detects people and links their boxes into camera-local tracks.
-It selects the primary track by the image area its boxes cover, excludes boxes near the image edge, and estimates keypoints only for the retained observations.
-Track IDs are local to each camera; this workflow relies on the recording protocol to select the same person across views.
-It does not match several people across cameras or join fragmented tracks automatically.
+It drops boxes near the image edge, keeps the track whose boxes cover the most image area in each camera, and estimates keypoints only in those boxes.
+Track IDs are local to each camera.
+Calibration relies on the recording protocol to select the same person across views, because matching people across cameras needs the camera poses this workflow produces.
+Once the cameras are calibrated, [cross-camera track association](track_association.md) links every person's tracks across the rig.
 
 The box-edge margin is an explicit threshold in original image pixels.
 It is separate from detector confidence and overlap-suppression settings.
 The generic `extract_image_points_multicam` entry point remains available; with a detector-backed ONNX tracker, it chooses the largest box independently in each frame.
 
 Each video needs the same camera ID it had during intrinsic calibration.
-Choose the alignment policy by building a `SynchronizedTimestamps` object and passing it to `track_people`.
+Choose the alignment policy by building a `SynchronizedTimestamps` object and passing it to `track_objects`.
 `SynchronizedTimestamps.from_anchor_frames` takes one frame per camera known to show the same instant, and assumes each camera has a constant frame interval.
 `SynchronizedTimestamps.from_csv_path` uses per-frame timestamps, and `SynchronizedTimestamps.from_video_paths` assumes the videos start and stop together.
 The tracking workflow does not infer timing offsets from body motion.
@@ -49,7 +50,7 @@ The generic [multicamera extraction workflow](scripting.md#step-4-extract-time-a
 Measure the distance between two cameras in meters.
 This measurement supplies the metric scale that pose keypoints cannot supply on their own.
 
-For sideways videos, pass `rotation_counts` to `track_people`, for example `rotation_counts={2: 1}` to turn camera 2 by one quarter turn for tracking.
+For sideways videos, pass `rotation_counts` to `track_objects`, for example `rotation_counts={2: 1}` to turn camera 2 by one quarter turn for tracking.
 Saved boxes record the rotation for the keypoint pass; both boxes and keypoints return in the original image coordinates.
 
 ## Run the calibration
@@ -68,7 +69,7 @@ from caliscope.api import (
     calibrate_extrinsics,
     estimate_keypoints,
     estimate_vertical,
-    track_people,
+    track_objects,
 )
 from caliscope.recording.synchronized_timestamps import SynchronizedTimestamps
 from caliscope.reporting import print_extrinsic_report
@@ -99,14 +100,12 @@ tracker = OnnxTracker(card)
 # Detect and track boxes, then select the most prominent person per camera.
 cameras = CameraArray.from_toml(CAMERA_ARRAY_TOML)
 timestamps = SynchronizedTimestamps.from_anchor_frames(VIDEOS, {cam_id: 0 for cam_id in VIDEOS})
-box_tracks = track_people(VIDEOS, tracker.detector, timestamps=timestamps, frame_step=1)
-subject_ids = box_tracks.primary_track_ids()
-subject_boxes = box_tracks.filter_to_tracks(subject_ids)
-usable_boxes = subject_boxes.exclude_edge_boxes(margin_px=EDGE_MARGIN_PX)
+box_tracks = track_objects(VIDEOS, tracker.detector, timestamps=timestamps, frame_step=1)
+subject_boxes = box_tracks.exclude_edge_boxes(margin_px=EDGE_MARGIN_PX).primary_tracks()
 
 # Estimate keypoints only in the retained boxes.
 image_points = estimate_keypoints(
-    VIDEOS, tracker, usable_boxes, min_confidence=card.confidence_threshold
+    VIDEOS, tracker, subject_boxes, min_confidence=card.confidence_threshold
 )
 
 # Solve poses from unconstrained body keypoints.
@@ -188,6 +187,7 @@ Look for views that overlap through the motion, a vertical direction that agrees
 The person detector and pose estimator supply image observations for calibration and reconstruction.
 Calibration uses those correspondences to estimate camera poses; reconstruction uses known camera poses to triangulate them.
 Both depend on selecting the same person across views.
+With several people in view, [cross-camera track association](track_association.md) makes that selection once the cameras are calibrated.
 
 Caliscope's reconstruction supports calibration inspection and landmark export.
 For downstream motion-capture processing, export the camera calibration to tools such as Pose2Sim or anipose.

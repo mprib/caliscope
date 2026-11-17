@@ -5,7 +5,7 @@ from pathlib import Path
 
 
 from caliscope import __root__
-from caliscope.core.bootstrap_pose.build_paired_pose_network import build_paired_pose_network
+from caliscope.core.bootstrap_pose.bootstrap_extrinsics import bootstrap_extrinsics
 from caliscope.helper import copy_contents_to_clean_dest
 from caliscope.core.point_data import ImagePoints
 from caliscope.core.capture_volume import CaptureVolume
@@ -31,10 +31,7 @@ def test_calibration_workflow(tmp_path: Path):
     image_points = ImagePoints.from_csv(xy_data_path)
 
     logger.info("Initiating stereocalibration")
-    paired_pose_network = build_paired_pose_network(image_points, camera_array)
-
-    logger.info("Initializing estimated camera positions based on best daisy-chained stereopairs")
-    paired_pose_network.apply_to(camera_array)
+    camera_array = bootstrap_extrinsics(image_points, camera_array)
 
     logger.info("Triangulating world points")
     world_points = image_points.triangulate(camera_array)

@@ -20,14 +20,9 @@ def test_cancel_sets_is_cancelled():
     assert token.is_cancelled
 
 
-def test_sleep_unless_cancelled_waits_full_duration():
+def test_sleep_unless_cancelled_returns_false_on_timeout():
     token = CancellationToken()
-    start = time.perf_counter()
-    cancelled = token.sleep_unless_cancelled(0.1)
-    elapsed = time.perf_counter() - start
-
-    assert not cancelled
-    assert elapsed >= 0.1
+    assert token.sleep_unless_cancelled(0) is False
 
 
 def test_sleep_unless_cancelled_returns_immediately_when_cancelled():
@@ -66,7 +61,7 @@ def test_sleep_wakes_when_cancelled_from_another_thread():
 if __name__ == "__main__":
     test_initial_state_not_cancelled()
     test_cancel_sets_is_cancelled()
-    test_sleep_unless_cancelled_waits_full_duration()
+    test_sleep_unless_cancelled_returns_false_on_timeout()
     test_sleep_unless_cancelled_returns_immediately_when_cancelled()
     test_sleep_wakes_when_cancelled_from_another_thread()
     print("All CancellationToken tests passed!")

@@ -33,7 +33,8 @@ If you don't have `uv` installed, you can install it with a single command.
 
 ## 3. Create a virtual environment
 
-We strongly advise installing Caliscope within a virtual environment to avoid conflicts with other packages. Caliscope is compatible with Python 3.10 through 3.13.
+Install Caliscope within a virtual environment to avoid conflicts with other packages.
+Caliscope supports Python 3.11 through 3.14.
 
 === "Windows"
 

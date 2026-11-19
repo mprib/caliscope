@@ -138,7 +138,7 @@ wheels = [
 
 [[package]]
 name = "caliscope"
-version = "0.11.8"
+version = "0.12.0"
 source = { editable = "." }
 dependencies = [
     { name = "av", version = "18.1.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12'" },
